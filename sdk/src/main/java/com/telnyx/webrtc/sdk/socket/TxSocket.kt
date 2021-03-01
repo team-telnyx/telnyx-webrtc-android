@@ -2,6 +2,7 @@ package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.TelnyxClient
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.engine.cio.*
@@ -17,7 +18,7 @@ import timber.log.Timber
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
 class TxSocket(
-    private val listener: TxSocketListener,
+    //private val listener: TxSocketListener,
     private val host_address: String,
     private val port: Int
 ) : CoroutineScope {
@@ -40,7 +41,7 @@ class TxSocket(
         connect()
     } */
 
-    fun connect() = launch {
+    fun connect(listener: TelnyxClient) = launch {
         try {
             client.wss(
                 host = host_address,

@@ -1,16 +1,20 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.verto.send.LoginParam
+import org.webrtc.IceCandidate
+import timber.log.Timber
 import java.util.*
 
 class TelnyxClient(
     var socket: TxSocket,
     var context: Context
-) /*: TxSocketListener*/ {
+) : TxSocketListener {
 
     private var currentState: State = State.CLOSED
     private var clientListener: TelnyxClientListener? = null
@@ -19,7 +23,7 @@ class TelnyxClient(
     //private var call:Call? = null
 
     fun connect() {
-        socket.connect()
+        socket.connect(this)
     }
 
     fun login(config: TelnyxConfig){
@@ -41,27 +45,28 @@ class TelnyxClient(
         CLOSED
     }
 
-/*    override fun onLoginSuccessful(jsonObject: JsonObject) {
-        TODO("Not yet implemented")
+    override fun onLoginSuccessful(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onLoginSuccessful [%s]",this@TelnyxClient.javaClass.simpleName, jsonObject)
+        val result = jsonObject.getAsJsonObject("result")
+        val sessId = result.get("sessid").asString
+        sessionId = sessId
+        currentState = State.CONNECTED
     }
 
     override fun onByeReceived() {
-        TODO("Not yet implemented")
+        Timber.d("[%s] :: onByeReceived",this@TelnyxClient.javaClass.simpleName)
     }
 
     override fun onConnectionEstablished() {
-        TODO("Not yet implemented")
+        Timber.d("[%s] :: onConnectionEstablished",this@TelnyxClient.javaClass.simpleName)
     }
-
     override fun onOfferReceived(jsonObject: JsonObject) {
-        TODO("Not yet implemented")
+        Timber.d("[%s] :: onOfferReceived [%s]",this@TelnyxClient.javaClass.simpleName, jsonObject)
     }
-
     override fun onAnswerReceived(jsonObject: JsonObject) {
-        TODO("Not yet implemented")
+        Timber.d("[%s] :: onAnswerReceived [%s]",this@TelnyxClient.javaClass.simpleName, jsonObject)
     }
-
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-        TODO("Not yet implemented")
-    } */
+        Timber.d("[%s] :: onIceCandidateReceived [%s]",this@TelnyxClient.javaClass.simpleName, iceCandidate)
+    }
 }

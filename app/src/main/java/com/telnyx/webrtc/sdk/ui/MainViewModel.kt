@@ -32,26 +32,6 @@ class MainViewModel @Inject constructor(
     fun initConnection() {
         socketResponseLiveData.postValue(SocketResponse.loading())
         socketConnection = TxSocket(
-            object: TxSocketListener{
-                override fun onLoginSuccessful(jsonObject: JsonObject) {
-                    Timber.d("[%s] :: onLoginSuccessful [%s]",this@MainViewModel.javaClass.simpleName, jsonObject)
-                }
-                override fun onByeReceived() {
-                    Timber.d("[%s] :: onByeReceived",this@MainViewModel.javaClass.simpleName)
-                }
-                override fun onConnectionEstablished() {
-                    Timber.d("[%s] :: onConnectionEstablished",this@MainViewModel.javaClass.simpleName)
-                }
-                override fun onOfferReceived(jsonObject: JsonObject) {
-                    Timber.d("[%s] :: onOfferReceived [%s]",this@MainViewModel.javaClass.simpleName, jsonObject)
-                }
-                override fun onAnswerReceived(jsonObject: JsonObject) {
-                    Timber.d("[%s] :: onAnswerReceived [%s]",this@MainViewModel.javaClass.simpleName, jsonObject)
-                }
-                override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-                    Timber.d("[%s] :: onIceCandidateReceived [%s]",this@MainViewModel.javaClass.simpleName, iceCandidate)
-                }
-            },
             host_address = "rtc.telnyx.com",
             port = 14938
         )
