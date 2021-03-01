@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:opacity="opaque">
+    <item android:drawable="@color/dark_matter" />
+    <item
+        android:drawable="@drawable/ic_telnyx_logo_light"
+        android:gravity="center_horizontal|center_vertical"
+        android:width="188dp"
+        android:height="36dp"
+        />
+</layer-list>

@@ -1,0 +1,88 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'kotlin-android-extensions'
+    id 'kotlin-kapt'
+    id 'dagger.hilt.android.plugin'
+}
+
+android {
+    compileSdkVersion 30
+    buildToolsVersion "30.0.3"
+
+    defaultConfig {
+        applicationId "com.telnyx.webrtc.sdk"
+        minSdkVersion 23
+        targetSdkVersion 30
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+
+    implementation deps.kotlin.stdlib
+    implementation deps.androidx_core
+    implementation deps.appcompat
+    implementation deps.material
+    implementation deps.constraint_layout
+
+    // SDK:
+    implementation project(':sdk')
+
+    implementation deps.webrtc
+
+    implementation deps.gson
+    implementation deps.retrofit.runtime
+    implementation deps.retrofit.gson
+
+    implementation deps.coroutines.core
+    implementation deps.coroutines.android
+
+    implementation deps.websocket
+
+    implementation deps.okhttp
+
+    implementation deps.ktor.android
+    implementation deps.ktor.cio
+    implementation deps.ktor.gson
+    implementation deps.ktor.websockets
+
+    // Volley
+    implementation deps.volley
+
+    // Firebase
+    implementation platform(deps.firebasebom)
+    implementation deps.firebase_analytics
+    implementation deps.firebase_messaging
+
+    // Timber
+    implementation deps.timber
+
+    //permissions
+    implementation deps.dexter
+
+    implementation deps.hilt.android
+    kapt deps.hilt.compiler
+
+    testImplementation 'junit:junit:4.13.2'
+
+    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+}

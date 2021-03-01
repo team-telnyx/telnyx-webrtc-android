@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">SDK Test</string>
+    <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
+    <string name="connect">connect</string>
+    <string name="socket">Socket:</string>
+    <string name="session_id">Session ID:</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="session_pending">-</string>
+    <string name="call">call</string>
+    <string name="sip_username">SIP Username</string>
+    <string name="password">Password</string>
+    <string name="caller_id_name">Caller ID Name</string>
+    <string name="caller_id_number">Caller ID Number</string>
+    <string name="decline">Decline</string>
+    <string name="phone_number">Enter a phone number</string>
+    <string name="reject">Reject</string>
+    <string name="answer">Answer</string>
+    <string name="incoming_call">Incoming Call</string>
+    <string name="end">End</string>
+
+    <string name="telnyx_notification_channel_description">Telnyx WebRTC call notification</string>
+    <string name="telnyx_notification_channel_id" translatable="false">telnyx_channel</string>
+    <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
+    <string name="message_subscribe_failed">Failed to subscribe to topic</string>
+    <string name="message_subscribed">Subscribed to topic</string>
+    <string name="connected">Connected</string>
+    <string name="disconnect">Disconnect</string>
+
+</resources>
