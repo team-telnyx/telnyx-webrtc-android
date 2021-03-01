@@ -12,8 +12,8 @@ import java.util.*
 
 class Peer(
     context: Context,
-    observer: PeerConnection.Observer
-) {
+    //observer: PeerConnection.Observer
+): PeerConnection.Observer {
 
     companion object {
         private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
@@ -46,7 +46,7 @@ class Peer(
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private val peerConnection by lazy { buildPeerConnection(observer) }
+    private val peerConnection by lazy { buildPeerConnection(this) }
     private val videoCapturer by lazy { getVideoCapturer(context) }
     private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
 
@@ -228,5 +228,39 @@ class Peer(
     fun disconnect(){
         peerConnection?.close()
         peerConnection?.dispose()
+    }
+
+    override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+    }
+
+    override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+    }
+
+    override fun onIceConnectionReceivingChange(p0: Boolean) {
+    }
+
+    override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
+    }
+
+    override fun onIceCandidate(p0: IceCandidate?) {
+        this.addIceCandidate(p0)
+    }
+
+    override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+    }
+
+    override fun onAddStream(p0: MediaStream?) {
+    }
+
+    override fun onRemoveStream(p0: MediaStream?) {
+    }
+
+    override fun onDataChannel(p0: DataChannel?) {
+    }
+
+    override fun onRenegotiationNeeded() {
+    }
+
+    override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
     }
 }

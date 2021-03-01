@@ -6,6 +6,8 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.verto.send.CallDialogParams
+import com.telnyx.webrtc.sdk.verto.send.CallParams
 import com.telnyx.webrtc.sdk.verto.send.LoginParam
 import org.webrtc.IceCandidate
 import timber.log.Timber
@@ -38,6 +40,36 @@ class TelnyxClient(
         )
 
         socket.send(loginMessage)
+    }
+
+    fun disconnect() {
+        socket.destroy()
+    }
+
+    fun getSessionID(): String? {
+        return sessionId
+    }
+
+    fun newInvite(peer: Peer, destinationNumber : String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val callId: String = UUID.randomUUID().toString()
+
+        val inviteMessageBody = SendingMessageBody(
+            id = uuid,
+            method = Method.INVITE.methodName,
+            params = CallParams(
+                sessionId = sessionId.toString(),
+                sdp = peer.getLocalDescription()?.description.toString(),
+                dialogParams = CallDialogParams(
+                    callId = callId,
+                    destinationNumber = destinationNumber,
+                    video = true,
+                    audio = true
+                )
+            )
+        )
+
+        socket.send(inviteMessageBody)
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {

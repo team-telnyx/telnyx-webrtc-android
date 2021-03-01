@@ -3,20 +3,18 @@ package com.telnyx.webrtc.sdk.ui
 import android.content.Context
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.google.gson.JsonObject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import com.telnyx.webrtc.sdk.Peer
+import com.telnyx.webrtc.sdk.AppSdpObserver
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.TelnyxConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
-import org.webrtc.IceCandidate
-import timber.log.Timber
+
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -62,8 +60,9 @@ class MainViewModel @Inject constructor(
     fun sendInvite(
         destinationNumber: String
     ) {
-        //peerConnection?.setupOffer()
-       // signallingClient?.newCall(userManager.calledIdName, userManager.callerIdNumber, destinationNumber)
+        //ToDo read the comment
+        peerConnection = Peer(context)
+        peerConnection?.call(AppSdpObserver()) //Maybe we do call first to make SDP We Rename this to createOfferForSDP or something. Then do invite
+        telnyxClient?.newInvite(peerConnection!!, destinationNumber)
     }
-
 }
