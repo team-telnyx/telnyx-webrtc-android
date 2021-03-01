@@ -1,4 +1,4 @@
-package com.telnyx.webrtc.library.socket
+package com.telnyx.webrtc.sdk
 
 interface PlatformSocketListener {
     fun onOpen()

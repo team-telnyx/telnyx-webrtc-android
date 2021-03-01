@@ -1,16 +1,10 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import com.google.gson.JsonElement
-import com.google.gson.JsonObject
-import com.telnyx.webrtc.library.socket.PlatformSocketListener
 import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.verto.send.LoginParam
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.webrtc.IceCandidate
 import java.util.*
 
 class TelnyxClient(
