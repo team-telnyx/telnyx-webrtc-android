@@ -40,11 +40,6 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    enum class State {
-        CONNECTED,
-        CLOSED
-    }
-
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         Timber.d("[%s] :: onLoginSuccessful [%s]",this@TelnyxClient.javaClass.simpleName, jsonObject)
         val result = jsonObject.getAsJsonObject("result")
@@ -68,5 +63,10 @@ class TelnyxClient(
     }
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         Timber.d("[%s] :: onIceCandidateReceived [%s]",this@TelnyxClient.javaClass.simpleName, iceCandidate)
+    }
+
+    enum class State {
+        CONNECTED,
+        CLOSED
     }
 }
