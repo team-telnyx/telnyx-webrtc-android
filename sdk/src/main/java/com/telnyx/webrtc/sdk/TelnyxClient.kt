@@ -50,16 +50,22 @@ class TelnyxClient(
         return sessionId
     }
 
-    fun newInvite(peer: Peer, destinationNumber : String) {
+    fun newInvite(peerConnection: Peer, destinationNumber : String) {
         val uuid: String = UUID.randomUUID().toString()
         val callId: String = UUID.randomUUID().toString()
+
+        //Create offer to generate our local SDP
+        peerConnection.createOfferForSdp(AppSdpObserver())
+        //Set up out audio:
+        peerConnection.startLocalAudioCapture()
+
 
         val inviteMessageBody = SendingMessageBody(
             id = uuid,
             method = Method.INVITE.methodName,
             params = CallParams(
                 sessionId = sessionId.toString(),
-                sdp = peer.getLocalDescription()?.description.toString(),
+                sdp = peerConnection.getLocalDescription()?.description.toString(),
                 dialogParams = CallDialogParams(
                     callId = callId,
                     destinationNumber = destinationNumber,

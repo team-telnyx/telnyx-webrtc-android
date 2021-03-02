@@ -7,7 +7,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import com.telnyx.webrtc.sdk.Peer
-import com.telnyx.webrtc.sdk.AppSdpObserver
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.TelnyxConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
@@ -60,10 +59,13 @@ class MainViewModel @Inject constructor(
     fun sendInvite(
         destinationNumber: String
     ) {
+
+        //ToDo start audio capture from telnyxClient in invite? hmmmmmmMMMM or in the call yokie
+        //ToDo create observer/listener in viewModel that will broadcast STATE which then handles UI
+        //ToDo Connection State, Call state all need to be braoadcasted so the user can handle it howevever they want.
+
         //Create new peer
         peerConnection = Peer(context)
-        //Create offer to generate our local SDP
-        peerConnection?.call(AppSdpObserver()) //Maybe we do call first to make SDP We Rename this to createOfferForSDP or something. Then do invite
         // Send invite with the generated SDP.
         telnyxClient?.newInvite(peerConnection!!, destinationNumber)
     }

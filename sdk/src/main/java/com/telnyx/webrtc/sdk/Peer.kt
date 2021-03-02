@@ -193,7 +193,7 @@ class Peer(
         }, constraints)
     }
 
-    fun call(sdpObserver: SdpObserver) = peerConnection?.call(sdpObserver)
+    fun createOfferForSdp(sdpObserver: SdpObserver) = peerConnection?.call(sdpObserver)
 
     fun answer(sdpObserver: SdpObserver) = peerConnection?.answer(sdpObserver)
 
@@ -232,7 +232,6 @@ class Peer(
 
     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
         Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")
-
     }
 
     override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
