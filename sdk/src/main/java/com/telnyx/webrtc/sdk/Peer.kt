@@ -1,19 +1,22 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import androidx.lifecycle.MutableLiveData
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
 
 class Peer(
     context: Context,
-    //observer: PeerConnection.Observer
-): PeerConnectionObserver() {
+   /* observer: PeerConnection.Observer */
+) : PeerConnectionObserver() {
 
     companion object {
         private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
@@ -49,6 +52,8 @@ class Peer(
     private val peerConnection by lazy { buildPeerConnection(this) }
     private val videoCapturer by lazy { getVideoCapturer(context) }
     private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
+
+
 
     private fun initPeerConnectionFactory(context: Context) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
@@ -135,6 +140,8 @@ class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
         createOffer(object : SdpObserver by sdpObserver {
@@ -146,7 +153,6 @@ class Peer(
 
                     override fun onSetSuccess() {
                         Timber.tag("Call").d("onSetSuccess")
-
                     }
 
                     override fun onCreateSuccess(p0: SessionDescription?) {
@@ -166,6 +172,8 @@ class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
         createAnswer(object : SdpObserver by sdpObserver {
@@ -217,6 +225,10 @@ class Peer(
         }, sessionDescription)
     }
 
+    fun addIceCandidate(iceCandidate: IceCandidate?) {
+        peerConnection?.addIceCandidate(iceCandidate)
+    }
+
     fun getLocalDescription(): SessionDescription? {
         return peerConnection?.localDescription
     }
@@ -226,7 +238,7 @@ class Peer(
         peerConnection?.dispose()
     }
 
-    override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+  /*  override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
         Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")
     }
 
@@ -245,6 +257,7 @@ class Peer(
 
     override fun onIceCandidate(p0: IceCandidate?) {
         super.onIceCandidate(p0)
+        peerConnection?.addIceCandidate(p0)
         Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
     }
 
@@ -266,10 +279,10 @@ class Peer(
     }
 
     override fun onRenegotiationNeeded() {
-        Timber.tag("PeerObserver").d("onReogotiationNeeded")
+        Timber.tag("PeerObserver").d("onRenegotiationNeeded")
     }
 
     override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
         Timber.tag("PeerObserver").d("onAddTrack [%s] [%s]", "$p0", "$p1")
-    }
+    }*/
 }

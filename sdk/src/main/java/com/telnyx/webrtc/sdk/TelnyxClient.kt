@@ -25,12 +25,8 @@ class TelnyxClient(
 
     private var currentState: State = State.CLOSED
     private var peerConnection: Peer? = null
-    private var clientListener: TelnyxClientListener? = null
-    private var config: TelnyxConfig? = null
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
-
-    //private var call:Call? = null
 
     fun connect() {
         socket.connect(this)
@@ -50,42 +46,39 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    fun newInvite(destinationNumber: String, sessionId: String) {
+       val uuid: String = UUID.randomUUID().toString()
+        val callId: String = UUID.randomUUID().toString()
+
+        //Create new peer
+        peerConnection = Peer(context)
+        //Create offer to generate our local SDP
+        peerConnection?.createOfferForSdp(AppSdpObserver())
+        //Set up out audio:
+        peerConnection?.startLocalAudioCapture()
+
+        val inviteMessageBody = SendingMessageBody(
+            id = uuid,
+            method = Method.INVITE.methodName,
+            params = CallParams(
+                sessionId = sessionId,
+                sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                dialogParams = CallDialogParams(
+                    callId = callId,
+                    destinationNumber = destinationNumber,
+                )
+            )
+        )
+
+        socket.send(inviteMessageBody)
+    }
+
     fun disconnect() {
         socket.destroy()
     }
 
     fun getSessionID(): String? {
         return sessionId
-    }
-
-    fun newInvite(peerToInvite: Peer, destinationNumber : String) {
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
-
-        peerConnection = peerToInvite
-
-        //Create offer to generate our local SDP
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-        //Set up out audio:
-        peerConnection?.startLocalAudioCapture()
-
-
-        val inviteMessageBody = SendingMessageBody(
-            id = uuid,
-            method = Method.INVITE.methodName,
-            params = CallParams(
-                sessionId = sessionId.toString(),
-                sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                dialogParams = CallDialogParams(
-                    callId = callId,
-                    destinationNumber = destinationNumber,
-                    video = true,
-                    audio = true
-                )
-            )
-        )
-
-        socket.send(inviteMessageBody)
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {

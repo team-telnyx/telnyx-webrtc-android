@@ -64,9 +64,8 @@ class MainViewModel @Inject constructor(
         //ToDo create observer/listener in viewModel that will broadcast STATE which then handles UI
         //ToDo Connection State, Call state all need to be braoadcasted so the user can handle it howevever they want.
 
-        //Create new peer
-        peerConnection = Peer(context)
+
         // Send invite with the generated SDP.
-        telnyxClient?.newInvite(peerConnection!!, destinationNumber)
+        telnyxClient?.newInvite(destinationNumber, userManager.sessionId)
     }
 }
