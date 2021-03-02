@@ -60,9 +60,11 @@ class MainViewModel @Inject constructor(
     fun sendInvite(
         destinationNumber: String
     ) {
-        //ToDo read the comment
+        //Create new peer
         peerConnection = Peer(context)
+        //Create offer to generate our local SDP
         peerConnection?.call(AppSdpObserver()) //Maybe we do call first to make SDP We Rename this to createOfferForSDP or something. Then do invite
+        // Send invite with the generated SDP.
         telnyxClient?.newInvite(peerConnection!!, destinationNumber)
     }
 }
