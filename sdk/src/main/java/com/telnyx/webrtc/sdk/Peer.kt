@@ -13,7 +13,7 @@ import java.util.*
 class Peer(
     context: Context,
     //observer: PeerConnection.Observer
-): PeerConnection.Observer {
+): PeerConnectionObserver() {
 
     companion object {
         private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
@@ -134,7 +134,7 @@ class Peer(
 
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         }
 
         createOffer(object : SdpObserver by sdpObserver {
@@ -165,7 +165,7 @@ class Peer(
 
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         }
 
         createAnswer(object : SdpObserver by sdpObserver {
@@ -217,10 +217,6 @@ class Peer(
         }, sessionDescription)
     }
 
-    fun addIceCandidate(iceCandidate: IceCandidate?) {
-        peerConnection?.addIceCandidate(iceCandidate)
-    }
-
     fun getLocalDescription(): SessionDescription? {
         return peerConnection?.localDescription
     }
@@ -235,6 +231,7 @@ class Peer(
     }
 
     override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+        super.onIceConnectionChange(p0)
         Timber.tag("PeerObserver").d("onIceConnectionChange [%s]", "$p0")
     }
 
@@ -247,8 +244,8 @@ class Peer(
     }
 
     override fun onIceCandidate(p0: IceCandidate?) {
+        super.onIceCandidate(p0)
         Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
-        this.addIceCandidate(p0)
     }
 
     override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
@@ -256,6 +253,7 @@ class Peer(
     }
 
     override fun onAddStream(p0: MediaStream?) {
+        super.onAddStream(p0)
         Timber.tag("PeerObserver").d("onAddStream [%s]", "$p0")
     }
 
