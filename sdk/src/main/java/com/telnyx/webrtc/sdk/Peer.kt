@@ -102,7 +102,6 @@ class Peer(
         init(rootEglBase.eglBaseContext, null)
     }
 
-
     fun startLocalVideoCapture(localVideoOutput: SurfaceViewRenderer) {
         val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
         (videoCapturer as VideoCapturer).initialize(surfaceTextureHelper, localVideoOutput.context, localVideoSource.capturerObserver)
@@ -186,7 +185,6 @@ class Peer(
 
                     override fun onSetSuccess() {
                         Timber.tag("Answer").d("onSetSuccess")
-
                     }
 
                     override fun onCreateSuccess(p0: SessionDescription?) {
@@ -238,5 +236,5 @@ class Peer(
         peerConnection?.close()
         peerConnection?.dispose()
     }
-    
+
 }

@@ -55,10 +55,12 @@ class MainViewModel @Inject constructor(
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? = telnyxClient?.getSocketResponse()
 
-    fun sendInvite(
-            destinationNumber: String
-    ) {
+    fun sendInvite(destinationNumber: String) {
         telnyxClient?.newInvite(destinationNumber)
+    }
+
+    fun acceptCall(callId: String, destinationNumber: String) {
+        telnyxClient?.acceptCall(callId, destinationNumber)
     }
 
     fun endCall(callId: String) {

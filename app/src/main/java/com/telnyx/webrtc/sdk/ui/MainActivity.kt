@@ -239,14 +239,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun onAcceptCall(callId: String, destinationNumber: String) {
        // mainViewModel.stopRingtone()
-       // mainViewModel.acceptCall(callId, destinationNumber)
+        mainViewModel.acceptCall(callId, destinationNumber)
         setUpOngoingCallButtons(callId)
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.GONE
-        video_call_section_id.visibility = View.VISIBLE
+        ongoing_call_section_id.visibility = View.VISIBLE
+        //video_call_section_id.visibility = View.VISIBLE
 
-       // onTimerStart()
+        onTimerStart()
     }
 
     private fun onRejectCall(callId: String) {
