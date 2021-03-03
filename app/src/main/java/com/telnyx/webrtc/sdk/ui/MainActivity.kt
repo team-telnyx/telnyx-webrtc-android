@@ -270,7 +270,7 @@ class MainActivity : AppCompatActivity() {
             .withListener(object : MultiplePermissionsListener {
                 override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                     if (report!!.areAllPermissionsGranted()) {
-                        mainViewModel.initConnection()
+                        mainViewModel.initConnection(applicationContext)
                         Toast.makeText(
                             this@MainActivity,
                             "Granted",
