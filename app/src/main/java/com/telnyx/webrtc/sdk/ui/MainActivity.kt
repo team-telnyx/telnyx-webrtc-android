@@ -20,6 +20,8 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
+import kotlinx.android.synthetic.main.include_incoming_call_section.*
+import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import kotlinx.android.synthetic.main.video_call_fragment.*
 import timber.log.Timber
 import javax.inject.Inject
@@ -58,7 +60,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     override fun onMessageReceived(data: ReceivedMessageBody?) {
-                        Timber.d("onMessageReceived [%s]", data?.method)
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
                         when (data?.method) {
                             Method.LOGIN.methodName -> {
                                 val sessionId = (data.result as LoginResponse).sessid
@@ -167,6 +169,89 @@ class MainActivity : AppCompatActivity() {
             caller_id_name_id.text.toString(),
             caller_id_number_id.text.toString()
         )
+    }
+
+    private fun onAnsweredCallViews(callId: String) {
+        mainViewModel.stopDialtone()
+        setUpOngoingCallButtons(callId)
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        //ongoing_call_section_id.visibility = View.VISIBLE
+        video_call_section_id.visibility = View.VISIBLE
+
+        onTimerStart()
+    }
+
+    private fun setUpOngoingCallButtons(callId: String){
+        end_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+        video_end_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+     /*   mute_button_id.setOnClickListener {
+            mainViewModel.onMuteUnmutePressed()
+        }
+        video_mute_button_id.setOnClickListener {
+            mainViewModel.onMuteUnmutePressed()
+        }
+        video_hold_button_id.setOnClickListener {
+            mainViewModel.onHoldUnholdPressed(callId)
+        }
+        video_loud_speaker_button_id.setOnClickListener {
+            mainViewModel.onLoudSpeakerPressed()
+        }
+        video_camera_direction_button_id.setOnClickListener {
+            mainViewModel.onCameraDirectionPressed()*
+        } */
+    }
+
+    private fun onByeReceivedViews() {
+        //Stop dialtone in the case of Bye being received as a rejection to the invitation
+       // mainViewModel.stopDialtone()
+        incoming_call_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.GONE
+        video_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.VISIBLE
+
+        call_timer_id.stop()
+    }
+
+    private fun onReceiveCallView(callId: String, callerIdName: String, callerIdNumber: String) {
+        call_control_section_id.visibility = View.GONE
+        incoming_call_section_id.visibility = View.VISIBLE
+
+        answer_call_id.setOnClickListener {
+            onAcceptCall(callId, callerIdNumber)
+        }
+        reject_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+
+        setUpOngoingCallButtons(callId)
+    }
+
+    private fun onAcceptCall(callId: String, destinationNumber: String) {
+       // mainViewModel.stopRingtone()
+       // mainViewModel.acceptCall(callId, destinationNumber)
+        setUpOngoingCallButtons(callId)
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.GONE
+        video_call_section_id.visibility = View.VISIBLE
+
+       // onTimerStart()
+    }
+
+    private fun onRejectCall(callId: String) {
+        //Reject call and make call control section visible
+        ongoing_call_section_id.visibility = View.GONE
+        incoming_call_section_id.visibility = View.GONE
+        video_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.VISIBLE
+        mainViewModel.sendBye(callId, local_view, remote_view)
+        //reset call timer:
+        call_timer_id.stop()
     }
 
     private fun checkPermissions() {
