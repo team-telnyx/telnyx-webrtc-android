@@ -1,19 +1,22 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import androidx.lifecycle.MutableLiveData
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
 
 class Peer(
-    context: Context,
-    //observer: PeerConnection.Observer
-): PeerConnection.Observer {
+        context: Context,
+        observer: PeerConnection.Observer
+) {
 
     companion object {
         private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
@@ -33,58 +36,61 @@ class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(TEST_USERNAME).setPassword(
-                TEST_PASSWORD
-            ).createIceServer()
+                PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(TEST_USERNAME).setPassword(
+                        TEST_PASSWORD
+                ).createIceServer()
         )
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(TEST_USERNAME).setPassword(
-                TEST_PASSWORD
-            ).createIceServer()
+                PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(TEST_USERNAME).setPassword(
+                        TEST_PASSWORD
+                ).createIceServer()
         )
         return iceServers
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private val peerConnection by lazy { buildPeerConnection(this) }
+    private val peerConnection by lazy { buildPeerConnection(observer) }
+
+    //private val peerConnection by lazy { buildPeerConnection(this) }
     private val videoCapturer by lazy { getVideoCapturer(context) }
     private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
 
+
     private fun initPeerConnectionFactory(context: Context) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-            .setFieldTrials("WebRTC-IntelVP8/Enabled/")
-            .createInitializationOptions()
+                .setEnableInternalTracer(true)
+                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+                //.setFieldTrials("WebRTC-IntelVP8/Enabled/")
+                .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
     }
 
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         return PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
-            .setOptions(PeerConnectionFactory.Options().apply {
-                disableEncryption = false
-                disableNetworkMonitor = true
-            })
-            .createPeerConnectionFactory()
+                .builder()
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+                .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
+                .setOptions(PeerConnectionFactory.Options().apply {
+                    disableEncryption = false
+                    disableNetworkMonitor = true
+                })
+                .createPeerConnectionFactory()
 
     }
 
     private fun buildPeerConnection(observer: PeerConnection.Observer) = peerConnectionFactory.createPeerConnection(
-        iceServer,
-        observer
+            iceServer,
+            observer
     )
 
     private fun getVideoCapturer(context: Context) =
-        Camera2Enumerator(context).run {
-            deviceNames.find {
-                isFrontFacing(it)
-            }?.let {
-                createCapturer(it, null)
-            } ?: throw IllegalStateException()
-        }
+            Camera2Enumerator(context).run {
+                deviceNames.find {
+                    isFrontFacing(it)
+                }?.let {
+                    createCapturer(it, null)
+                } ?: throw IllegalStateException()
+            }
 
     fun changeCameraDirection() {
         videoCapturer.switchCamera(null)
@@ -102,8 +108,8 @@ class Peer(
         (videoCapturer as VideoCapturer).initialize(surfaceTextureHelper, localVideoOutput.context, localVideoSource.capturerObserver)
         videoCapturer.startCapture(1024, 720, 30)
         val localVideoTrack = peerConnectionFactory.createVideoTrack(
-            VIDEO_LOCAL_TRACK_ID,
-            localVideoSource)
+                VIDEO_LOCAL_TRACK_ID,
+                localVideoSource)
         localVideoTrack.addSink(localVideoOutput)
         val localStream = peerConnectionFactory.createLocalMediaStream(VIDEO_LOCAL_STREAM_ID)
         localVideoTrack.setEnabled(true)
@@ -122,8 +128,8 @@ class Peer(
     fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
-            AUDIO_LOCAL_TRACK_ID,
-            audioSource
+                AUDIO_LOCAL_TRACK_ID,
+                audioSource
         )
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localAudioTrack.setEnabled(true)
@@ -134,7 +140,9 @@ class Peer(
 
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
         createOffer(object : SdpObserver by sdpObserver {
@@ -146,7 +154,6 @@ class Peer(
 
                     override fun onSetSuccess() {
                         Timber.tag("Call").d("onSetSuccess")
-
                     }
 
                     override fun onCreateSuccess(p0: SessionDescription?) {
@@ -165,7 +172,9 @@ class Peer(
 
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
         createAnswer(object : SdpObserver by sdpObserver {
@@ -200,7 +209,7 @@ class Peer(
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onSetFailure(p0: String?) {
-                Timber.tag("RemoteSessionReceived").d("Set Failure [%s]",p0)
+                Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
             }
 
             override fun onSetSuccess() {
@@ -212,7 +221,7 @@ class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
-                Timber.tag("RemoteSessionReceived").d("Create Failure [%s]",p0)
+                Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
             }
         }, sessionDescription)
     }
@@ -225,53 +234,56 @@ class Peer(
         return peerConnection?.localDescription
     }
 
-    fun disconnect(){
+    fun disconnect() {
         peerConnection?.close()
         peerConnection?.dispose()
     }
 
-    override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
-        Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")
-    }
+    /*  override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+          Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")
+      }
 
-    override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
-        Timber.tag("PeerObserver").d("onIceConnectionChange [%s]", "$p0")
-    }
+      override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+          super.onIceConnectionChange(p0)
+          Timber.tag("PeerObserver").d("onIceConnectionChange [%s]", "$p0")
+      }
 
-    override fun onIceConnectionReceivingChange(p0: Boolean) {
-        Timber.tag("PeerObserver").d("onIceConnectionReceivingChange [%s]", "$p0")
-    }
+      override fun onIceConnectionReceivingChange(p0: Boolean) {
+          Timber.tag("PeerObserver").d("onIceConnectionReceivingChange [%s]", "$p0")
+      }
 
-    override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
-        Timber.tag("PeerObserver").d("onIceGathering [%s]", "$p0")
-    }
+      override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
+          Timber.tag("PeerObserver").d("onIceGathering [%s]", "$p0")
+      }
 
-    override fun onIceCandidate(p0: IceCandidate?) {
-        Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
-        this.addIceCandidate(p0)
-    }
+      override fun onIceCandidate(p0: IceCandidate?) {
+          super.onIceCandidate(p0)
+          peerConnection?.addIceCandidate(p0)
+          Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
+      }
 
-    override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-        Timber.tag("PeerObserver").d("onIceCandidatesRemoved [%s]", "$p0")
-    }
+      override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+          Timber.tag("PeerObserver").d("onIceCandidatesRemoved [%s]", "$p0")
+      }
 
-    override fun onAddStream(p0: MediaStream?) {
-        Timber.tag("PeerObserver").d("onAddStream [%s]", "$p0")
-    }
+      override fun onAddStream(p0: MediaStream?) {
+          super.onAddStream(p0)
+          Timber.tag("PeerObserver").d("onAddStream [%s]", "$p0")
+      }
 
-    override fun onRemoveStream(p0: MediaStream?) {
-        Timber.tag("PeerObserver").d("onRemoveStream [%s]", "$p0")
-    }
+      override fun onRemoveStream(p0: MediaStream?) {
+          Timber.tag("PeerObserver").d("onRemoveStream [%s]", "$p0")
+      }
 
-    override fun onDataChannel(p0: DataChannel?) {
-        Timber.tag("PeerObserver").d("onDataChannel [%s]", "$p0")
-    }
+      override fun onDataChannel(p0: DataChannel?) {
+          Timber.tag("PeerObserver").d("onDataChannel [%s]", "$p0")
+      }
 
-    override fun onRenegotiationNeeded() {
-        Timber.tag("PeerObserver").d("onReogotiationNeeded")
-    }
+      override fun onRenegotiationNeeded() {
+          Timber.tag("PeerObserver").d("onRenegotiationNeeded")
+      }
 
-    override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
-        Timber.tag("PeerObserver").d("onAddTrack [%s] [%s]", "$p0", "$p1")
-    }
+      override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
+          Timber.tag("PeerObserver").d("onAddTrack [%s] [%s]", "$p0", "$p1")
+      }*/
 }

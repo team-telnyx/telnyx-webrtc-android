@@ -8,7 +8,7 @@ data class ByeDialogParams(val callId: String) : DialogParams()
 
 data class CallDialogParams(val useStereo: Boolean = false,
                             val attach: Boolean = false,
-                            val video: Boolean = true,
+                            val video: Boolean = false,
                             val screenShare: Boolean = false,
                             val audio: Boolean = true,
                             val userVariables: ArrayList<Any> = arrayListOf(),

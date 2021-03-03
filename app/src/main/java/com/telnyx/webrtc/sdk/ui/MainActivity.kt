@@ -1,6 +1,8 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.Manifest
+import android.Manifest.permission.*
+import android.Manifest.permission_group.MICROPHONE
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
@@ -116,9 +118,9 @@ class MainActivity : AppCompatActivity() {
     private fun checkPermissions() {
         Dexter.withContext(this)
             .withPermissions(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.CAMERA,
-                Manifest.permission.INTERNET
+                RECORD_AUDIO,
+                CAMERA,
+                INTERNET,
             )
             .withListener(object : MultiplePermissionsListener {
                 override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
