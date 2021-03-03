@@ -42,7 +42,6 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
-
         checkPermissions()
         observeSocketResponses()
         initViews()
@@ -257,8 +256,6 @@ class MainActivity : AppCompatActivity() {
         reject_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-
-        setUpOngoingCallButtons(callId)
     }
 
     private fun onAcceptCall(callId: String, destinationNumber: String) {
