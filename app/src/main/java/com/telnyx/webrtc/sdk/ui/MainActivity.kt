@@ -1,8 +1,6 @@
 package com.telnyx.webrtc.sdk.ui
 
-import android.Manifest
 import android.Manifest.permission.*
-import android.Manifest.permission_group.MICROPHONE
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
@@ -17,10 +15,13 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import kotlinx.android.synthetic.main.include_login_section.*
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
+import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
 import kotlinx.android.synthetic.main.video_call_fragment.*
+import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -38,7 +39,9 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
+
         checkPermissions()
+        observeSocketResponses()
         initViews()
     }
 
@@ -47,13 +50,64 @@ class MainActivity : AppCompatActivity() {
         return true;
     }
 
+    private fun observeSocketResponses() {
+        mainViewModel.getSocketResponse()
+                ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        onConnectionEstablishedViews()
+                    }
+
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("onMessageReceived [%s]", data?.method)
+                        when (data?.method) {
+                            Method.LOGIN.methodName -> {
+                                val sessionId = (data.result as LoginResponse).sessid
+                                onLoginSuccessfullyViews(sessionId)
+                            }
+
+                            Method.INVITE.methodName -> {
+                                //mainViewModel.playRingtone()
+                                val inviteResponse = data.result as InviteResponse
+                               /* onReceiveCallView(
+                                        inviteResponse.callId,
+                                        inviteResponse.callerIdName,
+                                        inviteResponse.callerIdNumber
+                                ) */
+                            }
+
+                            Method.ANSWER.methodName -> {
+                                val callId = (data.result as AnswerResponse).callId
+                                //onAnsweredCallViews(callId)
+                            }
+
+                            Method.BYE.methodName -> {
+                               // onByeReceivedViews()
+                            }
+                        }
+                    }
+
+                    override fun onLoading() {
+                        //todo: Show loading in case problem for connecting
+                    }
+
+                    override fun onError(message: String?) {
+                        Toast.makeText(
+                                this@MainActivity,
+                                message ?: "Socket Connection Error",
+                                Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                })
+    }
+
+
     private fun initViews() {
         handleUserLoginState()
         mockInputs()
 
         connect_button_id.setOnClickListener {
             connectButtonPressed()
-            onLoginSuccessfullyViews("Test_Session_ID")
         }
         call_button_id.setOnClickListener {
             //ToDo call should do an invite

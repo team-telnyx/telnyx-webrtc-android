@@ -2,15 +2,16 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.util.Log
+import android.widget.Toast
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
-import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
-import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.CallDialogParams
 import com.telnyx.webrtc.sdk.verto.send.CallParams
 import com.telnyx.webrtc.sdk.verto.send.LoginParam
@@ -29,11 +30,13 @@ class TelnyxClient(
     private var peerConnection: Peer? = null
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
-    private val connectionResponseLiveData = MutableLiveData<Connection>()
+    private val callConnectionResponseLiveData = MutableLiveData<Connection>()
 
     fun connect() {
         socket.connect(this)
     }
+
+    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
     fun login(config: TelnyxConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -53,6 +56,8 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
+
+        callConnectionResponseLiveData.postValue(Connection.LOADING)
 
         //Create new peer
         peerConnection = Peer(context,
@@ -95,15 +100,27 @@ class TelnyxClient(
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         Timber.d("[%s] :: onLoginSuccessful [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        val result = jsonObject.getAsJsonObject("result")
-        val sessId = result.get("sessid").asString
-        sessionId = sessId
-        connectionResponseLiveData.postValue(Connection.ESTABLISHED)
-        socketResponseLiveData.postValue(SocketResponse.established())
+        sessionId = jsonObject.getAsJsonObject("result").get("sessid").asString
+        socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                                Method.LOGIN.methodName,
+                                LoginResponse(sessionId!!)
+                        )
+                )
+        )
     }
 
     override fun onByeReceived() {
         Timber.d("[%s] :: onByeReceived", this@TelnyxClient.javaClass.simpleName)
+        socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                                Method.BYE.methodName,
+                                null
+                        )
+                )
+        )
     }
 
     override fun onConnectionEstablished() {
@@ -130,6 +147,7 @@ class TelnyxClient(
 
             peerConnection?.onRemoteSessionReceived(sdp)
 
+            callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
             socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                             ReceivedMessageBody(
@@ -139,8 +157,11 @@ class TelnyxClient(
                     )
             )
         }
+        else {
+            //There was no SDP in the response, there was an error.
+            callConnectionResponseLiveData.postValue(Connection.ERROR)
+        }
     }
-
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         Timber.d("[%s] :: onIceCandidateReceived [%s]", this@TelnyxClient.javaClass.simpleName, iceCandidate)
