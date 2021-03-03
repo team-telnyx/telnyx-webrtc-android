@@ -8,13 +8,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.verto.receive.*
-import com.telnyx.webrtc.sdk.verto.send.CallDialogParams
-import com.telnyx.webrtc.sdk.verto.send.CallParams
-import com.telnyx.webrtc.sdk.verto.send.LoginParam
+import com.telnyx.webrtc.sdk.verto.send.*
 import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
@@ -88,6 +85,22 @@ class TelnyxClient(
                 })
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
+    }
+
+    fun endCall(callId: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val byeMessageBody = SendingMessageBody(
+                uuid, Method.BYE.methodName,
+                ByeParams(
+                        sessionId!!,
+                        CauseCode.USER_BUSY.code,
+                        CauseCode.USER_BUSY.name,
+                        ByeDialogParams(
+                                callId
+                        )
+                )
+        )
+        socket?.send(byeMessageBody)
     }
 
     fun disconnect() {

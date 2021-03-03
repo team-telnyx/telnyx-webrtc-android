@@ -58,9 +58,10 @@ class MainViewModel @Inject constructor(
     fun sendInvite(
             destinationNumber: String
     ) {
-
-        //ToDo create observer/listener in viewModel that will broadcast STATE which then handles UI
-        //ToDo Connection State, Call state all need to be braoadcasted so the user can handle it howevever they want.
         telnyxClient?.newInvite(destinationNumber)
+    }
+
+    fun endCall(callId: String) {
+        telnyxClient?.endCall(callId)
     }
 }

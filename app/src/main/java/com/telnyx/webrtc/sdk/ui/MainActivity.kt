@@ -3,6 +3,7 @@ package com.telnyx.webrtc.sdk.ui
 import android.Manifest.permission.*
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Menu
 import android.view.View
 import android.widget.Toast
@@ -70,20 +71,20 @@ class MainActivity : AppCompatActivity() {
                             Method.INVITE.methodName -> {
                                 //mainViewModel.playRingtone()
                                 val inviteResponse = data.result as InviteResponse
-                               /* onReceiveCallView(
+                                onReceiveCallView(
                                         inviteResponse.callId,
                                         inviteResponse.callerIdName,
                                         inviteResponse.callerIdNumber
-                                ) */
+                                )
                             }
 
                             Method.ANSWER.methodName -> {
                                 val callId = (data.result as AnswerResponse).callId
-                                //onAnsweredCallViews(callId)
+                                onAnsweredCallViews(callId)
                             }
 
                             Method.BYE.methodName -> {
-                               // onByeReceivedViews()
+                                onByeReceivedViews()
                             }
                         }
                     }
@@ -172,24 +173,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAnsweredCallViews(callId: String) {
-        mainViewModel.stopDialtone()
+        //mainViewModel.stopDialtone()
         setUpOngoingCallButtons(callId)
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.GONE
-        //ongoing_call_section_id.visibility = View.VISIBLE
-        video_call_section_id.visibility = View.VISIBLE
+        ongoing_call_section_id.visibility = View.VISIBLE
+        //video_call_section_id.visibility = View.VISIBLE
 
         onTimerStart()
+    }
+
+    private fun onTimerStart() {
+        call_timer_id.base = SystemClock.elapsedRealtime()
+        call_timer_id.start()
     }
 
     private fun setUpOngoingCallButtons(callId: String){
         end_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-        video_end_call_id.setOnClickListener {
+      /*  video_end_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-     /*   mute_button_id.setOnClickListener {
+        mute_button_id.setOnClickListener {
             mainViewModel.onMuteUnmutePressed()
         }
         video_mute_button_id.setOnClickListener {
@@ -249,7 +255,7 @@ class MainActivity : AppCompatActivity() {
         incoming_call_section_id.visibility = View.GONE
         video_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
-        mainViewModel.sendBye(callId, local_view, remote_view)
+        mainViewModel.endCall(callId)
         //reset call timer:
         call_timer_id.stop()
     }
