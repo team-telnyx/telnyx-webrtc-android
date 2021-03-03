@@ -17,8 +17,8 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    @ApplicationContext val context: Context,
-    private val userManager: UserManager
+        @ApplicationContext val context: Context,
+        private val userManager: UserManager
 ) : ViewModel() {
 
     private var socketConnection: TxSocket? = null
@@ -29,8 +29,8 @@ class MainViewModel @Inject constructor(
     fun initConnection() {
         socketResponseLiveData.postValue(SocketResponse.loading())
         socketConnection = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938
+                host_address = "rtc.telnyx.com",
+                port = 14938
         )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
@@ -41,10 +41,10 @@ class MainViewModel @Inject constructor(
     }
 
     fun saveUserData(
-        userName: String,
-        password: String,
-        callerIdName: String,
-        callerIdNumber: String
+            userName: String,
+            password: String,
+            callerIdName: String,
+            callerIdNumber: String
     ) {
         if (!userManager.isUserLogin) {
             userManager.isUserLogin = true
@@ -57,7 +57,7 @@ class MainViewModel @Inject constructor(
 
 
     fun sendInvite(
-        destinationNumber: String
+            destinationNumber: String
     ) {
 
         //ToDo start audio capture from telnyxClient in invite? hmmmmmmMMMM or in the call yokie
@@ -66,6 +66,7 @@ class MainViewModel @Inject constructor(
 
 
         // Send invite with the generated SDP.
-        telnyxClient?.newInvite(destinationNumber, userManager.sessionId)
+        //telnyxClient?.newInvite(destinationNumber)
+        telnyxClient?.newInviteWithObserver(destinationNumber)
     }
 }
