@@ -26,10 +26,10 @@ class TelnyxClient(
         var context: Context
 ) : TxSocketListener {
 
-    private var currentState: State = State.CLOSED
     private var peerConnection: Peer? = null
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
+    private val connectionResponseLiveData = MutableLiveData<Connection>()
 
     fun connect() {
         socket.connect(this)
@@ -49,35 +49,7 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    /*fun newInvite(destinationNumber: String) {
-       val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
-
-        //Create new peer
-        peerConnection = Peer(context)
-        //Create offer to generate our local SDP
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-
-        //Set up out audio:
-        peerConnection?.startLocalAudioCapture()
-
-        val inviteMessageBody = SendingMessageBody(
-            id = uuid,
-            method = Method.INVITE.methodName,
-            params = CallParams(
-                sessionId = sessionId!!,
-                sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                dialogParams = CallDialogParams(
-                    callId = callId,
-                    destinationNumber = destinationNumber,
-                )
-            )
-        )
-
-        socket.send(inviteMessageBody)
-    }*/
-
-    fun newInviteWithObserver(destinationNumber: String) {
+    fun newInvite(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
@@ -108,10 +80,6 @@ class TelnyxClient(
                             socket?.send(inviteMessageBody)
                         }
                     }
-
-                    override fun onAddStream(p0: MediaStream?) {
-                        super.onAddStream(p0)
-                    }
                 })
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
@@ -130,7 +98,8 @@ class TelnyxClient(
         val result = jsonObject.getAsJsonObject("result")
         val sessId = result.get("sessid").asString
         sessionId = sessId
-        currentState = State.CONNECTED
+        connectionResponseLiveData.postValue(Connection.ESTABLISHED)
+        socketResponseLiveData.postValue(SocketResponse.established())
     }
 
     override fun onByeReceived() {
@@ -152,7 +121,6 @@ class TelnyxClient(
         /* In case of remote user answer the invite
           local user haas to set remote data in order to have information of both peers of a call
           */
-
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
         if (params.has("sdp")) {
@@ -176,10 +144,5 @@ class TelnyxClient(
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         Timber.d("[%s] :: onIceCandidateReceived [%s]", this@TelnyxClient.javaClass.simpleName, iceCandidate)
-    }
-
-    enum class State {
-        CONNECTED,
-        CLOSED
     }
 }

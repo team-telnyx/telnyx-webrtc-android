@@ -60,13 +60,8 @@ class MainViewModel @Inject constructor(
             destinationNumber: String
     ) {
 
-        //ToDo start audio capture from telnyxClient in invite? hmmmmmmMMMM or in the call yokie
         //ToDo create observer/listener in viewModel that will broadcast STATE which then handles UI
         //ToDo Connection State, Call state all need to be braoadcasted so the user can handle it howevever they want.
-
-
-        // Send invite with the generated SDP.
-        //telnyxClient?.newInvite(destinationNumber)
-        telnyxClient?.newInviteWithObserver(destinationNumber)
+        telnyxClient?.newInvite(destinationNumber)
     }
 }
