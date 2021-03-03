@@ -48,6 +48,9 @@ class MainViewModel @Inject constructor(
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? = telnyxClient?.getSocketResponse()
+    fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.getIsMuteStatus()
+    fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnHoldStatus()
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnLoudSpeakerStatus()
 
     fun doLogin(loginConfig: TelnyxConfig) {
         telnyxClient?.login(loginConfig)
@@ -63,5 +66,17 @@ class MainViewModel @Inject constructor(
 
     fun endCall(callId: String) {
         telnyxClient?.endCall(callId)
+    }
+
+    fun onHoldUnholdPressed(callId: String) {
+        telnyxClient?.onHoldUnholdPressed(callId)
+    }
+
+    fun onMuteUnmutePressed() {
+        telnyxClient?.onMuteUnmutePressed()
+    }
+
+    fun onLoudSpeakerPressed() {
+        telnyxClient?.onLoudSpeakerPressed()
     }
 }
