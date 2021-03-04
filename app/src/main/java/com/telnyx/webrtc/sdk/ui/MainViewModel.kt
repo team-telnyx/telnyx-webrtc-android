@@ -1,6 +1,7 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,11 +24,8 @@ class MainViewModel @Inject constructor(
 
     private var socketConnection: TxSocket? = null
     private var telnyxClient: TelnyxClient? = null
-    private var peerConnection: Peer? = null
-    private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
     fun initConnection() {
-        socketResponseLiveData.postValue(SocketResponse.loading())
         socketConnection = TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938
@@ -55,18 +53,17 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? = telnyxClient?.getSocketResponse()
 
-    fun sendInvite(
-            destinationNumber: String
-    ) {
+    fun sendInvite(destinationNumber: String) {
+        telnyxClient?.newInvite(destinationNumber)
+    }
 
-        //ToDo start audio capture from telnyxClient in invite? hmmmmmmMMMM or in the call yokie
-        //ToDo create observer/listener in viewModel that will broadcast STATE which then handles UI
-        //ToDo Connection State, Call state all need to be braoadcasted so the user can handle it howevever they want.
+    fun acceptCall(callId: String, destinationNumber: String) {
+        telnyxClient?.acceptCall(callId, destinationNumber)
+    }
 
-
-        // Send invite with the generated SDP.
-        //telnyxClient?.newInvite(destinationNumber)
-        telnyxClient?.newInviteWithObserver(destinationNumber)
+    fun endCall(callId: String) {
+        telnyxClient?.endCall(callId)
     }
 }

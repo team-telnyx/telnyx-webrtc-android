@@ -1,10 +1,9 @@
 package com.telnyx.webrtc.sdk.ui
 
-import android.Manifest
 import android.Manifest.permission.*
-import android.Manifest.permission_group.MICROPHONE
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Menu
 import android.view.View
 import android.widget.Toast
@@ -17,10 +16,15 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import kotlinx.android.synthetic.main.include_login_section.*
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
+import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
+import kotlinx.android.synthetic.main.include_incoming_call_section.*
+import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import kotlinx.android.synthetic.main.video_call_fragment.*
+import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -38,7 +42,9 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
+
         checkPermissions()
+        observeSocketResponses()
         initViews()
     }
 
@@ -47,13 +53,64 @@ class MainActivity : AppCompatActivity() {
         return true;
     }
 
+    private fun observeSocketResponses() {
+        mainViewModel.getSocketResponse()
+                ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        onConnectionEstablishedViews()
+                    }
+
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                        when (data?.method) {
+                            Method.LOGIN.methodName -> {
+                                val sessionId = (data.result as LoginResponse).sessid
+                                onLoginSuccessfullyViews(sessionId)
+                            }
+
+                            Method.INVITE.methodName -> {
+                                //mainViewModel.playRingtone()
+                                val inviteResponse = data.result as InviteResponse
+                                onReceiveCallView(
+                                        inviteResponse.callId,
+                                        inviteResponse.callerIdName,
+                                        inviteResponse.callerIdNumber
+                                )
+                            }
+
+                            Method.ANSWER.methodName -> {
+                                val callId = (data.result as AnswerResponse).callId
+                                onAnsweredCallViews(callId)
+                            }
+
+                            Method.BYE.methodName -> {
+                                onByeReceivedViews()
+                            }
+                        }
+                    }
+
+                    override fun onLoading() {
+                        //todo: Show loading in case problem for connecting
+                    }
+
+                    override fun onError(message: String?) {
+                        Toast.makeText(
+                                this@MainActivity,
+                                message ?: "Socket Connection Error",
+                                Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                })
+    }
+
+
     private fun initViews() {
         handleUserLoginState()
         mockInputs()
 
         connect_button_id.setOnClickListener {
             connectButtonPressed()
-            onLoginSuccessfullyViews("Test_Session_ID")
         }
         call_button_id.setOnClickListener {
             //ToDo call should do an invite
@@ -113,6 +170,94 @@ class MainActivity : AppCompatActivity() {
             caller_id_name_id.text.toString(),
             caller_id_number_id.text.toString()
         )
+    }
+
+    private fun onAnsweredCallViews(callId: String) {
+        //mainViewModel.stopDialtone()
+        setUpOngoingCallButtons(callId)
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.VISIBLE
+        //video_call_section_id.visibility = View.VISIBLE
+
+        onTimerStart()
+    }
+
+    private fun onTimerStart() {
+        call_timer_id.base = SystemClock.elapsedRealtime()
+        call_timer_id.start()
+    }
+
+    private fun setUpOngoingCallButtons(callId: String){
+        end_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+      /*  video_end_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+        mute_button_id.setOnClickListener {
+            mainViewModel.onMuteUnmutePressed()
+        }
+        video_mute_button_id.setOnClickListener {
+            mainViewModel.onMuteUnmutePressed()
+        }
+        video_hold_button_id.setOnClickListener {
+            mainViewModel.onHoldUnholdPressed(callId)
+        }
+        video_loud_speaker_button_id.setOnClickListener {
+            mainViewModel.onLoudSpeakerPressed()
+        }
+        video_camera_direction_button_id.setOnClickListener {
+            mainViewModel.onCameraDirectionPressed()*
+        } */
+    }
+
+    private fun onByeReceivedViews() {
+        //Stop dialtone in the case of Bye being received as a rejection to the invitation
+       // mainViewModel.stopDialtone()
+        incoming_call_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.GONE
+        video_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.VISIBLE
+
+        call_timer_id.stop()
+    }
+
+    private fun onReceiveCallView(callId: String, callerIdName: String, callerIdNumber: String) {
+        call_control_section_id.visibility = View.GONE
+        incoming_call_section_id.visibility = View.VISIBLE
+
+        answer_call_id.setOnClickListener {
+            onAcceptCall(callId, callerIdNumber)
+        }
+        reject_call_id.setOnClickListener {
+            onRejectCall(callId)
+        }
+
+        setUpOngoingCallButtons(callId)
+    }
+
+    private fun onAcceptCall(callId: String, destinationNumber: String) {
+       // mainViewModel.stopRingtone()
+        mainViewModel.acceptCall(callId, destinationNumber)
+        setUpOngoingCallButtons(callId)
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.VISIBLE
+        //video_call_section_id.visibility = View.VISIBLE
+
+        onTimerStart()
+    }
+
+    private fun onRejectCall(callId: String) {
+        //Reject call and make call control section visible
+        ongoing_call_section_id.visibility = View.GONE
+        incoming_call_section_id.visibility = View.GONE
+        video_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.VISIBLE
+        mainViewModel.endCall(callId)
+        //reset call timer:
+        call_timer_id.stop()
     }
 
     private fun checkPermissions() {
