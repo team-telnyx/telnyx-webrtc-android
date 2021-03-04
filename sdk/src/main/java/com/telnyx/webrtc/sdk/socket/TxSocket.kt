@@ -18,7 +18,6 @@ import timber.log.Timber
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
 class TxSocket(
-    //private val listener: TxSocketListener,
     private val host_address: String,
     private val port: Int
 ) : CoroutineScope {
@@ -36,10 +35,6 @@ class TxSocket(
     }
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
-
-   /* init {
-        connect()
-    } */
 
     fun connect(listener: TelnyxClient) = launch {
         try {
