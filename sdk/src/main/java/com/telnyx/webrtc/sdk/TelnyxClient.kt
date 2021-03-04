@@ -1,9 +1,8 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import android.util.Log
-import android.widget.Toast
-import androidx.lifecycle.LifecycleOwner
+import android.media.AudioManager
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
@@ -13,8 +12,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import org.webrtc.IceCandidate
-import org.webrtc.MediaStream
-import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
@@ -28,12 +25,27 @@ class TelnyxClient(
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
+    private val audioManager = context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+
+    // Ongoing call options
+    // Mute toggle live data
+    private val muteLiveData = MutableLiveData(false)
+
+    // Hold toggle live data
+    private val holdLiveData = MutableLiveData(false)
+
+    // Loud speaker toggle live data
+    private val loudSpeakerLiveData = MutableLiveData(false)
 
     fun connect() {
         socket.connect(this)
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
+
+    fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
+    fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
     fun login(config: TelnyxConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -121,14 +133,67 @@ class TelnyxClient(
                 )
         )
         socket?.send(byeMessageBody)
+        resetCallOptions()
+    }
+
+    fun onMuteUnmutePressed() {
+        if (!muteLiveData.value!!) {
+            muteLiveData.postValue(true)
+            audioManager.isMicrophoneMute = true
+        } else {
+            muteLiveData.postValue(false)
+            audioManager.isMicrophoneMute = false
+        }
+    }
+
+    fun onLoudSpeakerPressed() {
+        if (!loudSpeakerLiveData.value!!) {
+            loudSpeakerLiveData.postValue(true)
+            audioManager.isSpeakerphoneOn = true
+        } else {
+            loudSpeakerLiveData.postValue(false)
+            audioManager.isSpeakerphoneOn = false
+        }
+    }
+
+    fun onHoldUnholdPressed(callId: String) {
+        if (!holdLiveData.value!!) {
+            holdLiveData.postValue(true)
+            sendHoldModifier(callId, "hold")
+        } else {
+            holdLiveData.postValue(false)
+            sendHoldModifier(callId, "unhold")
+        }
+    }
+
+    private fun sendHoldModifier(callId: String, holdAction: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val modifyMessageBody = SendingMessageBody(
+                id = uuid,
+                method = Method.MODIFY.methodName,
+                params = ModifyParams(
+                        sessid = sessionId!!,
+                        action = holdAction,
+                        dialogParams = CallDialogParams(
+                                callId = callId,
+                        )
+                )
+        )
+        socket?.send(modifyMessageBody)
     }
 
     fun disconnect() {
         socket.destroy()
     }
 
-    fun getSessionID(): String? {
+    fun getSessionId(): String? {
         return sessionId
+    }
+
+    private fun resetCallOptions() {
+        holdLiveData.postValue(false)
+        muteLiveData.postValue(false)
+        loudSpeakerLiveData.postValue(false)
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
@@ -154,6 +219,8 @@ class TelnyxClient(
                         )
                 )
         )
+
+        resetCallOptions()
     }
 
     override fun onConnectionEstablished() {

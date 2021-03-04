@@ -28,14 +28,13 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_end="@dimen/spacing_mega" />
 
-    <Button
+    <ImageButton
         android:id="@+id/video_end_call_id"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:background="@drawable/round_button"
         android:gravity="center_vertical|center_horizontal"
-        android:text="@string/end"
-        android:textColor="#fff"
+        android:src="@drawable/ic_call_end_white"
         android:layout_marginTop="@dimen/spacing_medium"
         app:backgroundTint="@color/reject_red"
         app:layout_constraintTop_toBottomOf="@+id/guideline_bottom"
@@ -75,7 +74,7 @@
         android:layout_height="75dp"
         android:backgroundTint="@color/white"
         android:gravity="center_vertical|center_horizontal"
-        android:src="@drawable/ic_mic_off_black"
+        android:src="@drawable/ic_mic_off"
         android:layout_marginTop="@dimen/spacing_medium"
         android:layout_marginStart="@dimen/spacing_medium"
         android:background="@android:color/transparent"
@@ -89,7 +88,7 @@
         android:layout_height="75dp"
         android:layout_marginTop="@dimen/spacing_medium"
         android:backgroundTint="@color/white"
-        android:src="@drawable/ic_hold_black"
+        android:src="@drawable/ic_hold"
         android:gravity="center_vertical|center_horizontal"
         android:background="@android:color/transparent"
         app:layout_constraintTop_toBottomOf="@+id/video_end_call_id"

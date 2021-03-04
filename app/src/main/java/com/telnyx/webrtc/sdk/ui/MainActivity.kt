@@ -42,7 +42,6 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
-
         checkPermissions()
         observeSocketResponses()
         initViews()
@@ -113,7 +112,6 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            //ToDo call should do an invite
             mainViewModel.sendInvite(call_input_id.text.toString())
         }
     }
@@ -165,22 +163,16 @@ class MainActivity : AppCompatActivity() {
 
         //Set Shared Preferences now that user has logged in - storing the session:
         mainViewModel.saveUserData(
-            sip_username_id.text.toString(),
-            password_id.text.toString(),
-            caller_id_name_id.text.toString(),
-            caller_id_number_id.text.toString()
+                sip_username_id.text.toString(),
+                password_id.text.toString(),
+                caller_id_name_id.text.toString(),
+                caller_id_number_id.text.toString()
         )
     }
 
     private fun onAnsweredCallViews(callId: String) {
         //mainViewModel.stopDialtone()
         setUpOngoingCallButtons(callId)
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.VISIBLE
-        //video_call_section_id.visibility = View.VISIBLE
-
-        onTimerStart()
     }
 
     private fun onTimerStart() {
@@ -188,33 +180,64 @@ class MainActivity : AppCompatActivity() {
         call_timer_id.start()
     }
 
-    private fun setUpOngoingCallButtons(callId: String){
+    private fun setUpOngoingCallButtons(callId: String) {
+
+        //Handle views
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.VISIBLE
+
+        //Handle call option observers
+        mainViewModel.getIsMuteStatus()?.observe(this, { value ->
+            if (!value) {
+                mute_button_id.setImageResource(R.drawable.ic_mic_off)
+            }
+            else {
+                mute_button_id.setImageResource(R.drawable.ic_mic)
+            }
+        })
+
+        mainViewModel.getIsOnHoldStatus()?.observe(this, { value ->
+            if (!value) {
+                hold_button_id.setImageResource(R.drawable.ic_hold)
+            }
+            else {
+                hold_button_id.setImageResource(R.drawable.ic_play)
+            }
+        })
+
+        mainViewModel.getIsOnLoudSpeakerStatus()?.observe(this, { value ->
+            if (!value) {
+                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker_off)
+            }
+            else {
+                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker)
+            }
+        })
+
+
+        onTimerStart()
+
         end_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-      /*  video_end_call_id.setOnClickListener {
+        video_end_call_id.setOnClickListener {
             onRejectCall(callId)
         }
         mute_button_id.setOnClickListener {
             mainViewModel.onMuteUnmutePressed()
         }
-        video_mute_button_id.setOnClickListener {
-            mainViewModel.onMuteUnmutePressed()
-        }
-        video_hold_button_id.setOnClickListener {
+        hold_button_id.setOnClickListener {
             mainViewModel.onHoldUnholdPressed(callId)
         }
-        video_loud_speaker_button_id.setOnClickListener {
+        loud_speaker_button_id.setOnClickListener {
             mainViewModel.onLoudSpeakerPressed()
         }
-        video_camera_direction_button_id.setOnClickListener {
-            mainViewModel.onCameraDirectionPressed()*
-        } */
     }
 
     private fun onByeReceivedViews() {
         //Stop dialtone in the case of Bye being received as a rejection to the invitation
-       // mainViewModel.stopDialtone()
+        // mainViewModel.stopDialtone()
         incoming_call_section_id.visibility = View.GONE
         ongoing_call_section_id.visibility = View.GONE
         video_call_section_id.visibility = View.GONE
@@ -233,20 +256,12 @@ class MainActivity : AppCompatActivity() {
         reject_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-
-        setUpOngoingCallButtons(callId)
     }
 
     private fun onAcceptCall(callId: String, destinationNumber: String) {
-       // mainViewModel.stopRingtone()
+        // mainViewModel.stopRingtone()
         mainViewModel.acceptCall(callId, destinationNumber)
         setUpOngoingCallButtons(callId)
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.VISIBLE
-        //video_call_section_id.visibility = View.VISIBLE
-
-        onTimerStart()
     }
 
     private fun onRejectCall(callId: String) {
@@ -262,35 +277,35 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         Dexter.withContext(this)
-            .withPermissions(
-                RECORD_AUDIO,
-                CAMERA,
-                INTERNET,
-            )
-            .withListener(object : MultiplePermissionsListener {
-                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
-                    if (report!!.areAllPermissionsGranted()) {
-                        mainViewModel.initConnection()
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Granted",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else if (report.isAnyPermissionPermanentlyDenied) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Audio and Camera permissions are required to use the App!",
-                            Toast.LENGTH_LONG
-                        ).show()
+                .withPermissions(
+                        RECORD_AUDIO,
+                        CAMERA,
+                        INTERNET,
+                )
+                .withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                        if (report!!.areAllPermissionsGranted()) {
+                            mainViewModel.initConnection(applicationContext)
+                            Toast.makeText(
+                                    this@MainActivity,
+                                    "Granted",
+                                    Toast.LENGTH_LONG
+                            ).show()
+                        } else if (report.isAnyPermissionPermanentlyDenied) {
+                            Toast.makeText(
+                                    this@MainActivity,
+                                    "Audio and Camera permissions are required to use the App!",
+                                    Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
-                }
 
-                override fun onPermissionRationaleShouldBeShown(
-                    permission: MutableList<PermissionRequest>?,
-                    token: PermissionToken?
-                ) {
-                    token?.continuePermissionRequest()
-                }
-            }).check()
+                    override fun onPermissionRationaleShouldBeShown(
+                            permission: MutableList<PermissionRequest>?,
+                            token: PermissionToken?
+                    ) {
+                        token?.continuePermissionRequest()
+                    }
+                }).check()
     }
 }
