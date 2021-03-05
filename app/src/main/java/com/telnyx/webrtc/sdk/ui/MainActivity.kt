@@ -66,6 +66,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun connectToSocketAndObserve() {
+        mainViewModel.initConnection(applicationContext)
+        observeSocketResponses()
+    }
+
     private fun observeSocketResponses() {
         mainViewModel.getSocketResponse()
                 ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
@@ -314,8 +319,7 @@ class MainActivity : AppCompatActivity() {
                 .withListener(object : MultiplePermissionsListener {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                         if (report!!.areAllPermissionsGranted()) {
-                            mainViewModel.initConnection(applicationContext)
-                            observeSocketResponses()
+                            connectToSocketAndObserve()
                         } else if (report.isAnyPermissionPermanentlyDenied) {
                             Toast.makeText(
                                     this@MainActivity,
