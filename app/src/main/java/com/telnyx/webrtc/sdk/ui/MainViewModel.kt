@@ -10,10 +10,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.lang.ref.WeakReference
 import javax.inject.Inject
-
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
