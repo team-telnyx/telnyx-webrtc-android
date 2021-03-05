@@ -44,7 +44,6 @@ class MainActivity : AppCompatActivity() {
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
         checkPermissions()
-        observeSocketResponses()
         initViews()
     }
 
@@ -157,6 +156,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectButtonPressed() {
+        checkPermissions()
+
         val sipUsername = sip_username_id.text.toString()
         val password = password_id.text.toString()
         val sipCallerName = caller_id_name_id.text.toString()
@@ -314,6 +315,7 @@ class MainActivity : AppCompatActivity() {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                         if (report!!.areAllPermissionsGranted()) {
                             mainViewModel.initConnection(applicationContext)
+                            observeSocketResponses()
                         } else if (report.isAnyPermissionPermanentlyDenied) {
                             Toast.makeText(
                                     this@MainActivity,
