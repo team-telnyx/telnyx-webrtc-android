@@ -150,11 +150,6 @@ class MainActivity : AppCompatActivity() {
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
         } else {
-            login_section_id.visibility = View.GONE
-            ongoing_call_section_id.visibility = View.GONE
-            incoming_call_section_id.visibility = View.GONE
-            call_control_section_id.visibility = View.VISIBLE
-
             val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber)
             mainViewModel.doLogin(loginConfig)
         }
