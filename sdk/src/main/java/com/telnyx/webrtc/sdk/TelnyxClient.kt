@@ -183,6 +183,7 @@ class TelnyxClient(
     }
 
     fun disconnect() {
+        peerConnection?.disconnect()
         socket.destroy()
     }
 

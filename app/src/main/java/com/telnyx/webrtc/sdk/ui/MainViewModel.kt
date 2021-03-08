@@ -10,10 +10,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.lang.ref.WeakReference
 import javax.inject.Inject
-
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -26,7 +23,8 @@ class MainViewModel @Inject constructor(
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
                 host_address = "rtc.telnyx.com",
-                port = 14938
+                port = 14938,
+
         )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
@@ -78,5 +76,10 @@ class MainViewModel @Inject constructor(
 
     fun onLoudSpeakerPressed() {
         telnyxClient?.onLoudSpeakerPressed()
+    }
+
+    fun disconnect() {
+        telnyxClient?.disconnect()
+        userManager.isUserLogin = false
     }
 }

@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.lifecycle.ViewModelProvider
@@ -43,13 +44,31 @@ class MainActivity : AppCompatActivity() {
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
         checkPermissions()
-        observeSocketResponses()
         initViews()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.actionbar_menu, menu);
         return true;
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
+        R.id.action_disconnect -> {
+            if (userManager.isUserLogin) {
+                disconnectPressed()
+            } else {
+                Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
+            }
+            true
+        }
+        else -> {
+            super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun connectToSocketAndObserve() {
+        mainViewModel.initConnection(applicationContext)
+        observeSocketResponses()
     }
 
     private fun observeSocketResponses() {
@@ -131,24 +150,34 @@ class MainActivity : AppCompatActivity() {
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
         } else {
-            login_section_id.visibility = View.GONE
-            ongoing_call_section_id.visibility = View.GONE
-            incoming_call_section_id.visibility = View.GONE
-            call_control_section_id.visibility = View.VISIBLE
-
             val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber)
             mainViewModel.doLogin(loginConfig)
         }
     }
 
     private fun connectButtonPressed() {
+        checkPermissions()
+
         val sipUsername = sip_username_id.text.toString()
         val password = password_id.text.toString()
         val sipCallerName = caller_id_name_id.text.toString()
         val sipCallerNumber = caller_id_number_id.text.toString()
 
         val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber)
+
         mainViewModel.doLogin(loginConfig)
+    }
+
+    private fun disconnectPressed() {
+        ongoing_call_section_id.visibility = View.GONE
+        incoming_call_section_id.visibility = View.GONE
+        call_control_section_id.visibility = View.GONE
+        login_section_id.visibility = View.VISIBLE
+
+        socket_text_value.text = getString(R.string.disconnected)
+        session_text_value.text = "-"
+
+        mainViewModel.disconnect()
     }
 
     private fun onConnectionEstablishedViews() {
@@ -285,12 +314,7 @@ class MainActivity : AppCompatActivity() {
                 .withListener(object : MultiplePermissionsListener {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                         if (report!!.areAllPermissionsGranted()) {
-                            mainViewModel.initConnection(applicationContext)
-                            Toast.makeText(
-                                    this@MainActivity,
-                                    "Granted",
-                                    Toast.LENGTH_LONG
-                            ).show()
+                            connectToSocketAndObserve()
                         } else if (report.isAnyPermissionPermanentlyDenied) {
                             Toast.makeText(
                                     this@MainActivity,
