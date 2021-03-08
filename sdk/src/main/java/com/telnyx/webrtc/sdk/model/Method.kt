@@ -5,5 +5,6 @@ enum class Method(var methodName: String) {
     INVITE("telnyx_rtc.invite"),
     BYE("telnyx_rtc.bye"),
     MODIFY("telnyx_rtc.modify"),
+    MEDIA("telnyx_rtc.media"),
     LOGIN("login")
 }

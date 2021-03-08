@@ -27,6 +27,8 @@ class TelnyxClient(
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
     private val audioManager = context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
+    private var earlySDP = false
+
     // Ongoing call options
     // Mute toggle live data
     private val muteLiveData = MutableLiveData(false)
@@ -195,6 +197,7 @@ class TelnyxClient(
         holdLiveData.postValue(false)
         muteLiveData.postValue(false)
         loudSpeakerLiveData.postValue(false)
+        earlySDP = false
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
@@ -284,22 +287,59 @@ class TelnyxClient(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        when {
+            params.has("sdp") -> {
+                val stringSdp = params.get("sdp").asString
+                val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
+
+                peerConnection?.onRemoteSessionReceived(sdp)
+
+                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                socketResponseLiveData.postValue(
+                        SocketResponse.messageReceived(
+                                ReceivedMessageBody(
+                                        Method.ANSWER.methodName,
+                                        AnswerResponse(callId, stringSdp)
+                                )
+                        )
+                )
+            }
+            earlySDP -> {
+                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                val stringSdp = peerConnection?.getLocalDescription()?.description
+                socketResponseLiveData.postValue(
+                        SocketResponse.messageReceived(
+                                ReceivedMessageBody(
+                                        Method.ANSWER.methodName,
+                                        AnswerResponse(callId, stringSdp!!)
+                                )
+                        )
+                )
+            }
+            else -> {
+                //There was no SDP in the response, there was an error.
+                callConnectionResponseLiveData.postValue(Connection.ERROR)
+            }
+        }
+    }
+
+    override fun onMediaReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onMediaReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+
+        /* In case of remote user answer the invite
+          local user haas to set remote data in order to have information of both peers of a call
+          */
+        //set remote description
+        val params = jsonObject.getAsJsonObject("params")
         if (params.has("sdp")) {
             val stringSdp = params.get("sdp").asString
-            val callId = params.get("callID").asString
             val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
 
             peerConnection?.onRemoteSessionReceived(sdp)
 
-            callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
-            socketResponseLiveData.postValue(
-                    SocketResponse.messageReceived(
-                            ReceivedMessageBody(
-                                    Method.ANSWER.methodName,
-                                    AnswerResponse(callId, stringSdp)
-                            )
-                    )
-            )
+            //Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
+            earlySDP = true
         }
         else {
             //There was no SDP in the response, there was an error.

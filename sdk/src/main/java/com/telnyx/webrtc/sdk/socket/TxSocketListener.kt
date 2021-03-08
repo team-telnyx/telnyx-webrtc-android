@@ -9,5 +9,6 @@ interface TxSocketListener {
     fun onConnectionEstablished()
     fun onOfferReceived(jsonObject: JsonObject)
     fun onAnswerReceived(jsonObject: JsonObject)
+    fun onMediaReceived(jsonObject: JsonObject)
     fun onIceCandidateReceived(iceCandidate: IceCandidate)
 }
