@@ -82,6 +82,7 @@
         android:id="@+id/login_section_id"
         layout="@layout/include_login_section"
         android:layout_width="0dp"
+        android:visibility="invisible"
         android:layout_height="wrap_content"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
