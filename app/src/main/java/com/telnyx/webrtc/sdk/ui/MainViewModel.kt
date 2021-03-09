@@ -50,8 +50,12 @@ class MainViewModel @Inject constructor(
     fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnLoudSpeakerStatus()
 
-    fun doLogin(loginConfig: TelnyxConfig) {
-        telnyxClient?.login(loginConfig)
+    fun doLoginWithCredentials(loginConfig: TelnyxConfig) {
+        telnyxClient?.credentialLogin(loginConfig)
+    }
+
+    fun doLoginWithToken(token: String, sipCallerName: String, sipCallerNumber: String) {
+        telnyxClient?.tokenLogin(token, sipCallerName, sipCallerNumber)
     }
 
     fun sendInvite(destinationNumber: String) {

@@ -25,5 +25,9 @@
     <string name="message_subscribed">Subscribed to topic</string>
     <string name="connected">Connected</string>
     <string name="disconnect">Disconnect</string>
+    <string name="login_token">Login Token</string>
+    <string name="token_login">Token login</string>
+    <string name="off">Off</string>
+    <string name="on">On</string>
 
 </resources>

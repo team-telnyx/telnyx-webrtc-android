@@ -23,6 +23,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
 import kotlinx.android.synthetic.main.include_incoming_call_section.*
+import kotlinx.android.synthetic.main.include_login_credential_section.*
+import kotlinx.android.synthetic.main.include_login_token_section.*
 import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import kotlinx.android.synthetic.main.video_call_fragment.*
 import timber.log.Timber
@@ -145,27 +147,47 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUserLoginState() {
         if (!userManager.isUserLogin) {
+            //ToDo remember not to store credentials if we login via token
             login_section_id.visibility = View.VISIBLE
             ongoing_call_section_id.visibility = View.GONE
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
+
+            token_login_switch.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    login_credential_id.visibility = View.GONE
+                    login_token_id.visibility = View.VISIBLE
+                } else {
+                    login_credential_id.visibility = View.VISIBLE
+                    login_token_id.visibility = View.GONE
+                }
+            }
+
         } else {
             val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber)
-            mainViewModel.doLogin(loginConfig)
+            mainViewModel.doLoginWithCredentials(loginConfig)
         }
     }
 
     private fun connectButtonPressed() {
         checkPermissions()
 
-        val sipUsername = sip_username_id.text.toString()
-        val password = password_id.text.toString()
-        val sipCallerName = caller_id_name_id.text.toString()
-        val sipCallerNumber = caller_id_number_id.text.toString()
+        if (token_login_switch.isChecked) {
+            val sipToken = sip_token_id.text.toString()
+            val sipCallerName = token_caller_id_name_id.text.toString()
+            val sipCallerNumber = token_caller_id_number_id.text.toString()
 
-        val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber)
+            mainViewModel.doLoginWithToken(sipToken, sipCallerName, sipCallerNumber)
 
-        mainViewModel.doLogin(loginConfig)
+        } else {
+            val sipUsername = sip_username_id.text.toString()
+            val password = password_id.text.toString()
+            val sipCallerName = caller_id_name_id.text.toString()
+            val sipCallerNumber = caller_id_number_id.text.toString()
+
+            val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber)
+            mainViewModel.doLoginWithCredentials(loginConfig)
+        }
     }
 
     private fun disconnectPressed() {
@@ -190,13 +212,16 @@ class MainActivity : AppCompatActivity() {
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
-        //Set Shared Preferences now that user has logged in - storing the session:
-        mainViewModel.saveUserData(
+        //Dont store login details if logged in via a token
+        if (!token_login_switch.isChecked) {
+            //Set Shared Preferences now that user has logged in - storing the session:
+            mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
                 password_id.text.toString(),
                 caller_id_name_id.text.toString(),
                 caller_id_number_id.text.toString()
-        )
+            )
+        }
     }
 
     private fun onAnsweredCallViews(callId: String) {
