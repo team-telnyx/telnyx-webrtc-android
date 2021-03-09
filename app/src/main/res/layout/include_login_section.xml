@@ -6,35 +6,31 @@
     android:paddingLeft="16dp"
     android:paddingRight="16dp">
 
-    <EditText
-        android:id="@+id/sip_username_id"
-        android:layout_width="match_parent"
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/token_login_switch"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:hint="@string/sip_username"
-        android:singleLine="true"/>
+        android:text="@string/token_login"
+        android:checked="false"
+        android:textOff="@string/off"
+        android:textOn="@string/on"
+        />
 
-    <EditText
-        android:id="@+id/password_id"
+    <include
+        android:id="@+id/login_credential_id"
+        layout="@layout/include_login_credential_section"
+        android:visibility="visible"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/password"
-        android:inputType="textPassword"
-        android:singleLine="true"/>
+      />
 
-    <EditText
-        android:id="@+id/caller_id_name_id"
+    <include
+        android:id="@+id/login_token_id"
+        layout="@layout/include_login_token_section"
+        android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/caller_id_name"
-        android:singleLine="true"/>
-
-    <EditText
-        android:id="@+id/caller_id_number_id"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/caller_id_number"
-        android:inputType="phone"
-        android:singleLine="true"/>
+        />
 
     <Button
         android:id="@+id/connect_button_id"
