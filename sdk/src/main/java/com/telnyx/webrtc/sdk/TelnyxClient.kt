@@ -61,8 +61,12 @@ class TelnyxClient(
         val user = config.sipUser
         val password = config.sipPassword
 
-        if (config.ringtone != null) {rawRingtone = config.ringtone}
-        if (config.ringBackTone != null) {rawRingBackTone = config.ringBackTone}
+        if (config.ringtone != null) {
+            rawRingtone = config.ringtone
+        }
+        if (config.ringBackTone != null) {
+            rawRingBackTone = config.ringBackTone
+        }
 
         val loginMessage = SendingMessageBody(
                 id = uuid,
@@ -220,28 +224,29 @@ class TelnyxClient(
 
 
     private fun playRingtone() {
-        if (rawRingtone != null) {
-            mediaPlayer = MediaPlayer.create(context, rawRingtone!!)
+        rawRingtone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             mediaPlayer.isLooping = true
             mediaPlayer.start()
-        } else {
+        } ?: run {
             Timber.d("No ringtone specified :: No ringtone will be played")
         }
     }
 
     private fun playRingBackTone() {
-        if (rawRingBackTone != null) {
-            mediaPlayer = MediaPlayer.create(context, rawRingBackTone!!)
+        rawRingBackTone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             mediaPlayer.isLooping = true
             mediaPlayer.start()
-        } else {
-            Timber.d("No ringBackTone specified :: No ringBackTone will be played")
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
         }
     }
 
     private fun stopMediaPlayer() {
-        if(mediaPlayer.isPlaying) {
+        if (mediaPlayer.isPlaying) {
             mediaPlayer.stop()
             mediaPlayer.release()
             Timber.d("ringtone/ringback media player stopped and released")
