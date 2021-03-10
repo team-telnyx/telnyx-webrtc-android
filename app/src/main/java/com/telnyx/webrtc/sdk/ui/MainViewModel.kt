@@ -14,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-        private val userManager: UserManager
+    private val userManager: UserManager
 ) : ViewModel() {
 
     private var socketConnection: TxSocket? = null
@@ -22,19 +22,19 @@ class MainViewModel @Inject constructor(
 
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
-                host_address = "rtc.telnyx.com",
-                port = 14938,
+            host_address = "rtc.telnyx.com",
+            port = 14938,
 
-        )
+            )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
     }
 
     fun saveUserData(
-            userName: String,
-            password: String,
-            callerIdName: String,
-            callerIdNumber: String
+        userName: String,
+        password: String,
+        callerIdName: String,
+        callerIdNumber: String
     ) {
         if (!userManager.isUserLogin) {
             userManager.isUserLogin = true
@@ -45,7 +45,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? = telnyxClient?.getSocketResponse()
+    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
+        telnyxClient?.getSocketResponse()
+
     fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.getIsMuteStatus()
     fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnLoudSpeakerStatus()
