@@ -89,7 +89,6 @@ class MainActivity : AppCompatActivity() {
                             }
 
                             Method.INVITE.methodName -> {
-                                //mainViewModel.playRingtone()
                                 val inviteResponse = data.result as InviteResponse
                                 onReceiveCallView(
                                         inviteResponse.callId,
@@ -229,7 +228,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAnsweredCallViews(callId: String) {
-        //mainViewModel.stopDialtone()
         setUpOngoingCallButtons(callId)
     }
 
@@ -294,8 +292,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onByeReceivedViews() {
-        //Stop dialtone in the case of Bye being received as a rejection to the invitation
-        // mainViewModel.stopDialtone()
         incoming_call_section_id.visibility = View.GONE
         ongoing_call_section_id.visibility = View.GONE
         video_call_section_id.visibility = View.GONE
@@ -317,7 +313,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAcceptCall(callId: String, destinationNumber: String) {
-        // mainViewModel.stopRingtone()
         mainViewModel.acceptCall(callId, destinationNumber)
         setUpOngoingCallButtons(callId)
     }
