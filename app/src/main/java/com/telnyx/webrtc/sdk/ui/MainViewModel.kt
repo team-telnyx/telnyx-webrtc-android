@@ -3,8 +3,10 @@ package com.telnyx.webrtc.sdk.ui
 import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.TelnyxConfig
+import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
@@ -14,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-        private val userManager: UserManager
+    private val userManager: UserManager
 ) : ViewModel() {
 
     private var socketConnection: TxSocket? = null
@@ -22,19 +24,19 @@ class MainViewModel @Inject constructor(
 
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
-                host_address = "rtc.telnyx.com",
-                port = 14938,
+            host_address = "rtc.telnyx.com",
+            port = 14938,
 
-        )
+            )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
     }
 
     fun saveUserData(
-            userName: String,
-            password: String,
-            callerIdName: String,
-            callerIdNumber: String
+        userName: String,
+        password: String,
+        callerIdName: String,
+        callerIdNumber: String
     ) {
         if (!userManager.isUserLogin) {
             userManager.isUserLogin = true
@@ -45,17 +47,19 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? = telnyxClient?.getSocketResponse()
+    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
+        telnyxClient?.getSocketResponse()
+
     fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.getIsMuteStatus()
     fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnLoudSpeakerStatus()
 
-    fun doLoginWithCredentials(loginConfig: TelnyxConfig) {
-        telnyxClient?.credentialLogin(loginConfig)
+    fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
+        telnyxClient?.credentialLogin(credentialConfig)
     }
 
-    fun doLoginWithToken(token: String, sipCallerName: String, sipCallerNumber: String) {
-        telnyxClient?.tokenLogin(token, sipCallerName, sipCallerNumber)
+    fun doLoginWithToken(tokenConfig: TokenConfig) {
+        telnyxClient?.tokenLogin(tokenConfig)
     }
 
     fun sendInvite(destinationNumber: String) {

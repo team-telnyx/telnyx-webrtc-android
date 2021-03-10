@@ -75,53 +75,52 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeSocketResponses() {
         mainViewModel.getSocketResponse()
-                ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
-                    override fun onConnectionEstablished() {
-                        onConnectionEstablishedViews()
-                    }
+            ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
+                override fun onConnectionEstablished() {
+                    onConnectionEstablishedViews()
+                }
 
-                    override fun onMessageReceived(data: ReceivedMessageBody?) {
-                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
-                        when (data?.method) {
-                            Method.LOGIN.methodName -> {
-                                val sessionId = (data.result as LoginResponse).sessid
-                                onLoginSuccessfullyViews(sessionId)
-                            }
+                override fun onMessageReceived(data: ReceivedMessageBody?) {
+                    Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                    when (data?.method) {
+                        Method.LOGIN.methodName -> {
+                            val sessionId = (data.result as LoginResponse).sessid
+                            onLoginSuccessfullyViews(sessionId)
+                        }
 
-                            Method.INVITE.methodName -> {
-                                //mainViewModel.playRingtone()
-                                val inviteResponse = data.result as InviteResponse
-                                onReceiveCallView(
-                                        inviteResponse.callId,
-                                        inviteResponse.callerIdName,
-                                        inviteResponse.callerIdNumber
-                                )
-                            }
+                        Method.INVITE.methodName -> {
+                            val inviteResponse = data.result as InviteResponse
+                            onReceiveCallView(
+                                inviteResponse.callId,
+                                inviteResponse.callerIdName,
+                                inviteResponse.callerIdNumber
+                            )
+                        }
 
-                            Method.ANSWER.methodName -> {
-                                val callId = (data.result as AnswerResponse).callId
-                                onAnsweredCallViews(callId)
-                            }
+                        Method.ANSWER.methodName -> {
+                            val callId = (data.result as AnswerResponse).callId
+                            onAnsweredCallViews(callId)
+                        }
 
-                            Method.BYE.methodName -> {
-                                onByeReceivedViews()
-                            }
+                        Method.BYE.methodName -> {
+                            onByeReceivedViews()
                         }
                     }
+                }
 
-                    override fun onLoading() {
-                        //todo: Show loading in case problem for connecting
-                    }
+                override fun onLoading() {
+                    //todo: Show loading in case problem for connecting
+                }
 
-                    override fun onError(message: String?) {
-                        Toast.makeText(
-                                this@MainActivity,
-                                message ?: "Socket Connection Error",
-                                Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                override fun onError(message: String?) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        message ?: "Socket Connection Error",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
 
-                })
+            })
     }
 
 
@@ -147,7 +146,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUserLoginState() {
         if (!userManager.isUserLogin) {
-            //ToDo remember not to store credentials if we login via token
             login_section_id.visibility = View.VISIBLE
             ongoing_call_section_id.visibility = View.GONE
             incoming_call_section_id.visibility = View.GONE
@@ -164,7 +162,14 @@ class MainActivity : AppCompatActivity() {
             }
 
         } else {
-            val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber)
+            val loginConfig = CredentialConfig(
+                userManager.sipUsername,
+                userManager.sipPass,
+                userManager.callerIdNumber,
+                userManager.callerIdNumber,
+                R.raw.incoming_call,
+                R.raw.ringback_tone
+            )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
     }
@@ -172,12 +177,24 @@ class MainActivity : AppCompatActivity() {
     private fun connectButtonPressed() {
         checkPermissions()
 
+        //path to ringtone and ringBackTone
+        val ringtone = R.raw.incoming_call
+        val ringBackTone = R.raw.ringback_tone
+
         if (token_login_switch.isChecked) {
             val sipToken = sip_token_id.text.toString()
             val sipCallerName = token_caller_id_name_id.text.toString()
             val sipCallerNumber = token_caller_id_number_id.text.toString()
 
-            mainViewModel.doLoginWithToken(sipToken, sipCallerName, sipCallerNumber)
+            val loginConfig = TokenConfig(
+                sipToken,
+                sipCallerName,
+                sipCallerNumber,
+                ringtone,
+                ringBackTone
+            )
+
+            mainViewModel.doLoginWithToken(loginConfig)
 
         } else {
             val sipUsername = sip_username_id.text.toString()
@@ -185,7 +202,14 @@ class MainActivity : AppCompatActivity() {
             val sipCallerName = caller_id_name_id.text.toString()
             val sipCallerNumber = caller_id_number_id.text.toString()
 
-            val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber)
+            val loginConfig = CredentialConfig(
+                sipUsername,
+                password,
+                sipCallerName,
+                sipCallerNumber,
+                ringtone,
+                ringBackTone
+            )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
     }
@@ -225,7 +249,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAnsweredCallViews(callId: String) {
-        //mainViewModel.stopDialtone()
         setUpOngoingCallButtons(callId)
     }
 
@@ -245,8 +268,7 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.getIsMuteStatus()?.observe(this, { value ->
             if (!value) {
                 mute_button_id.setImageResource(R.drawable.ic_mic_off)
-            }
-            else {
+            } else {
                 mute_button_id.setImageResource(R.drawable.ic_mic)
             }
         })
@@ -254,8 +276,7 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.getIsOnHoldStatus()?.observe(this, { value ->
             if (!value) {
                 hold_button_id.setImageResource(R.drawable.ic_hold)
-            }
-            else {
+            } else {
                 hold_button_id.setImageResource(R.drawable.ic_play)
             }
         })
@@ -263,12 +284,10 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.getIsOnLoudSpeakerStatus()?.observe(this, { value ->
             if (!value) {
                 loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker_off)
-            }
-            else {
+            } else {
                 loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker)
             }
         })
-
 
         onTimerStart()
 
@@ -290,8 +309,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onByeReceivedViews() {
-        //Stop dialtone in the case of Bye being received as a rejection to the invitation
-        // mainViewModel.stopDialtone()
         incoming_call_section_id.visibility = View.GONE
         ongoing_call_section_id.visibility = View.GONE
         video_call_section_id.visibility = View.GONE
@@ -313,7 +330,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAcceptCall(callId: String, destinationNumber: String) {
-        // mainViewModel.stopRingtone()
         mainViewModel.acceptCall(callId, destinationNumber)
         setUpOngoingCallButtons(callId)
     }
@@ -331,30 +347,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         Dexter.withContext(this)
-                .withPermissions(
-                        RECORD_AUDIO,
-                        CAMERA,
-                        INTERNET,
-                )
-                .withListener(object : MultiplePermissionsListener {
-                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
-                        if (report!!.areAllPermissionsGranted()) {
-                            connectToSocketAndObserve()
-                        } else if (report.isAnyPermissionPermanentlyDenied) {
-                            Toast.makeText(
-                                    this@MainActivity,
-                                    "Audio and Camera permissions are required to use the App!",
-                                    Toast.LENGTH_LONG
-                            ).show()
-                        }
+            .withPermissions(
+                RECORD_AUDIO,
+                CAMERA,
+                INTERNET,
+            )
+            .withListener(object : MultiplePermissionsListener {
+                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                    if (report!!.areAllPermissionsGranted()) {
+                        connectToSocketAndObserve()
+                    } else if (report.isAnyPermissionPermanentlyDenied) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Audio and Camera permissions are required to use the App!",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
+                }
 
-                    override fun onPermissionRationaleShouldBeShown(
-                            permission: MutableList<PermissionRequest>?,
-                            token: PermissionToken?
-                    ) {
-                        token?.continuePermissionRequest()
-                    }
-                }).check()
+                override fun onPermissionRationaleShouldBeShown(
+                    permission: MutableList<PermissionRequest>?,
+                    token: PermissionToken?
+                ) {
+                    token?.continuePermissionRequest()
+                }
+            }).check()
     }
 }

@@ -2,6 +2,8 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -27,6 +29,11 @@ class TelnyxClient(
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
     private val audioManager = context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
+    //MediaPlayer for ringtone / ringbacktone
+    private var mediaPlayer = MediaPlayer()
+    private var rawRingtone: Int? = null
+    private var rawRingBackTone: Int? = null
+
     private var earlySDP = false
 
     // Ongoing call options
@@ -49,42 +56,51 @@ class TelnyxClient(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    fun credentialLogin(config: TelnyxConfig) {
+    fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+
+        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingBackTone = it
+        }
 
         val loginMessage = SendingMessageBody(
                 id = uuid,
                 method = Method.LOGIN.methodName,
                 params = LoginParam(
-                    login_token = null,
-                    login = user,
-                    passwd = password,
-                    userVariables = arrayListOf(),
-                    loginParams = arrayListOf())
+                        login_token = null,
+                        login = user,
+                        passwd = password,
+                        userVariables = arrayListOf(),
+                        loginParams = arrayListOf())
         )
 
         socket.send(loginMessage)
     }
 
-    fun tokenLogin(token: String, sipCallerName: String?, sipCallerNumber: String?) {
+    fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
+        val token = config.sipToken
 
         val loginMessage = SendingMessageBody(
-            id = uuid,
-            method = Method.LOGIN.methodName,
-            params = LoginParam(
-                login_token = token,
-                login = null,
-                passwd = null,
-                userVariables = arrayListOf(),
-                loginParams = arrayListOf())
+                id = uuid,
+                method = Method.LOGIN.methodName,
+                params = LoginParam(
+                        login_token = token,
+                        login = null,
+                        passwd = null,
+                        userVariables = arrayListOf(),
+                        loginParams = arrayListOf())
         )
         socket.send(loginMessage)
     }
 
     fun newInvite(destinationNumber: String) {
+        playRingBackTone()
         val uuid: String = UUID.randomUUID().toString()
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
@@ -140,6 +156,7 @@ class TelnyxClient(
                 )
         )
         socket?.send(answerBodyMessage)
+        stopMediaPlayer()
     }
 
     fun endCall(callId: String) {
@@ -157,6 +174,7 @@ class TelnyxClient(
         )
         socket?.send(byeMessageBody)
         resetCallOptions()
+        stopMediaPlayer()
     }
 
     fun onMuteUnmutePressed() {
@@ -205,6 +223,37 @@ class TelnyxClient(
         socket?.send(modifyMessageBody)
     }
 
+
+    private fun playRingtone() {
+        rawRingtone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            mediaPlayer.isLooping = true
+            mediaPlayer.start()
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
+        }
+    }
+
+    private fun playRingBackTone() {
+        rawRingBackTone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            mediaPlayer.isLooping = true
+            mediaPlayer.start()
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
+        }
+    }
+
+    private fun stopMediaPlayer() {
+        if (mediaPlayer.isPlaying) {
+            mediaPlayer.stop()
+            mediaPlayer.release()
+            Timber.d("ringtone/ringback media player stopped and released")
+        }
+    }
+
     fun disconnect() {
         peerConnection?.disconnect()
         socket.destroy()
@@ -246,6 +295,7 @@ class TelnyxClient(
         )
 
         resetCallOptions()
+        stopMediaPlayer()
     }
 
     override fun onConnectionEstablished() {
@@ -255,6 +305,7 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        playRingtone()
 
         /* In case of receiving an invite
           local user should create an answer with both local and remote information :
@@ -343,6 +394,7 @@ class TelnyxClient(
                 callConnectionResponseLiveData.postValue(Connection.ERROR)
             }
         }
+        stopMediaPlayer()
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
@@ -361,8 +413,7 @@ class TelnyxClient(
 
             //Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
             earlySDP = true
-        }
-        else {
+        } else {
             //There was no SDP in the response, there was an error.
             callConnectionResponseLiveData.postValue(Connection.ERROR)
         }
