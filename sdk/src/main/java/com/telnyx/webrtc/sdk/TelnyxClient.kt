@@ -61,11 +61,11 @@ class TelnyxClient(
         val user = config.sipUser
         val password = config.sipPassword
 
-        if (config.ringtone != null) {
-            rawRingtone = config.ringtone
+        config.ringtone?.let {
+            rawRingtone = it
         }
-        if (config.ringBackTone != null) {
-            rawRingBackTone = config.ringBackTone
+        config.ringBackTone?.let {
+            rawRingBackTone = it
         }
 
         val loginMessage = SendingMessageBody(
