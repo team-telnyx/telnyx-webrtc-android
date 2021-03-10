@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
             }
 
         } else {
-            val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber)
+            val loginConfig = TelnyxConfig(userManager.sipUsername, userManager.sipPass, userManager.callerIdNumber, userManager.callerIdNumber, null, null)
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
     }
@@ -185,7 +185,11 @@ class MainActivity : AppCompatActivity() {
             val sipCallerName = caller_id_name_id.text.toString()
             val sipCallerNumber = caller_id_number_id.text.toString()
 
-            val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber)
+            //path to ringtone and ringBackTone
+            val ringtone = R.raw.incoming_call
+            val ringBackTone = R.raw.ringback_tone
+
+            val loginConfig = TelnyxConfig(sipUsername, password, sipCallerName, sipCallerNumber, ringtone, ringBackTone)
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
     }
