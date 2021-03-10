@@ -56,7 +56,7 @@ class TelnyxClient(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    fun credentialLogin(config: TelnyxConfig) {
+    fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
@@ -82,8 +82,9 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    fun tokenLogin(token: String, sipCallerName: String?, sipCallerNumber: String?) {
+    fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
+        val token = config.sipToken
 
         val loginMessage = SendingMessageBody(
                 id = uuid,

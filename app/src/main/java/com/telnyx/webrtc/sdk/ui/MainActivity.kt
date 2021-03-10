@@ -146,7 +146,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleUserLoginState() {
         if (!userManager.isUserLogin) {
-            //ToDo remember not to store credentials if we login via token
             login_section_id.visibility = View.VISIBLE
             ongoing_call_section_id.visibility = View.GONE
             incoming_call_section_id.visibility = View.GONE
@@ -163,13 +162,13 @@ class MainActivity : AppCompatActivity() {
             }
 
         } else {
-            val loginConfig = TelnyxConfig(
+            val loginConfig = CredentialConfig(
                 userManager.sipUsername,
                 userManager.sipPass,
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
-                null,
-                null
+                R.raw.incoming_call,
+                R.raw.ringback_tone
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
@@ -178,12 +177,24 @@ class MainActivity : AppCompatActivity() {
     private fun connectButtonPressed() {
         checkPermissions()
 
+        //path to ringtone and ringBackTone
+        val ringtone = R.raw.incoming_call
+        val ringBackTone = R.raw.ringback_tone
+
         if (token_login_switch.isChecked) {
             val sipToken = sip_token_id.text.toString()
             val sipCallerName = token_caller_id_name_id.text.toString()
             val sipCallerNumber = token_caller_id_number_id.text.toString()
 
-            mainViewModel.doLoginWithToken(sipToken, sipCallerName, sipCallerNumber)
+            val loginConfig = TokenConfig(
+                sipToken,
+                sipCallerName,
+                sipCallerNumber,
+                ringtone,
+                ringBackTone
+            )
+
+            mainViewModel.doLoginWithToken(loginConfig)
 
         } else {
             val sipUsername = sip_username_id.text.toString()
@@ -191,11 +202,7 @@ class MainActivity : AppCompatActivity() {
             val sipCallerName = caller_id_name_id.text.toString()
             val sipCallerNumber = caller_id_number_id.text.toString()
 
-            //path to ringtone and ringBackTone
-            val ringtone = R.raw.incoming_call
-            val ringBackTone = R.raw.ringback_tone
-
-            val loginConfig = TelnyxConfig(
+            val loginConfig = CredentialConfig(
                 sipUsername,
                 password,
                 sipCallerName,
