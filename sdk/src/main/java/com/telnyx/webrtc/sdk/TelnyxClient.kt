@@ -46,7 +46,19 @@ class TelnyxClient(
     // Loud speaker toggle live data
     private val loudSpeakerLiveData = MutableLiveData(false)
 
+    //ToDo UTILITY CLASS!!!!!!!!!
+   /* fun isNetwork(): Boolean{
+        val connectivityManager = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val networkInfo = connectivityManager.activeNetworkInfo
+        // In here we return true if network is not null and Network is connected
+        return if(networkInfo != null && networkInfo.isConnected){
+            true
+        }
+
+    } */
+
     fun connect() {
+        //ToDo network check
         socket.connect(this)
     }
 
