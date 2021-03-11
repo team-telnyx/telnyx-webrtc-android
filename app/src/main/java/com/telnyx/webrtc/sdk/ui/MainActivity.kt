@@ -117,6 +117,9 @@ class MainActivity : AppCompatActivity() {
                         message ?: "Socket Connection Error",
                         Toast.LENGTH_SHORT
                     ).show()
+
+                    //logout - so that the user has to relog and force a connection
+                    disconnectPressed()
                 }
 
             })

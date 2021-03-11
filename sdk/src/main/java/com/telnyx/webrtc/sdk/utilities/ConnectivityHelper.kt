@@ -41,10 +41,6 @@ object ConnectivityHelper {
      */
     fun registerNetworkStatusCallback(context: Context, callback: NetworkCallback) {
         try {
-            // If there ais no Wi-Fi or mobile data presented when callback is registered
-            // none of NetworkCallback methods are called
-            callback.onNetworkUnavailable()
-
             val request = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
