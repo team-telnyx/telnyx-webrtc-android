@@ -11,6 +11,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import org.webrtc.IceCandidate
@@ -29,6 +30,18 @@ class TelnyxClient(
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
     private val audioManager = context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
+    private var isNetworkCallbackRegistered = false
+    private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
+        override fun onNetworkAvailable() {
+            //Reconnect.
+            connect()
+        }
+
+        override fun onNetworkUnavailable() {
+            // NOOP
+        }
+    }
+
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer = MediaPlayer()
     private var rawRingtone: Int? = null
@@ -46,20 +59,28 @@ class TelnyxClient(
     // Loud speaker toggle live data
     private val loudSpeakerLiveData = MutableLiveData(false)
 
-    //ToDo UTILITY CLASS!!!!!!!!!
-   /* fun isNetwork(): Boolean{
-        val connectivityManager = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkInfo = connectivityManager.activeNetworkInfo
-        // In here we return true if network is not null and Network is connected
-        return if(networkInfo != null && networkInfo.isConnected){
-            true
-        }
-
-    } */
-
     fun connect() {
         //ToDo network check
-        socket.connect(this)
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            registerNetworkCallback()
+                socket.connect(this)
+            }
+    }
+
+    private fun registerNetworkCallback() {
+        context.let {
+            ConnectivityHelper.registerNetworkStatusCallback(it, networkCallback)
+            isNetworkCallbackRegistered = true
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        if (isNetworkCallbackRegistered) {
+            context.let {
+                ConnectivityHelper.unregisterNetworkStatusCallback(it, networkCallback)
+                isNetworkCallbackRegistered = false
+            }
+        }
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
@@ -268,6 +289,7 @@ class TelnyxClient(
 
     fun disconnect() {
         peerConnection?.disconnect()
+        unregisterNetworkCallback()
         socket.destroy()
     }
 
