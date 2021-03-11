@@ -26,7 +26,6 @@ import kotlinx.android.synthetic.main.include_incoming_call_section.*
 import kotlinx.android.synthetic.main.include_login_credential_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import kotlinx.android.synthetic.main.include_ongoing_call_section.*
-import kotlinx.android.synthetic.main.video_call_fragment.*
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -294,9 +293,6 @@ class MainActivity : AppCompatActivity() {
         end_call_id.setOnClickListener {
             onRejectCall(callId)
         }
-        video_end_call_id.setOnClickListener {
-            onRejectCall(callId)
-        }
         mute_button_id.setOnClickListener {
             mainViewModel.onMuteUnmutePressed()
         }
@@ -311,7 +307,6 @@ class MainActivity : AppCompatActivity() {
     private fun onByeReceivedViews() {
         incoming_call_section_id.visibility = View.GONE
         ongoing_call_section_id.visibility = View.GONE
-        video_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
         call_timer_id.stop()
@@ -338,7 +333,6 @@ class MainActivity : AppCompatActivity() {
         //Reject call and make call control section visible
         ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
-        video_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
         mainViewModel.endCall(callId)
         //reset call timer:
@@ -349,7 +343,6 @@ class MainActivity : AppCompatActivity() {
         Dexter.withContext(this)
             .withPermissions(
                 RECORD_AUDIO,
-                CAMERA,
                 INTERNET,
             )
             .withListener(object : MultiplePermissionsListener {
@@ -359,7 +352,7 @@ class MainActivity : AppCompatActivity() {
                     } else if (report.isAnyPermissionPermanentlyDenied) {
                         Toast.makeText(
                             this@MainActivity,
-                            "Audio and Camera permissions are required to use the App!",
+                            "Audio permissions are required to continue",
                             Toast.LENGTH_LONG
                         ).show()
                     }
