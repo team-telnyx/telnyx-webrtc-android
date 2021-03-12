@@ -343,7 +343,6 @@ class TelnyxClient(
         )
 
         resetCallOptions()
-        stopMediaPlayer()
     }
 
     override fun onConnectionEstablished() {
