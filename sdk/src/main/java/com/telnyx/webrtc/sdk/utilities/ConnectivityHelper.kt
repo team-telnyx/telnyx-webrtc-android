@@ -5,11 +5,12 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import timber.log.Timber
+
 /**
  * Helper for connectivity statuses.
  */
 object ConnectivityHelper {
-    private val TAG: String? = ConnectivityHelper::class.simpleName
 
     /**
      * Unregister network state change callback.
@@ -25,7 +26,7 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.unregisterNetworkCallback(callback)
         } catch (e: Exception) {
-           //ToDo catch properly
+            Timber.e(e,"unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
         }
     }
 
@@ -49,7 +50,7 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.registerNetworkCallback(request, callback)
         } catch (e: Exception) {
-            //ToDo catch properly
+            Timber.e(e,"registerNetworkStatusCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
         }
     }
 
