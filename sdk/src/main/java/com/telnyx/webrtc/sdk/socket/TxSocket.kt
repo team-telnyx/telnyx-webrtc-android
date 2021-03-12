@@ -91,7 +91,7 @@ class TxSocket(
                         }
                     }
                 } catch (exception: Throwable) {
-                    Timber.e(exception)
+                    Timber.d("Disconnected :: $exception")
                 }
             }
         } catch (cause: Throwable) {
