@@ -12,125 +12,115 @@
         android:layout_height="?attr/actionBarSize"
         android:background="?attr/colorPrimary"
         android:elevation="4dp"
+        app:layout_constraintEnd_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:menu="@menu/actionbar_menu"
         app:popupTheme="@style/MyDarkToolbarStyle"
         app:title="WebRTC Demo"
-        app:menu="@menu/actionbar_menu"
-        app:titleTextColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toStartOf="parent"
-        app:layout_constraintStart_toEndOf="parent"/>
+        app:titleTextColor="@color/white" />
 
     <ImageView
         android:id="@+id/telnyx_image_id"
         android:layout_width="188dp"
         android:layout_height="36dp"
-        android:src="@drawable/ic_telnyx_logo"
         android:layout_marginTop="@dimen/spacing_large"
-        app:layout_constraintTop_toBottomOf="@+id/toolbar_id"
+        android:src="@drawable/ic_telnyx_logo"
         app:layout_constraintEnd_toStartOf="@id/guideline_end"
-        app:layout_constraintStart_toEndOf="@id/guideline_start" />
+        app:layout_constraintStart_toEndOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar_id" />
 
-        <TextView
-            android:id="@+id/socket_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/socket"
-            android:textColor="@color/black"
-            android:textSize="@dimen/font_large"
-            android:paddingTop="@dimen/spacing_medium"
-            app:layout_constraintStart_toStartOf="@id/guideline_start"
-            app:layout_constraintTop_toBottomOf="@id/telnyx_image_id"/>
+    <TextView
+        android:id="@+id/socket_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/spacing_medium"
+        android:text="@string/socket"
+        android:textColor="@color/black"
+        android:textSize="@dimen/font_large"
+        app:layout_constraintStart_toStartOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@id/telnyx_image_id" />
 
-        <TextView
-            android:id="@+id/session_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/session_id"
-            android:textColor="@color/black"
-            android:textSize="@dimen/font_large"
-            android:paddingTop="@dimen/spacing_medium"
-            app:layout_constraintStart_toStartOf="@id/guideline_start"
-            app:layout_constraintTop_toBottomOf="@id/socket_text"/>
+    <TextView
+        android:id="@+id/session_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/spacing_medium"
+        android:text="@string/session_id"
+        android:textColor="@color/black"
+        android:textSize="@dimen/font_large"
+        app:layout_constraintStart_toStartOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@id/socket_text" />
 
-        <TextView
-            android:id="@+id/socket_text_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/disconnected"
-            android:paddingStart="@dimen/spacing_medium"
-            android:paddingEnd="@dimen/spacing_medium"
-            android:textSize="@dimen/font_normal"
-            android:paddingTop="@dimen/spacing_tiny"
-            app:layout_constraintStart_toEndOf="@id/guideline_start"
-            app:layout_constraintEnd_toStartOf="@id/guideline_end"
-            app:layout_constraintTop_toBottomOf="@id/socket_text"/>
+    <TextView
+        android:id="@+id/socket_text_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/spacing_medium"
+        android:paddingTop="@dimen/spacing_tiny"
+        android:paddingEnd="@dimen/spacing_medium"
+        android:text="@string/disconnected"
+        android:textSize="@dimen/font_normal"
+        app:layout_constraintEnd_toStartOf="@id/guideline_end"
+        app:layout_constraintStart_toEndOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@id/socket_text" />
 
-        <TextView
-            android:id="@+id/session_text_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/session_pending"
-            android:paddingStart="@dimen/spacing_medium"
-            android:paddingEnd="@dimen/spacing_medium"
-            android:textSize="@dimen/font_normal"
-            android:paddingTop="@dimen/spacing_tiny"
-            app:layout_constraintStart_toEndOf="@id/guideline_start"
-            app:layout_constraintEnd_toStartOf="@id/guideline_end"
-            app:layout_constraintTop_toBottomOf="@id/session_text"/>
+    <TextView
+        android:id="@+id/session_text_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/spacing_medium"
+        android:paddingTop="@dimen/spacing_tiny"
+        android:paddingEnd="@dimen/spacing_medium"
+        android:text="@string/session_pending"
+        android:textSize="@dimen/font_normal"
+        app:layout_constraintEnd_toStartOf="@id/guideline_end"
+        app:layout_constraintStart_toEndOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@id/session_text" />
 
     <include
         android:id="@+id/login_section_id"
         layout="@layout/include_login_section"
         android:layout_width="0dp"
-        android:visibility="invisible"
         android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_small"
+        android:visibility="invisible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/guideline_bottom"  />
+        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
 
     <include
         android:id="@+id/call_control_section_id"
         layout="@layout/include_call_control_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         android:layout_marginTop="@dimen/spacing_medium"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value"  />
+        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
 
     <include
         android:id="@+id/incoming_call_section_id"
         layout="@layout/include_incoming_call_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         android:layout_marginTop="@dimen/spacing_medium"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value"   />
+        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
 
     <include
         android:id="@+id/ongoing_call_section_id"
         layout="@layout/include_ongoing_call_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_medium"
         android:visibility="gone"
-        android:layout_marginTop="@dimen/spacing_medium"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value"   />
-
-    <include
-        android:id="@+id/video_call_section_id"
-        layout="@layout/video_call_fragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="invisible"
-        android:layout_marginTop="@dimen/spacing_medium"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"   />
+        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"

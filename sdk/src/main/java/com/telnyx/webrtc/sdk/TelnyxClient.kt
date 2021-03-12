@@ -11,6 +11,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import org.webrtc.IceCandidate
@@ -19,15 +20,35 @@ import timber.log.Timber
 import java.util.*
 
 class TelnyxClient(
-        var socket: TxSocket,
-        var context: Context
+    var socket: TxSocket,
+    var context: Context
 ) : TxSocketListener {
 
     private var peerConnection: Peer? = null
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
-    private val audioManager = context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+    private val audioManager =
+        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+
+    private var isNetworkCallbackRegistered = false
+    private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
+        override fun onNetworkAvailable() {
+            Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
+        }
+
+        override fun onNetworkUnavailable() {
+            Timber.d(
+                "[%s] :: There is no network available",
+                this@TelnyxClient.javaClass.simpleName
+            )
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+        }
+    }
+
+    init {
+        registerNetworkCallback()
+    }
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer = MediaPlayer()
@@ -47,7 +68,27 @@ class TelnyxClient(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     fun connect() {
-        socket.connect(this)
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            socket.connect(this)
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        context.let {
+            ConnectivityHelper.registerNetworkStatusCallback(it, networkCallback)
+            isNetworkCallbackRegistered = true
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        if (isNetworkCallbackRegistered) {
+            context.let {
+                ConnectivityHelper.unregisterNetworkStatusCallback(it, networkCallback)
+                isNetworkCallbackRegistered = false
+            }
+        }
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
@@ -69,14 +110,15 @@ class TelnyxClient(
         }
 
         val loginMessage = SendingMessageBody(
-                id = uuid,
-                method = Method.LOGIN.methodName,
-                params = LoginParam(
-                        login_token = null,
-                        login = user,
-                        passwd = password,
-                        userVariables = arrayListOf(),
-                        loginParams = arrayListOf())
+            id = uuid,
+            method = Method.LOGIN.methodName,
+            params = LoginParam(
+                login_token = null,
+                login = user,
+                passwd = password,
+                userVariables = arrayListOf(),
+                loginParams = arrayListOf()
+            )
         )
 
         socket.send(loginMessage)
@@ -87,14 +129,15 @@ class TelnyxClient(
         val token = config.sipToken
 
         val loginMessage = SendingMessageBody(
-                id = uuid,
-                method = Method.LOGIN.methodName,
-                params = LoginParam(
-                        login_token = token,
-                        login = null,
-                        passwd = null,
-                        userVariables = arrayListOf(),
-                        loginParams = arrayListOf())
+            id = uuid,
+            method = Method.LOGIN.methodName,
+            params = LoginParam(
+                login_token = token,
+                login = null,
+                passwd = null,
+                userVariables = arrayListOf(),
+                loginParams = arrayListOf()
+            )
         )
         socket.send(loginMessage)
     }
@@ -109,31 +152,31 @@ class TelnyxClient(
 
         //Create new peer
         peerConnection = Peer(context,
-                object : PeerConnectionObserver() {
-                    override fun onIceCandidate(p0: IceCandidate?) {
-                        super.onIceCandidate(p0)
-                        peerConnection?.addIceCandidate(p0)
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
 
-                        //set localInfo and ice candidate and able to create correct offer
-                        val inviteMessageBody = SendingMessageBody(
-                                id = uuid,
-                                method = Method.INVITE.methodName,
-                                params = CallParams(
-                                        sessionId = sessionId!!,
-                                        sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                                        dialogParams = CallDialogParams(
-                                                callId = callId,
-                                                destinationNumber = destinationNumber,
-                                        )
-                                )
+                    //set localInfo and ice candidate and able to create correct offer
+                    val inviteMessageBody = SendingMessageBody(
+                        id = uuid,
+                        method = Method.INVITE.methodName,
+                        params = CallParams(
+                            sessionId = sessionId!!,
+                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                            dialogParams = CallDialogParams(
+                                callId = callId,
+                                destinationNumber = destinationNumber,
+                            )
                         )
+                    )
 
-                        if (!sentFlag) {
-                            sentFlag = true
-                            socket?.send(inviteMessageBody)
-                        }
+                    if (!sentFlag) {
+                        sentFlag = true
+                        socket?.send(inviteMessageBody)
                     }
-                })
+                }
+            })
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
     }
@@ -144,16 +187,16 @@ class TelnyxClient(
     fun acceptCall(callId: String, destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
-                peerConnection?.getLocalDescription()!!.description
+            peerConnection?.getLocalDescription()!!.description
         val answerBodyMessage = SendingMessageBody(
-                uuid, Method.ANSWER.methodName,
-                CallParams(
-                        sessionId!!, sessionDescriptionString,
-                        CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber
-                        )
+            uuid, Method.ANSWER.methodName,
+            CallParams(
+                sessionId!!, sessionDescriptionString,
+                CallDialogParams(
+                    callId = callId,
+                    destinationNumber = destinationNumber
                 )
+            )
         )
         socket?.send(answerBodyMessage)
         stopMediaPlayer()
@@ -162,15 +205,15 @@ class TelnyxClient(
     fun endCall(callId: String) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
-                uuid, Method.BYE.methodName,
-                ByeParams(
-                        sessionId!!,
-                        CauseCode.USER_BUSY.code,
-                        CauseCode.USER_BUSY.name,
-                        ByeDialogParams(
-                                callId
-                        )
+            uuid, Method.BYE.methodName,
+            ByeParams(
+                sessionId!!,
+                CauseCode.USER_BUSY.code,
+                CauseCode.USER_BUSY.name,
+                ByeDialogParams(
+                    callId
                 )
+            )
         )
         socket?.send(byeMessageBody)
         resetCallOptions()
@@ -210,15 +253,15 @@ class TelnyxClient(
     private fun sendHoldModifier(callId: String, holdAction: String) {
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
-                id = uuid,
-                method = Method.MODIFY.methodName,
-                params = ModifyParams(
-                        sessid = sessionId!!,
-                        action = holdAction,
-                        dialogParams = CallDialogParams(
-                                callId = callId,
-                        )
+            id = uuid,
+            method = Method.MODIFY.methodName,
+            params = ModifyParams(
+                sessid = sessionId!!,
+                action = holdAction,
+                dialogParams = CallDialogParams(
+                    callId = callId,
                 )
+            )
         )
         socket?.send(modifyMessageBody)
     }
@@ -256,6 +299,7 @@ class TelnyxClient(
 
     fun disconnect() {
         peerConnection?.disconnect()
+        unregisterNetworkCallback()
         socket.destroy()
     }
 
@@ -271,27 +315,31 @@ class TelnyxClient(
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onLoginSuccessful [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        Timber.d(
+            "[%s] :: onLoginSuccessful [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            jsonObject
+        )
         sessionId = jsonObject.getAsJsonObject("result").get("sessid").asString
         socketResponseLiveData.postValue(
-                SocketResponse.messageReceived(
-                        ReceivedMessageBody(
-                                Method.LOGIN.methodName,
-                                LoginResponse(sessionId!!)
-                        )
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    Method.LOGIN.methodName,
+                    LoginResponse(sessionId!!)
                 )
+            )
         )
     }
 
     override fun onByeReceived() {
         Timber.d("[%s] :: onByeReceived", this@TelnyxClient.javaClass.simpleName)
         socketResponseLiveData.postValue(
-                SocketResponse.messageReceived(
-                        ReceivedMessageBody(
-                                Method.BYE.methodName,
-                                null
-                        )
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    Method.BYE.methodName,
+                    null
                 )
+            )
         )
 
         resetCallOptions()
@@ -321,38 +369,42 @@ class TelnyxClient(
         val callerNumber = params.get("caller_id_number").asString
 
         peerConnection = Peer(
-                context,
-                object : PeerConnectionObserver() {
-                    override fun onIceCandidate(p0: IceCandidate?) {
-                        super.onIceCandidate(p0)
-                        peerConnection?.addIceCandidate(p0)
-                    }
+            context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
                 }
+            }
         )
 
         peerConnection?.startLocalAudioCapture()
 
         peerConnection?.onRemoteSessionReceived(
-                SessionDescription(
-                        SessionDescription.Type.OFFER,
-                        remoteSdp
-                )
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
         )
 
         peerConnection?.answer(AppSdpObserver())
 
         socketResponseLiveData.postValue(
-                SocketResponse.messageReceived(
-                        ReceivedMessageBody(
-                                Method.INVITE.methodName,
-                                InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
-                        )
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    Method.INVITE.methodName,
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
                 )
+            )
         )
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onAnswerReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        Timber.d(
+            "[%s] :: onAnswerReceived [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            jsonObject
+        )
 
         /* In case of remote user answer the invite
           local user haas to set remote data in order to have information of both peers of a call
@@ -369,24 +421,24 @@ class TelnyxClient(
 
                 callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
                 socketResponseLiveData.postValue(
-                        SocketResponse.messageReceived(
-                                ReceivedMessageBody(
-                                        Method.ANSWER.methodName,
-                                        AnswerResponse(callId, stringSdp)
-                                )
+                    SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                            Method.ANSWER.methodName,
+                            AnswerResponse(callId, stringSdp)
                         )
+                    )
                 )
             }
             earlySDP -> {
                 callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
                 val stringSdp = peerConnection?.getLocalDescription()?.description
                 socketResponseLiveData.postValue(
-                        SocketResponse.messageReceived(
-                                ReceivedMessageBody(
-                                        Method.ANSWER.methodName,
-                                        AnswerResponse(callId, stringSdp!!)
-                                )
+                    SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                            Method.ANSWER.methodName,
+                            AnswerResponse(callId, stringSdp!!)
                         )
+                    )
                 )
             }
             else -> {
@@ -420,6 +472,10 @@ class TelnyxClient(
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-        Timber.d("[%s] :: onIceCandidateReceived [%s]", this@TelnyxClient.javaClass.simpleName, iceCandidate)
+        Timber.d(
+            "[%s] :: onIceCandidateReceived [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            iceCandidate
+        )
     }
 }
