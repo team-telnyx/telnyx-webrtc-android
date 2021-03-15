@@ -51,7 +51,7 @@ class TelnyxClient(
     }
 
     //MediaPlayer for ringtone / ringbacktone
-    private var mediaPlayer = MediaPlayer()
+    private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
     private var rawRingBackTone: Int? = null
 
@@ -268,31 +268,36 @@ class TelnyxClient(
 
 
     private fun playRingtone() {
-        rawRingtone?.let {
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            mediaPlayer.isLooping = true
-            mediaPlayer.start()
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
+        if (!mediaPlayer.isPlaying) {
+            rawRingtone?.let {
+                mediaPlayer = MediaPlayer.create(context, it)
+                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+                mediaPlayer.isLooping = true
+                if (!mediaPlayer.isPlaying) {
+                    mediaPlayer.start()
+                }
+            } ?: run {
+                Timber.d("No ringtone specified :: No ringtone will be played")
+            }
         }
     }
 
     private fun playRingBackTone() {
-        rawRingBackTone?.let {
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            mediaPlayer.isLooping = true
-            mediaPlayer.start()
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
-        }
+            rawRingBackTone?.let {
+                mediaPlayer = MediaPlayer.create(context, it)
+                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+                mediaPlayer.isLooping = true
+                if (!mediaPlayer.isPlaying) {
+                    mediaPlayer.start()
+                }
+            } ?: run {
+                Timber.d("No ringtone specified :: No ringtone will be played")
+            }
     }
 
     private fun stopMediaPlayer() {
-        if (mediaPlayer.isPlaying) {
+        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
             mediaPlayer.stop()
-            mediaPlayer.release()
             Timber.d("ringtone/ringback media player stopped and released")
         }
     }
@@ -343,6 +348,7 @@ class TelnyxClient(
         )
 
         resetCallOptions()
+        stopMediaPlayer()
     }
 
     override fun onConnectionEstablished() {
