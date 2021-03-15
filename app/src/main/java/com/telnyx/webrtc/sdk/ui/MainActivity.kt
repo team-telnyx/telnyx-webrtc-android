@@ -147,22 +147,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUserLoginState() {
+        listenLoginTypeSwitch()
         if (!userManager.isUserLogin) {
             login_section_id.visibility = View.VISIBLE
             ongoing_call_section_id.visibility = View.GONE
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
-
-            token_login_switch.setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) {
-                    login_credential_id.visibility = View.GONE
-                    login_token_id.visibility = View.VISIBLE
-                } else {
-                    login_credential_id.visibility = View.VISIBLE
-                    login_token_id.visibility = View.GONE
-                }
-            }
-
         } else {
             val loginConfig = CredentialConfig(
                 userManager.sipUsername,
@@ -173,6 +163,18 @@ class MainActivity : AppCompatActivity() {
                 R.raw.ringback_tone
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
+        }
+    }
+
+    private fun listenLoginTypeSwitch() {
+        token_login_switch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                login_credential_id.visibility = View.GONE
+                login_token_id.visibility = View.VISIBLE
+            } else {
+                login_credential_id.visibility = View.VISIBLE
+                login_token_id.visibility = View.GONE
+            }
         }
     }
 
