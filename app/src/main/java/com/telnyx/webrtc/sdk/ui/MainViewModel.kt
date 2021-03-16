@@ -3,10 +3,7 @@ package com.telnyx.webrtc.sdk.ui
 import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
-import com.telnyx.webrtc.sdk.CredentialConfig
-import com.telnyx.webrtc.sdk.TelnyxClient
-import com.telnyx.webrtc.sdk.TelnyxConfig
-import com.telnyx.webrtc.sdk.TokenConfig
+import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
@@ -50,9 +47,9 @@ class MainViewModel @Inject constructor(
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
 
-    fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.getIsMuteStatus()
-    fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnHoldStatus()
-    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.getIsOnLoudSpeakerStatus()
+    fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsMuteStatus()
+    fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnHoldStatus()
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnLoudSpeakerStatus()
 
     fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
         telnyxClient?.credentialLogin(credentialConfig)
@@ -63,27 +60,27 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendInvite(destinationNumber: String) {
-        telnyxClient?.newInvite(destinationNumber)
+        telnyxClient?.call?.newInvite(destinationNumber)
     }
 
     fun acceptCall(callId: String, destinationNumber: String) {
-        telnyxClient?.acceptCall(callId, destinationNumber)
+        telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
     fun endCall(callId: String) {
-        telnyxClient?.endCall(callId)
+        telnyxClient?.call?.endCall(callId)
     }
 
     fun onHoldUnholdPressed(callId: String) {
-        telnyxClient?.onHoldUnholdPressed(callId)
+        telnyxClient?.call?.onHoldUnholdPressed(callId)
     }
 
     fun onMuteUnmutePressed() {
-        telnyxClient?.onMuteUnmutePressed()
+        telnyxClient?.call?.onMuteUnmutePressed()
     }
 
     fun onLoudSpeakerPressed() {
-        telnyxClient?.onLoudSpeakerPressed()
+        telnyxClient?.call?.onLoudSpeakerPressed()
     }
 
     fun disconnect() {

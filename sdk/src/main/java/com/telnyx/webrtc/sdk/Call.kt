@@ -5,6 +5,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CauseCode
@@ -52,7 +53,6 @@ class Call(
     init {
         socket.callListen(this)
     }
-
 
     fun newInvite(destinationNumber: String) {
         playRingBackTone()
@@ -177,6 +177,10 @@ class Call(
         )
         socket?.send(modifyMessageBody)
     }
+
+    fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
+    fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
     private fun playRingtone() {
         rawRingtone = client.getRawRingtone()
@@ -314,6 +318,52 @@ class Call(
             "[%s] :: onIceCandidateReceived [%s]",
             this@Call.javaClass.simpleName,
             iceCandidate
+        )
+    }
+
+    fun onOfferReceived(jsonObject: JsonObject) {
+        playRingtone()
+        /* In case of receiving an invite
+          local user should create an answer with both local and remote information :
+          1. create a connection peer
+          2. setup ice candidate, local description and remote description
+          3. connection is ready to be used for answer the call
+          */
+
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val remoteSdp = params.get("sdp").asString
+        val callerName = params.get("caller_id_name").asString
+        val callerNumber = params.get("caller_id_number").asString
+
+        peerConnection = Peer(
+            context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+                }
+            }
+        )
+
+        peerConnection?.startLocalAudioCapture()
+
+        peerConnection?.onRemoteSessionReceived(
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
+        )
+
+        peerConnection?.answer(AppSdpObserver())
+
+        socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    Method.INVITE.methodName,
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
+                )
+            )
         )
     }
 }
