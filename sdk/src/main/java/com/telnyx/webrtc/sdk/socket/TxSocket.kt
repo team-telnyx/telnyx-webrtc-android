@@ -37,6 +37,7 @@ class TxSocket(
     }
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
+    private val callSendChannel = ConflatedBroadcastChannel<String>()
 
     fun connect(listener: TelnyxClient) = launch {
         try {
@@ -142,6 +143,10 @@ class TxSocket(
 
     fun send(dataObject: Any?) = runBlocking {
         sendChannel.send(gson.toJson(dataObject))
+    }
+
+    fun sendForCall(dataObject: Any?) = runBlocking {
+        callSendChannel.send(gson.toJson(dataObject))
     }
 
     fun destroy() {

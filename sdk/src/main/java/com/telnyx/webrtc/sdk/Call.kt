@@ -85,7 +85,7 @@ class Call(
 
                     if (!sentFlag) {
                         sentFlag = true
-                        socket?.send(inviteMessageBody)
+                        socket?.sendForCall(inviteMessageBody)
                     }
                 }
             })
@@ -110,7 +110,7 @@ class Call(
                 )
             )
         )
-        socket?.send(answerBodyMessage)
+        socket?.sendForCall(answerBodyMessage)
         stopMediaPlayer()
     }
 
@@ -127,7 +127,7 @@ class Call(
                 )
             )
         )
-        socket?.send(byeMessageBody)
+        socket?.sendForCall(byeMessageBody)
         resetCallOptions()
         stopMediaPlayer()
     }
@@ -175,7 +175,7 @@ class Call(
                 )
             )
         )
-        socket?.send(modifyMessageBody)
+        socket?.sendForCall(modifyMessageBody)
     }
 
     fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
