@@ -95,7 +95,7 @@ class TxSocket(
                 }
             }
         } catch (cause: Throwable) {
-            Timber.e("Check Network Connection :: $cause")
+            Timber.d("Check Network Connection :: $cause")
         }
     }
 
