@@ -23,7 +23,6 @@ class MainViewModel @Inject constructor(
         socketConnection = TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
-
             )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()

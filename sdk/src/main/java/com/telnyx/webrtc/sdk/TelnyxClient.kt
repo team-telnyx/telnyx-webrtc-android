@@ -166,33 +166,6 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        val call = Call(this, socket, sessionId!!, context)
-        call.onOfferReceived(jsonObject)
+        call?.onOfferReceived(jsonObject)
     }
-
-   /* fun newInvite(destinationNumber: String) {
-        val call = Call(this, socket, sessionId!!, context)
-        call.newInvite(destinationNumber)
-    }
-
-    fun acceptCall(callId: String, destinationNumber: String) {
-        val call = Call(this, socket, sessionId!!, context)
-        call.acceptCall(callId, destinationNumber)
-    }
-
-    fun endCall(callId: String) {
-
-    }
-
-    fun onHoldUnholdPressed(callId: String) {
-
-    }
-
-    fun onMuteUnmutePressed() {
-        TODO("Not yet implemented")
-    }
-
-    fun onLoudSpeakerPressed() {
-        TODO("Not yet implemented")
-    } */
 }
