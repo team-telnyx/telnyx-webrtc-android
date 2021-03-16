@@ -158,4 +158,54 @@ class TelnyxClient(
         Timber.d("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName)
         socketResponseLiveData.postValue(SocketResponse.established())
     }
+
+    override fun onOfferReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        //playRingtone()
+
+        /* In case of receiving an invite
+          local user should create an answer with both local and remote information :
+          1. create a connection peer
+          2. setup ice candidate, local description and remote description
+          3. connection is ready to be used for answer the call
+          */
+
+        /* ToDo instantiate a call object, and handle the call on that side. Aka all this stuff below:
+
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val remoteSdp = params.get("sdp").asString
+        val callerName = params.get("caller_id_name").asString
+        val callerNumber = params.get("caller_id_number").asString
+
+        peerConnection = Peer(
+            context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+                }
+            }
+        )
+
+        peerConnection?.startLocalAudioCapture()
+
+        peerConnection?.onRemoteSessionReceived(
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
+        )
+
+        peerConnection?.answer(AppSdpObserver())
+
+        socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    Method.INVITE.methodName,
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
+                )
+            )
+        )
+    }
 }

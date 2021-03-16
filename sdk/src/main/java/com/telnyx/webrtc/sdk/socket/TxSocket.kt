@@ -69,6 +69,14 @@ class TxSocket(
                                                 }
                                             }
                                         }
+                                        jsonObject.has("method") -> {
+                                            Timber.d("[%s] Received Method [%s]", this@TxSocket.javaClass.simpleName, jsonObject.get("method").asString)
+                                            when (jsonObject.get("method").asString) {
+                                                INVITE.methodName -> {
+                                                    listener.onOfferReceived(jsonObject)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -112,9 +120,6 @@ class TxSocket(
                                                 }
                                                 MEDIA.methodName -> {
                                                     listener.onMediaReceived(jsonObject)
-                                                }
-                                                INVITE.methodName -> {
-                                                    listener.onOfferReceived(jsonObject)
                                                 }
                                                 BYE.methodName -> {
                                                     listener.onByeReceived()
