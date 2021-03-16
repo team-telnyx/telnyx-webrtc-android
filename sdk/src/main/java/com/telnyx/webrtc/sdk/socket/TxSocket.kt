@@ -37,7 +37,7 @@ class TxSocket(
     }
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
-    private val callSendChannel = ConflatedBroadcastChannel<String>()
+    //private val callSendChannel = ConflatedBroadcastChannel<String>()
 
     fun connect(listener: TelnyxClient) = launch {
         try {
@@ -99,7 +99,7 @@ class TxSocket(
                 port = port
             ) {
                 Timber.d("Connection established")
-                val sendData = callSendChannel.openSubscription()
+                val sendData = sendChannel.openSubscription()
                 try {
                     while (true) {
                         sendData.poll()?.let {
@@ -145,9 +145,9 @@ class TxSocket(
         sendChannel.send(gson.toJson(dataObject))
     }
 
-    fun sendForCall(dataObject: Any?) = runBlocking {
+    /*fun sendForCall(dataObject: Any?) = runBlocking {
         callSendChannel.send(gson.toJson(dataObject))
-    }
+    }*/
 
     fun destroy() {
         client.close()
