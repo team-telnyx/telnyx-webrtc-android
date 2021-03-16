@@ -28,8 +28,6 @@ class TelnyxClient(
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
-    private val audioManager =
-        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
     private var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
@@ -51,21 +49,9 @@ class TelnyxClient(
     }
 
     //MediaPlayer for ringtone / ringbacktone
-    private lateinit var mediaPlayer: MediaPlayer
+   // private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
     private var rawRingBackTone: Int? = null
-
-    private var earlySDP = false
-
-    // Ongoing call options
-    // Mute toggle live data
-    private val muteLiveData = MutableLiveData(false)
-
-    // Hold toggle live data
-    private val holdLiveData = MutableLiveData(false)
-
-    // Loud speaker toggle live data
-    private val loudSpeakerLiveData = MutableLiveData(false)
 
     fun connect() {
         if (ConnectivityHelper.isNetworkEnabled(context)) {
@@ -93,9 +79,6 @@ class TelnyxClient(
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
-    fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
-    fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
-    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -142,166 +125,6 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    fun newInvite(destinationNumber: String) {
-        playRingBackTone()
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
-        var sentFlag = false
-
-        callConnectionResponseLiveData.postValue(Connection.LOADING)
-
-        //Create new peer
-        peerConnection = Peer(context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = Method.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId!!,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket?.send(inviteMessageBody)
-                    }
-                }
-            })
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-    }
-
-    /* In case of accept a call (accept an invitation)
-     local user have to send provided answer (with both local and remote sdps)
-   */
-    fun acceptCall(callId: String, destinationNumber: String) {
-        val uuid: String = UUID.randomUUID().toString()
-        val sessionDescriptionString =
-            peerConnection?.getLocalDescription()!!.description
-        val answerBodyMessage = SendingMessageBody(
-            uuid, Method.ANSWER.methodName,
-            CallParams(
-                sessionId!!, sessionDescriptionString,
-                CallDialogParams(
-                    callId = callId,
-                    destinationNumber = destinationNumber
-                )
-            )
-        )
-        socket?.send(answerBodyMessage)
-        stopMediaPlayer()
-    }
-
-    fun endCall(callId: String) {
-        val uuid: String = UUID.randomUUID().toString()
-        val byeMessageBody = SendingMessageBody(
-            uuid, Method.BYE.methodName,
-            ByeParams(
-                sessionId!!,
-                CauseCode.USER_BUSY.code,
-                CauseCode.USER_BUSY.name,
-                ByeDialogParams(
-                    callId
-                )
-            )
-        )
-        socket?.send(byeMessageBody)
-        resetCallOptions()
-        stopMediaPlayer()
-    }
-
-    fun onMuteUnmutePressed() {
-        if (!muteLiveData.value!!) {
-            muteLiveData.postValue(true)
-            audioManager.isMicrophoneMute = true
-        } else {
-            muteLiveData.postValue(false)
-            audioManager.isMicrophoneMute = false
-        }
-    }
-
-    fun onLoudSpeakerPressed() {
-        if (!loudSpeakerLiveData.value!!) {
-            loudSpeakerLiveData.postValue(true)
-            audioManager.isSpeakerphoneOn = true
-        } else {
-            loudSpeakerLiveData.postValue(false)
-            audioManager.isSpeakerphoneOn = false
-        }
-    }
-
-    fun onHoldUnholdPressed(callId: String) {
-        if (!holdLiveData.value!!) {
-            holdLiveData.postValue(true)
-            sendHoldModifier(callId, "hold")
-        } else {
-            holdLiveData.postValue(false)
-            sendHoldModifier(callId, "unhold")
-        }
-    }
-
-    private fun sendHoldModifier(callId: String, holdAction: String) {
-        val uuid: String = UUID.randomUUID().toString()
-        val modifyMessageBody = SendingMessageBody(
-            id = uuid,
-            method = Method.MODIFY.methodName,
-            params = ModifyParams(
-                sessid = sessionId!!,
-                action = holdAction,
-                dialogParams = CallDialogParams(
-                    callId = callId,
-                )
-            )
-        )
-        socket?.send(modifyMessageBody)
-    }
-
-
-    private fun playRingtone() {
-        if (!mediaPlayer.isPlaying) {
-            rawRingtone?.let {
-                mediaPlayer = MediaPlayer.create(context, it)
-                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-                mediaPlayer.isLooping = true
-                if (!mediaPlayer.isPlaying) {
-                    mediaPlayer.start()
-                }
-            } ?: run {
-                Timber.d("No ringtone specified :: No ringtone will be played")
-            }
-        }
-    }
-
-    private fun playRingBackTone() {
-            rawRingBackTone?.let {
-                mediaPlayer = MediaPlayer.create(context, it)
-                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-                mediaPlayer.isLooping = true
-                if (!mediaPlayer.isPlaying) {
-                    mediaPlayer.start()
-                }
-            } ?: run {
-                Timber.d("No ringtone specified :: No ringtone will be played")
-            }
-    }
-
-    private fun stopMediaPlayer() {
-        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            Timber.d("ringtone/ringback media player stopped and released")
-        }
-    }
-
     fun disconnect() {
         peerConnection?.disconnect()
         unregisterNetworkCallback()
@@ -310,13 +133,6 @@ class TelnyxClient(
 
     fun getSessionId(): String? {
         return sessionId
-    }
-
-    private fun resetCallOptions() {
-        holdLiveData.postValue(false)
-        muteLiveData.postValue(false)
-        loudSpeakerLiveData.postValue(false)
-        earlySDP = false
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
