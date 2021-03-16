@@ -99,7 +99,7 @@ class TxSocket(
                 port = port
             ) {
                 Timber.d("Connection established")
-                val sendData = sendChannel.openSubscription()
+                val sendData = callSendChannel.openSubscription()
                 try {
                     while (true) {
                         sendData.poll()?.let {

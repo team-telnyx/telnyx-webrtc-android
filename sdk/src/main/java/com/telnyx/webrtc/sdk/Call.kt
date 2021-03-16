@@ -28,7 +28,7 @@ class Call(
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
 
-    private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
+    val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
@@ -49,6 +49,8 @@ class Call(
 
     // Loud speaker toggle live data
     private val loudSpeakerLiveData = MutableLiveData(false)
+
+    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
     init {
         socket.callListen(this)

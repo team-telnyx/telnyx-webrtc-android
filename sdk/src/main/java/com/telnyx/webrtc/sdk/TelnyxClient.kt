@@ -27,7 +27,6 @@ class TelnyxClient(
     private var peerConnection: Peer? = null
     private var sessionId: String? = null
     private val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
-    //private val callConnectionResponseLiveData = MutableLiveData<Connection>()
 
     val call: Call?  by lazy { buildCall() }
 
