@@ -28,7 +28,6 @@ class Call(
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
 
-    val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
@@ -49,8 +48,6 @@ class Call(
 
     // Loud speaker toggle live data
     private val loudSpeakerLiveData = MutableLiveData(false)
-
-    fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
     init {
         socket.callListen(this)
@@ -230,7 +227,7 @@ class Call(
 
     override fun onByeReceived() {
         Timber.d("[%s] :: onByeReceived", this@Call.javaClass.simpleName)
-        socketResponseLiveData.postValue(
+        client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     Method.BYE.methodName,
@@ -264,7 +261,7 @@ class Call(
                 peerConnection?.onRemoteSessionReceived(sdp)
 
                 callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
-                socketResponseLiveData.postValue(
+                client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             Method.ANSWER.methodName,
@@ -276,7 +273,7 @@ class Call(
             earlySDP -> {
                 callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
                 val stringSdp = peerConnection?.getLocalDescription()?.description
-                socketResponseLiveData.postValue(
+                client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             Method.ANSWER.methodName,
@@ -359,7 +356,7 @@ class Call(
 
         peerConnection?.answer(AppSdpObserver())
 
-        socketResponseLiveData.postValue(
+        client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     Method.INVITE.methodName,
