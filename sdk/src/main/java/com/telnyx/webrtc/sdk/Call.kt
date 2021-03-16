@@ -20,6 +20,7 @@ import timber.log.Timber
 import java.util.*
 
 class Call(
+    var client: TelnyxClient,
     var socket: TxSocket,
     var sessionId: String,
     var context: Context
@@ -36,7 +37,7 @@ class Call(
     //MediaPlayer for ringtone / ringbacktone
     private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
-    private var rawRingBackTone: Int? = null
+    private var rawRingbackTone: Int? = null
 
     // Ongoing call options
     // Mute toggle live data
@@ -188,7 +189,7 @@ class Call(
     }
 
     private fun playRingBackTone() {
-        rawRingBackTone?.let {
+        rawRingbackTone?.let {
             mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             mediaPlayer.isLooping = true

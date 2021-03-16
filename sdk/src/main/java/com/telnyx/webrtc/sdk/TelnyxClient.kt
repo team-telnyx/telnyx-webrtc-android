@@ -48,10 +48,16 @@ class TelnyxClient(
         registerNetworkCallback()
     }
 
-    //MediaPlayer for ringtone / ringbacktone
-   // private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
-    private var rawRingBackTone: Int? = null
+    private var rawRingbackTone: Int? = null
+
+    fun getRawRingtone(): Int? {
+        return rawRingtone
+    }
+
+    fun getRawRingbackTone(): Int? {
+        return rawRingbackTone
+    }
 
     fun connect() {
         if (ConnectivityHelper.isNetworkEnabled(context)) {
@@ -79,7 +85,6 @@ class TelnyxClient(
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
-
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
@@ -89,7 +94,7 @@ class TelnyxClient(
             rawRingtone = it
         }
         config.ringBackTone?.let {
-            rawRingBackTone = it
+            rawRingbackTone = it
         }
 
         val loginMessage = SendingMessageBody(
@@ -129,10 +134,6 @@ class TelnyxClient(
         peerConnection?.disconnect()
         unregisterNetworkCallback()
         socket.destroy()
-    }
-
-    fun getSessionId(): String? {
-        return sessionId
     }
 
     override fun onLoginSuccessful(jsonObject: JsonObject) {
