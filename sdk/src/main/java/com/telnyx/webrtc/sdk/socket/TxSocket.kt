@@ -36,14 +36,17 @@ class TxSocket(
         }
     }
 
+    private lateinit var webSocketSession: DefaultClientWebSocketSession
+
     private val sendChannel = ConflatedBroadcastChannel<String>()
+    private val callSendChannel = ConflatedBroadcastChannel<String>()
 
     fun connect(listener: TelnyxClient) = launch {
-        try {
-            client.wss(
+        try { client.wss(
                     host = host_address,
                     port = port
             ) {
+                webSocketSession = this
                 listener.onConnectionEstablished()
                 Timber.d("Connection established")
                 val sendData = sendChannel.openSubscription()
@@ -90,30 +93,25 @@ class TxSocket(
             Timber.d("Check Network Connection :: $cause")
         }
     }
-
+        //ToDo can we move this to call? The whole listener?
     fun callListen(listener: Call) = launch {
-        try {
-            client.wss(
-                host = host_address,
-                port = port
-            ) {
                 Timber.d("Connection established")
-                val sendData = sendChannel.openSubscription()
+                val callSend = callSendChannel.openSubscription()
                 try {
                     while (true) {
-                        sendData.poll()?.let {
-                            Timber.d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
-                            outgoing.send(Frame.Text(it))
+                        callSend.poll()?.let {
+                            Timber.d("[%s] Call Listener Sending [%s]", this@TxSocket.javaClass.simpleName, it)
+                            webSocketSession.outgoing.send(Frame.Text(it))
                         }
-                        incoming.poll()?.let { frame ->
+                        webSocketSession.incoming.poll()?.let { frame ->
                             if (frame is Frame.Text) {
                                 val data = frame.readText()
-                                Timber.d("[%s] Receiving [%s]", this@TxSocket.javaClass.simpleName, data)
+                                Timber.d("[%s] Call Listener Receiving [%s]", this@TxSocket.javaClass.simpleName, data)
                                 val jsonObject = gson.fromJson(data, JsonObject::class.java)
                                 withContext(Dispatchers.Main) {
                                     when {
                                         jsonObject.has("method") -> {
-                                            Timber.d("[%s] Received Method [%s]", this@TxSocket.javaClass.simpleName, jsonObject.get("method").asString)
+                                            Timber.d("[%s] Call Listener Received Method [%s]", this@TxSocket.javaClass.simpleName, jsonObject.get("method").asString)
                                             when (jsonObject.get("method").asString) {
                                                 ANSWER.methodName -> {
                                                     listener.onAnswerReceived(jsonObject)
@@ -135,13 +133,13 @@ class TxSocket(
                     Timber.e( exception)
                 }
             }
-        } catch (cause: Throwable) {
-            Timber.d("Check Network Connection :: $cause")
-        }
-    }
 
     fun send(dataObject: Any?) = runBlocking {
         sendChannel.send(gson.toJson(dataObject))
+    }
+
+    fun callSend(dataObject: Any?) = runBlocking {
+        callSendChannel.send(gson.toJson(dataObject))
     }
 
     fun destroy() {
