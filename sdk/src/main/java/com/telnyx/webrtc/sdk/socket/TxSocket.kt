@@ -107,11 +107,11 @@ class TxSocket(
         }
     }
 
-    fun callOngoing() {
+    internal fun callOngoing() {
         ongoingCall = true
     }
 
-    fun callNotOngoing() {
+    internal fun callNotOngoing() {
         ongoingCall = false
     }
 
