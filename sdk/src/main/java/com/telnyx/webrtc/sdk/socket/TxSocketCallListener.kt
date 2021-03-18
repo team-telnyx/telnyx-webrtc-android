@@ -7,5 +7,6 @@ interface  TxSocketCallListener {
     fun onByeReceived()
     fun onAnswerReceived(jsonObject: JsonObject)
     fun onMediaReceived(jsonObject: JsonObject)
+    fun onOfferReceived(jsonObject: JsonObject)
     fun onIceCandidateReceived(iceCandidate: IceCandidate)
 }

@@ -10,15 +10,20 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import io.ktor.util.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
+@KtorExperimentalAPI
+@ExperimentalCoroutinesApi
 class TelnyxClient(
     var socket: TxSocket,
     var context: Context
@@ -31,7 +36,8 @@ class TelnyxClient(
     val call: Call?  by lazy { buildCall() }
 
     private fun buildCall(): Call {
-        return Call(this, socket, sessionId!!, context)
+        val txCallSocket = TxCallSocket(socket.getWebSocketSession())
+        return Call(this, txCallSocket, sessionId!!, context)
     }
 
     private var isNetworkCallbackRegistered = false
@@ -70,6 +76,14 @@ class TelnyxClient(
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
+    }
+
+   internal fun callOngoing() {
+        socket.callOngoing()
+    }
+
+   internal fun callNotOngoing() {
+        socket.callNotOngoing()
     }
 
     private fun registerNetworkCallback() {
@@ -165,7 +179,6 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-       // val newCall = buildCall()
         call?.onOfferReceived(jsonObject)
     }
 }

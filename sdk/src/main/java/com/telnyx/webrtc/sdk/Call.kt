@@ -11,18 +11,22 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.Connection
 import com.telnyx.webrtc.sdk.model.Method
-import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import io.ktor.util.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
+@ExperimentalCoroutinesApi
+@KtorExperimentalAPI
 class Call(
     var client: TelnyxClient,
-    var socket: TxSocket,
+    var socket: TxCallSocket,
     var sessionId: String,
     var context: Context
 ) : TxSocketCallListener {
@@ -84,10 +88,11 @@ class Call(
 
                     if (!sentFlag) {
                         sentFlag = true
-                        socket?.callSend(inviteMessageBody)
+                        socket.callSend(inviteMessageBody)
                     }
                 }
             })
+        client.callOngoing()
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
     }
@@ -102,15 +107,16 @@ class Call(
         val answerBodyMessage = SendingMessageBody(
             uuid, Method.ANSWER.methodName,
             CallParams(
-                sessionId!!, sessionDescriptionString,
+                sessionId, sessionDescriptionString,
                 CallDialogParams(
                     callId = callId,
                     destinationNumber = destinationNumber
                 )
             )
         )
-        socket?.callSend(answerBodyMessage)
+        socket.callSend(answerBodyMessage)
         stopMediaPlayer()
+        client.callOngoing()
     }
 
     fun endCall(callId: String) {
@@ -118,7 +124,7 @@ class Call(
         val byeMessageBody = SendingMessageBody(
             uuid, Method.BYE.methodName,
             ByeParams(
-                sessionId!!,
+                sessionId,
                 CauseCode.USER_BUSY.code,
                 CauseCode.USER_BUSY.name,
                 ByeDialogParams(
@@ -126,7 +132,8 @@ class Call(
                 )
             )
         )
-        socket?.callSend(byeMessageBody)
+        client.callNotOngoing()
+        socket.callSend(byeMessageBody)
         resetCallOptions()
         stopMediaPlayer()
     }
@@ -167,14 +174,14 @@ class Call(
             id = uuid,
             method = Method.MODIFY.methodName,
             params = ModifyParams(
-                sessid = sessionId!!,
+                sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
                     callId = callId,
                 )
             )
         )
-        socket?.callSend(modifyMessageBody)
+        socket.callSend(modifyMessageBody)
     }
 
     fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
@@ -236,6 +243,7 @@ class Call(
             )
         )
 
+        client.callNotOngoing()
         resetCallOptions()
         stopMediaPlayer()
     }
@@ -287,6 +295,7 @@ class Call(
                 callConnectionResponseLiveData.postValue(Connection.ERROR)
             }
         }
+        client.callOngoing()
         stopMediaPlayer()
     }
 
@@ -320,7 +329,7 @@ class Call(
         )
     }
 
-    fun onOfferReceived(jsonObject: JsonObject) {
+    override fun onOfferReceived(jsonObject: JsonObject) {
         playRingtone()
         /* In case of receiving an invite
           local user should create an answer with both local and remote information :
@@ -328,6 +337,8 @@ class Call(
           2. setup ice candidate, local description and remote description
           3. connection is ready to be used for answer the call
           */
+
+        //ToDo we need to handle what happens when we receive an offer while on an existing call. 
 
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
