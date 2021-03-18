@@ -338,7 +338,7 @@ class Call(
           3. connection is ready to be used for answer the call
           */
 
-        //ToDo we need to handle what happens when we receive an offer while on an existing call. 
+        //ToDo we need to handle what happens when we receive an offer while on an existing call.
 
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString

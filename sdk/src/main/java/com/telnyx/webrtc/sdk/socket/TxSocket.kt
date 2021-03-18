@@ -115,50 +115,6 @@ class TxSocket(
         ongoingCall = false
     }
 
-    /*fun pollForMessages(listener: TelnyxClient) = launch {
-        if (!isPolling) {
-            webSocketSession.incoming.poll()?.let { frame ->
-                if (frame is Frame.Text) {
-                    val data = frame.readText()
-                    Timber.d(
-                        "[%s] Receiving [%s]",
-                        this@TxSocket.javaClass.simpleName,
-                        data
-                    )
-                    val jsonObject = gson.fromJson(data, JsonObject::class.java)
-                    withContext(Dispatchers.Main) {
-                        when {
-                            jsonObject.has("result") -> {
-                                if (jsonObject.get("result").asJsonObject.has("message")) {
-                                    val result = jsonObject.get("result")
-                                    val message =
-                                        result.asJsonObject.get("message").asString
-                                    if (message == "logged in") {
-                                        listener.onLoginSuccessful(jsonObject)
-                                    }
-                                }
-                            }
-                            jsonObject.has("method") -> {
-                                Timber.d(
-                                    "[%s] Received Method [%s]",
-                                    this@TxSocket.javaClass.simpleName,
-                                    jsonObject.get("method").asString
-                                )
-                                when (jsonObject.get("method").asString) {
-                                    INVITE.methodName -> {
-                                        listener.onOfferReceived(jsonObject)
-                                    }
-                                }
-
-                            }
-                        }
-                    }
-                }
-            }
-            isPolling = true
-        }
-    }*/
-
     fun getWebSocketSession(): DefaultClientWebSocketSession {
         return webSocketSession
     }
