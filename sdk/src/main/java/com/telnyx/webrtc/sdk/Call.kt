@@ -183,7 +183,7 @@ class Call(
 
     private fun playRingtone() {
         rawRingtone = client.getRawRingtone()
-        if (!mediaPlayer.isPlaying) {
+        if (this::mediaPlayer.isInitialized && !mediaPlayer.isPlaying) {
             rawRingtone?.let {
                 mediaPlayer = MediaPlayer.create(context, it)
                 mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
