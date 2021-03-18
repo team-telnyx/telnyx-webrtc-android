@@ -165,6 +165,7 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        call?.onOfferReceived(jsonObject)
+        val newCall = buildCall()
+        newCall.onOfferReceived(jsonObject)
     }
 }
