@@ -62,6 +62,7 @@ ktor.android = "io.ktor:ktor-client-android:$versions.ktor"
 ktor.cio = "io.ktor:ktor-client-cio:$versions.ktor"
 ktor.gson = "io.ktor:ktor-client-gson:$versions.ktor"
 ktor.websockets = "io.ktor:ktor-client-websockets:$versions.ktor"
+ktor.client_test = "io.ktor:ktor-client-mock:$versions.ktor"
 deps.ktor = ktor
 
 def hilt = [:]
