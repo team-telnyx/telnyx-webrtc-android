@@ -1,6 +1,7 @@
 package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.TelnyxClient
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import io.ktor.client.features.json.*
@@ -10,7 +11,7 @@ import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
-class TxSocketTest {
+class TxSocketTest : BaseTest() {
     @Test
     fun mockFailure() = runBlocking {
         val mock = MockEngine { call ->
@@ -25,7 +26,23 @@ class TxSocketTest {
                 serializer = GsonSerializer()
             }
         }
-
         val resp =  client.get<JsonObject>("dsf")
+    }
+
+    fun mockConnect(listener: TelnyxClient) = runBlocking {
+        val mock = MockEngine { call ->
+            respond("{}",
+                HttpStatusCode.OK,
+                headersOf("Content-Type", ContentType.Application.Json.toString()))
+        }
+
+        val client = HttpClient(mock) {
+            install(WebSockets)
+            install(JsonFeature) {
+                serializer = GsonSerializer()
+            }
+        }
+
+
     }
 }
