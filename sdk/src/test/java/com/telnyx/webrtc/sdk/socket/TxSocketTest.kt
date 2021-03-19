@@ -12,7 +12,6 @@ import io.ktor.client.features.json.*
 import io.ktor.client.features.websocket.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.network.sockets.*
 import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
@@ -21,16 +20,21 @@ import org.junit.Rule
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import androidx.test.rule.GrantPermissionRule
-import org.mockito.junit.MockitoJUnit.rule
+import io.kotest.matchers.shouldBe
+import io.mockk.every
+import org.mockito.Mockito
+import org.robolectric.RuntimeEnvironment.application
 
 
 class TxSocketTest : BaseTest() {
     @Test
     fun mockFailure() = runBlocking {
         val mock = MockEngine { call ->
-            respond("{}",
+            respond(
+                "{}",
                 HttpStatusCode.OK,
-                headersOf("Content-Type", ContentType.Application.Json.toString()))
+                headersOf("Content-Type", ContentType.Application.Json.toString())
+            )
         }
 
         val client = HttpClient(mock) {
@@ -39,29 +43,32 @@ class TxSocketTest : BaseTest() {
                 serializer = GsonSerializer()
             }
         }
-        val resp =  client.get<JsonObject>("dsf")
+        val resp = client.get<JsonObject>("dsf")
     }
 
     //TxSocketMocks
-    @MockK private lateinit var listener: TelnyxClient
-    @MockK private var mockContext: Context = mock(Context::class.java)
+    @MockK
+    private lateinit var listener: TelnyxClient
+    @MockK
+    private var mockContext: Context = mock(Context::class.java)
+    @MockK
+    private  var ongoingCall: Boolean = false
 
-
-    /*@MockK private lateinit var webSocketSession: DefaultClientWebSocketSession
-
-    @MockK private val sendChannel = ConflatedBroadcastChannel<String>() */
 
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
-        Manifest.permission.READ_EXTERNAL_STORAGE,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
+        Manifest.permission.INTERNET,
     )
 
-    @MockK private lateinit var socket: TxSocket
+    @MockK
+    private lateinit var socket: TxSocket
 
     @Before
     fun setup() {
         MockKAnnotations.init(this, true)
+        Mockito.`when`(application.applicationContext).thenReturn(mockContext)
+
+        //every { ongoingCall } returns true
 
     }
 
@@ -73,6 +80,17 @@ class TxSocketTest : BaseTest() {
         )
         listener = TelnyxClient(socket, mockContext)
         socket.connect(listener)
+    }
+
+    @Test
+    fun `set call to ongoing`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+        listener = TelnyxClient(socket, mockContext)
+        socket.callOngoing()
+        ongoingCall shouldBe true
     }
 
 }
