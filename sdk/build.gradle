@@ -59,7 +59,7 @@ dependencies {
     implementation deps.ktor.cio
     implementation deps.ktor.gson
     implementation deps.ktor.websockets
-    implementation deps.ktor.client_test
+    testImplementation deps.ktor.client_test
 
     // Volley
     implementation deps.volley
