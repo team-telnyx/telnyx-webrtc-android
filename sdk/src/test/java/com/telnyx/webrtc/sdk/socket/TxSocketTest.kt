@@ -2,6 +2,8 @@ package com.telnyx.webrtc.sdk.socket
 
 import android.Manifest
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkRequest
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
@@ -19,13 +21,20 @@ import org.junit.Rule
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import androidx.test.rule.GrantPermissionRule
+import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
+import com.telnyx.webrtc.sdk.verto.send.LoginParam
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.kotest.matchers.shouldBe
 import io.mockk.*
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito
 import org.robolectric.RuntimeEnvironment.application
 import java.net.ConnectException
+import java.util.*
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 
 class TxSocketTest : BaseTest() {
     @Test
@@ -68,6 +77,7 @@ class TxSocketTest : BaseTest() {
 
         every {socket.callOngoing()} just Runs
         every {socket.callNotOngoing()} just Runs
+
     }
 
     @Test
