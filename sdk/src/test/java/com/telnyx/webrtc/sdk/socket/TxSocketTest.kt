@@ -12,7 +12,6 @@ import io.ktor.client.features.json.*
 import io.ktor.client.features.websocket.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.mockk.MockKAnnotations
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -21,10 +20,12 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import androidx.test.rule.GrantPermissionRule
 import io.kotest.matchers.shouldBe
-import io.mockk.every
+import io.mockk.*
+import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito
 import org.robolectric.RuntimeEnvironment.application
-
+import java.net.ConnectException
+import kotlin.test.assertFailsWith
 
 class TxSocketTest : BaseTest() {
     @Test
@@ -51,9 +52,6 @@ class TxSocketTest : BaseTest() {
     private lateinit var listener: TelnyxClient
     @MockK
     private var mockContext: Context = mock(Context::class.java)
-    @MockK
-    private  var ongoingCall: Boolean = false
-
 
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
@@ -68,8 +66,18 @@ class TxSocketTest : BaseTest() {
         MockKAnnotations.init(this, true)
         Mockito.`when`(application.applicationContext).thenReturn(mockContext)
 
-        //every { ongoingCall } returns true
+        every {socket.callOngoing()} just Runs
+        every {socket.callNotOngoing()} just Runs
+    }
 
+    @Test
+    fun `connect with valid host and port`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+        listener = TelnyxClient(socket, mockContext)
+        socket.connect(listener)
     }
 
     @Test
@@ -79,7 +87,9 @@ class TxSocketTest : BaseTest() {
             port = 0,
         )
         listener = TelnyxClient(socket, mockContext)
-        socket.connect(listener)
+        assertFailsWith<ConnectException> {
+            socket.connect(listener)
+        }
     }
 
     @Test
@@ -88,9 +98,24 @@ class TxSocketTest : BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
-        listener = TelnyxClient(socket, mockContext)
         socket.callOngoing()
-        ongoingCall shouldBe true
+        socket.ongoingCall shouldBe true
     }
 
+    @Test
+    fun `set call to not ongoing`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+        socket.callNotOngoing()
+        socket.ongoingCall shouldBe false
+    }
+
+    @Test
+    fun `get web socket session before connection is established`() {
+        assertFailsWith<UninitializedPropertyAccessException> {
+            socket.getWebSocketSession()
+        }
+    }
 }
