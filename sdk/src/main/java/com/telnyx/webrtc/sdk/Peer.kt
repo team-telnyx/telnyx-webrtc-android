@@ -23,7 +23,7 @@ class Peer(
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
     }
 
-    private val rootEglBase: EglBase = EglBase.create()
+   // private val rootEglBase: EglBase = EglBase.create()
 
     init {
         initPeerConnectionFactory(context)
@@ -61,8 +61,8 @@ class Peer(
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         return PeerConnectionFactory
                 .builder()
-                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-                .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
+              //  .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+             //   .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
                 .setOptions(PeerConnectionFactory.Options().apply {
                     disableEncryption = false
                     disableNetworkMonitor = true
@@ -75,7 +75,7 @@ class Peer(
             iceServer,
             observer
     )
-    
+
     fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
@@ -92,7 +92,7 @@ class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+         //   mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -124,7 +124,7 @@ class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+          //  mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
