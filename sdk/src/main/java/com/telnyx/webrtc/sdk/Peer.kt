@@ -51,7 +51,6 @@ class Peer(
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     private val peerConnection by lazy { buildPeerConnection(observer) }
 
-    //private val peerConnection by lazy { buildPeerConnection(this) }
     private val videoCapturer by lazy { getVideoCapturer(context) }
     private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
 
