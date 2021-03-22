@@ -19,9 +19,7 @@ class Peer(
 ) {
 
     companion object {
-        private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
-        private const val VIDEO_LOCAL_STREAM_ID = "video_local_stream"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
     }
 
@@ -51,10 +49,6 @@ class Peer(
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     private val peerConnection by lazy { buildPeerConnection(observer) }
 
-    private val videoCapturer by lazy { getVideoCapturer(context) }
-    private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
-
-
     private fun initPeerConnectionFactory(context: Context) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(true)
@@ -81,48 +75,7 @@ class Peer(
             iceServer,
             observer
     )
-
-    private fun getVideoCapturer(context: Context) =
-            Camera2Enumerator(context).run {
-                deviceNames.find {
-                    isFrontFacing(it)
-                }?.let {
-                    createCapturer(it, null)
-                } ?: throw IllegalStateException()
-            }
-
-    fun changeCameraDirection() {
-        videoCapturer.switchCamera(null)
-    }
-
-    fun initSurfaceView(view: SurfaceViewRenderer) = view.run {
-        setMirror(true)
-        setEnableHardwareScaler(true)
-        init(rootEglBase.eglBaseContext, null)
-    }
-
-    fun startLocalVideoCapture(localVideoOutput: SurfaceViewRenderer) {
-        val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        (videoCapturer as VideoCapturer).initialize(surfaceTextureHelper, localVideoOutput.context, localVideoSource.capturerObserver)
-        videoCapturer.startCapture(1024, 720, 30)
-        val localVideoTrack = peerConnectionFactory.createVideoTrack(
-                VIDEO_LOCAL_TRACK_ID,
-                localVideoSource)
-        localVideoTrack.addSink(localVideoOutput)
-        val localStream = peerConnectionFactory.createLocalMediaStream(VIDEO_LOCAL_STREAM_ID)
-        localVideoTrack.setEnabled(true)
-        localStream.addTrack(localVideoTrack)
-        peerConnection?.addStream(localStream)
-    }
-
-    fun releaseSurfaceView(view: SurfaceViewRenderer) = view.run {
-        release()
-    }
-
-    fun endLocalVideoCapture() {
-        videoCapturer.stopCapture()
-    }
-
+    
     fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
