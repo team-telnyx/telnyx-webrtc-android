@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk.utilities
 
-import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkRequest
