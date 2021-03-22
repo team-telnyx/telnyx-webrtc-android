@@ -32,8 +32,8 @@ class PeerTest : BaseTest() {
     @MockK
     private lateinit var observer: PeerConnection.Observer
 
-    @MockK
-    private lateinit var eglBase: EglBase
+    //ToDo mock peer connection
+
 
     @BeforeEach
     fun setup() {
@@ -42,10 +42,10 @@ class PeerTest : BaseTest() {
 
     @Test
     fun `test starting local audio capture does not throw exception`() {
-
+       // assertDoesNotThrow {
             val peer = Peer(mockContext, observer)
-           // peer.startLocalAudioCapture()
-
+            peer.startLocalAudioCapture()
+      //  }
     }
 
 }
