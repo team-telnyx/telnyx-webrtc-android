@@ -1,10 +1,13 @@
 package com.telnyx.webrtc.sdk
 
+import android.Manifest
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.Observer
+import androidx.appcompat.app.AppCompatActivity
+import androidx.test.rule.GrantPermissionRule
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
@@ -13,13 +16,11 @@ import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
+import org.junit.Rule
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mockito
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -31,13 +32,29 @@ class TelnyxClientTest : BaseTest() {
     @MockK
     lateinit var connectivityHelper: ConnectivityHelper
 
+    @MockK
+    lateinit var connectivityManager: ConnectivityManager
+
+    @MockK lateinit var activeNetwork: Network
+
+    @MockK lateinit var capabilities: NetworkCapabilities
+
+    @MockK lateinit var networkRequest: NetworkRequest
+
     lateinit var client: TelnyxClient
+
+    @get:Rule
+    val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
+        Manifest.permission.ACCESS_NETWORK_STATE,
+    )
 
 
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this,true,true, true)
         networkCallbackSetup()
+
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
 
         val socket = TxSocket(
             host_address = "rtc.telnyx.com",
@@ -66,12 +83,18 @@ class TelnyxClientTest : BaseTest() {
             anyConstructed<NetworkRequest.Builder>().addCapability(any()).addCapability(any())
                 .build()
         } returns request
-        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns manager
-        every { manager.registerNetworkCallback(any(), callback) } just Runs
-        every { manager.registerNetworkCallback(any(), callback) } answers { registered = true }
-        every { manager.unregisterNetworkCallback(callback) } answers { registered = false }
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
+        every { connectivityManager.registerNetworkCallback(any(), callback) } just Runs
+        every { connectivityManager.registerNetworkCallback(any(), callback) } answers { registered = true }
+        every { connectivityManager.unregisterNetworkCallback(callback) } answers { registered = false }
         every { connectivityHelper.isNetworkEnabled(mockContext) } returns true
         every { connectivityHelper.registerNetworkStatusCallback(mockContext, callback) } just Runs
+
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
+        every {connectivityManager.activeNetwork } returns activeNetwork
+        every { connectivityHelper.isNetworkEnabled(mockContext) } returns false
+        every { connectivityManager.getNetworkCapabilities(activeNetwork) } returns capabilities
+        every { capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
 
         connectivityHelper.registerNetworkStatusCallback(mockContext, callback)
     }
@@ -89,7 +112,6 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `attempt connection without network`() {
-        every { connectivityHelper.isNetworkEnabled(mockContext) } returns false
         client.connect()
         assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("No Network Connection"))
     }
