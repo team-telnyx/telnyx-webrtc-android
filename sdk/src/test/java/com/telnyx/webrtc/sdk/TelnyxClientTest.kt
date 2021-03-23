@@ -125,7 +125,7 @@ class TelnyxClientTest : BaseTest() {
         client.getRawRingbackTone()
     }
 
-    //ToDo do for instrumentation.
+    //ToDo do for instrumentation. -- Instrumented tests - credential Login (valid/invalid), token login invalid. ConnectionEstablished (Session set ) Call/disconnect
     /*
     @Test
     fun `do credential login with invalid credentials`() {
