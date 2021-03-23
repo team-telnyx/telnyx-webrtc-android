@@ -125,35 +125,6 @@ class TelnyxClientTest : BaseTest() {
         client.getRawRingbackTone()
     }
 
-    //ToDo do for instrumentation. -- Instrumented tests - credential Login (valid/invalid), token login invalid. ConnectionEstablished (Session set ) Call/disconnect
-    /*
-    @Test
-    fun `do credential login with invalid credentials`() {
-        val socket = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        )
-        val client = TelnyxClient(socket, mockContext)
-        val invalidCredentialConfig =
-            CredentialConfig("Invalid User", "invalid password", null, null, null, null)
-        client.credentialLogin(invalidCredentialConfig)
-        assertEquals(client.getSessionID(), null)
-    }
-
-    @Test
-    fun `do credential login with valid credentials`() {
-        networkCallbackSetup()
-        val socket = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        )
-        val client = TelnyxClient(socket, mockContext)
-        val validCredentialConfig =
-            CredentialConfig("OliverZimmerman6", "Welcome@6", null, null, null, null)
-        client.credentialLogin(validCredentialConfig)
-        assertNotNull(client.getSessionID())
-    }
-     */
 }
 
 
