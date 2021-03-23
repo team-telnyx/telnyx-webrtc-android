@@ -1,14 +1,10 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import androidx.lifecycle.MutableLiveData
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
-import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
