@@ -4,8 +4,6 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
-import androidx.annotation.VisibleForTesting
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject

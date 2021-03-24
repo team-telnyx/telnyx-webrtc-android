@@ -1,11 +1,7 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.media.MediaPlayer
-import android.os.PowerManager
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -19,8 +15,6 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.webrtc.IceCandidate
-import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
