@@ -7,6 +7,7 @@ import android.os.PowerManager
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.Connection
 import com.telnyx.webrtc.sdk.model.Method
@@ -32,14 +33,14 @@ class Call(
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
 
-    private val callConnectionResponseLiveData = MutableLiveData<Connection>()
-
     private var earlySDP = false
 
     //MediaPlayer for ringtone / ringbacktone
     private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
     private var rawRingbackTone: Int? = null
+
+    private val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
     // Mute toggle live data
@@ -64,7 +65,7 @@ class Call(
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
 
-        callConnectionResponseLiveData.postValue(Connection.LOADING)
+        callStateLiveData.postValue(CallState.RINGING)
 
         //Create new peer
         peerConnection = Peer(context,
@@ -117,6 +118,7 @@ class Call(
         )
         socket.callSend(answerBodyMessage)
         stopMediaPlayer()
+        callStateLiveData.postValue(CallState.ACTIVE)
         client.callOngoing()
     }
 
@@ -133,6 +135,7 @@ class Call(
                 )
             )
         )
+        callStateLiveData.postValue(CallState.DONE)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
@@ -162,6 +165,7 @@ class Call(
     fun onHoldUnholdPressed(callId: String) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
+            callStateLiveData.postValue(CallState.HELD)
             sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
@@ -185,6 +189,7 @@ class Call(
         socket.callSend(modifyMessageBody)
     }
 
+    fun getCallState(): LiveData<CallState> = callStateLiveData
     fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
@@ -269,7 +274,8 @@ class Call(
 
                 peerConnection?.onRemoteSessionReceived(sdp)
 
-                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                callStateLiveData.postValue(CallState.ACTIVE)
+
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
@@ -280,7 +286,7 @@ class Call(
                 )
             }
             earlySDP -> {
-                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                callStateLiveData.postValue(CallState.CONNECTING)
                 val stringSdp = peerConnection?.getLocalDescription()?.description
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
@@ -293,7 +299,7 @@ class Call(
             }
             else -> {
                 //There was no SDP in the response, there was an error.
-                callConnectionResponseLiveData.postValue(Connection.ERROR)
+                callStateLiveData.postValue(CallState.DONE)
             }
         }
         client.callOngoing()
@@ -318,11 +324,12 @@ class Call(
             earlySDP = true
         } else {
             //There was no SDP in the response, there was an error.
-            callConnectionResponseLiveData.postValue(Connection.ERROR)
+            callStateLiveData.postValue(CallState.DONE)
         }
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
+        callStateLiveData.postValue(CallState.CONNECTING)
         Timber.d(
             "[%s] :: onIceCandidateReceived [%s]",
             this@Call.javaClass.simpleName,
@@ -338,6 +345,8 @@ class Call(
           2. setup ice candidate, local description and remote description
           3. connection is ready to be used for answer the call
           */
+
+        callStateLiveData.postValue(CallState.RINGING)
 
         //ToDo we need to handle what happens when we receive an offer while on an existing call.
 

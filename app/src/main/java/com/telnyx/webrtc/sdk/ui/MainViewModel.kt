@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -51,6 +52,7 @@ class MainViewModel @Inject constructor(
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
 
+    fun getCallState(): LiveData<CallState>? = telnyxClient?.call?.getCallState()
     fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsMuteStatus()
     fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnLoudSpeakerStatus()

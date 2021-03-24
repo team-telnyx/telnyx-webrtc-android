@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
         login_section_id.visibility = View.VISIBLE
 
         socket_text_value.text = getString(R.string.disconnected)
-        session_text_value.text = "-"
+        call_state_text_value.text = "-"
 
         mainViewModel.disconnect()
     }
@@ -277,7 +277,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onLoginSuccessfullyViews(sessionId: String) {
         socket_text_value.text = getString(R.string.connected)
-        session_text_value.text = sessionId
+        call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
@@ -310,6 +310,9 @@ class MainActivity : AppCompatActivity() {
         ongoing_call_section_id.visibility = View.VISIBLE
 
         //Handle call option observers
+        mainViewModel.getCallState()?.observe(this, { value ->
+            call_state_text_value.text = value.name
+        })
         mainViewModel.getIsMuteStatus()?.observe(this, { value ->
             if (!value) {
                 mute_button_id.setImageResource(R.drawable.ic_mic_off)
