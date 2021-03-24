@@ -165,15 +165,6 @@ class TelnyxClient(
         socket.destroy()
     }
 
-
-    /* Sanity check --
-
-        1. You use the client to get a get request to see all available audio devices - preferably by name
-
-        2. You then do a call to change the audio device to - passing the name (or other attribute)
-
-   */
-
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
