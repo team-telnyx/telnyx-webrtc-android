@@ -1,23 +1,25 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.Manifest.permission.*
-import androidx.appcompat.app.AppCompatActivity
+import android.app.AlertDialog
+import android.app.Dialog
+import android.content.DialogInterface
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
-import androidx.annotation.VisibleForTesting
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import kotlinx.android.synthetic.main.include_login_section.*
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
+import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.Method
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,6 +27,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
 import kotlinx.android.synthetic.main.include_incoming_call_section.*
 import kotlinx.android.synthetic.main.include_login_credential_section.*
+import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import timber.log.Timber
@@ -64,11 +67,46 @@ class MainActivity : AppCompatActivity() {
             true
         }
         R.id.action_change_audio_output -> {
-            
+            val dialog = createAudioOutputSelectionDialog()
+            dialog.show()
+            true
         }
         else -> {
             super.onOptionsItemSelected(item)
         }
+    }
+
+
+    private fun createAudioOutputSelectionDialog(): Dialog {
+        return this.let {
+            val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
+            val builder = AlertDialog.Builder(this)
+            //Set default to phone
+            mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
+            builder.setTitle("Select Audio Output")
+            builder.setSingleChoiceItems(
+                audioOutputList, 0
+            ) { _, which ->
+                when (which) {
+                    0 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
+                    }
+                    1 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.BLUETOOTH)
+                    }
+                    2 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.LOUDSPEAKER)
+                    }
+                }
+            }
+                // Set the action buttons
+                .setNeutralButton(
+                    "ok"
+                ) { dialog, _ ->
+                    dialog.dismiss()
+                }
+            builder.create()
+        } ?: throw IllegalStateException("Activity cannot be null")
     }
 
     private fun connectToSocketAndObserve() {
