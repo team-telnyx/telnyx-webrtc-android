@@ -3,7 +3,6 @@ package com.telnyx.webrtc.sdk.ui
 import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
-import android.content.DialogInterface
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Menu
