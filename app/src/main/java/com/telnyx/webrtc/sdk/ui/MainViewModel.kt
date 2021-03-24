@@ -5,12 +5,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
+import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.ktor.util.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
 
+@ExperimentalCoroutinesApi
+@KtorExperimentalAPI
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val userManager: UserManager
@@ -85,5 +90,9 @@ class MainViewModel @Inject constructor(
     fun disconnect() {
         telnyxClient?.disconnect()
         userManager.isUserLogin = false
+    }
+
+    fun changeAudioOutput(audioDevice: AudioDevice) {
+        telnyxClient?.setAudioOutputDevice(audioDevice)
     }
 }

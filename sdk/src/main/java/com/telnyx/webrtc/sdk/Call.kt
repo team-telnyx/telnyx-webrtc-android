@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
+import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -28,13 +29,12 @@ class Call(
     var client: TelnyxClient,
     var socket: TxCallSocket,
     var sessionId: String,
+    private var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
 
     private val callConnectionResponseLiveData = MutableLiveData<Connection>()
-    private val audioManager =
-        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
     private var earlySDP = false
 
@@ -55,6 +55,9 @@ class Call(
 
     init {
         socket.callListen(this)
+
+        //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
+        loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
     fun newInvite(destinationNumber: String) {

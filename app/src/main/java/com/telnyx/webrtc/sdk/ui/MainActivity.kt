@@ -8,6 +8,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModelProvider
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
@@ -61,6 +62,9 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
             }
             true
+        }
+        R.id.action_change_audio_output -> {
+            
         }
         else -> {
             super.onOptionsItemSelected(item)

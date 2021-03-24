@@ -1,9 +1,11 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -33,11 +35,14 @@ class TelnyxClient(
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
-    val call: Call?  by lazy { buildCall() }
+    private val audioManager =
+        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+
+    val call: Call? by lazy { buildCall() }
 
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(this, txCallSocket, sessionId!!, context)
+        return Call(this, txCallSocket, sessionId!!, audioManager, context)
     }
 
     internal var isNetworkCallbackRegistered = false
@@ -62,6 +67,7 @@ class TelnyxClient(
     private var rawRingtone: Int? = null
     private var rawRingbackTone: Int? = null
 
+
     fun getRawRingtone(): Int? {
         return rawRingtone
     }
@@ -82,11 +88,11 @@ class TelnyxClient(
         return sessionId
     }
 
-   internal fun callOngoing() {
+    internal fun callOngoing() {
         socket.callOngoing()
     }
 
-   internal fun callNotOngoing() {
+    internal fun callNotOngoing() {
         socket.callNotOngoing()
     }
 
@@ -159,6 +165,56 @@ class TelnyxClient(
         socket.destroy()
     }
 
+
+    /* Sanity check --
+
+        1. You use the client to get a get request to see all available audio devices - preferably by name
+
+        2. You then do a call to change the audio device to - passing the name (or other attribute)
+
+   */
+
+    private fun getAvailableAudioOutputTypes(): MutableList<Int> {
+        val availableTypes: MutableList<Int> = mutableListOf()
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
+            availableTypes.add(it.type)
+        }
+        return availableTypes
+    }
+
+    fun setAudioOutputDevice(audioDevice: AudioDevice) {
+        val availableTypes = getAvailableAudioOutputTypes()
+        when (audioDevice) {
+            AudioDevice.BLUETOOTH -> {
+                if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
+                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                    audioManager.startBluetoothSco()
+                    audioManager.isBluetoothScoOn = true
+                } else {
+                    Timber.d(
+                        "[%s] :: No Bluetooth device detected",
+                        this@TelnyxClient.javaClass.simpleName,
+                    )
+                }
+            }
+            AudioDevice.PHONE_EARPIECE -> {
+                //For phone ear piece
+                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                audioManager.stopBluetoothSco();
+                audioManager.isBluetoothScoOn = false
+                audioManager.isSpeakerphoneOn = false
+            }
+            AudioDevice.LOUDSPEAKER -> {
+                //For phone speaker(loudspeaker)
+                audioManager.mode = AudioManager.MODE_NORMAL;
+                audioManager.stopBluetoothSco();
+                audioManager.isBluetoothScoOn = false;
+                audioManager.isSpeakerphoneOn = true;
+            }
+        }
+    }
+
+    // TxSocketListener Overrides
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
