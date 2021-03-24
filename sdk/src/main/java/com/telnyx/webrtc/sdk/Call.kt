@@ -9,7 +9,6 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
-import com.telnyx.webrtc.sdk.model.Connection
 import com.telnyx.webrtc.sdk.model.Method
 import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
