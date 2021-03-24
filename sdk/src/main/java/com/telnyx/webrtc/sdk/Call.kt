@@ -9,7 +9,7 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
-import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -76,7 +76,7 @@ class Call(
                     //set localInfo and ice candidate and able to create correct offer
                     val inviteMessageBody = SendingMessageBody(
                         id = uuid,
-                        method = Method.INVITE.methodName,
+                        method = SocketMethod.INVITE.methodName,
                         params = CallParams(
                             sessionId = sessionId!!,
                             sdp = peerConnection?.getLocalDescription()?.description.toString(),
@@ -106,7 +106,7 @@ class Call(
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()!!.description
         val answerBodyMessage = SendingMessageBody(
-            uuid, Method.ANSWER.methodName,
+            uuid, SocketMethod.ANSWER.methodName,
             CallParams(
                 sessionId, sessionDescriptionString,
                 CallDialogParams(
@@ -124,7 +124,7 @@ class Call(
     fun endCall(callId: String) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
-            uuid, Method.BYE.methodName,
+            uuid, SocketMethod.BYE.methodName,
             ByeParams(
                 sessionId,
                 CauseCode.USER_BUSY.code,
@@ -176,7 +176,7 @@ class Call(
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
-            method = Method.MODIFY.methodName,
+            method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
                 sessid = sessionId,
                 action = holdAction,
@@ -242,7 +242,7 @@ class Call(
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.BYE.methodName,
+                    SocketMethod.BYE.methodName,
                     null
                 )
             )
@@ -278,7 +278,7 @@ class Call(
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
-                            Method.ANSWER.methodName,
+                            SocketMethod.ANSWER.methodName,
                             AnswerResponse(callId, stringSdp)
                         )
                     )
@@ -290,7 +290,7 @@ class Call(
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
-                            Method.ANSWER.methodName,
+                            SocketMethod.ANSWER.methodName,
                             AnswerResponse(callId, stringSdp!!)
                         )
                     )
@@ -379,7 +379,7 @@ class Call(
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.INVITE.methodName,
+                    SocketMethod.INVITE.methodName,
                     InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
                 )
             )

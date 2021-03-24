@@ -122,7 +122,7 @@ class TelnyxClient(
 
         val loginMessage = SendingMessageBody(
             id = uuid,
-            method = Method.LOGIN.methodName,
+            method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
                 login_token = null,
                 login = user,
@@ -141,7 +141,7 @@ class TelnyxClient(
 
         val loginMessage = SendingMessageBody(
             id = uuid,
-            method = Method.LOGIN.methodName,
+            method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
                 login_token = token,
                 login = null,
@@ -210,7 +210,7 @@ class TelnyxClient(
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.LOGIN.methodName,
+                    SocketMethod.LOGIN.methodName,
                     LoginResponse(sessionId!!)
                 )
             )
@@ -225,5 +225,10 @@ class TelnyxClient(
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
         call?.onOfferReceived(jsonObject)
+    }
+
+    override fun onErrorReceived(jsonObject: JsonObject) {
+        val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
+        socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 }

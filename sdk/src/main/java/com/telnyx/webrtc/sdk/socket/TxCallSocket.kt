@@ -3,8 +3,7 @@ package com.telnyx.webrtc.sdk.socket
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Call
-import com.telnyx.webrtc.sdk.TelnyxClient
-import com.telnyx.webrtc.sdk.model.Method.*
+import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.engine.cio.*

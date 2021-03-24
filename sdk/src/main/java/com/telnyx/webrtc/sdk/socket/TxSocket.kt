@@ -2,9 +2,9 @@ package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
-import com.telnyx.webrtc.sdk.model.Method.*
+import com.telnyx.webrtc.sdk.model.SocketError.*
+import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.engine.cio.*
@@ -89,6 +89,22 @@ class TxSocket(
                                                 when (jsonObject.get("method").asString) {
                                                     INVITE.methodName -> {
                                                         listener.onOfferReceived(jsonObject)
+                                                    }
+                                                }
+                                            }
+                                            jsonObject.has("error") -> {
+                                                val errorCode = jsonObject.get("error").asJsonObject.get("code").asInt
+                                                Timber.d(
+                                                    "[%s] Received Error From Telnyx [%s]",
+                                                    this@TxSocket.javaClass.simpleName,
+                                                    jsonObject.get("error").asJsonObject.get("message").toString()
+                                                )
+                                                when (errorCode) {
+                                                    CREDENTIAL_ERROR.errorCode -> {
+                                                        listener.onErrorReceived(jsonObject)
+                                                    }
+                                                    TOKEN_ERROR.errorCode -> {
+                                                        listener.onErrorReceived(jsonObject)
                                                     }
                                                 }
                                             }

@@ -1,6 +1,6 @@
 package com.telnyx.webrtc.sdk.model
 
-enum class Method(var methodName: String) {
+enum class SocketMethod(var methodName: String) {
     ANSWER("telnyx_rtc.answer"),
     INVITE("telnyx_rtc.invite"),
     BYE("telnyx_rtc.bye"),

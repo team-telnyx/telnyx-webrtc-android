@@ -19,7 +19,7 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
-import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
@@ -123,12 +123,12 @@ class MainActivity : AppCompatActivity() {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     Timber.d("onMessageReceived from SDK [%s]", data?.method)
                     when (data?.method) {
-                        Method.LOGIN.methodName -> {
+                        SocketMethod.LOGIN.methodName -> {
                             val sessionId = (data.result as LoginResponse).sessid
                             onLoginSuccessfullyViews(sessionId)
                         }
 
-                        Method.INVITE.methodName -> {
+                        SocketMethod.INVITE.methodName -> {
                             val inviteResponse = data.result as InviteResponse
                             onReceiveCallView(
                                 inviteResponse.callId,
@@ -137,12 +137,12 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        Method.ANSWER.methodName -> {
+                        SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
                             onAnsweredCallViews(callId)
                         }
 
-                        Method.BYE.methodName -> {
+                        SocketMethod.BYE.methodName -> {
                             onByeReceivedViews()
                         }
                     }
@@ -160,7 +160,9 @@ class MainActivity : AppCompatActivity() {
                     ).show()
 
                     //logout - so that the user has to relog and force a connection
-                    disconnectPressed()
+                    if (message == "No Network Connection") {
+                        disconnectPressed()
+                    }
                 }
 
             })
