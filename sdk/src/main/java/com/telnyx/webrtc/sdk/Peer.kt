@@ -1,14 +1,10 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import androidx.lifecycle.MutableLiveData
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
-import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
@@ -19,13 +15,11 @@ class Peer(
 ) {
 
     companion object {
-        private const val VIDEO_LOCAL_TRACK_ID = "video_local_track"
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
-        private const val VIDEO_LOCAL_STREAM_ID = "video_local_stream"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
     }
 
-    private val rootEglBase: EglBase = EglBase.create()
+   // private val rootEglBase: EglBase = EglBase.create()
 
     init {
         initPeerConnectionFactory(context)
@@ -51,11 +45,6 @@ class Peer(
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     private val peerConnection by lazy { buildPeerConnection(observer) }
 
-    //private val peerConnection by lazy { buildPeerConnection(this) }
-    private val videoCapturer by lazy { getVideoCapturer(context) }
-    private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
-
-
     private fun initPeerConnectionFactory(context: Context) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(true)
@@ -68,8 +57,8 @@ class Peer(
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         return PeerConnectionFactory
                 .builder()
-                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-                .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
+              //  .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+             //   .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
                 .setOptions(PeerConnectionFactory.Options().apply {
                     disableEncryption = false
                     disableNetworkMonitor = true
@@ -82,47 +71,6 @@ class Peer(
             iceServer,
             observer
     )
-
-    private fun getVideoCapturer(context: Context) =
-            Camera2Enumerator(context).run {
-                deviceNames.find {
-                    isFrontFacing(it)
-                }?.let {
-                    createCapturer(it, null)
-                } ?: throw IllegalStateException()
-            }
-
-    fun changeCameraDirection() {
-        videoCapturer.switchCamera(null)
-    }
-
-    fun initSurfaceView(view: SurfaceViewRenderer) = view.run {
-        setMirror(true)
-        setEnableHardwareScaler(true)
-        init(rootEglBase.eglBaseContext, null)
-    }
-
-    fun startLocalVideoCapture(localVideoOutput: SurfaceViewRenderer) {
-        val surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().name, rootEglBase.eglBaseContext)
-        (videoCapturer as VideoCapturer).initialize(surfaceTextureHelper, localVideoOutput.context, localVideoSource.capturerObserver)
-        videoCapturer.startCapture(1024, 720, 30)
-        val localVideoTrack = peerConnectionFactory.createVideoTrack(
-                VIDEO_LOCAL_TRACK_ID,
-                localVideoSource)
-        localVideoTrack.addSink(localVideoOutput)
-        val localStream = peerConnectionFactory.createLocalMediaStream(VIDEO_LOCAL_STREAM_ID)
-        localVideoTrack.setEnabled(true)
-        localStream.addTrack(localVideoTrack)
-        peerConnection?.addStream(localStream)
-    }
-
-    fun releaseSurfaceView(view: SurfaceViewRenderer) = view.run {
-        release()
-    }
-
-    fun endLocalVideoCapture() {
-        videoCapturer.stopCapture()
-    }
 
     fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
@@ -140,7 +88,7 @@ class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+         //   mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -172,7 +120,7 @@ class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+          //  mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 

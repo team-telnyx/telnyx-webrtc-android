@@ -40,7 +40,7 @@ class TelnyxClient(
         return Call(this, txCallSocket, sessionId!!, context)
     }
 
-    private var isNetworkCallbackRegistered = false
+    internal var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
@@ -76,6 +76,10 @@ class TelnyxClient(
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
+    }
+
+    fun getSessionID(): String? {
+        return sessionId
     }
 
    internal fun callOngoing() {

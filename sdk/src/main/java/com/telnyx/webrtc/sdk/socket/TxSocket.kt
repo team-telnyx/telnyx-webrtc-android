@@ -27,7 +27,7 @@ class TxSocket(
     private val job = Job()
     private val gson = Gson()
 
-    private var ongoingCall = false
+    internal var ongoingCall = false
 
     override val coroutineContext = Dispatchers.IO + job
 
@@ -103,7 +103,7 @@ class TxSocket(
                 }
             }
         } catch (cause: Throwable) {
-            Timber.d("Check Network Connection :: $cause")
+            Timber.d(cause)
         }
     }
 
