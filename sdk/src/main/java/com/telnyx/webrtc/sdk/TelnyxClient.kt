@@ -2,8 +2,6 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaPlayer
-import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -17,8 +15,6 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.webrtc.IceCandidate
-import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
@@ -33,11 +29,14 @@ class TelnyxClient(
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
-    val call: Call?  by lazy { buildCall() }
+    private val audioManager =
+        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+
+    val call: Call? by lazy { buildCall() }
 
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(this, txCallSocket, sessionId!!, context)
+        return Call(this, txCallSocket, sessionId!!, audioManager, context)
     }
 
     internal var isNetworkCallbackRegistered = false
@@ -62,6 +61,7 @@ class TelnyxClient(
     private var rawRingtone: Int? = null
     private var rawRingbackTone: Int? = null
 
+
     fun getRawRingtone(): Int? {
         return rawRingtone
     }
@@ -82,11 +82,11 @@ class TelnyxClient(
         return sessionId
     }
 
-   internal fun callOngoing() {
+    internal fun callOngoing() {
         socket.callOngoing()
     }
 
-   internal fun callNotOngoing() {
+    internal fun callNotOngoing() {
         socket.callNotOngoing()
     }
 
@@ -122,7 +122,7 @@ class TelnyxClient(
 
         val loginMessage = SendingMessageBody(
             id = uuid,
-            method = Method.LOGIN.methodName,
+            method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
                 login_token = null,
                 login = user,
@@ -141,7 +141,7 @@ class TelnyxClient(
 
         val loginMessage = SendingMessageBody(
             id = uuid,
-            method = Method.LOGIN.methodName,
+            method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
                 login_token = token,
                 login = null,
@@ -159,6 +159,47 @@ class TelnyxClient(
         socket.destroy()
     }
 
+    private fun getAvailableAudioOutputTypes(): MutableList<Int> {
+        val availableTypes: MutableList<Int> = mutableListOf()
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
+            availableTypes.add(it.type)
+        }
+        return availableTypes
+    }
+
+    fun setAudioOutputDevice(audioDevice: AudioDevice) {
+        val availableTypes = getAvailableAudioOutputTypes()
+        when (audioDevice) {
+            AudioDevice.BLUETOOTH -> {
+                if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
+                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                    audioManager.startBluetoothSco()
+                    audioManager.isBluetoothScoOn = true
+                } else {
+                    Timber.d(
+                        "[%s] :: No Bluetooth device detected",
+                        this@TelnyxClient.javaClass.simpleName,
+                    )
+                }
+            }
+            AudioDevice.PHONE_EARPIECE -> {
+                //For phone ear piece
+                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                audioManager.stopBluetoothSco();
+                audioManager.isBluetoothScoOn = false
+                audioManager.isSpeakerphoneOn = false
+            }
+            AudioDevice.LOUDSPEAKER -> {
+                //For phone speaker(loudspeaker)
+                audioManager.mode = AudioManager.MODE_NORMAL;
+                audioManager.stopBluetoothSco();
+                audioManager.isBluetoothScoOn = false;
+                audioManager.isSpeakerphoneOn = true;
+            }
+        }
+    }
+
+    // TxSocketListener Overrides
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
@@ -169,7 +210,7 @@ class TelnyxClient(
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.LOGIN.methodName,
+                    SocketMethod.LOGIN.methodName,
                     LoginResponse(sessionId!!)
                 )
             )
@@ -184,5 +225,10 @@ class TelnyxClient(
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
         call?.onOfferReceived(jsonObject)
+    }
+
+    override fun onErrorReceived(jsonObject: JsonObject) {
+        val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
+        socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 }

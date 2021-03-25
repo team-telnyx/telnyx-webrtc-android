@@ -4,13 +4,12 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
-import com.telnyx.webrtc.sdk.model.Connection
-import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -28,13 +27,10 @@ class Call(
     var client: TelnyxClient,
     var socket: TxCallSocket,
     var sessionId: String,
+    private var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
-
-    private val callConnectionResponseLiveData = MutableLiveData<Connection>()
-    private val audioManager =
-        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
     private var earlySDP = false
 
@@ -42,6 +38,8 @@ class Call(
     private lateinit var mediaPlayer: MediaPlayer
     private var rawRingtone: Int? = null
     private var rawRingbackTone: Int? = null
+
+    private val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
     // Mute toggle live data
@@ -55,6 +53,9 @@ class Call(
 
     init {
         socket.callListen(this)
+
+        //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
+        loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
     fun newInvite(destinationNumber: String) {
@@ -63,7 +64,7 @@ class Call(
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
 
-        callConnectionResponseLiveData.postValue(Connection.LOADING)
+        callStateLiveData.postValue(CallState.RINGING)
 
         //Create new peer
         peerConnection = Peer(context,
@@ -75,7 +76,7 @@ class Call(
                     //set localInfo and ice candidate and able to create correct offer
                     val inviteMessageBody = SendingMessageBody(
                         id = uuid,
-                        method = Method.INVITE.methodName,
+                        method = SocketMethod.INVITE.methodName,
                         params = CallParams(
                             sessionId = sessionId!!,
                             sdp = peerConnection?.getLocalDescription()?.description.toString(),
@@ -105,7 +106,7 @@ class Call(
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()!!.description
         val answerBodyMessage = SendingMessageBody(
-            uuid, Method.ANSWER.methodName,
+            uuid, SocketMethod.ANSWER.methodName,
             CallParams(
                 sessionId, sessionDescriptionString,
                 CallDialogParams(
@@ -116,13 +117,14 @@ class Call(
         )
         socket.callSend(answerBodyMessage)
         stopMediaPlayer()
+        callStateLiveData.postValue(CallState.ACTIVE)
         client.callOngoing()
     }
 
     fun endCall(callId: String) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
-            uuid, Method.BYE.methodName,
+            uuid, SocketMethod.BYE.methodName,
             ByeParams(
                 sessionId,
                 CauseCode.USER_BUSY.code,
@@ -132,6 +134,7 @@ class Call(
                 )
             )
         )
+        callStateLiveData.postValue(CallState.DONE)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
@@ -161,6 +164,7 @@ class Call(
     fun onHoldUnholdPressed(callId: String) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
+            callStateLiveData.postValue(CallState.HELD)
             sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
@@ -172,7 +176,7 @@ class Call(
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
-            method = Method.MODIFY.methodName,
+            method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
                 sessid = sessionId,
                 action = holdAction,
@@ -184,6 +188,7 @@ class Call(
         socket.callSend(modifyMessageBody)
     }
 
+    fun getCallState(): LiveData<CallState> = callStateLiveData
     fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
@@ -237,7 +242,7 @@ class Call(
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.BYE.methodName,
+                    SocketMethod.BYE.methodName,
                     null
                 )
             )
@@ -268,23 +273,24 @@ class Call(
 
                 peerConnection?.onRemoteSessionReceived(sdp)
 
-                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                callStateLiveData.postValue(CallState.ACTIVE)
+
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
-                            Method.ANSWER.methodName,
+                            SocketMethod.ANSWER.methodName,
                             AnswerResponse(callId, stringSdp)
                         )
                     )
                 )
             }
             earlySDP -> {
-                callConnectionResponseLiveData.postValue(Connection.ESTABLISHED)
+                callStateLiveData.postValue(CallState.CONNECTING)
                 val stringSdp = peerConnection?.getLocalDescription()?.description
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
-                            Method.ANSWER.methodName,
+                            SocketMethod.ANSWER.methodName,
                             AnswerResponse(callId, stringSdp!!)
                         )
                     )
@@ -292,7 +298,7 @@ class Call(
             }
             else -> {
                 //There was no SDP in the response, there was an error.
-                callConnectionResponseLiveData.postValue(Connection.ERROR)
+                callStateLiveData.postValue(CallState.DONE)
             }
         }
         client.callOngoing()
@@ -317,11 +323,12 @@ class Call(
             earlySDP = true
         } else {
             //There was no SDP in the response, there was an error.
-            callConnectionResponseLiveData.postValue(Connection.ERROR)
+            callStateLiveData.postValue(CallState.DONE)
         }
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
+        callStateLiveData.postValue(CallState.CONNECTING)
         Timber.d(
             "[%s] :: onIceCandidateReceived [%s]",
             this@Call.javaClass.simpleName,
@@ -337,6 +344,8 @@ class Call(
           2. setup ice candidate, local description and remote description
           3. connection is ready to be used for answer the call
           */
+
+        callStateLiveData.postValue(CallState.RINGING)
 
         //ToDo we need to handle what happens when we receive an offer while on an existing call.
 
@@ -370,7 +379,7 @@ class Call(
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
-                    Method.INVITE.methodName,
+                    SocketMethod.INVITE.methodName,
                     InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
                 )
             )

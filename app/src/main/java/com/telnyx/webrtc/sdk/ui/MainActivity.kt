@@ -1,29 +1,32 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.Manifest.permission.*
-import androidx.appcompat.app.AppCompatActivity
+import android.app.AlertDialog
+import android.app.Dialog
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import kotlinx.android.synthetic.main.include_login_section.*
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
-import com.telnyx.webrtc.sdk.model.Method
+import com.telnyx.webrtc.sdk.model.AudioDevice
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
 import kotlinx.android.synthetic.main.include_incoming_call_section.*
 import kotlinx.android.synthetic.main.include_login_credential_section.*
+import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import timber.log.Timber
@@ -62,9 +65,47 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
+        R.id.action_change_audio_output -> {
+            val dialog = createAudioOutputSelectionDialog()
+            dialog.show()
+            true
+        }
         else -> {
             super.onOptionsItemSelected(item)
         }
+    }
+
+
+    private fun createAudioOutputSelectionDialog(): Dialog {
+        return this.let {
+            val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
+            val builder = AlertDialog.Builder(this)
+            //Set default to phone
+            mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
+            builder.setTitle("Select Audio Output")
+            builder.setSingleChoiceItems(
+                audioOutputList, 0
+            ) { _, which ->
+                when (which) {
+                    0 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
+                    }
+                    1 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.BLUETOOTH)
+                    }
+                    2 -> {
+                        mainViewModel.changeAudioOutput(AudioDevice.LOUDSPEAKER)
+                    }
+                }
+            }
+                // Set the action buttons
+                .setNeutralButton(
+                    "ok"
+                ) { dialog, _ ->
+                    dialog.dismiss()
+                }
+            builder.create()
+        } ?: throw IllegalStateException("Activity cannot be null")
     }
 
     private fun connectToSocketAndObserve() {
@@ -82,12 +123,12 @@ class MainActivity : AppCompatActivity() {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     Timber.d("onMessageReceived from SDK [%s]", data?.method)
                     when (data?.method) {
-                        Method.LOGIN.methodName -> {
+                        SocketMethod.LOGIN.methodName -> {
                             val sessionId = (data.result as LoginResponse).sessid
                             onLoginSuccessfullyViews(sessionId)
                         }
 
-                        Method.INVITE.methodName -> {
+                        SocketMethod.INVITE.methodName -> {
                             val inviteResponse = data.result as InviteResponse
                             onReceiveCallView(
                                 inviteResponse.callId,
@@ -96,12 +137,12 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        Method.ANSWER.methodName -> {
+                        SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
                             onAnsweredCallViews(callId)
                         }
 
-                        Method.BYE.methodName -> {
+                        SocketMethod.BYE.methodName -> {
                             onByeReceivedViews()
                         }
                     }
@@ -119,7 +160,9 @@ class MainActivity : AppCompatActivity() {
                     ).show()
 
                     //logout - so that the user has to relog and force a connection
-                    disconnectPressed()
+                    if (message == "No Network Connection") {
+                        disconnectPressed()
+                    }
                 }
 
             })
@@ -225,7 +268,7 @@ class MainActivity : AppCompatActivity() {
         login_section_id.visibility = View.VISIBLE
 
         socket_text_value.text = getString(R.string.disconnected)
-        session_text_value.text = "-"
+        call_state_text_value.text = "-"
 
         mainViewModel.disconnect()
     }
@@ -236,7 +279,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onLoginSuccessfullyViews(sessionId: String) {
         socket_text_value.text = getString(R.string.connected)
-        session_text_value.text = sessionId
+        call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
@@ -269,6 +312,9 @@ class MainActivity : AppCompatActivity() {
         ongoing_call_section_id.visibility = View.VISIBLE
 
         //Handle call option observers
+        mainViewModel.getCallState()?.observe(this, { value ->
+            call_state_text_value.text = value.name
+        })
         mainViewModel.getIsMuteStatus()?.observe(this, { value ->
             if (!value) {
                 mute_button_id.setImageResource(R.drawable.ic_mic_off)

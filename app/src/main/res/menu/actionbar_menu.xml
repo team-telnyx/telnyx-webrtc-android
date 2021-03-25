@@ -5,4 +5,8 @@
         android:title="@string/disconnect"
         android:panelBackground ="@color/white"
         app:showAsAction="never"/>
+    <item android:id="@+id/action_change_audio_output"
+        android:title="@string/audio_settings"
+        android:panelBackground ="@color/white"
+        app:showAsAction="never"/>
 </menu>

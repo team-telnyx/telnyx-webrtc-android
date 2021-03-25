@@ -29,5 +29,7 @@
     <string name="token_login">Token login</string>
     <string name="off">Off</string>
     <string name="on">On</string>
+    <string name="audio_settings">Audio Output Device</string>
+    <string name="call_state">Call State:</string>
 
 </resources>

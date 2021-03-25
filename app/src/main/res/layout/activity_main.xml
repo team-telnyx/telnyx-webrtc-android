@@ -42,11 +42,11 @@
         app:layout_constraintTop_toBottomOf="@id/telnyx_image_id" />
 
     <TextView
-        android:id="@+id/session_text"
+        android:id="@+id/call_state_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingTop="@dimen/spacing_medium"
-        android:text="@string/session_id"
+        android:text="@string/call_state"
         android:textColor="@color/black"
         android:textSize="@dimen/font_large"
         app:layout_constraintStart_toStartOf="@id/guideline_start"
@@ -66,7 +66,7 @@
         app:layout_constraintTop_toBottomOf="@id/socket_text" />
 
     <TextView
-        android:id="@+id/session_text_value"
+        android:id="@+id/call_state_text_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingStart="@dimen/spacing_medium"
@@ -76,7 +76,7 @@
         android:textSize="@dimen/font_normal"
         app:layout_constraintEnd_toStartOf="@id/guideline_end"
         app:layout_constraintStart_toEndOf="@id/guideline_start"
-        app:layout_constraintTop_toBottomOf="@id/session_text" />
+        app:layout_constraintTop_toBottomOf="@id/call_state_text" />
 
     <include
         android:id="@+id/login_section_id"
@@ -86,7 +86,7 @@
         android:layout_marginTop="@dimen/spacing_small"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
 
     <include
         android:id="@+id/call_control_section_id"
@@ -97,7 +97,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
 
     <include
         android:id="@+id/incoming_call_section_id"
@@ -108,7 +108,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
 
     <include
         android:id="@+id/ongoing_call_section_id"
@@ -119,7 +119,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/session_text_value" />
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"
