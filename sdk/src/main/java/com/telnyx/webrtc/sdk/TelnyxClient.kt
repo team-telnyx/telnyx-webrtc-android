@@ -34,8 +34,6 @@ class TelnyxClient(
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
-   // val call: Call by lazy { buildCall() }
-
     /// Keeps track of all the created calls by theirs UUIDs
     var calls: MutableMap<UUID, Call> = mutableMapOf()
 
@@ -92,10 +90,6 @@ class TelnyxClient(
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
-    }
-
-    fun getSessionID(): String? {
-        return sessionId
     }
 
     internal fun callOngoing() {
