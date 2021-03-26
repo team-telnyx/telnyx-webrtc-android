@@ -30,6 +30,7 @@ import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import timber.log.Timber
+import java.util.*
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -130,8 +131,9 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.INVITE.methodName -> {
                             val inviteResponse = data.result as InviteResponse
+                            mainViewModel.setCurrentCall(inviteResponse.callId)
                             onReceiveCallView(
-                                inviteResponse.callId,
+                                inviteResponse.callId.toString(),
                                 inviteResponse.callerIdName,
                                 inviteResponse.callerIdNumber
                             )
@@ -139,7 +141,8 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
-                            onAnsweredCallViews(callId)
+                            mainViewModel.setCurrentCall(callId)
+                            onAnsweredCallViews(callId.toString())
                         }
 
                         SocketMethod.BYE.methodName -> {

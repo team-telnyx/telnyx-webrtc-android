@@ -35,7 +35,7 @@ class TelnyxClient(
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
     /// Keeps track of all the created calls by theirs UUIDs
-    private var calls: MutableMap<UUID, Call> = mutableMapOf()
+    private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     lateinit var call: Call
 
@@ -117,7 +117,7 @@ class TelnyxClient(
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
-    fun getActiveCalls(): MutableMap<UUID, Call> { return calls}
+    fun getActiveCalls(): Map<UUID, Call> { return calls.toMap()}
 
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -316,7 +316,7 @@ class TelnyxClient(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
+                    InviteResponse(UUID.fromString(callId), remoteSdp, callerName, callerNumber, "")
                 )
             )
         )

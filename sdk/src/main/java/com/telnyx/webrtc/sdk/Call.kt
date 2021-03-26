@@ -244,7 +244,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(callId, stringSdp)
+                            AnswerResponse(UUID.fromString(callId), stringSdp)
                         )
                     )
                 )
@@ -256,7 +256,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(callId, stringSdp!!)
+                            AnswerResponse(UUID.fromString(callId), stringSdp!!)
                         )
                     )
                 )

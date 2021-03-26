@@ -27,7 +27,7 @@ class MainViewModel @Inject constructor(
     private var telnyxClient: TelnyxClient? = null
 
     private var currentCall: Call? = null
-    private var calls: MutableMap<UUID, Call> = mutableMapOf()
+    private var calls: Map<UUID, Call> = mapOf()
 
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
@@ -58,18 +58,18 @@ class MainViewModel @Inject constructor(
 
     fun getActiveCalls() {
         //non null asserted as it will always be initialized as an empty mutable map
-       calls = telnyxClient?.getActiveCalls()!!
+
     }
 
-    fun setCurrentCall() {
-       // currentCall = calls.get()
+    fun setCurrentCall(callId: UUID) {
+        calls = telnyxClient?.getActiveCalls()!!
+        currentCall = calls[callId]
     }
 
-    fun getCallState(): LiveData<CallState>? = telnyxClient?.call?.getCallState()
-    fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsMuteStatus()
-    fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnHoldStatus()
-    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? =
-        telnyxClient?.call?.getIsOnLoudSpeakerStatus()
+    fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
+    fun getIsMuteStatus(): LiveData<Boolean>? = currentCall?.getIsMuteStatus()
+    fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
     fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
         telnyxClient?.credentialLogin(credentialConfig)
@@ -84,23 +84,23 @@ class MainViewModel @Inject constructor(
     }
 
     fun acceptCall(callId: String, destinationNumber: String) {
-        telnyxClient?.call?.acceptCall(callId, destinationNumber)
+       currentCall?.acceptCall(callId, destinationNumber)
     }
 
     fun endCall(callId: String) {
-        telnyxClient?.call?.endCall(callId)
+        currentCall?.endCall(callId)
     }
 
     fun onHoldUnholdPressed(callId: String) {
-        telnyxClient?.call?.onHoldUnholdPressed(callId)
+        currentCall?.onHoldUnholdPressed(callId)
     }
 
     fun onMuteUnmutePressed() {
-        telnyxClient?.call?.onMuteUnmutePressed()
+        currentCall?.onMuteUnmutePressed()
     }
 
     fun onLoudSpeakerPressed() {
-        telnyxClient?.call?.onLoudSpeakerPressed()
+        currentCall?.onLoudSpeakerPressed()
     }
 
     fun disconnect() {
