@@ -26,8 +26,9 @@ import java.util.*
 class Call(
     var client: TelnyxClient,
     var socket: TxCallSocket,
+    var callId: UUID,
     var sessionId: String,
-    private var audioManager: AudioManager,
+    var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
@@ -53,7 +54,6 @@ class Call(
 
     init {
         socket.callListen(this)
-
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
@@ -118,6 +118,7 @@ class Call(
         socket.callSend(answerBodyMessage)
         stopMediaPlayer()
         callStateLiveData.postValue(CallState.ACTIVE)
+        client.addToCalls(this)
         client.callOngoing()
     }
 
@@ -135,6 +136,7 @@ class Call(
             )
         )
         callStateLiveData.postValue(CallState.DONE)
+        client.removeFromCalls(this)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
@@ -248,6 +250,8 @@ class Call(
             )
         )
 
+        callStateLiveData.postValue(CallState.DONE)
+        client.removeFromCalls(this)
         client.callNotOngoing()
         resetCallOptions()
         stopMediaPlayer()
@@ -274,6 +278,8 @@ class Call(
                 peerConnection?.onRemoteSessionReceived(sdp)
 
                 callStateLiveData.postValue(CallState.ACTIVE)
+                client.addToCalls(this)
+
 
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
@@ -299,6 +305,7 @@ class Call(
             else -> {
                 //There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
+                client.removeFromCalls(this)
             }
         }
         client.callOngoing()
@@ -324,6 +331,7 @@ class Call(
         } else {
             //There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
+            client.removeFromCalls(this)
         }
     }
 
@@ -346,8 +354,6 @@ class Call(
           */
 
         callStateLiveData.postValue(CallState.RINGING)
-
-        //ToDo we need to handle what happens when we receive an offer while on an existing call.
 
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString

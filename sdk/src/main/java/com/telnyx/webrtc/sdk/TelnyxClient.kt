@@ -17,6 +17,7 @@ import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import timber.log.Timber
 import java.util.*
+import kotlin.collections.HashMap
 
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
@@ -32,11 +33,23 @@ class TelnyxClient(
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
-    val call: Call? by lazy { buildCall() }
+    val call: Call by lazy { buildCall() }
+
+    /// Keeps track of all the created calls by theirs UUIDs
+    var calls: MutableMap<UUID, Call> = mutableMapOf()
 
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(this, txCallSocket, sessionId!!, audioManager, context)
+        val callId = UUID.randomUUID()
+        return Call(this, txCallSocket, callId, sessionId!!, audioManager, context)
+    }
+
+    internal fun addToCalls(call: Call) {
+        calls[call.callId] = call
+    }
+
+    internal fun removeFromCalls(call: Call){
+        calls.remove(call.callId)
     }
 
     internal var isNetworkCallbackRegistered = false
@@ -224,7 +237,8 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        call?.onOfferReceived(jsonObject)
+        // This is a new call for a new offer
+        call.onOfferReceived(jsonObject)
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {

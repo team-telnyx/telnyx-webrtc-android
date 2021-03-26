@@ -25,6 +25,8 @@ class MainViewModel @Inject constructor(
     private var socketConnection: TxSocket? = null
     private var telnyxClient: TelnyxClient? = null
 
+    private var currentCall: Call? = null
+
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
             host_address = "rtc.telnyx.com",
@@ -69,8 +71,28 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.newInvite(destinationNumber)
     }
 
+
+    //ToDo WHEN THERE IS AN INCOMING CALL - SET Current call to incoming call (look at incoming call in Guillermo's code.) Set Incoming call in TelnyxClient (Changing value of call. That way every time there is an incoming call - call is set. )
+
+    //Option 1:
+    //ToDo when a call comes in, add them to the map
+    //ToDo then set a currentCall variable in TelnyxClient.
+    //ToDo currentCall is what the user interacts with.
+    //ToDo we set current call once we interact with UI (Answer / Put Down) -- put down by default let's say
+    //ToDo the user decides what to do with it but he needs a list of calls - so when a call comes in we add it and set currentCall which is the one they need to deal with now.
+
+    //ToDo can we minimize the refactor and make the call variable current call automatically? WRITE IT OUT ON PAPER
+
+    // ToDo MOVE send invite out of call? ? ?
+
+    //Option 2
+    //ToDo - change call to a var, remove by Lazy and set it to init.
+    //ToDo - when a new call is incoming, set call to a new call and add to list.
+
+
     fun acceptCall(callId: String, destinationNumber: String) {
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
+        //telnyxClient?.calls.put()
     }
 
     fun endCall(callId: String) {
