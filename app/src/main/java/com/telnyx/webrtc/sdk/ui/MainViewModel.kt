@@ -68,7 +68,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendInvite(destinationNumber: String) {
-        telnyxClient?.call?.newInvite(destinationNumber)
+        telnyxClient?.newInvite(destinationNumber)
     }
 
 
@@ -92,7 +92,6 @@ class MainViewModel @Inject constructor(
 
     fun acceptCall(callId: String, destinationNumber: String) {
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
-        //telnyxClient?.calls.put()
     }
 
     fun endCall(callId: String) {

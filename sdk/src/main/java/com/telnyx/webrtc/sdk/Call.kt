@@ -25,13 +25,13 @@ import java.util.*
 @KtorExperimentalAPI
 class Call(
     var client: TelnyxClient,
+    var peerConnection: Peer?,
     var socket: TxCallSocket,
     var callId: UUID,
     var sessionId: String,
     var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
-    private var peerConnection: Peer? = null
 
     private var earlySDP = false
 
@@ -58,46 +58,6 @@ class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-    fun newInvite(destinationNumber: String) {
-        playRingBackTone()
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
-        var sentFlag = false
-
-        callStateLiveData.postValue(CallState.RINGING)
-
-        //Create new peer
-        peerConnection = Peer(context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId!!,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.callSend(inviteMessageBody)
-                    }
-                }
-            })
-        client.callOngoing()
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-    }
-
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
    */
@@ -118,7 +78,6 @@ class Call(
         socket.callSend(answerBodyMessage)
         stopMediaPlayer()
         callStateLiveData.postValue(CallState.ACTIVE)
-        client.addToCalls(this)
         client.callOngoing()
     }
 
@@ -195,7 +154,7 @@ class Call(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    private fun playRingtone() {
+    internal fun playRingtone() {
         rawRingtone = client.getRawRingtone()
         if (this::mediaPlayer.isInitialized && !mediaPlayer.isPlaying) {
             rawRingtone?.let {
@@ -211,7 +170,7 @@ class Call(
         }
     }
 
-    private fun playRingBackTone() {
+    internal fun playRingBackTone() {
         rawRingbackTone = client.getRawRingbackTone()
         rawRingbackTone?.let {
             mediaPlayer = MediaPlayer.create(context, it)
@@ -278,8 +237,6 @@ class Call(
                 peerConnection?.onRemoteSessionReceived(sdp)
 
                 callStateLiveData.postValue(CallState.ACTIVE)
-                client.addToCalls(this)
-
 
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
@@ -345,50 +302,6 @@ class Call(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
-        playRingtone()
-        /* In case of receiving an invite
-          local user should create an answer with both local and remote information :
-          1. create a connection peer
-          2. setup ice candidate, local description and remote description
-          3. connection is ready to be used for answer the call
-          */
-
-        callStateLiveData.postValue(CallState.RINGING)
-
-        val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val remoteSdp = params.get("sdp").asString
-        val callerName = params.get("caller_id_name").asString
-        val callerNumber = params.get("caller_id_number").asString
-
-        peerConnection = Peer(
-            context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-                }
-            }
-        )
-
-        peerConnection?.startLocalAudioCapture()
-
-        peerConnection?.onRemoteSessionReceived(
-            SessionDescription(
-                SessionDescription.Type.OFFER,
-                remoteSdp
-            )
-        )
-
-        peerConnection?.answer(AppSdpObserver())
-
-        client.socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
-                )
-            )
-        )
+        client.onOfferReceived(jsonObject)
     }
 }

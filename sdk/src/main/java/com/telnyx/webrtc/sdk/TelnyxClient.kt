@@ -15,9 +15,10 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.webrtc.IceCandidate
+import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
-import kotlin.collections.HashMap
 
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
@@ -33,18 +34,20 @@ class TelnyxClient(
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
-    val call: Call by lazy { buildCall() }
+   // val call: Call by lazy { buildCall() }
 
     /// Keeps track of all the created calls by theirs UUIDs
     var calls: MutableMap<UUID, Call> = mutableMapOf()
 
+    lateinit var call: Call
+
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         val callId = UUID.randomUUID()
-        return Call(this, txCallSocket, callId, sessionId!!, audioManager, context)
+        return Call(this, peerConnection, txCallSocket, callId, sessionId!!, audioManager, context)
     }
 
-    internal fun addToCalls(call: Call) {
+    private fun addToCalls(call: Call) {
         calls[call.callId] = call
     }
 
@@ -166,6 +169,52 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    fun newInvite(destinationNumber: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val callId: String = UUID.randomUUID().toString()
+        var sentFlag = false
+
+        //ToDo this needs to change somehow when your brain is working a bit better
+        //callStateLiveData.postValue(CallState.RINGING)
+
+        //Create new peer
+        peerConnection = Peer(context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+
+                    //set localInfo and ice candidate and able to create correct offer
+                    val inviteMessageBody = SendingMessageBody(
+                        id = uuid,
+                        method = SocketMethod.INVITE.methodName,
+                        params = CallParams(
+                            sessionId = sessionId!!,
+                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                            dialogParams = CallDialogParams(
+                                callId = callId,
+                                destinationNumber = destinationNumber,
+                            )
+                        )
+                    )
+
+                    if (!sentFlag) {
+                        sentFlag = true
+                   //     socket.callSend(inviteMessageBody)
+                        socket.send(inviteMessageBody)
+                    }
+                }
+            })
+        callOngoing()
+        peerConnection?.startLocalAudioCapture()
+        peerConnection?.createOfferForSdp(AppSdpObserver())
+
+        //Either do this here or on Answer received
+        call = buildCall()
+        call.playRingBackTone()
+        addToCalls(call)
+    }
+
     fun disconnect() {
         peerConnection?.disconnect()
         unregisterNetworkCallback()
@@ -212,6 +261,7 @@ class TelnyxClient(
         }
     }
 
+
     // TxSocketListener Overrides
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         Timber.d(
@@ -236,9 +286,54 @@ class TelnyxClient(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        // This is a new call for a new offer
-        call.onOfferReceived(jsonObject)
+        /* In case of receiving an invite
+          local user should create an answer with both local and remote information :
+          1. create a connection peer
+          2. setup ice candidate, local description and remote description
+          3. connection is ready to be used for answer the call
+          */
+
+        //ToDo this needs to change somehow when your brain is working a bit better
+      //  callStateLiveData.postValue(CallState.RINGING)
+
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val remoteSdp = params.get("sdp").asString
+        val callerName = params.get("caller_id_name").asString
+        val callerNumber = params.get("caller_id_number").asString
+
+        peerConnection = Peer(
+            context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+                }
+            }
+        )
+
+        peerConnection?.startLocalAudioCapture()
+
+        peerConnection?.onRemoteSessionReceived(
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
+        )
+
+        peerConnection?.answer(AppSdpObserver())
+
+        socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.INVITE.methodName,
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
+                )
+            )
+        )
+        call = buildCall()
+        call.playRingtone()
+        addToCalls(call)
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {
