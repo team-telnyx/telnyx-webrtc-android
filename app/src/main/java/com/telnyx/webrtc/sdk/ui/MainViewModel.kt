@@ -58,7 +58,6 @@ class MainViewModel @Inject constructor(
 
     fun getActiveCalls() {
         //non null asserted as it will always be initialized as an empty mutable map
-
     }
 
     fun setCurrentCall(callId: UUID) {
@@ -83,16 +82,16 @@ class MainViewModel @Inject constructor(
         telnyxClient?.newInvite(destinationNumber)
     }
 
-    fun acceptCall(callId: String, destinationNumber: String) {
-       currentCall?.acceptCall(callId, destinationNumber)
+    fun acceptCall(destinationNumber: String) {
+       currentCall?.acceptCall(destinationNumber)
     }
 
-    fun endCall(callId: String) {
-        currentCall?.endCall(callId)
+    fun endCall() {
+        currentCall?.endCall()
     }
 
-    fun onHoldUnholdPressed(callId: String) {
-        currentCall?.onHoldUnholdPressed(callId)
+    fun onHoldUnholdPressed() {
+        currentCall?.onHoldUnholdPressed()
     }
 
     fun onMuteUnmutePressed() {

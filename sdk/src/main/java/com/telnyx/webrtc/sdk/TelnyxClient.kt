@@ -39,9 +39,8 @@ class TelnyxClient(
 
     lateinit var call: Call
 
-    private fun buildCall(): Call {
+    private fun buildCall(callId: UUID): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        val callId = UUID.randomUUID()
         return Call(this, peerConnection, txCallSocket, callId, sessionId!!, audioManager, context)
     }
 
@@ -49,7 +48,7 @@ class TelnyxClient(
         calls[call.callId] = call
     }
 
-    internal fun removeFromCalls(call: Call){
+    internal fun removeFromCalls(call: Call) {
         calls.remove(call.callId)
     }
 
@@ -117,7 +116,9 @@ class TelnyxClient(
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
-    fun getActiveCalls(): Map<UUID, Call> { return calls.toMap()}
+    fun getActiveCalls(): Map<UUID, Call> {
+        return calls.toMap()
+    }
 
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -166,7 +167,7 @@ class TelnyxClient(
 
     fun newInvite(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
+        val callId: UUID = UUID.randomUUID()
         var sentFlag = false
 
         //Create new peer
@@ -192,7 +193,6 @@ class TelnyxClient(
 
                     if (!sentFlag) {
                         sentFlag = true
-                   //     socket.callSend(inviteMessageBody)
                         socket.send(inviteMessageBody)
                     }
                 }
@@ -202,7 +202,7 @@ class TelnyxClient(
         peerConnection?.createOfferForSdp(AppSdpObserver())
 
         //Either do this here or on Answer received
-        call = buildCall()
+        call = buildCall(callId)
         call.playRingBackTone()
         addToCalls(call)
     }
@@ -286,7 +286,7 @@ class TelnyxClient(
           */
 
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
+        val callId = UUID.fromString(params.get("callID").asString)
         val remoteSdp = params.get("sdp").asString
         val callerName = params.get("caller_id_name").asString
         val callerNumber = params.get("caller_id_number").asString
@@ -316,11 +316,11 @@ class TelnyxClient(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.INVITE.methodName,
-                    InviteResponse(UUID.fromString(callId), remoteSdp, callerName, callerNumber, "")
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId!!)
                 )
             )
         )
-        call = buildCall()
+        call = buildCall(callId)
         call.playRingtone()
         addToCalls(call)
     }

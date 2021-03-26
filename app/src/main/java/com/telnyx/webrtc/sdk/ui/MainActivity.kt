@@ -131,9 +131,8 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.INVITE.methodName -> {
                             val inviteResponse = data.result as InviteResponse
-                            mainViewModel.setCurrentCall(inviteResponse.callId)
                             onReceiveCallView(
-                                inviteResponse.callId.toString(),
+                                inviteResponse.callId,
                                 inviteResponse.callerIdName,
                                 inviteResponse.callerIdNumber
                             )
@@ -141,8 +140,7 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
-                            mainViewModel.setCurrentCall(callId)
-                            onAnsweredCallViews(callId.toString())
+                            onAnsweredCallViews(callId)
                         }
 
                         SocketMethod.BYE.methodName -> {
@@ -298,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onAnsweredCallViews(callId: String) {
+    private fun onAnsweredCallViews(callId: UUID) {
         setUpOngoingCallButtons(callId)
     }
 
@@ -307,7 +305,8 @@ class MainActivity : AppCompatActivity() {
         call_timer_id.start()
     }
 
-    private fun setUpOngoingCallButtons(callId: String) {
+    private fun setUpOngoingCallButtons(callId: UUID) {
+        mainViewModel.setCurrentCall(callId)
 
         //Handle views
         incoming_call_section_id.visibility = View.GONE
@@ -345,13 +344,13 @@ class MainActivity : AppCompatActivity() {
         onTimerStart()
 
         end_call_id.setOnClickListener {
-            onRejectCall(callId)
+            onRejectCall()
         }
         mute_button_id.setOnClickListener {
             mainViewModel.onMuteUnmutePressed()
         }
         hold_button_id.setOnClickListener {
-            mainViewModel.onHoldUnholdPressed(callId)
+            mainViewModel.onHoldUnholdPressed()
         }
         loud_speaker_button_id.setOnClickListener {
             mainViewModel.onLoudSpeakerPressed()
@@ -366,29 +365,31 @@ class MainActivity : AppCompatActivity() {
         call_timer_id.stop()
     }
 
-    private fun onReceiveCallView(callId: String, callerIdName: String, callerIdNumber: String) {
+    private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
         call_control_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.VISIBLE
+
+        mainViewModel.setCurrentCall(callId)
 
         answer_call_id.setOnClickListener {
             onAcceptCall(callId, callerIdNumber)
         }
         reject_call_id.setOnClickListener {
-            onRejectCall(callId)
+            onRejectCall()
         }
     }
 
-    private fun onAcceptCall(callId: String, destinationNumber: String) {
-        mainViewModel.acceptCall(callId, destinationNumber)
+    private fun onAcceptCall(callId: UUID, destinationNumber: String) {
+        mainViewModel.acceptCall(destinationNumber)
         setUpOngoingCallButtons(callId)
     }
 
-    private fun onRejectCall(callId: String) {
+    private fun onRejectCall() {
         //Reject call and make call control section visible
         ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
-        mainViewModel.endCall(callId)
+        mainViewModel.endCall()
         //reset call timer:
         call_timer_id.stop()
     }

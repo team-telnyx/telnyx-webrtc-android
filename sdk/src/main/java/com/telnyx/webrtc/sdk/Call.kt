@@ -61,7 +61,7 @@ class Call(
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
    */
-    fun acceptCall(callId: String, destinationNumber: String) {
+    fun acceptCall(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()!!.description
@@ -70,7 +70,7 @@ class Call(
             CallParams(
                 sessionId, sessionDescriptionString,
                 CallDialogParams(
-                    callId = callId,
+                    callId = this.callId,
                     destinationNumber = destinationNumber
                 )
             )
@@ -81,7 +81,7 @@ class Call(
         client.callOngoing()
     }
 
-    fun endCall(callId: String) {
+    fun endCall() {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
             uuid, SocketMethod.BYE.methodName,
@@ -90,7 +90,7 @@ class Call(
                 CauseCode.USER_BUSY.code,
                 CauseCode.USER_BUSY.name,
                 ByeDialogParams(
-                    callId
+                    this.callId
                 )
             )
         )
@@ -122,18 +122,18 @@ class Call(
         }
     }
 
-    fun onHoldUnholdPressed(callId: String) {
+    fun onHoldUnholdPressed() {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
             callStateLiveData.postValue(CallState.HELD)
-            sendHoldModifier(callId, "hold")
+            sendHoldModifier("hold")
         } else {
             holdLiveData.postValue(false)
-            sendHoldModifier(callId, "unhold")
+            sendHoldModifier("unhold")
         }
     }
 
-    private fun sendHoldModifier(callId: String, holdAction: String) {
+    private fun sendHoldModifier(holdAction: String) {
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
@@ -142,7 +142,7 @@ class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = this.callId,
                 )
             )
         )
@@ -230,7 +230,7 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
+     //   val callId = params.get("callID").asString
         when {
             params.has("sdp") -> {
                 val stringSdp = params.get("sdp").asString
@@ -244,7 +244,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(UUID.fromString(callId), stringSdp)
+                            AnswerResponse(callId, stringSdp)
                         )
                     )
                 )
@@ -256,7 +256,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(UUID.fromString(callId), stringSdp!!)
+                            AnswerResponse(callId, stringSdp!!)
                         )
                     )
                 )
