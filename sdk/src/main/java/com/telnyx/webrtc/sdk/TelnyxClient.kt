@@ -35,7 +35,7 @@ class TelnyxClient(
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
 
     /// Keeps track of all the created calls by theirs UUIDs
-    var calls: MutableMap<UUID, Call> = mutableMapOf()
+    private var calls: MutableMap<UUID, Call> = mutableMapOf()
 
     lateinit var call: Call
 
@@ -117,6 +117,7 @@ class TelnyxClient(
     }
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
+    fun getActiveCalls(): MutableMap<UUID, Call> { return calls}
 
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
@@ -167,9 +168,6 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val callId: String = UUID.randomUUID().toString()
         var sentFlag = false
-
-        //ToDo this needs to change somehow when your brain is working a bit better
-        //callStateLiveData.postValue(CallState.RINGING)
 
         //Create new peer
         peerConnection = Peer(context,
@@ -286,9 +284,6 @@ class TelnyxClient(
           2. setup ice candidate, local description and remote description
           3. connection is ready to be used for answer the call
           */
-
-        //ToDo this needs to change somehow when your brain is working a bit better
-      //  callStateLiveData.postValue(CallState.RINGING)
 
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString

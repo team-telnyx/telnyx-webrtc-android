@@ -155,6 +155,7 @@ class Call(
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
     internal fun playRingtone() {
+        callStateLiveData.postValue(CallState.RINGING)
         rawRingtone = client.getRawRingtone()
         if (this::mediaPlayer.isInitialized && !mediaPlayer.isPlaying) {
             rawRingtone?.let {
@@ -171,6 +172,7 @@ class Call(
     }
 
     internal fun playRingBackTone() {
+        callStateLiveData.postValue(CallState.RINGING)
         rawRingbackTone = client.getRawRingbackTone()
         rawRingbackTone?.let {
             mediaPlayer = MediaPlayer.create(context, it)
