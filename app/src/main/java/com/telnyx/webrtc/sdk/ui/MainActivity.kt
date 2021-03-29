@@ -300,11 +300,6 @@ class MainActivity : AppCompatActivity() {
         setUpOngoingCallButtons(callId)
     }
 
-    private fun onTimerStart() {
-        call_timer_id.base = SystemClock.elapsedRealtime()
-        call_timer_id.start()
-    }
-
     private fun setUpOngoingCallButtons(callId: UUID) {
         mainViewModel.setCurrentCall(callId)
 
@@ -357,6 +352,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun onTimerStart() {
+        call_timer_id.base = SystemClock.elapsedRealtime()
+        call_timer_id.start()
+    }
+
     private fun onByeReceivedViews() {
         incoming_call_section_id.visibility = View.GONE
         ongoing_call_section_id.visibility = View.GONE
@@ -367,6 +367,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
         call_control_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.VISIBLE
 
         mainViewModel.setCurrentCall(callId)
