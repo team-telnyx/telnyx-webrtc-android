@@ -314,6 +314,7 @@ class MainActivity : AppCompatActivity() {
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
         call_control_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.VISIBLE
+        incoming_call_section_id.bringToFront()
 
         mainViewModel.setCurrentCall(callId)
 
@@ -329,7 +330,6 @@ class MainActivity : AppCompatActivity() {
         incoming_call_section_id.visibility = View.GONE
         //Visible but underneath fragment
         call_control_section_id.visibility = View.VISIBLE
-
 
         mainViewModel.acceptCall(destinationNumber)
         launchCallInstance(callId)

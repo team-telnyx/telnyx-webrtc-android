@@ -58,10 +58,6 @@ class MainViewModel @Inject constructor(
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
 
-    fun getActiveCalls() {
-        //non null asserted as it will always be initialized as an empty mutable map
-    }
-
     fun setCurrentCall(callId: UUID) {
         previousCall = currentCall
         calls = telnyxClient?.getActiveCalls()!!
@@ -86,14 +82,17 @@ class MainViewModel @Inject constructor(
     }
 
     fun acceptCall(destinationNumber: String) {
-       /* previousCall?.let {
+        previousCall?.let {
             previousCall?.endCall()
-        }*/
+        }
        currentCall?.acceptCall(destinationNumber)
     }
 
     fun endCall() {
         currentCall?.endCall()
+        previousCall?.let {
+           currentCall = previousCall
+        }
     }
 
     fun onHoldUnholdPressed() {
