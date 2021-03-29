@@ -388,14 +388,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun onRejectCall() {
         //Reject call and make call control section visible
+        ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
-
-        if (mainViewModel.previousCall != null){
-            ongoing_call_section_id.visibility = View.VISIBLE
-        } else {
-            ongoing_call_section_id.visibility = View.GONE
-        }
 
         mainViewModel.endCall()
 

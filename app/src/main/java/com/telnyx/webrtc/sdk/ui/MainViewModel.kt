@@ -27,7 +27,7 @@ class MainViewModel @Inject constructor(
     private var telnyxClient: TelnyxClient? = null
 
     private var currentCall: Call? = null
-    var previousCall: Call? = null
+    private var previousCall: Call? = null
 
     private var calls: Map<UUID, Call> = mapOf()
 
