@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -367,7 +368,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
         call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.GONE
+        ongoing_call_section_id.visibility = View.INVISIBLE
         incoming_call_section_id.visibility = View.VISIBLE
 
         mainViewModel.setCurrentCall(callId)
@@ -387,10 +388,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun onRejectCall() {
         //Reject call and make call control section visible
-        ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
+
+        if (mainViewModel.previousCall != null){
+            ongoing_call_section_id.visibility = View.VISIBLE
+        } else {
+            ongoing_call_section_id.visibility = View.GONE
+        }
+
         mainViewModel.endCall()
+
         //reset call timer:
         call_timer_id.stop()
     }

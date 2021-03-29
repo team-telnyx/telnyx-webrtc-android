@@ -27,6 +27,8 @@ class MainViewModel @Inject constructor(
     private var telnyxClient: TelnyxClient? = null
 
     private var currentCall: Call? = null
+    var previousCall: Call? = null
+
     private var calls: Map<UUID, Call> = mapOf()
 
     fun initConnection(context: Context) {
@@ -61,6 +63,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun setCurrentCall(callId: UUID) {
+        previousCall = currentCall
         calls = telnyxClient?.getActiveCalls()!!
         currentCall = calls[callId]
     }
@@ -83,6 +86,9 @@ class MainViewModel @Inject constructor(
     }
 
     fun acceptCall(destinationNumber: String) {
+        previousCall?.let {
+            previousCall?.endCall()
+        }
        currentCall?.acceptCall(destinationNumber)
     }
 
