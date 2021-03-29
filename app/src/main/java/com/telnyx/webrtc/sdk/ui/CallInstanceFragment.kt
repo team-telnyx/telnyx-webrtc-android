@@ -117,6 +117,7 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     when (data?.method) {
                         SocketMethod.INVITE.methodName -> {
+                            //NOOP
                         }
                         SocketMethod.BYE.methodName -> {
                             parentFragmentManager.beginTransaction()
