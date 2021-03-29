@@ -4,11 +4,9 @@ import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
-import android.os.SystemClock
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -195,7 +193,6 @@ class MainActivity : AppCompatActivity() {
         listenLoginTypeSwitch()
         if (!userManager.isUserLogin) {
             login_section_id.visibility = View.VISIBLE
-            ongoing_call_section_id.visibility = View.GONE
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
         } else {
@@ -264,7 +261,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun disconnectPressed() {
-        ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.GONE
         login_section_id.visibility = View.VISIBLE
@@ -281,7 +277,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onLoginSuccessfullyViews(sessionId: String) {
         socket_text_value.text = getString(R.string.connected)
-        call_state_text_value.text = sessionId
+        //call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
@@ -298,77 +294,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAnsweredCallViews(callId: UUID) {
-        setUpOngoingCallButtons(callId)
+        launchCallInstance(callId)
     }
 
-    private fun setUpOngoingCallButtons(callId: UUID) {
+    private fun launchCallInstance(callId: UUID) {
         mainViewModel.setCurrentCall(callId)
 
-        //Handle views
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.VISIBLE
-
-        //Handle call option observers
-        mainViewModel.getCallState()?.observe(this, { value ->
-            call_state_text_value.text = value.name
-        })
-        mainViewModel.getIsMuteStatus()?.observe(this, { value ->
-            if (!value) {
-                mute_button_id.setImageResource(R.drawable.ic_mic_off)
-            } else {
-                mute_button_id.setImageResource(R.drawable.ic_mic)
-            }
-        })
-
-        mainViewModel.getIsOnHoldStatus()?.observe(this, { value ->
-            if (!value) {
-                hold_button_id.setImageResource(R.drawable.ic_hold)
-            } else {
-                hold_button_id.setImageResource(R.drawable.ic_play)
-            }
-        })
-
-        mainViewModel.getIsOnLoudSpeakerStatus()?.observe(this, { value ->
-            if (!value) {
-                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker_off)
-            } else {
-                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker)
-            }
-        })
-
-        onTimerStart()
-
-        end_call_id.setOnClickListener {
-            onRejectCall()
-        }
-        mute_button_id.setOnClickListener {
-            mainViewModel.onMuteUnmutePressed()
-        }
-        hold_button_id.setOnClickListener {
-            mainViewModel.onHoldUnholdPressed()
-        }
-        loud_speaker_button_id.setOnClickListener {
-            mainViewModel.onLoudSpeakerPressed()
-        }
-    }
-
-    private fun onTimerStart() {
-        call_timer_id.base = SystemClock.elapsedRealtime()
-        call_timer_id.start()
+        val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        supportFragmentManager.beginTransaction()
+            .add(R.id.fragment_call_instance, callInstanceFragment)
+            .commit()
     }
 
     private fun onByeReceivedViews() {
         incoming_call_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
-
-        call_timer_id.stop()
     }
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
         call_control_section_id.visibility = View.GONE
-        ongoing_call_section_id.visibility = View.INVISIBLE
         incoming_call_section_id.visibility = View.VISIBLE
 
         mainViewModel.setCurrentCall(callId)
@@ -382,20 +326,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAcceptCall(callId: UUID, destinationNumber: String) {
+        incoming_call_section_id.visibility = View.GONE
+        //Visible but underneath fragment
+        call_control_section_id.visibility = View.VISIBLE
+
+
         mainViewModel.acceptCall(destinationNumber)
-        setUpOngoingCallButtons(callId)
+        launchCallInstance(callId)
     }
 
     private fun onRejectCall() {
         //Reject call and make call control section visible
-        ongoing_call_section_id.visibility = View.GONE
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
         mainViewModel.endCall()
-
-        //reset call timer:
-        call_timer_id.stop()
     }
 
     private fun checkPermissions() {

@@ -10,6 +10,7 @@ import timber.log.Timber
 import java.util.*
 
 class Peer(
+        val client: TelnyxClient,
         context: Context,
         observer: PeerConnection.Observer
 ) {
@@ -155,6 +156,7 @@ class Peer(
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onSetFailure(p0: String?) {
+                client.call.stopMediaPlayer()
                 Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
             }
 
@@ -167,6 +169,7 @@ class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
+                client.call.stopMediaPlayer()
                 Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
             }
         }, sessionDescription)

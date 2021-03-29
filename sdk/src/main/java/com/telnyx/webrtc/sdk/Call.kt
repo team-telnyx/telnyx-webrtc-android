@@ -54,8 +54,15 @@ class Call(
 
     init {
         socket.callListen(this)
+        setupMediaplayer()
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
+    }
+
+
+    private fun setupMediaplayer() {
+        rawRingbackTone = client.getRawRingbackTone()
+        rawRingtone = client.getRawRingtone()
     }
 
     /* In case of accept a call (accept an invitation)
@@ -157,25 +164,7 @@ class Call(
 
     internal fun playRingtone() {
         callStateLiveData.postValue(CallState.RINGING)
-        rawRingtone = client.getRawRingtone()
-        if (this::mediaPlayer.isInitialized && !mediaPlayer.isPlaying) {
-            rawRingtone?.let {
-                mediaPlayer = MediaPlayer.create(context, it)
-                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-                mediaPlayer.isLooping = true
-                if (!mediaPlayer.isPlaying) {
-                    mediaPlayer.start()
-                }
-            } ?: run {
-                Timber.d("No ringtone specified :: No ringtone will be played")
-            }
-        }
-    }
-
-    internal fun playRingBackTone() {
-        callStateLiveData.postValue(CallState.RINGING)
-        rawRingbackTone = client.getRawRingbackTone()
-        rawRingbackTone?.let {
+        rawRingtone?.let {
             mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             mediaPlayer.isLooping = true
@@ -187,12 +176,27 @@ class Call(
         }
     }
 
-    private fun stopMediaPlayer() {
-        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            Timber.d("ringtone/ringback media player stopped and released")
+    internal fun playRingBackTone() {
+        callStateLiveData.postValue(CallState.RINGING)
+        rawRingbackTone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer.isLooping = true
+            if (!mediaPlayer.isPlaying) {
+                mediaPlayer.start()
+            }
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
         }
     }
+
+    internal fun stopMediaPlayer() {
+        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
+            mediaPlayer.stop()
+            mediaPlayer.reset()
+        }
+        Timber.d("ringtone/ringback media player stopped and released")
+    }
+
 
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
@@ -231,7 +235,7 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
-     //   val callId = params.get("callID").asString
+        //   val callId = params.get("callID").asString
         when {
             params.has("sdp") -> {
                 val stringSdp = params.get("sdp").asString

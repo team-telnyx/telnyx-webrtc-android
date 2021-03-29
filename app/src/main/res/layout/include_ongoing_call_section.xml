@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <Chronometer
+    <!-- Chronometer
         android:id="@+id/call_timer_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -86,5 +86,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_end="@dimen/guideline_end" />
+        -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -49,6 +49,7 @@ dependencies {
 
     implementation deps.kotlin.stdlib
     implementation deps.androidx_core
+    implementation deps.androidx_fragment
     implementation deps.appcompat
     implementation deps.material
     implementation deps.constraint_layout
@@ -89,6 +90,7 @@ dependencies {
     implementation deps.dexter
 
     implementation deps.hilt.android
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     kapt deps.hilt.compiler
 
     //Testing:

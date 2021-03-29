@@ -86,9 +86,9 @@ class MainViewModel @Inject constructor(
     }
 
     fun acceptCall(destinationNumber: String) {
-        previousCall?.let {
+       /* previousCall?.let {
             previousCall?.endCall()
-        }
+        }*/
        currentCall?.acceptCall(destinationNumber)
     }
 

@@ -171,7 +171,7 @@ class TelnyxClient(
         var sentFlag = false
 
         //Create new peer
-        peerConnection = Peer(context,
+        peerConnection = Peer(this, context,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
@@ -291,7 +291,7 @@ class TelnyxClient(
         val callerName = params.get("caller_id_name").asString
         val callerNumber = params.get("caller_id_number").asString
 
-        peerConnection = Peer(
+        peerConnection = Peer(this,
             context,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
