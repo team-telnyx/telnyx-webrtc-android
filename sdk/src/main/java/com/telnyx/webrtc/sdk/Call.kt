@@ -129,6 +129,7 @@ class Call(
             sendHoldModifier("hold")
         } else {
             holdLiveData.postValue(false)
+            callStateLiveData.postValue(CallState.ACTIVE)
             sendHoldModifier("unhold")
         }
     }

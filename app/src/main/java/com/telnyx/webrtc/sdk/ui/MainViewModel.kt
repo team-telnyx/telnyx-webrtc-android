@@ -32,7 +32,7 @@ class MainViewModel @Inject constructor(
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
             host_address = "rtc.telnyx.com",
-            port = 14938,
+            port = 14938
         )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
