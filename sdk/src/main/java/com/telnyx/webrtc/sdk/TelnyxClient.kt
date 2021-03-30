@@ -124,6 +124,9 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+        val logLevel = config.logLevel
+
+        setLogLevel(logLevel)
 
         config.ringtone?.let {
             rawRingtone = it
@@ -150,6 +153,7 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
+        val logLevel = config.logLevel
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -164,6 +168,11 @@ class TelnyxClient(
         )
         socket.send(loginMessage)
     }
+
+    private fun setLogLevel(logLevel: LogLevel) {
+        //ToDo set project log level
+    }
+
 
     fun newInvite(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
