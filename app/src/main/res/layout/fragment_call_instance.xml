@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".ui.CallInstanceFragment">
+
+  <Chronometer
+      android:id="@+id/call_timer_id"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:textColor="@color/black"
+      android:textSize="@dimen/font_large"
+      android:paddingTop="@dimen/spacing_medium"
+      android:paddingBottom="@dimen/spacing_medium"
+      app:layout_constraintStart_toStartOf="@id/guideline_start"
+      app:layout_constraintEnd_toEndOf="@id/guideline_end"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <ImageButton
+      android:id="@+id/end_call_id"
+      android:layout_width="100dp"
+      android:layout_height="100dp"
+      android:background="@drawable/round_button"
+      android:gravity="center_vertical|center_horizontal"
+      android:src="@drawable/ic_call_end_white"
+      android:layout_marginBottom="@dimen/spacing_huge"
+      app:backgroundTint="@color/reject_red"
+      app:layout_constraintTop_toBottomOf="@+id/call_timer_id"
+      app:layout_constraintEnd_toStartOf="@id/guideline_end"
+      app:layout_constraintStart_toEndOf="@id/guideline_start"/>
+
+  <ImageButton
+      android:id="@+id/loud_speaker_button_id"
+      android:layout_width="75dp"
+      android:layout_height="75dp"
+      android:background="@android:color/transparent"
+      android:backgroundTint="@color/white"
+      android:gravity="center_vertical|center_horizontal"
+      android:src="@drawable/ic_loud_speaker"
+      android:layout_marginTop="@dimen/spacing_medium"
+      android:layout_marginEnd="@dimen/spacing_medium"
+      app:layout_constraintTop_toBottomOf="@+id/end_call_id"
+      app:layout_constraintEnd_toStartOf="@+id/hold_button_id"
+      />
+
+  <ImageButton
+      android:id="@+id/mute_button_id"
+      android:layout_width="75dp"
+      android:layout_height="75dp"
+      android:backgroundTint="@color/black"
+      android:gravity="center_vertical|center_horizontal"
+      android:src="@drawable/ic_mic_off"
+      android:layout_marginTop="@dimen/spacing_medium"
+      android:layout_marginStart="@dimen/spacing_medium"
+      android:background="@android:color/transparent"
+      app:layout_constraintTop_toBottomOf="@+id/end_call_id"
+      app:layout_constraintStart_toEndOf="@+id/hold_button_id"
+      />
+
+  <ImageButton
+      android:id="@+id/hold_button_id"
+      android:layout_width="75dp"
+      android:layout_height="75dp"
+      android:layout_marginTop="@dimen/spacing_medium"
+      android:backgroundTint="@color/white"
+      android:src="@drawable/ic_hold"
+      android:gravity="center_vertical|center_horizontal"
+      android:background="@android:color/transparent"
+      app:layout_constraintTop_toBottomOf="@+id/end_call_id"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      />
+
+  <androidx.constraintlayout.widget.Guideline
+      android:id="@+id/guideline_start"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      app:layout_constraintGuide_begin="@dimen/guideline_start" />
+
+  <androidx.constraintlayout.widget.Guideline
+      android:id="@+id/guideline_end"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      app:layout_constraintGuide_end="@dimen/guideline_end" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_bottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_end="@dimen/guideline_bottom" />
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -25,12 +25,13 @@ import java.util.*
 @KtorExperimentalAPI
 class Call(
     var client: TelnyxClient,
+    var peerConnection: Peer?,
     var socket: TxCallSocket,
+    var callId: UUID,
     var sessionId: String,
-    private var audioManager: AudioManager,
+    var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
-    private var peerConnection: Peer? = null
 
     private var earlySDP = false
 
@@ -53,55 +54,21 @@ class Call(
 
     init {
         socket.callListen(this)
-
+        setupMediaplayer()
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-    fun newInvite(destinationNumber: String) {
-        playRingBackTone()
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: String = UUID.randomUUID().toString()
-        var sentFlag = false
 
-        callStateLiveData.postValue(CallState.RINGING)
-
-        //Create new peer
-        peerConnection = Peer(context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId!!,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.callSend(inviteMessageBody)
-                    }
-                }
-            })
-        client.callOngoing()
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
+    private fun setupMediaplayer() {
+        rawRingbackTone = client.getRawRingbackTone()
+        rawRingtone = client.getRawRingtone()
     }
 
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
    */
-    fun acceptCall(callId: String, destinationNumber: String) {
+    fun acceptCall(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()!!.description
@@ -110,7 +77,7 @@ class Call(
             CallParams(
                 sessionId, sessionDescriptionString,
                 CallDialogParams(
-                    callId = callId,
+                    callId = this.callId,
                     destinationNumber = destinationNumber
                 )
             )
@@ -121,7 +88,7 @@ class Call(
         client.callOngoing()
     }
 
-    fun endCall(callId: String) {
+    fun endCall() {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
             uuid, SocketMethod.BYE.methodName,
@@ -130,11 +97,12 @@ class Call(
                 CauseCode.USER_BUSY.code,
                 CauseCode.USER_BUSY.name,
                 ByeDialogParams(
-                    callId
+                    this.callId
                 )
             )
         )
         callStateLiveData.postValue(CallState.DONE)
+        client.removeFromCalls(this)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
@@ -161,18 +129,19 @@ class Call(
         }
     }
 
-    fun onHoldUnholdPressed(callId: String) {
+    fun onHoldUnholdPressed() {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
             callStateLiveData.postValue(CallState.HELD)
-            sendHoldModifier(callId, "hold")
+            sendHoldModifier("hold")
         } else {
             holdLiveData.postValue(false)
-            sendHoldModifier(callId, "unhold")
+            callStateLiveData.postValue(CallState.ACTIVE)
+            sendHoldModifier("unhold")
         }
     }
 
-    private fun sendHoldModifier(callId: String, holdAction: String) {
+    private fun sendHoldModifier(holdAction: String) {
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
@@ -181,7 +150,7 @@ class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = this.callId,
                 )
             )
         )
@@ -193,25 +162,9 @@ class Call(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    private fun playRingtone() {
-        rawRingtone = client.getRawRingtone()
-        if (this::mediaPlayer.isInitialized && !mediaPlayer.isPlaying) {
-            rawRingtone?.let {
-                mediaPlayer = MediaPlayer.create(context, it)
-                mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-                mediaPlayer.isLooping = true
-                if (!mediaPlayer.isPlaying) {
-                    mediaPlayer.start()
-                }
-            } ?: run {
-                Timber.d("No ringtone specified :: No ringtone will be played")
-            }
-        }
-    }
-
-    private fun playRingBackTone() {
-        rawRingbackTone = client.getRawRingbackTone()
-        rawRingbackTone?.let {
+    internal fun playRingtone() {
+        callStateLiveData.postValue(CallState.RINGING)
+        rawRingtone?.let {
             mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             mediaPlayer.isLooping = true
@@ -223,12 +176,27 @@ class Call(
         }
     }
 
-    private fun stopMediaPlayer() {
-        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            Timber.d("ringtone/ringback media player stopped and released")
+    internal fun playRingBackTone() {
+        callStateLiveData.postValue(CallState.RINGING)
+        rawRingbackTone?.let {
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer.isLooping = true
+            if (!mediaPlayer.isPlaying) {
+                mediaPlayer.start()
+            }
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
         }
     }
+
+    internal fun stopMediaPlayer() {
+        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
+            mediaPlayer.stop()
+            mediaPlayer.reset()
+        }
+        Timber.d("ringtone/ringback media player stopped and released")
+    }
+
 
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
@@ -248,6 +216,8 @@ class Call(
             )
         )
 
+        callStateLiveData.postValue(CallState.DONE)
+        client.removeFromCalls(this)
         client.callNotOngoing()
         resetCallOptions()
         stopMediaPlayer()
@@ -265,7 +235,7 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
+        //   val callId = params.get("callID").asString
         when {
             params.has("sdp") -> {
                 val stringSdp = params.get("sdp").asString
@@ -299,6 +269,7 @@ class Call(
             else -> {
                 //There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
+                client.removeFromCalls(this)
             }
         }
         client.callOngoing()
@@ -324,6 +295,7 @@ class Call(
         } else {
             //There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
+            client.removeFromCalls(this)
         }
     }
 
@@ -337,52 +309,6 @@ class Call(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
-        playRingtone()
-        /* In case of receiving an invite
-          local user should create an answer with both local and remote information :
-          1. create a connection peer
-          2. setup ice candidate, local description and remote description
-          3. connection is ready to be used for answer the call
-          */
-
-        callStateLiveData.postValue(CallState.RINGING)
-
-        //ToDo we need to handle what happens when we receive an offer while on an existing call.
-
-        val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val remoteSdp = params.get("sdp").asString
-        val callerName = params.get("caller_id_name").asString
-        val callerNumber = params.get("caller_id_number").asString
-
-        peerConnection = Peer(
-            context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-                }
-            }
-        )
-
-        peerConnection?.startLocalAudioCapture()
-
-        peerConnection?.onRemoteSessionReceived(
-            SessionDescription(
-                SessionDescription.Type.OFFER,
-                remoteSdp
-            )
-        )
-
-        peerConnection?.answer(AppSdpObserver())
-
-        client.socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, "")
-                )
-            )
-        )
+        client.onOfferReceived(jsonObject)
     }
 }

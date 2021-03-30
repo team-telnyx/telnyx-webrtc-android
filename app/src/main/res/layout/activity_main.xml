@@ -103,23 +103,22 @@
         android:id="@+id/incoming_call_section_id"
         layout="@layout/include_incoming_call_section"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="360dp"
         android:layout_marginTop="@dimen/spacing_medium"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
 
-    <include
-        android:id="@+id/ongoing_call_section_id"
-        layout="@layout/include_ongoing_call_section"
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/fragment_call_instance"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/spacing_medium"
-        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value"/>
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"

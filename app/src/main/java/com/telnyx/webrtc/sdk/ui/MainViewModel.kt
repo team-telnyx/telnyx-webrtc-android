@@ -13,6 +13,7 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import java.util.*
 import javax.inject.Inject
 
 @ExperimentalCoroutinesApi
@@ -25,11 +26,16 @@ class MainViewModel @Inject constructor(
     private var socketConnection: TxSocket? = null
     private var telnyxClient: TelnyxClient? = null
 
+    private var currentCall: Call? = null
+    private var previousCall: Call? = null
+
+    private var calls: Map<UUID, Call> = mapOf()
+
     fun initConnection(context: Context) {
         socketConnection = TxSocket(
             host_address = "rtc.telnyx.com",
-            port = 14938,
-            )
+            port = 14938
+        )
         telnyxClient = TelnyxClient(socketConnection!!, context)
         telnyxClient!!.connect()
     }
@@ -52,10 +58,16 @@ class MainViewModel @Inject constructor(
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
 
-    fun getCallState(): LiveData<CallState>? = telnyxClient?.call?.getCallState()
-    fun getIsMuteStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsMuteStatus()
-    fun getIsOnHoldStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnHoldStatus()
-    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = telnyxClient?.call?.getIsOnLoudSpeakerStatus()
+    fun setCurrentCall(callId: UUID) {
+        previousCall = currentCall
+        calls = telnyxClient?.getActiveCalls()!!
+        currentCall = calls[callId]
+    }
+
+    fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
+    fun getIsMuteStatus(): LiveData<Boolean>? = currentCall?.getIsMuteStatus()
+    fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
     fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
         telnyxClient?.credentialLogin(credentialConfig)
@@ -66,27 +78,34 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendInvite(destinationNumber: String) {
-        telnyxClient?.call?.newInvite(destinationNumber)
+        telnyxClient?.newInvite(destinationNumber)
     }
 
-    fun acceptCall(callId: String, destinationNumber: String) {
-        telnyxClient?.call?.acceptCall(callId, destinationNumber)
+    fun acceptCall(destinationNumber: String) {
+        previousCall?.let {
+            //mute the previous call.
+            previousCall?.onMuteUnmutePressed()
+        }
+       currentCall?.acceptCall(destinationNumber)
     }
 
-    fun endCall(callId: String) {
-        telnyxClient?.call?.endCall(callId)
+    fun endCall() {
+        currentCall?.endCall()
+        previousCall?.let {
+           currentCall = previousCall
+        }
     }
 
-    fun onHoldUnholdPressed(callId: String) {
-        telnyxClient?.call?.onHoldUnholdPressed(callId)
+    fun onHoldUnholdPressed() {
+        currentCall?.onHoldUnholdPressed()
     }
 
     fun onMuteUnmutePressed() {
-        telnyxClient?.call?.onMuteUnmutePressed()
+        currentCall?.onMuteUnmutePressed()
     }
 
     fun onLoudSpeakerPressed() {
-        telnyxClient?.call?.onLoudSpeakerPressed()
+        currentCall?.onLoudSpeakerPressed()
     }
 
     fun disconnect() {

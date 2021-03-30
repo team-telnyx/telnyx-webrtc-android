@@ -10,6 +10,7 @@ import timber.log.Timber
 import java.util.*
 
 class Peer(
+        val client: TelnyxClient,
         context: Context,
         observer: PeerConnection.Observer
 ) {
@@ -19,7 +20,7 @@ class Peer(
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
     }
 
-   // private val rootEglBase: EglBase = EglBase.create()
+    private val rootEglBase: EglBase = EglBase.create()
 
     init {
         initPeerConnectionFactory(context)
@@ -57,8 +58,8 @@ class Peer(
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         return PeerConnectionFactory
                 .builder()
-              //  .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-             //   .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+                .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
                 .setOptions(PeerConnectionFactory.Options().apply {
                     disableEncryption = false
                     disableNetworkMonitor = true
@@ -88,7 +89,7 @@ class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-         //   mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -120,7 +121,7 @@ class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-          //  mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -155,6 +156,7 @@ class Peer(
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onSetFailure(p0: String?) {
+                client.call.stopMediaPlayer()
                 Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
             }
 
@@ -167,6 +169,7 @@ class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
+                client.call.stopMediaPlayer()
                 Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
             }
         }, sessionDescription)
