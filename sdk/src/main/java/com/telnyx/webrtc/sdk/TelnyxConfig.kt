@@ -1,5 +1,7 @@
 package com.telnyx.webrtc.sdk
 
+import com.telnyx.webrtc.sdk.model.LogLevel
+
 sealed class TelnyxConfig
 
 data class CredentialConfig(
@@ -8,11 +10,13 @@ data class CredentialConfig(
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val ringtone: Int?,
-    val ringBackTone: Int?)
+    val ringBackTone: Int?,
+    val logLevel: LogLevel?)
 
 data class TokenConfig(
     val sipToken: String,
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val ringtone: Int?,
-    val ringBackTone: Int?)
+    val ringBackTone: Int?,
+    val logLevel: LogLevel?)
