@@ -83,7 +83,8 @@ class MainViewModel @Inject constructor(
 
     fun acceptCall(destinationNumber: String) {
         previousCall?.let {
-            previousCall?.endCall()
+            //mute the previous call.
+            previousCall?.onMuteUnmutePressed()
         }
        currentCall?.acceptCall(destinationNumber)
     }
