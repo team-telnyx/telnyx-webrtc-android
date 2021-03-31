@@ -1,7 +1,6 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import android.content.res.AssetFileDescriptor
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
@@ -20,7 +19,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
-import java.io.IOException
 import java.util.*
 
 
