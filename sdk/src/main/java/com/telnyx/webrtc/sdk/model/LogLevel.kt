@@ -15,5 +15,4 @@ enum class LogLevel(var priority: Int?) {
     VERTO(9),
     /// All the SDK logs are printed.
     ALL(null)
-
 }
