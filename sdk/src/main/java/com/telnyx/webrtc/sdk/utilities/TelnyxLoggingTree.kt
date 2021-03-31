@@ -3,7 +3,7 @@ package com.telnyx.webrtc.sdk.utilities
 import com.telnyx.webrtc.sdk.model.LogLevel
 import timber.log.Timber
 
-internal class TelnyxLoggingTree(logLevel: LogLevel) : Timber.Tree() {
+internal class TelnyxLoggingTree(logLevel: LogLevel) : Timber.DebugTree() {
 
     private val projectLogLevel = logLevel
 

@@ -7,6 +7,7 @@ import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -36,7 +37,7 @@ class MainViewModel @Inject constructor(
             host_address = "rtc.telnyx.com",
             port = 14938
         )
-        telnyxClient = TelnyxClient(socketConnection!!, context)
+        telnyxClient = TelnyxClient(context, socketConnection!!, LogLevel.VERTO)
         telnyxClient!!.connect()
     }
 

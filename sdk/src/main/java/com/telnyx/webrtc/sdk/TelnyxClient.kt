@@ -24,8 +24,9 @@ import java.util.*
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 class TelnyxClient(
+    var context: Context,
     var socket: TxSocket,
-    var context: Context
+    var logLevel: LogLevel
 ) : TxSocketListener {
 
     private var peerConnection: Peer? = null
@@ -70,8 +71,7 @@ class TelnyxClient(
 
     init {
         registerNetworkCallback()
-        //Remove all existing log trees.
-        Timber.uprootAll()
+        setSDKLogLevel(logLevel)
     }
 
     private var rawRingtone: Int? = null
@@ -127,9 +127,6 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
-        val logLevel = config.logLevel
-
-        setLogLevel(logLevel)
 
         config.ringtone?.let {
             rawRingtone = it
@@ -156,7 +153,6 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
-        val logLevel = config.logLevel
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -172,7 +168,8 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    private fun setLogLevel(logLevel: LogLevel) {
+    private fun setSDKLogLevel(logLevel: LogLevel) {
+        Timber.uprootAll()
         if (BuildConfig.DEBUG) {
             Timber.plant(TelnyxLoggingTree(logLevel))
         }

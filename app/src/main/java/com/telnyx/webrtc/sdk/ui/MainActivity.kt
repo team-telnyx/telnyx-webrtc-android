@@ -171,8 +171,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun initViews() {
-        handleUserLoginState()
         mockInputs()
+        handleUserLoginState()
 
         connect_button_id.setOnClickListener {
             connectButtonPressed()
@@ -203,8 +203,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
                 R.raw.incoming_call,
-                R.raw.ringback_tone,
-                LogLevel.DEBUG
+                R.raw.ringback_tone
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
@@ -239,8 +238,7 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone,
-                LogLevel.DEBUG
+                ringBackTone
             )
 
             mainViewModel.doLoginWithToken(loginConfig)
@@ -257,8 +255,7 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone,
-                LogLevel.DEBUG
+                ringBackTone
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
