@@ -203,7 +203,7 @@ class TelnyxClient(
 
         //Either do this here or on Answer received
         call = buildCall(callId)
-        call.playRingBackTone()
+        call.playRingBackTone(getRawRingbackTone())
         addToCalls(call)
     }
 
@@ -321,7 +321,7 @@ class TelnyxClient(
             )
         )
         call = buildCall(callId)
-        call.playRingtone()
+        call.playRingtone(getRawRingtone())
         addToCalls(call)
     }
 

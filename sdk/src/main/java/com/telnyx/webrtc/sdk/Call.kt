@@ -1,6 +1,7 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
@@ -19,7 +20,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
+import java.io.IOException
 import java.util.*
+
 
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
@@ -36,10 +39,7 @@ class Call(
     private var earlySDP = false
 
     //MediaPlayer for ringtone / ringbacktone
-    private lateinit var mediaPlayer: MediaPlayer
-    private var rawRingtone: Int? = null
-    private var rawRingbackTone: Int? = null
-
+    private var mediaPlayer: MediaPlayer? = null
     private val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
@@ -54,16 +54,10 @@ class Call(
 
     init {
         socket.callListen(this)
-        setupMediaplayer()
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-
-    private fun setupMediaplayer() {
-        rawRingbackTone = client.getRawRingbackTone()
-        rawRingtone = client.getRawRingtone()
-    }
 
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
@@ -162,27 +156,29 @@ class Call(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    internal fun playRingtone() {
+    internal fun playRingtone(audioResId: Int?) {
         callStateLiveData.postValue(CallState.RINGING)
-        rawRingtone?.let {
+        audioResId?.let {
+            stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            mediaPlayer.isLooping = true
-            if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
+            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            mediaPlayer!!.isLooping = true
+            if (!mediaPlayer!!.isPlaying) {
+                mediaPlayer!!.start()
             }
         } ?: run {
             Timber.d("No ringtone specified :: No ringtone will be played")
         }
     }
 
-    internal fun playRingBackTone() {
+    internal fun playRingBackTone(audioResId: Int?) {
         callStateLiveData.postValue(CallState.RINGING)
-        rawRingbackTone?.let {
+        audioResId?.let {
+            stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.isLooping = true
-            if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
+            mediaPlayer!!.isLooping = true
+            if (!mediaPlayer!!.isPlaying) {
+                mediaPlayer!!.start()
             }
         } ?: run {
             Timber.d("No ringtone specified :: No ringtone will be played")
@@ -190,13 +186,13 @@ class Call(
     }
 
     internal fun stopMediaPlayer() {
-        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            mediaPlayer.reset()
+        if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
+            mediaPlayer!!.stop()
+            mediaPlayer!!.reset()
+            mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
-
 
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
