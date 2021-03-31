@@ -171,7 +171,9 @@ class TelnyxClient(
     }
 
     private fun setLogLevel(logLevel: LogLevel) {
-        Timber.plant(TelnyxLoggingTree(logLevel))
+        if (BuildConfig.DEBUG) {
+            Timber.plant(TelnyxLoggingTree(logLevel))
+        }
     }
 
 
