@@ -26,7 +26,6 @@ import java.util.*
 class TelnyxClient(
     var context: Context,
     var socket: TxSocket,
-    var logLevel: LogLevel
 ) : TxSocketListener {
 
     private var peerConnection: Peer? = null
@@ -71,7 +70,6 @@ class TelnyxClient(
 
     init {
         registerNetworkCallback()
-        setSDKLogLevel(logLevel)
     }
 
     private var rawRingtone: Int? = null
@@ -127,6 +125,9 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+        val logLevel = config.logLevel
+        setSDKLogLevel(logLevel)
+
 
         config.ringtone?.let {
             rawRingtone = it
@@ -153,6 +154,8 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
+        val logLevel = config.logLevel
+        setSDKLogLevel(logLevel)
 
         val loginMessage = SendingMessageBody(
             id = uuid,

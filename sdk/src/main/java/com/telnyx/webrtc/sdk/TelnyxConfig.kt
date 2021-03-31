@@ -10,7 +10,8 @@ data class CredentialConfig(
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val ringtone: Int?,
-    val ringBackTone: Int?
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE
     )
 
 data class TokenConfig(
@@ -18,6 +19,7 @@ data class TokenConfig(
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val ringtone: Int?,
-    val ringBackTone: Int?
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE
     )
 

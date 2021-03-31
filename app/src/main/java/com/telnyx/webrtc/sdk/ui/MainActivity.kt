@@ -203,7 +203,8 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
                 R.raw.incoming_call,
-                R.raw.ringback_tone
+                R.raw.ringback_tone,
+                LogLevel.VERTO
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
@@ -238,7 +239,8 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone
+                ringBackTone,
+                LogLevel.VERTO
             )
 
             mainViewModel.doLoginWithToken(loginConfig)
@@ -255,7 +257,8 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone
+                ringBackTone,
+                LogLevel.VERTO
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }

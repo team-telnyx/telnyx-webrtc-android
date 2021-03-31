@@ -37,7 +37,7 @@ class MainViewModel @Inject constructor(
             host_address = "rtc.telnyx.com",
             port = 14938
         )
-        telnyxClient = TelnyxClient(context, socketConnection!!, LogLevel.VERTO)
+        telnyxClient = TelnyxClient(context, socketConnection!!)
         telnyxClient!!.connect()
     }
 
