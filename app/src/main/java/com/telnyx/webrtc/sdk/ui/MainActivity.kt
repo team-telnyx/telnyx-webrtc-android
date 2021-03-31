@@ -204,7 +204,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 R.raw.incoming_call,
                 R.raw.ringback_tone,
-                LogLevel.ALL
+                LogLevel.DEBUG
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
@@ -240,7 +240,7 @@ class MainActivity : AppCompatActivity() {
                 sipCallerNumber,
                 ringtone,
                 ringBackTone,
-                LogLevel.ALL
+                LogLevel.DEBUG
             )
 
             mainViewModel.doLoginWithToken(loginConfig)
@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity() {
                 sipCallerNumber,
                 ringtone,
                 ringBackTone,
-                LogLevel.ALL
+                LogLevel.DEBUG
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }

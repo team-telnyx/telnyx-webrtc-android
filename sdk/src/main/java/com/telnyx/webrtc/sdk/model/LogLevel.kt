@@ -1,18 +1,19 @@
 package com.telnyx.webrtc.sdk.model
 
-enum class LogLevel {
+enum class LogLevel(var priority: Int?) {
     /// Disable logs. SDK logs will not printed. This is the default configuration.
-    NONE,
+    NONE(8),
     /// Print `error` logs only
-    ERROR,
+    ERROR(6),
     /// Print `warning` logs only
-    WARNING,
-    /// Print `success` logs only
-    SUCCESS,
+    WARNING(5),
+    /// Print `debug` logs only
+    DEBUG(3),
     /// Print `info` logs only
-    INFO,
+    INFO(4),
     /// Print `verto` messages. Incoming and outgoing verto messages are printed.
-    VERTO,
+    VERTO(9),
     /// All the SDK logs are printed.
-    ALL
+    ALL(null)
+
 }

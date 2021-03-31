@@ -70,6 +70,8 @@ class TelnyxClient(
 
     init {
         registerNetworkCallback()
+        //Remove all existing log trees.
+        Timber.uprootAll()
     }
 
     private var rawRingtone: Int? = null
