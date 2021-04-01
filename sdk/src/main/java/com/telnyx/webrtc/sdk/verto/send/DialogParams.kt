@@ -13,6 +13,7 @@ data class CallDialogParams(val useStereo: Boolean = false,
                             val video: Boolean = false,
                             val screenShare: Boolean = false,
                             val audio: Boolean = true,
+                            val clientState: String? = "",
                             val userVariables: ArrayList<Any> = arrayListOf(),
                             @SerializedName("callID")
                             val callId: UUID,
