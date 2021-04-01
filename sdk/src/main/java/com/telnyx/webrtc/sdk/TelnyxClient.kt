@@ -12,6 +12,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
@@ -178,8 +179,7 @@ class TelnyxClient(
         }
     }
 
-
-    fun newInvite(destinationNumber: String) {
+    fun newInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String?) {
         val uuid: String = UUID.randomUUID().toString()
         val callId: UUID = UUID.randomUUID()
         var sentFlag = false
@@ -199,6 +199,9 @@ class TelnyxClient(
                             sessionId = sessionId!!,
                             sdp = peerConnection?.getLocalDescription()?.description.toString(),
                             dialogParams = CallDialogParams(
+                                callerIdName = callerName,
+                                callerIdNumber = callerNumber,
+                                clientState = clientState?.encodeBase64(),
                                 callId = callId,
                                 destinationNumber = destinationNumber,
                             )
