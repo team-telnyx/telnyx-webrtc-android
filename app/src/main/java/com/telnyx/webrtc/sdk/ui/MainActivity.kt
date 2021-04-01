@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
-                            onAnsweredCallViews(callId)
+                            launchCallInstance(callId)
                         }
 
                         SocketMethod.BYE.methodName -> {
@@ -293,12 +293,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onAnsweredCallViews(callId: UUID) {
-        launchCallInstance(callId)
-    }
-
     private fun launchCallInstance(callId: UUID) {
-        mainViewModel.setCurrentCall(callId)
+       // mainViewModel.setCurrentCall(callId)
 
         val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
         supportFragmentManager.beginTransaction()

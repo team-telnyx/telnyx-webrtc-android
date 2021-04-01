@@ -2,6 +2,8 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -27,6 +29,9 @@ class TelnyxClient(
     var context: Context
 ) : TxSocketListener {
 
+    //MediaPlayer for ringtone / ringbacktone
+    private var mediaPlayer: MediaPlayer? = null
+
     private var peerConnection: Peer? = null
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
@@ -45,11 +50,16 @@ class TelnyxClient(
     }
 
     private fun addToCalls(call: Call) {
-        calls[call.callId] = call
+        println("Incoming callID to add: ${call.callId}")
+        calls.getOrPut(call.callId) { call }
     }
 
-    internal fun removeFromCalls(call: Call) {
-        calls.remove(call.callId)
+    internal fun removeFromCalls(callId: UUID) {
+        println("Incoming callID to remove: $callId")
+        calls.entries.forEach {
+            println("callID in stack: "+it.key)
+        }
+        calls.remove(callId)
     }
 
     internal var isNetworkCallbackRegistered = false
@@ -203,7 +213,7 @@ class TelnyxClient(
 
         //Either do this here or on Answer received
         call = buildCall(callId)
-        call.playRingBackTone(getRawRingbackTone())
+        playRingBackTone()
         addToCalls(call)
     }
 
@@ -251,6 +261,45 @@ class TelnyxClient(
                 audioManager.isSpeakerphoneOn = true;
             }
         }
+    }
+
+    internal fun playRingtone() {
+        call.callStateLiveData.postValue(CallState.RINGING)
+        rawRingtone?.let {
+            stopMediaPlayer()
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            if (!mediaPlayer!!.isPlaying) {
+                mediaPlayer!!.start()
+                mediaPlayer!!.isLooping = true
+            }
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
+        }
+    }
+
+    internal fun playRingBackTone() {
+        call.callStateLiveData.postValue(CallState.RINGING)
+        rawRingbackTone?.let {
+            stopMediaPlayer()
+            mediaPlayer = MediaPlayer.create(context, it)
+            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+            if (!mediaPlayer!!.isPlaying) {
+                mediaPlayer!!.start()
+                mediaPlayer!!.isLooping = true
+            }
+        } ?: run {
+            Timber.d("No ringtone specified :: No ringtone will be played")
+        }
+    }
+
+    internal fun stopMediaPlayer() {
+        if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
+            mediaPlayer!!.stop()
+            mediaPlayer!!.reset()
+            mediaPlayer = null
+        }
+        Timber.d("ringtone/ringback media player stopped and released")
     }
 
 
@@ -321,12 +370,18 @@ class TelnyxClient(
             )
         )
         call = buildCall(callId)
-        call.playRingtone(getRawRingtone())
+        playRingtone()
         addToCalls(call)
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
+    }
+
+   internal fun onRemoteSessionErrorReceived(errorMessage: String?){
+       stopMediaPlayer()
+       call.endCall()
+       socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
     }
 }

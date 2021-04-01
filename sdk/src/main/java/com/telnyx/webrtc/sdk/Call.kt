@@ -36,9 +36,8 @@ class Call(
 
     private var earlySDP = false
 
-    //MediaPlayer for ringtone / ringbacktone
-    private var mediaPlayer: MediaPlayer? = null
-    private val callStateLiveData = MutableLiveData(CallState.NEW)
+
+    internal val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
     // Mute toggle live data
@@ -75,7 +74,7 @@ class Call(
             )
         )
         socket.callSend(answerBodyMessage)
-        stopMediaPlayer()
+        client.stopMediaPlayer()
         callStateLiveData.postValue(CallState.ACTIVE)
         client.callOngoing()
     }
@@ -94,11 +93,11 @@ class Call(
             )
         )
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this)
+        client.removeFromCalls(this.callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     fun onMuteUnmutePressed() {
@@ -154,44 +153,6 @@ class Call(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    internal fun playRingtone(audioResId: Int?) {
-        callStateLiveData.postValue(CallState.RINGING)
-        audioResId?.let {
-            stopMediaPlayer()
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            mediaPlayer!!.isLooping = true
-            if (!mediaPlayer!!.isPlaying) {
-                mediaPlayer!!.start()
-            }
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
-        }
-    }
-
-    internal fun playRingBackTone(audioResId: Int?) {
-        callStateLiveData.postValue(CallState.RINGING)
-        audioResId?.let {
-            stopMediaPlayer()
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer!!.isLooping = true
-            if (!mediaPlayer!!.isPlaying) {
-                mediaPlayer!!.start()
-            }
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
-        }
-    }
-
-    internal fun stopMediaPlayer() {
-        if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
-            mediaPlayer!!.stop()
-            mediaPlayer!!.reset()
-            mediaPlayer = null
-        }
-        Timber.d("ringtone/ringback media player stopped and released")
-    }
-
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
         muteLiveData.postValue(false)
@@ -211,10 +172,10 @@ class Call(
         )
 
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this)
+        client.removeFromCalls(this.callId)
         client.callNotOngoing()
         resetCallOptions()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
@@ -263,11 +224,11 @@ class Call(
             else -> {
                 //There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
-                client.removeFromCalls(this)
+                client.removeFromCalls(this.callId)
             }
         }
         client.callOngoing()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
@@ -289,7 +250,7 @@ class Call(
         } else {
             //There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
-            client.removeFromCalls(this)
+            client.removeFromCalls(this.callId)
         }
     }
 

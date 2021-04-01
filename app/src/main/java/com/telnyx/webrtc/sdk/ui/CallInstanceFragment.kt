@@ -47,8 +47,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
 
     private fun setUpOngoingCallButtons(callId: UUID) {
 
-        mainViewModel.setCurrentCall(callId)
-
         //Handle call option observers
         mainViewModel.getCallState()?.observe(this.viewLifecycleOwner, { value ->
             requireActivity().call_state_text_value.text = value.name
@@ -97,8 +95,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
         mainViewModel.endCall()
         call_timer_id.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
-
-
     }
 
     private fun onTimerStart() {
