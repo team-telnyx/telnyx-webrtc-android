@@ -6,11 +6,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxCallSocket
+import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
+import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
@@ -23,8 +24,8 @@ import java.util.*
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 class TelnyxClient(
+    var context: Context,
     var socket: TxSocket,
-    var context: Context
 ) : TxSocketListener {
 
     private var peerConnection: Peer? = null
@@ -124,6 +125,9 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+        val logLevel = config.logLevel
+        setSDKLogLevel(logLevel)
+
 
         config.ringtone?.let {
             rawRingtone = it
@@ -150,6 +154,8 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
+        val logLevel = config.logLevel
+        setSDKLogLevel(logLevel)
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -164,6 +170,14 @@ class TelnyxClient(
         )
         socket.send(loginMessage)
     }
+
+    private fun setSDKLogLevel(logLevel: LogLevel) {
+        Timber.uprootAll()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(TelnyxLoggingTree(logLevel))
+        }
+    }
+
 
     fun newInvite(destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()

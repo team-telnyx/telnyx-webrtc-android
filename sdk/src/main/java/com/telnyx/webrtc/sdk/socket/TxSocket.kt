@@ -50,19 +50,19 @@ class TxSocket(
             ) {
                 webSocketSession = this
                 listener.onConnectionEstablished()
-                Timber.d("Connection established")
+                Timber.tag("VERTO").d("Connection established")
                 val sendData = sendChannel.openSubscription()
                 try {
                     while (true) {
                         sendData.poll()?.let {
-                            Timber.d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
+                            Timber.tag("VERTO").d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
                             outgoing.send(Frame.Text(it))
                         }
                         while (!ongoingCall) {
                             incoming.poll()?.let { frame ->
                                 if (frame is Frame.Text) {
                                     val data = frame.readText()
-                                    Timber.d(
+                                    Timber.tag("VERTO").d(
                                         "[%s] Receiving [%s]",
                                         this@TxSocket.javaClass.simpleName,
                                         data
@@ -81,7 +81,7 @@ class TxSocket(
                                                 }
                                             }
                                             jsonObject.has("method") -> {
-                                                Timber.d(
+                                                Timber.tag("VERTO").d(
                                                     "[%s] Received Method [%s]",
                                                     this@TxSocket.javaClass.simpleName,
                                                     jsonObject.get("method").asString
@@ -94,7 +94,7 @@ class TxSocket(
                                             }
                                             jsonObject.has("error") -> {
                                                 val errorCode = jsonObject.get("error").asJsonObject.get("code").asInt
-                                                Timber.d(
+                                                Timber.tag("VERTO").d(
                                                     "[%s] Received Error From Telnyx [%s]",
                                                     this@TxSocket.javaClass.simpleName,
                                                     jsonObject.get("error").asJsonObject.get("message").toString()

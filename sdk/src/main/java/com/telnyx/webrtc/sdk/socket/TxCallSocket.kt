@@ -30,24 +30,24 @@ class TxCallSocket(
     private val callSendChannel = ConflatedBroadcastChannel<String>()
 
     fun callListen(callListener: Call) = launch {
-        Timber.d("Connection established")
+        Timber.tag("VERTO").d("Connection established")
         val callSend = callSendChannel.openSubscription()
         try {
             while (true) {
                 callSend.poll()?.let {
-                    Timber.d("[%s] Call Listener Sending [%s]", this@TxCallSocket.javaClass.simpleName, it)
+                    Timber.tag("VERTO").d("[%s] Call Listener Sending [%s]", this@TxCallSocket.javaClass.simpleName, it)
                    webSocketSession.outgoing.send(Frame.Text(it))
                 }
                 //No longer receive for connect socket, then reopen and poll for call socket
                 webSocketSession.incoming.poll()?.let { frame ->
                     if (frame is Frame.Text) {
                         val data = frame.readText()
-                        Timber.d("[%s] Call Listener Receiving [%s]", this@TxCallSocket.javaClass.simpleName, data)
+                        Timber.tag("VERTO").d("[%s] Call Listener Receiving [%s]", this@TxCallSocket.javaClass.simpleName, data)
                         val jsonObject = gson.fromJson(data, JsonObject::class.java)
                         withContext(Dispatchers.Main) {
                             when {
                                 jsonObject.has("method") -> {
-                                    Timber.d("[%s] Call Listener Received Method [%s]", this@TxCallSocket.javaClass.simpleName, jsonObject.get("method").asString)
+                                    Timber.tag("VERTO").d("[%s] Call Listener Received Method [%s]", this@TxCallSocket.javaClass.simpleName, jsonObject.get("method").asString)
                                     when (jsonObject.get("method").asString) {
                                         ANSWER.methodName -> {
                                             callListener.onAnswerReceived(jsonObject)

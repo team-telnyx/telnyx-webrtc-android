@@ -18,6 +18,7 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -170,8 +171,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun initViews() {
-        handleUserLoginState()
         mockInputs()
+        handleUserLoginState()
 
         connect_button_id.setOnClickListener {
             connectButtonPressed()
@@ -202,7 +203,8 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
                 R.raw.incoming_call,
-                R.raw.ringback_tone
+                R.raw.ringback_tone,
+                LogLevel.VERTO
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
@@ -237,7 +239,8 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone
+                ringBackTone,
+                LogLevel.VERTO
             )
 
             mainViewModel.doLoginWithToken(loginConfig)
@@ -254,7 +257,8 @@ class MainActivity : AppCompatActivity() {
                 sipCallerName,
                 sipCallerNumber,
                 ringtone,
-                ringBackTone
+                ringBackTone,
+                LogLevel.VERTO
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         }
