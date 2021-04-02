@@ -2,8 +2,6 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaPlayer
-import android.os.PowerManager
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
@@ -21,6 +19,7 @@ import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
+
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
 class Call(
@@ -35,10 +34,6 @@ class Call(
 
     private var earlySDP = false
 
-    //MediaPlayer for ringtone / ringbacktone
-    private lateinit var mediaPlayer: MediaPlayer
-    private var rawRingtone: Int? = null
-    private var rawRingbackTone: Int? = null
 
     private val callStateLiveData = MutableLiveData(CallState.NEW)
 
@@ -54,16 +49,12 @@ class Call(
 
     init {
         socket.callListen(this)
-        setupMediaplayer()
+        callStateLiveData.postValue(CallState.RINGING)
+
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-
-    private fun setupMediaplayer() {
-        rawRingbackTone = client.getRawRingbackTone()
-        rawRingtone = client.getRawRingtone()
-    }
 
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
@@ -83,7 +74,7 @@ class Call(
             )
         )
         socket.callSend(answerBodyMessage)
-        stopMediaPlayer()
+        client.stopMediaPlayer()
         callStateLiveData.postValue(CallState.ACTIVE)
         client.callOngoing()
     }
@@ -102,11 +93,11 @@ class Call(
             )
         )
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this)
+        client.removeFromCalls(this.callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     fun onMuteUnmutePressed() {
@@ -162,42 +153,6 @@ class Call(
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
-    internal fun playRingtone() {
-        callStateLiveData.postValue(CallState.RINGING)
-        rawRingtone?.let {
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            mediaPlayer.isLooping = true
-            if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
-            }
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
-        }
-    }
-
-    internal fun playRingBackTone() {
-        callStateLiveData.postValue(CallState.RINGING)
-        rawRingbackTone?.let {
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer.isLooping = true
-            if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
-            }
-        } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
-        }
-    }
-
-    internal fun stopMediaPlayer() {
-        if (this::mediaPlayer.isInitialized && mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
-            mediaPlayer.reset()
-        }
-        Timber.d("ringtone/ringback media player stopped and released")
-    }
-
-
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
         muteLiveData.postValue(false)
@@ -205,7 +160,7 @@ class Call(
         earlySDP = false
     }
 
-    override fun onByeReceived() {
+    override fun onByeReceived(callId: UUID) {
         Timber.d("[%s] :: onByeReceived", this@Call.javaClass.simpleName)
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
@@ -217,10 +172,10 @@ class Call(
         )
 
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this)
+        client.removeFromCalls(callId)
         client.callNotOngoing()
         resetCallOptions()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
@@ -269,11 +224,11 @@ class Call(
             else -> {
                 //There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
-                client.removeFromCalls(this)
+                client.removeFromCalls(this.callId)
             }
         }
         client.callOngoing()
-        stopMediaPlayer()
+        client.stopMediaPlayer()
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
@@ -295,7 +250,7 @@ class Call(
         } else {
             //There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
-            client.removeFromCalls(this)
+            client.removeFromCalls(this.callId)
         }
     }
 

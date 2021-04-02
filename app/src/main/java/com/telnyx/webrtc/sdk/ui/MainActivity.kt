@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
-                            onAnsweredCallViews(callId)
+                            launchCallInstance(callId)
                         }
 
                         SocketMethod.BYE.methodName -> {
@@ -295,10 +295,6 @@ class MainActivity : AppCompatActivity() {
                 caller_id_number_id.text.toString()
             )
         }
-    }
-
-    private fun onAnsweredCallViews(callId: UUID) {
-        launchCallInstance(callId)
     }
 
     private fun launchCallInstance(callId: UUID) {

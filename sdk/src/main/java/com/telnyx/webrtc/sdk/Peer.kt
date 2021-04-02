@@ -1,6 +1,7 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
@@ -156,7 +157,7 @@ class Peer(
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onSetFailure(p0: String?) {
-                client.call.stopMediaPlayer()
+               client.onRemoteSessionErrorReceived(p0)
                 Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
             }
 
@@ -169,7 +170,7 @@ class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
-                client.call.stopMediaPlayer()
+                client.onRemoteSessionErrorReceived(p0)
                 Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
             }
         }, sessionDescription)

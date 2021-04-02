@@ -18,14 +18,11 @@ import kotlinx.android.synthetic.main.fragment_call_instance.*
 import timber.log.Timber
 import java.util.*
 
-// TODO: Rename parameter arguments, choose names that match
 private const val CALLER_ID = "callId"
-
 
 lateinit var mainViewModel: MainViewModel
 
-@SuppressLint("StaticFieldLeak")
-lateinit var chronometer: Chronometer
+
 
 /**
  * A simple [Fragment] subclass.
@@ -41,18 +38,14 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
             callId = it.getString(CALLER_ID)
         }
 
-        chronometer = requireView().findViewById(R.id.call_timer_id)
-
         mainViewModel =
             ViewModelProvider(requireActivity())[MainViewModel::class.java]
 
-        setUpOngoingCallButtons(UUID.fromString(callId))
+        setUpOngoingCallButtons()
         observeSocketResponses()
     }
 
-    private fun setUpOngoingCallButtons(callId: UUID) {
-
-        mainViewModel.setCurrentCall(callId)
+    private fun setUpOngoingCallButtons() {
 
         //Handle call option observers
         mainViewModel.getCallState()?.observe(this.viewLifecycleOwner, { value ->
@@ -100,15 +93,13 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
 
     private fun onEndCall() {
         mainViewModel.endCall()
-        chronometer.stop()
+        call_timer_id.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
-
-
     }
 
     private fun onTimerStart() {
-        chronometer.base = SystemClock.elapsedRealtime()
-        chronometer.start()
+        call_timer_id.base = SystemClock.elapsedRealtime()
+        call_timer_id.start()
     }
 
     private fun observeSocketResponses() {

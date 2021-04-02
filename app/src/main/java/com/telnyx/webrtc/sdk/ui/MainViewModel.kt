@@ -60,8 +60,10 @@ class MainViewModel @Inject constructor(
         telnyxClient?.getSocketResponse()
 
     fun setCurrentCall(callId: UUID) {
-        previousCall = currentCall
         calls = telnyxClient?.getActiveCalls()!!
+        if (calls.size > 1) {
+            previousCall = currentCall
+        }
         currentCall = calls[callId]
     }
 
@@ -83,17 +85,14 @@ class MainViewModel @Inject constructor(
     }
 
     fun acceptCall(destinationNumber: String) {
-        previousCall?.let {
-            //mute the previous call.
-            previousCall?.onMuteUnmutePressed()
-        }
-       currentCall?.acceptCall(destinationNumber)
+        previousCall?.onMuteUnmutePressed()
+        currentCall?.acceptCall(destinationNumber)
     }
 
     fun endCall() {
         currentCall?.endCall()
         previousCall?.let {
-           currentCall = previousCall
+           currentCall = it
         }
     }
 
