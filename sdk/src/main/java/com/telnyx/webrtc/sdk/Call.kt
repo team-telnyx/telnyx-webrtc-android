@@ -50,6 +50,7 @@ class Call(
     init {
         socket.callListen(this)
         callStateLiveData.postValue(CallState.RINGING)
+
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
@@ -91,7 +92,7 @@ class Call(
                 )
             )
         )
-         callStateLiveData.postValue(CallState.DONE)
+        callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(this.callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
