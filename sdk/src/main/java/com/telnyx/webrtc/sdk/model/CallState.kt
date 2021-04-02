@@ -13,6 +13,4 @@ enum class CallState {
     HELD,
     // When the call has  ended
     DONE,
-    //There is no call - initial value.
-    NONE
 }

@@ -111,13 +111,6 @@ class MainActivity : AppCompatActivity() {
     private fun connectToSocketAndObserve() {
         mainViewModel.initConnection(applicationContext)
         observeSocketResponses()
-        observeCallState()
-    }
-
-    private fun observeCallState() {
-        mainViewModel.getCallState()?.observe(this, { value ->
-            call_state_text_value.text = value.name
-        }) ?: println("There is no call state.")
     }
 
     private fun observeSocketResponses() {
