@@ -106,7 +106,7 @@ class TelnyxClient(
     }
 
     internal fun callNotOngoing() {
-        if (calls.isNotEmpty()) {
+        if (calls.isEmpty()) {
             socket.callNotOngoing()
         }
     }

@@ -294,7 +294,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchCallInstance(callId: UUID) {
-       // mainViewModel.setCurrentCall(callId)
+        mainViewModel.setCurrentCall(callId)
 
         val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
         supportFragmentManager.beginTransaction()

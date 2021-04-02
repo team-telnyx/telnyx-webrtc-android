@@ -41,11 +41,11 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
         mainViewModel =
             ViewModelProvider(requireActivity())[MainViewModel::class.java]
 
-        setUpOngoingCallButtons(UUID.fromString(callId))
+        setUpOngoingCallButtons()
         observeSocketResponses()
     }
 
-    private fun setUpOngoingCallButtons(callId: UUID) {
+    private fun setUpOngoingCallButtons() {
 
         //Handle call option observers
         mainViewModel.getCallState()?.observe(this.viewLifecycleOwner, { value ->
