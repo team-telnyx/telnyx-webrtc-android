@@ -66,7 +66,7 @@ class MainViewModel @Inject constructor(
         currentCall = calls[callId]
     }
 
-    fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
+    fun getCallState(): LiveData<CallState>? = telnyxClient?.getCallState()
     fun getIsMuteStatus(): LiveData<Boolean>? = currentCall?.getIsMuteStatus()
     fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()

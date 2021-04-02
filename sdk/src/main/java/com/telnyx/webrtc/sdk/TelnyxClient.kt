@@ -1,4 +1,4 @@
-package com.telnyx.webrtc.sdk //ToDO Check the println - there is an issue with removing the yokies so the current call isn't being set or something, I dunno. Also work on making that one paramter not mandatory 
+package com.telnyx.webrtc.sdk 
 
 import android.content.Context
 import android.media.AudioManager
@@ -44,6 +44,16 @@ class TelnyxClient(
 
     lateinit var call: Call
 
+    internal val noActiveCallStateLiveData = MutableLiveData(CallState.NONE)
+
+    fun getCallState(): LiveData<CallState> {
+        return if (this::call.isInitialized) {
+            call.getCallState()
+        } else {
+            noActiveCallStateLiveData
+        }
+    }
+
     private fun buildCall(callId: UUID): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         return Call(this, peerConnection, txCallSocket, callId, sessionId!!, audioManager, context)
@@ -57,7 +67,7 @@ class TelnyxClient(
     internal fun removeFromCalls(callId: UUID) {
         println("Incoming callID to remove: $callId")
         calls.entries.forEach {
-            println("callID in stack: "+it.key)
+            println("callID in stack: " + it.key)
         }
         calls.remove(callId)
     }
@@ -178,6 +188,7 @@ class TelnyxClient(
     }
 
     fun newInvite(destinationNumber: String) {
+        noActiveCallStateLiveData.postValue(CallState.RINGING)
         val uuid: String = UUID.randomUUID().toString()
         val callId: UUID = UUID.randomUUID()
         var sentFlag = false
@@ -217,12 +228,6 @@ class TelnyxClient(
         call = buildCall(callId)
         playRingBackTone()
         addToCalls(call)
-    }
-
-    fun disconnect() {
-        peerConnection?.disconnect()
-        unregisterNetworkCallback()
-        socket.destroy()
     }
 
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
@@ -266,7 +271,6 @@ class TelnyxClient(
     }
 
     internal fun playRingtone() {
-        call.callStateLiveData.postValue(CallState.RINGING)
         rawRingtone?.let {
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
@@ -281,7 +285,6 @@ class TelnyxClient(
     }
 
     internal fun playRingBackTone() {
-        call.callStateLiveData.postValue(CallState.RINGING)
         rawRingbackTone?.let {
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
@@ -336,6 +339,8 @@ class TelnyxClient(
           3. connection is ready to be used for answer the call
           */
 
+        noActiveCallStateLiveData.postValue(CallState.RINGING)
+
         val params = jsonObject.getAsJsonObject("params")
         val callId = UUID.fromString(params.get("callID").asString)
         val remoteSdp = params.get("sdp").asString
@@ -381,9 +386,15 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
-   internal fun onRemoteSessionErrorReceived(errorMessage: String?){
-       stopMediaPlayer()
-       call.endCall()
-       socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
+    internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
+        stopMediaPlayer()
+        call.endCall()
+        socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
+    }
+
+    fun disconnect() {
+        peerConnection?.disconnect()
+        unregisterNetworkCallback()
+        socket.destroy()
     }
 }

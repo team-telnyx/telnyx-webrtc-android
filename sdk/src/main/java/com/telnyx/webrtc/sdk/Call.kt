@@ -35,7 +35,7 @@ class Call(
     private var earlySDP = false
 
 
-    internal val callStateLiveData = MutableLiveData(CallState.NEW)
+    private val callStateLiveData = MutableLiveData(CallState.ACTIVE)
 
     // Ongoing call options
     // Mute toggle live data
@@ -90,7 +90,7 @@ class Call(
                 )
             )
         )
-        callStateLiveData.postValue(CallState.DONE)
+        client.noActiveCallStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(this.callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
@@ -169,7 +169,7 @@ class Call(
             )
         )
 
-        callStateLiveData.postValue(CallState.DONE)
+        client.noActiveCallStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(callId)
         client.callNotOngoing()
         resetCallOptions()
@@ -221,7 +221,7 @@ class Call(
             }
             else -> {
                 //There was no SDP in the response, there was an error.
-                callStateLiveData.postValue(CallState.DONE)
+                client.noActiveCallStateLiveData.postValue(CallState.DONE)
                 client.removeFromCalls(this.callId)
             }
         }
@@ -247,7 +247,7 @@ class Call(
             earlySDP = true
         } else {
             //There was no SDP in the response, there was an error.
-            callStateLiveData.postValue(CallState.DONE)
+            client.noActiveCallStateLiveData.postValue(CallState.DONE)
             client.removeFromCalls(this.callId)
         }
     }
