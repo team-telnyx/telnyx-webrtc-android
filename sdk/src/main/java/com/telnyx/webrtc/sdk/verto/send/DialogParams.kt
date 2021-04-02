@@ -14,6 +14,8 @@ data class CallDialogParams(val useStereo: Boolean = false,
                             val screenShare: Boolean = false,
                             val audio: Boolean = true,
                             val userVariables: ArrayList<Any> = arrayListOf(),
+                            @SerializedName("clientState")
+                            val clientState: String = "",
                             @SerializedName("callID")
                             val callId: UUID,
                             @SerializedName("remote_caller_id_name")
