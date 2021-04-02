@@ -15,6 +15,7 @@ import io.ktor.util.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ConflatedBroadcastChannel
 import timber.log.Timber
+import java.util.*
 
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
@@ -56,7 +57,9 @@ class TxCallSocket(
                                             callListener.onMediaReceived(jsonObject)
                                         }
                                         BYE.methodName -> {
-                                            callListener.onByeReceived()
+                                            val params = jsonObject.getAsJsonObject("params")
+                                            val callId = UUID.fromString(params.get("callID").asString)
+                                            callListener.onByeReceived(callId)
                                         }
                                         INVITE.methodName -> {
                                             callListener.onOfferReceived(jsonObject)

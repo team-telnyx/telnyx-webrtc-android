@@ -2,8 +2,6 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaPlayer
-import android.os.PowerManager
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
@@ -160,7 +158,7 @@ class Call(
         earlySDP = false
     }
 
-    override fun onByeReceived() {
+    override fun onByeReceived(callId: UUID) {
         Timber.d("[%s] :: onByeReceived", this@Call.javaClass.simpleName)
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
@@ -172,7 +170,7 @@ class Call(
         )
 
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this.callId)
+        client.removeFromCalls(callId)
         client.callNotOngoing()
         resetCallOptions()
         client.stopMediaPlayer()

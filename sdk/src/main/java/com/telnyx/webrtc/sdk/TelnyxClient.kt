@@ -1,4 +1,4 @@
-package com.telnyx.webrtc.sdk
+package com.telnyx.webrtc.sdk //ToDO Check the println - there is an issue with removing the yokies so the current call isn't being set or something, I dunno. Also work on making that one paramter not mandatory 
 
 import android.content.Context
 import android.media.AudioManager
@@ -106,7 +106,9 @@ class TelnyxClient(
     }
 
     internal fun callNotOngoing() {
-        socket.callNotOngoing()
+        if (calls.isNotEmpty()) {
+            socket.callNotOngoing()
+        }
     }
 
     private fun registerNetworkCallback() {
