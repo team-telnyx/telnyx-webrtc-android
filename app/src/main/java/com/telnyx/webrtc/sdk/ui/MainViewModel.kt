@@ -78,7 +78,7 @@ class MainViewModel @Inject constructor(
         telnyxClient?.tokenLogin(tokenConfig)
     }
 
-    fun sendInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String?) {
+    fun sendInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
         telnyxClient?.newInvite(callerName, callerNumber, destinationNumber, clientState)
     }
 

@@ -179,7 +179,7 @@ class TelnyxClient(
         }
     }
 
-    fun newInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String?) {
+    fun newInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
         val uuid: String = UUID.randomUUID().toString()
         val callId: UUID = UUID.randomUUID()
         var sentFlag = false
@@ -201,7 +201,7 @@ class TelnyxClient(
                             dialogParams = CallDialogParams(
                                 callerIdName = callerName,
                                 callerIdNumber = callerNumber,
-                                clientState = clientState?.encodeBase64(),
+                                clientState = clientState.encodeBase64(),
                                 callId = callId,
                                 destinationNumber = destinationNumber,
                             )
