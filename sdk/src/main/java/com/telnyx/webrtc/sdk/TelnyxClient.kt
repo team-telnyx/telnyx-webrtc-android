@@ -1,4 +1,4 @@
-package com.telnyx.webrtc.sdk 
+package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
@@ -43,16 +43,6 @@ class TelnyxClient(
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     lateinit var call: Call
-
-    internal val noActiveCallStateLiveData = MutableLiveData(CallState.NONE)
-
-    fun getCallState(): LiveData<CallState> {
-        return if (this::call.isInitialized) {
-            call.getCallState()
-        } else {
-            noActiveCallStateLiveData
-        }
-    }
 
     private fun buildCall(callId: UUID): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
@@ -188,7 +178,6 @@ class TelnyxClient(
     }
 
     fun newInvite(destinationNumber: String) {
-        noActiveCallStateLiveData.postValue(CallState.RINGING)
         val uuid: String = UUID.randomUUID().toString()
         val callId: UUID = UUID.randomUUID()
         var sentFlag = false
@@ -338,8 +327,6 @@ class TelnyxClient(
           2. setup ice candidate, local description and remote description
           3. connection is ready to be used for answer the call
           */
-
-        noActiveCallStateLiveData.postValue(CallState.RINGING)
 
         val params = jsonObject.getAsJsonObject("params")
         val callId = UUID.fromString(params.get("callID").asString)

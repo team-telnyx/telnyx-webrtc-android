@@ -35,7 +35,7 @@ class Call(
     private var earlySDP = false
 
 
-    private val callStateLiveData = MutableLiveData(CallState.ACTIVE)
+    private val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
     // Mute toggle live data
@@ -49,6 +49,7 @@ class Call(
 
     init {
         socket.callListen(this)
+        callStateLiveData.postValue(CallState.RINGING)
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
@@ -90,7 +91,7 @@ class Call(
                 )
             )
         )
-        client.noActiveCallStateLiveData.postValue(CallState.DONE)
+         callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(this.callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
@@ -169,7 +170,7 @@ class Call(
             )
         )
 
-        client.noActiveCallStateLiveData.postValue(CallState.DONE)
+        callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(callId)
         client.callNotOngoing()
         resetCallOptions()
@@ -221,7 +222,7 @@ class Call(
             }
             else -> {
                 //There was no SDP in the response, there was an error.
-                client.noActiveCallStateLiveData.postValue(CallState.DONE)
+                callStateLiveData.postValue(CallState.DONE)
                 client.removeFromCalls(this.callId)
             }
         }
@@ -247,7 +248,7 @@ class Call(
             earlySDP = true
         } else {
             //There was no SDP in the response, there was an error.
-            client.noActiveCallStateLiveData.postValue(CallState.DONE)
+            callStateLiveData.postValue(CallState.DONE)
             client.removeFromCalls(this.callId)
         }
     }
