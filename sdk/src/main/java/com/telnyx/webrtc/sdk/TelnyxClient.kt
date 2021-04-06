@@ -46,16 +46,18 @@ class TelnyxClient(
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     // lateinit var call: Call
+    val call: Call?  by lazy { buildCall() }
 
-    private fun buildCall(callId: UUID, peerConnection: Peer): Call {
+
+    private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         return Call(
             this,
-            peerConnection, txCallSocket, callId, sessionId!!, audioManager, context
+             txCallSocket, sessionId!!, audioManager, context
         )
     }
 
-    private fun addToCalls(call: Call) {
+    internal fun addToCalls(call: Call) {
         println("Incoming callID to add: ${call.callId}")
         calls.getOrPut(call.callId) { call }
     }
@@ -195,79 +197,6 @@ class TelnyxClient(
         }
     }
 
-    fun newInvite(
-        callerName: String,
-        callerNumber: String,
-        destinationNumber: String,
-        clientState: String
-    ) {
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: UUID = UUID.randomUUID()
-        var sentFlag = false
-
-        var makingOffer = false
-        var ignoreOffer = false
-        var isSettingRemoteAnswerPending = false
-        var haveLocalOffer = false
-
-        //Create new peer
-        var invitePeerConnection: Peer? = null
-        invitePeerConnection = Peer(this, context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    invitePeerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId!!,
-                            sdp = invitePeerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callerIdName = callerName,
-                                callerIdNumber = callerNumber,
-                                clientState = clientState.encodeBase64(),
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.send(inviteMessageBody)
-                    }
-                }
-
-               /* override fun onRenegotiationNeeded() {
-                    super.onRenegotiationNeeded()
-                    try {
-                        makingOffer = true
-                    } finally {
-                        makingOffer = false
-                    }
-                }
-
-                override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
-                    super.onSignalingChange(p0)
-                    if (p0?.name == PeerConnection.SignalingState.HAVE_LOCAL_OFFER.name) {
-                        haveLocalOffer = true
-                    }
-                }*/
-            })
-        callOngoing()
-
-        invitePeerConnection.startLocalAudioCapture()
-        invitePeerConnection.createOfferForSdp(AppSdpObserver())
-
-        //Either do this here or on Answer received
-        val call = buildCall(callId, invitePeerConnection)
-        playRingBackTone()
-        addToCalls(call)
-    }
-
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
@@ -367,56 +296,6 @@ class TelnyxClient(
     override fun onConnectionEstablished() {
         Timber.d("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName)
         socketResponseLiveData.postValue(SocketResponse.established())
-    }
-
-    override fun onOfferReceived(jsonObject: JsonObject) {
-        /* In case of receiving an invite
-          local user should create an answer with both local and remote information :
-          1. create a connection peer
-          2. setup ice candidate, local description and remote description
-          3. connection is ready to be used for answer the call
-          */
-
-        val params = jsonObject.getAsJsonObject("params")
-        val callId = UUID.fromString(params.get("callID").asString)
-        val remoteSdp = params.get("sdp").asString
-        val callerName = params.get("caller_id_name").asString
-        val callerNumber = params.get("caller_id_number").asString
-
-        var offerPeerConnection: Peer? = null
-
-        offerPeerConnection = Peer(this,
-            context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    offerPeerConnection?.addIceCandidate(p0)
-                }
-            }
-        )
-
-        offerPeerConnection.startLocalAudioCapture()
-
-        offerPeerConnection.onRemoteSessionReceived(
-            SessionDescription(
-                SessionDescription.Type.OFFER,
-                remoteSdp
-            )
-        )
-
-        offerPeerConnection.answer(AppSdpObserver())
-
-        socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId!!)
-                )
-            )
-        )
-        val call = buildCall(callId, offerPeerConnection)
-        playRingtone()
-        addToCalls(call)
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {

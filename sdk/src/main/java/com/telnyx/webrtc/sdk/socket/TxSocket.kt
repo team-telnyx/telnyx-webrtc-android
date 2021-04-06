@@ -86,11 +86,11 @@ class TxSocket(
                                                     this@TxSocket.javaClass.simpleName,
                                                     jsonObject.get("method").asString
                                                 )
-                                                when (jsonObject.get("method").asString) {
+                                                /*when (jsonObject.get("method").asString) {
                                                     INVITE.methodName -> {
                                                         listener.onOfferReceived(jsonObject)
                                                     }
-                                                }
+                                                }*/
                                             }
                                             jsonObject.has("error") -> {
                                                 val errorCode = jsonObject.get("error").asJsonObject.get("code").asInt

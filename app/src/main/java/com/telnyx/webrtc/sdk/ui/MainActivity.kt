@@ -322,7 +322,7 @@ class MainActivity : AppCompatActivity() {
             onAcceptCall(callId, callerIdNumber)
         }
         reject_call_id.setOnClickListener {
-            onRejectCall()
+            onRejectCall(callId)
         }
     }
 
@@ -331,16 +331,16 @@ class MainActivity : AppCompatActivity() {
         //Visible but underneath fragment
         call_control_section_id.visibility = View.VISIBLE
 
-        mainViewModel.acceptCall(destinationNumber)
+        mainViewModel.acceptCall(callId, destinationNumber)
         launchCallInstance(callId)
     }
 
-    private fun onRejectCall() {
+    private fun onRejectCall(callId: UUID) {
         //Reject call and make call control section visible
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
-        mainViewModel.endCall()
+        mainViewModel.endCall(callId)
     }
 
     private fun checkPermissions() {
