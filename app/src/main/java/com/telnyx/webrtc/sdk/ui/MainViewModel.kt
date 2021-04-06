@@ -84,8 +84,6 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.newInvite(callerName, callerNumber, destinationNumber, clientState)
     }
 
-
-
     fun acceptCall(callId: UUID, destinationNumber: String) {
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }

@@ -328,27 +328,25 @@ class Call(
         //Set global callID
         callId = offerCallId
 
-        var offerPeerConnection: Peer? = null
-
-        offerPeerConnection = Peer(client, context,
+        peerConnection = Peer(client, context,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
-                    offerPeerConnection?.addIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
                 }
             }
         )
 
-        offerPeerConnection.startLocalAudioCapture()
+        peerConnection?.startLocalAudioCapture()
 
-        offerPeerConnection.onRemoteSessionReceived(
+        peerConnection?.onRemoteSessionReceived(
             SessionDescription(
                 SessionDescription.Type.OFFER,
                 remoteSdp
             )
         )
 
-        offerPeerConnection.answer(AppSdpObserver())
+        peerConnection?.answer(AppSdpObserver())
 
         client.socketResponseLiveData.postValue(
             SocketResponse.messageReceived(

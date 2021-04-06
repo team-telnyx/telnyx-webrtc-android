@@ -303,14 +303,17 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
+    override fun onOfferReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        call?.onOfferReceived(jsonObject)
+    }
+
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        //call.endCall()
         socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
     }
 
     fun disconnect() {
-        //peerConnection?.disconnect()
         unregisterNetworkCallback()
         socket.destroy()
     }
