@@ -190,7 +190,6 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
-        //   val callId = params.get("callID").asString
         when {
             params.has("sdp") -> {
                 val stringSdp = params.get("sdp").asString

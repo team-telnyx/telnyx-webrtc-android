@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
+import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
@@ -34,7 +35,7 @@ class TelnyxClient(
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    private var peerConnection: Peer? = null
+    //private var peerConnection: Peer? = null
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
@@ -44,11 +45,14 @@ class TelnyxClient(
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    lateinit var call: Call
+    // lateinit var call: Call
 
-    private fun buildCall(callId: UUID): Call {
+    private fun buildCall(callId: UUID, peerConnection: Peer): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(this, peerConnection, txCallSocket, callId, sessionId!!, audioManager, context)
+        return Call(
+            this,
+            peerConnection, txCallSocket, callId, sessionId!!, audioManager, context
+        )
     }
 
     private fun addToCalls(call: Call) {
@@ -191,17 +195,28 @@ class TelnyxClient(
         }
     }
 
-    fun newInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
+    fun newInvite(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String
+    ) {
         val uuid: String = UUID.randomUUID().toString()
         val callId: UUID = UUID.randomUUID()
         var sentFlag = false
 
+        var makingOffer = false
+        var ignoreOffer = false
+        var isSettingRemoteAnswerPending = false
+        var haveLocalOffer = false
+
         //Create new peer
-        peerConnection = Peer(this, context,
+        var invitePeerConnection: Peer? = null
+        invitePeerConnection = Peer(this, context,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
+                    invitePeerConnection?.addIceCandidate(p0)
 
                     //set localInfo and ice candidate and able to create correct offer
                     val inviteMessageBody = SendingMessageBody(
@@ -209,7 +224,7 @@ class TelnyxClient(
                         method = SocketMethod.INVITE.methodName,
                         params = CallParams(
                             sessionId = sessionId!!,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                            sdp = invitePeerConnection?.getLocalDescription()?.description.toString(),
                             dialogParams = CallDialogParams(
                                 callerIdName = callerName,
                                 callerIdNumber = callerNumber,
@@ -225,13 +240,30 @@ class TelnyxClient(
                         socket.send(inviteMessageBody)
                     }
                 }
+
+               /* override fun onRenegotiationNeeded() {
+                    super.onRenegotiationNeeded()
+                    try {
+                        makingOffer = true
+                    } finally {
+                        makingOffer = false
+                    }
+                }
+
+                override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+                    super.onSignalingChange(p0)
+                    if (p0?.name == PeerConnection.SignalingState.HAVE_LOCAL_OFFER.name) {
+                        haveLocalOffer = true
+                    }
+                }*/
             })
         callOngoing()
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
+
+        invitePeerConnection.startLocalAudioCapture()
+        invitePeerConnection.createOfferForSdp(AppSdpObserver())
 
         //Either do this here or on Answer received
-        call = buildCall(callId)
+        val call = buildCall(callId, invitePeerConnection)
         playRingBackTone()
         addToCalls(call)
     }
@@ -308,7 +340,7 @@ class TelnyxClient(
         if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
-            mediaPlayer = null
+            //mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
@@ -351,26 +383,28 @@ class TelnyxClient(
         val callerName = params.get("caller_id_name").asString
         val callerNumber = params.get("caller_id_number").asString
 
-        peerConnection = Peer(this,
+        var offerPeerConnection: Peer? = null
+
+        offerPeerConnection = Peer(this,
             context,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
+                    offerPeerConnection?.addIceCandidate(p0)
                 }
             }
         )
 
-        peerConnection?.startLocalAudioCapture()
+        offerPeerConnection.startLocalAudioCapture()
 
-        peerConnection?.onRemoteSessionReceived(
+        offerPeerConnection.onRemoteSessionReceived(
             SessionDescription(
                 SessionDescription.Type.OFFER,
                 remoteSdp
             )
         )
 
-        peerConnection?.answer(AppSdpObserver())
+        offerPeerConnection.answer(AppSdpObserver())
 
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
@@ -380,7 +414,7 @@ class TelnyxClient(
                 )
             )
         )
-        call = buildCall(callId)
+        val call = buildCall(callId, offerPeerConnection)
         playRingtone()
         addToCalls(call)
     }
@@ -392,12 +426,12 @@ class TelnyxClient(
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        call.endCall()
+        //call.endCall()
         socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
     }
 
     fun disconnect() {
-        peerConnection?.disconnect()
+        //peerConnection?.disconnect()
         unregisterNetworkCallback()
         socket.destroy()
     }
