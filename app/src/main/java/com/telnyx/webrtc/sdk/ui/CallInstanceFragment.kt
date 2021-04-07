@@ -1,13 +1,8 @@
 package com.telnyx.webrtc.sdk.ui
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.SystemClock
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
-import android.widget.Chronometer
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.telnyx.webrtc.sdk.R
@@ -15,7 +10,6 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_call_instance.*
-import timber.log.Timber
 import java.util.*
 
 private const val CALLER_ID = "callId"
@@ -30,12 +24,12 @@ lateinit var mainViewModel: MainViewModel
  * create an instance of this fragment.
  */
 class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
-    private var callId: String? = null
+    private var callId: UUID? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         arguments?.let {
-            callId = it.getString(CALLER_ID)
+            callId = UUID.fromString(it.getString(CALLER_ID))
         }
 
         mainViewModel =
@@ -84,7 +78,7 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
             mainViewModel.onMuteUnmutePressed()
         }
         hold_button_id.setOnClickListener {
-            mainViewModel.onHoldUnholdPressed()
+            mainViewModel.onHoldUnholdPressed(callId!!)
         }
         loud_speaker_button_id.setOnClickListener {
             mainViewModel.onLoudSpeakerPressed()
@@ -92,7 +86,7 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
     }
 
     private fun onEndCall() {
-        mainViewModel.endCall()
+        mainViewModel.endCall(callId!!)
         call_timer_id.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
     }

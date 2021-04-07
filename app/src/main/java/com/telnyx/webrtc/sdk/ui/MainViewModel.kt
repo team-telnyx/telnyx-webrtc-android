@@ -81,23 +81,22 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
-        telnyxClient?.newInvite(callerName, callerNumber, destinationNumber, clientState)
+        telnyxClient?.call?.newInvite(callerName, callerNumber, destinationNumber, clientState)
     }
 
-    fun acceptCall(destinationNumber: String) {
-        previousCall?.onMuteUnmutePressed()
-        currentCall?.acceptCall(destinationNumber)
+    fun acceptCall(callId: UUID, destinationNumber: String) {
+        telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
-    fun endCall() {
-        currentCall?.endCall()
+    fun endCall(callId: UUID) {
+        telnyxClient?.call?.endCall(callId)
         previousCall?.let {
            currentCall = it
         }
     }
 
-    fun onHoldUnholdPressed() {
-        currentCall?.onHoldUnholdPressed()
+    fun onHoldUnholdPressed(callId: UUID) {
+        currentCall?.onHoldUnholdPressed(callId)
     }
 
     fun onMuteUnmutePressed() {

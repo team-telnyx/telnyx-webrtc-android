@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
+import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
@@ -34,7 +35,7 @@ class TelnyxClient(
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    private var peerConnection: Peer? = null
+    //private var peerConnection: Peer? = null
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
@@ -44,14 +45,19 @@ class TelnyxClient(
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    lateinit var call: Call
+    // lateinit var call: Call
+    val call: Call?  by lazy { buildCall() }
 
-    private fun buildCall(callId: UUID): Call {
+
+    private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(this, peerConnection, txCallSocket, callId, sessionId!!, audioManager, context)
+        return Call(
+            this,
+             txCallSocket, sessionId!!, audioManager, context
+        )
     }
 
-    private fun addToCalls(call: Call) {
+    internal fun addToCalls(call: Call) {
         println("Incoming callID to add: ${call.callId}")
         calls.getOrPut(call.callId) { call }
     }
@@ -191,51 +197,6 @@ class TelnyxClient(
         }
     }
 
-    fun newInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
-        val uuid: String = UUID.randomUUID().toString()
-        val callId: UUID = UUID.randomUUID()
-        var sentFlag = false
-
-        //Create new peer
-        peerConnection = Peer(this, context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId!!,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callerIdName = callerName,
-                                callerIdNumber = callerNumber,
-                                clientState = clientState.encodeBase64(),
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.send(inviteMessageBody)
-                    }
-                }
-            })
-        callOngoing()
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-
-        //Either do this here or on Answer received
-        call = buildCall(callId)
-        playRingBackTone()
-        addToCalls(call)
-    }
-
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
@@ -308,7 +269,7 @@ class TelnyxClient(
         if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
-            mediaPlayer = null
+            //mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
@@ -337,67 +298,22 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.established())
     }
 
-    override fun onOfferReceived(jsonObject: JsonObject) {
-        /* In case of receiving an invite
-          local user should create an answer with both local and remote information :
-          1. create a connection peer
-          2. setup ice candidate, local description and remote description
-          3. connection is ready to be used for answer the call
-          */
-
-        val params = jsonObject.getAsJsonObject("params")
-        val callId = UUID.fromString(params.get("callID").asString)
-        val remoteSdp = params.get("sdp").asString
-        val callerName = params.get("caller_id_name").asString
-        val callerNumber = params.get("caller_id_number").asString
-
-        peerConnection = Peer(this,
-            context,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
-                }
-            }
-        )
-
-        peerConnection?.startLocalAudioCapture()
-
-        peerConnection?.onRemoteSessionReceived(
-            SessionDescription(
-                SessionDescription.Type.OFFER,
-                remoteSdp
-            )
-        )
-
-        peerConnection?.answer(AppSdpObserver())
-
-        socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId!!)
-                )
-            )
-        )
-        call = buildCall(callId)
-        playRingtone()
-        addToCalls(call)
-    }
-
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
+    override fun onOfferReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        call?.onOfferReceived(jsonObject)
+    }
+
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        call.endCall()
         socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
     }
 
     fun disconnect() {
-        peerConnection?.disconnect()
         unregisterNetworkCallback()
         socket.destroy()
     }

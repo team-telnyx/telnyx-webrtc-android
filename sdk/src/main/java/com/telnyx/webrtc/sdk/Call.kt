@@ -10,6 +10,7 @@ import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
@@ -24,16 +25,17 @@ import java.util.*
 @KtorExperimentalAPI
 class Call(
     var client: TelnyxClient,
-    var peerConnection: Peer?,
     var socket: TxCallSocket,
-    var callId: UUID,
+    //var callId: UUID,
     var sessionId: String,
     var audioManager: AudioManager,
     var context: Context
 ) : TxSocketCallListener {
+    private var peerConnection: Peer? = null
 
     private var earlySDP = false
 
+    lateinit var callId: UUID
 
     private val callStateLiveData = MutableLiveData(CallState.NEW)
 
@@ -55,11 +57,63 @@ class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
+    fun newInvite(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String
+    ) {
+        val uuid: String = UUID.randomUUID().toString()
+        val inviteCallId: UUID = UUID.randomUUID()
+
+        //set global call CallID
+        callId = inviteCallId
+
+        var sentFlag = false
+
+        //Create new peer
+        peerConnection = Peer(client, context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+
+                    //set localInfo and ice candidate and able to create correct offer
+                    val inviteMessageBody = SendingMessageBody(
+                        id = uuid,
+                        method = SocketMethod.INVITE.methodName,
+                        params = CallParams(
+                            sessionId = sessionId,
+                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                            dialogParams = CallDialogParams(
+                                callerIdName = callerName,
+                                callerIdNumber = callerNumber,
+                                clientState = clientState.encodeBase64(),
+                                callId = inviteCallId,
+                                destinationNumber = destinationNumber,
+                            )
+                        )
+                    )
+
+                    if (!sentFlag) {
+                        sentFlag = true
+                        socket.callSend(inviteMessageBody)
+                    }
+                }
+            })
+        client.callOngoing()
+        peerConnection?.startLocalAudioCapture()
+        peerConnection?.createOfferForSdp(AppSdpObserver())
+
+        client.playRingBackTone()
+        client.addToCalls(this)
+    }
+
 
     /* In case of accept a call (accept an invitation)
      local user have to send provided answer (with both local and remote sdps)
    */
-    fun acceptCall(destinationNumber: String) {
+    fun acceptCall(callId: UUID, destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()!!.description
@@ -68,7 +122,7 @@ class Call(
             CallParams(
                 sessionId, sessionDescriptionString,
                 CallDialogParams(
-                    callId = this.callId,
+                    callId = callId,
                     destinationNumber = destinationNumber
                 )
             )
@@ -79,7 +133,7 @@ class Call(
         client.callOngoing()
     }
 
-    fun endCall() {
+    fun endCall(callId: UUID,) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
             uuid, SocketMethod.BYE.methodName,
@@ -88,12 +142,12 @@ class Call(
                 CauseCode.USER_BUSY.code,
                 CauseCode.USER_BUSY.name,
                 ByeDialogParams(
-                    this.callId
+                    callId
                 )
             )
         )
         callStateLiveData.postValue(CallState.DONE)
-        client.removeFromCalls(this.callId)
+        client.removeFromCalls(callId)
         client.callNotOngoing()
         socket.callSend(byeMessageBody)
         resetCallOptions()
@@ -120,19 +174,19 @@ class Call(
         }
     }
 
-    fun onHoldUnholdPressed() {
+    fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
             callStateLiveData.postValue(CallState.HELD)
-            sendHoldModifier("hold")
+            sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
             callStateLiveData.postValue(CallState.ACTIVE)
-            sendHoldModifier("unhold")
+            sendHoldModifier(callId, "unhold")
         }
     }
 
-    private fun sendHoldModifier(holdAction: String) {
+    private fun sendHoldModifier(callId: UUID, holdAction: String) {
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
@@ -141,7 +195,7 @@ class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = this.callId,
+                    callId = callId,
                 )
             )
         )
@@ -190,7 +244,8 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
-        //   val callId = params.get("callID").asString
+        val callId = params.get("callID").asString
+
         when {
             params.has("sdp") -> {
                 val stringSdp = params.get("sdp").asString
@@ -204,7 +259,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(callId, stringSdp)
+                            AnswerResponse(UUID.fromString(callId), stringSdp)
                         )
                     )
                 )
@@ -216,7 +271,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(callId, stringSdp!!)
+                            AnswerResponse(UUID.fromString(callId), stringSdp!!)
                         )
                     )
                 )
@@ -224,7 +279,7 @@ class Call(
             else -> {
                 //There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
-                client.removeFromCalls(this.callId)
+                client.removeFromCalls(UUID.fromString(callId))
             }
         }
         client.callOngoing()
@@ -239,6 +294,8 @@ class Call(
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+
         if (params.has("sdp")) {
             val stringSdp = params.get("sdp").asString
             val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
@@ -250,8 +307,57 @@ class Call(
         } else {
             //There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
-            client.removeFromCalls(this.callId)
+            client.removeFromCalls(UUID.fromString(callId))
         }
+    }
+
+    override fun onOfferReceived(jsonObject: JsonObject) {
+        /* In case of receiving an invite
+          local user should create an answer with both local and remote information :
+          1. create a connection peer
+          2. setup ice candidate, local description and remote description
+          3. connection is ready to be used for answer the call
+          */
+
+        val params = jsonObject.getAsJsonObject("params")
+        val offerCallId = UUID.fromString(params.get("callID").asString)
+        val remoteSdp = params.get("sdp").asString
+        val callerName = params.get("caller_id_name").asString
+        val callerNumber = params.get("caller_id_number").asString
+
+        //Set global callID
+        callId = offerCallId
+
+        peerConnection = Peer(client, context,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+                }
+            }
+        )
+
+        peerConnection?.startLocalAudioCapture()
+
+        peerConnection?.onRemoteSessionReceived(
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
+        )
+
+        peerConnection?.answer(AppSdpObserver())
+
+        client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.INVITE.methodName,
+                    InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId)
+                )
+            )
+        )
+        client.playRingtone()
+        client.addToCalls(this)
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
@@ -263,7 +369,4 @@ class Call(
         )
     }
 
-    override fun onOfferReceived(jsonObject: JsonObject) {
-        client.onOfferReceived(jsonObject)
-    }
 }
