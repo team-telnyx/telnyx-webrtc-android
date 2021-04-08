@@ -7,6 +7,15 @@ on:
 
 ## 2
 jobs:
+
+  - shell: bash
+    env:
+      TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
+      TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+      TELNYX_SIP_TOKEN: ${{ secrets.TELNYX_SIP_TOKEN }}
+    run:  |
+      sh scripts/setup_env.sh -u "$TELNYX_SIP_USER" -p "$TELNYX_SIP_PASSWORD" -t "$TELNYX_SIP_TOKEN"
+
   ## 3 Unit Test Script
   #  unit_tests:
   # runs-on: [ubuntu-latest]
