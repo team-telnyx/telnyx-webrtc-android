@@ -59,3 +59,11 @@ jobs:
         with:
           name: mapping.txt
           path: app/build/outputs/mapping/debug/mapping.txt
+
+ generate_api_docs:
+   needs: [build]
+   runs-on: ubuntu-latest
+     steps:
+        name: Generate API documentation
+        if: ${{github.event_name == 'push'}}
+        run: ./gradlew dokkaHtml
