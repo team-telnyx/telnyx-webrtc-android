@@ -60,7 +60,7 @@ jobs:
           name: mapping.txt
           path: app/build/outputs/mapping/debug/mapping.txt
 
- generate_api_docs:
+  generate_api_docs:
    needs: [build]
    runs-on: ubuntu-latest
      steps:
