@@ -63,7 +63,7 @@ jobs:
   generate_api_docs:
    needs: [build]
    runs-on: ubuntu-latest
-     steps:
+   steps:
         name: Generate API documentation
         if: ${{github.event_name == 'push'}}
         run: ./gradlew dokkaHtml
