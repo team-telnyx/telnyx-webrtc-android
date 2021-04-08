@@ -1,4 +1,4 @@
-# webrtc-android-sdk
+# Telnyx Android WebRTC SDK
 
 Enable Telnyx real-time communication services on Android :telephone_receiver: :fire:
 
