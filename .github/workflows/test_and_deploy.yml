@@ -1,57 +1,66 @@
+## 1
 name: Test and deploy
-'on':
+
+## Actions that will be executed when you push code currently none
+on:
   push:
+
+## 2
 jobs:
-  unit_tests:
-    runs-on:
-      - ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Unit tests
-        run: ./gradlew test
-  android_tests:
-    runs-on:
-      - macos-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Instrumentation Tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          script: ./gradlew connectedAndroidTest
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Generate Release APK
-        run: ./gradlew assembleRelease
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: '${{ secrets.SIGNING_KEY }}'
-          alias: '${{ secrets.ALIAS }}'
-          keyStorePassword: '${{ secrets.KEY_STORE_PASSWORD }}'
-          keyPassword: '${{ secrets.KEY_PASSWORD }}'
-      - uses: actions/upload-artifact@master
-        with:
-          name: release.apk
-          path: '${{steps.sign_app.outputs.signedReleaseFile}}'
-      - uses: actions/upload-artifact@master
-        with:
-          name: mapping.txt
-          path: app/build/outputs/mapping/debug/mapping.txt
-  generate_api_docs:
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    - steps:
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-      - name: Build and run tests
-        run: ./gradlew build
-      - name: Generate API documentation
-        if: ${{github.event_name == 'push'}}
-        run: ./gradlew dokkaHtml
+  name: Test and deploy
+  'on':
+    push:
+  jobs:
+    unit_tests:
+      runs-on:
+        - ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - name: Unit tests
+          run: ./gradlew test
+    android_tests:
+      runs-on:
+        - macos-latest
+      steps:
+        - uses: actions/checkout@v2
+        - name: Instrumentation Tests
+          uses: reactivecircus/android-emulator-runner@v2
+          with:
+            api-level: 29
+            script: ./gradlew connectedAndroidTest
+    build:
+      ##  needs: [ unit_tests, android_tests ]
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
+        - name: Generate Release APK
+          run: ./gradlew assembleRelease
+        - name: Sign APK
+          uses: r0adkll/sign-android-release@v1
+          id: sign_app
+          with:
+            releaseDirectory: app/build/outputs/apk/release
+            signingKeyBase64: '${{ secrets.SIGNING_KEY }}'
+            alias: '${{ secrets.ALIAS }}'
+            keyStorePassword: '${{ secrets.KEY_STORE_PASSWORD }}'
+            keyPassword: '${{ secrets.KEY_PASSWORD }}'
+        - uses: actions/upload-artifact@master
+          with:
+            name: release.apk
+            path: '${{steps.sign_app.outputs.signedReleaseFile}}'
+        - uses: actions/upload-artifact@master
+          with:
+            name: mapping.txt
+            path: app/build/outputs/mapping/debug/mapping.txt
+    generate_api_docs:
+      needs: [build]
+      runs-on: ubuntu-latest
+         steps:
+         - name: Grant execute permission for gradlew
+           run: chmod +x gradlew
+         - name: Build and run tests
+           run: ./gradlew build
+         - name: Generate API documentation
+            if: ${{github.event_name == 'push'}}
+            run: ./gradlew dokkaHtml
