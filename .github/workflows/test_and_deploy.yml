@@ -7,16 +7,18 @@ on:
 
 ## 2
 jobs:
-  ## 3 Unit Test Script
+  # 3 Unit Test Script
   unit_tests:
-  runs-on: [ubuntu-latest]
-    # steps:
-    - uses: actions/checkout@v2
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v2
 
-    - name: Unit tests
-      run: ./gradlew test
+      - name: Unit tests
+        run: ./gradlew test
+
   # 4 Instrument test script
   android_tests:
+  runs-on: [ubuntu-latest]
   steps:
     - uses: actions/checkout@v2
 
