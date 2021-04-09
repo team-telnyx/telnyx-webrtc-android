@@ -48,12 +48,16 @@ class CallTest: BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
-        client = TelnyxClient(mockContext, socket)
-        callSocket = TxCallSocket(webSocketSession)
 
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
         every { audioManager.isMicrophoneMute = true } just Runs
         every { audioManager.isSpeakerphoneOn = true } just Runs
+
+        every { audioManager.isSpeakerphoneOn}  returns false
+        every { audioManager.isMicrophoneMute}  returns false
+
+        client = TelnyxClient(mockContext, socket)
+        callSocket = TxCallSocket(webSocketSession)
     }
 
     @Test

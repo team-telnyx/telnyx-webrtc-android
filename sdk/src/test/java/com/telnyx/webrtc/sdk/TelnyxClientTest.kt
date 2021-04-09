@@ -2,6 +2,7 @@ package com.telnyx.webrtc.sdk
 
 import android.Manifest
 import android.content.Context
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -43,6 +44,9 @@ class TelnyxClientTest : BaseTest() {
 
     lateinit var client: TelnyxClient
 
+    @MockK
+    lateinit var audioManager: AudioManager
+
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
         Manifest.permission.ACCESS_NETWORK_STATE,
@@ -55,6 +59,7 @@ class TelnyxClientTest : BaseTest() {
         networkCallbackSetup()
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
+        every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
         val socket = TxSocket(
             host_address = "rtc.telnyx.com",
