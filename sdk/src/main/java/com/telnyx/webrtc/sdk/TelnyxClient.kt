@@ -37,7 +37,7 @@ class TelnyxClient(
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
     private val audioManager =
-        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as AudioManager
+        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
 
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
@@ -50,7 +50,7 @@ class TelnyxClient(
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         return Call(
             this,
-             txCallSocket, sessionId!!, audioManager, context
+             txCallSocket, sessionId!!, audioManager!!, context
         )
     }
 
@@ -196,7 +196,7 @@ class TelnyxClient(
 
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
-        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
+        audioManager!!.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
             availableTypes.add(it.type)
         }
         return availableTypes
@@ -207,7 +207,7 @@ class TelnyxClient(
         when (audioDevice) {
             AudioDevice.BLUETOOTH -> {
                 if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
-                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                    audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
                     audioManager.startBluetoothSco()
                     audioManager.isBluetoothScoOn = true
                 } else {
@@ -219,14 +219,14 @@ class TelnyxClient(
             }
             AudioDevice.PHONE_EARPIECE -> {
                 //For phone ear piece
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION;
+                audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
                 audioManager.stopBluetoothSco();
                 audioManager.isBluetoothScoOn = false
                 audioManager.isSpeakerphoneOn = false
             }
             AudioDevice.LOUDSPEAKER -> {
                 //For phone speaker(loudspeaker)
-                audioManager.mode = AudioManager.MODE_NORMAL;
+                audioManager!!.mode = AudioManager.MODE_NORMAL;
                 audioManager.stopBluetoothSco();
                 audioManager.isBluetoothScoOn = false;
                 audioManager.isSpeakerphoneOn = true;

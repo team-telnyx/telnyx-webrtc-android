@@ -2,10 +2,12 @@ package com.telnyx.webrtc.sdk.socket
 
 import android.Manifest
 import android.content.Context
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
@@ -62,9 +64,13 @@ class TxSocketTest : BaseTest() {
 
     @MockK lateinit var networkRequest: NetworkRequest
 
+    @MockK
+    lateinit var audioManager: AudioManager
+
     //TxSocketMocks
     @MockK
     private lateinit var listener: TelnyxClient
+
     @MockK
     private var mockContext: Context = mock(Context::class.java)
 
@@ -84,6 +90,8 @@ class TxSocketTest : BaseTest() {
 
         every {socket.callOngoing()} just Runs
         every {socket.callNotOngoing()} just Runs
+
+        every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
         networkCallbackSetup()
 
@@ -130,7 +138,7 @@ class TxSocketTest : BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
-        listener = TelnyxClient(socket, mockContext)
+        listener = TelnyxClient(mockContext, socket)
         socket.connect(listener)
     }
 
@@ -140,7 +148,7 @@ class TxSocketTest : BaseTest() {
             host_address = "",
             port = 0,
         )
-        listener = TelnyxClient(socket, mockContext)
+        listener = TelnyxClient(mockContext, socket)
         assertFailsWith<ConnectException> {
             socket.connect(listener)
         }
