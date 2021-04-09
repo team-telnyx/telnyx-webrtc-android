@@ -22,6 +22,10 @@ allprojects {
         google()
         jcenter()
     }
+
+    configurations.all {
+        resolutionStrategy.force 'org.objenesis:objenesis:2.6'
+    }
 }
 
 task clean(type: Delete) {
