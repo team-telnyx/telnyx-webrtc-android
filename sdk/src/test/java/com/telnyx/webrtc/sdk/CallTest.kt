@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -47,23 +48,27 @@ class CallTest: BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
-        client = TelnyxClient(socket, mockContext)
-        callSocket = TxCallSocket(webSocketSession)
 
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
         every { audioManager.isMicrophoneMute = true } just Runs
         every { audioManager.isSpeakerphoneOn = true } just Runs
+
+        every { audioManager.isSpeakerphoneOn}  returns false
+        every { audioManager.isMicrophoneMute}  returns false
+
+        client = TelnyxClient(mockContext, socket)
+        callSocket = TxCallSocket(webSocketSession)
     }
 
     @Test
     fun `test call listen doesn't throw exception`() {
-        assertDoesNotThrow { val newCall = Call(client, callSocket, "123", mockContext) }
+        assertDoesNotThrow { val newCall = Call(client, callSocket, "123", audioManager, mockContext) }
     }
 
     @Test
     fun `test ending call resets our call options`() {
-        val newCall = Call(client, callSocket, "123", mockContext)
-        newCall.endCall("123")
+        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        newCall.endCall(UUID.randomUUID())
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), false)
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), false)
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), false)
@@ -71,22 +76,22 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test mute pressed during call`() {
-        val newCall = Call(client, callSocket, "123", mockContext)
-        newCall.endCall("123")
+        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        newCall.endCall(UUID.randomUUID())
         newCall.onMuteUnmutePressed()
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), true)
     }
 
     @Test
     fun `test hold pressed during call`() {
-        val newCall = Call(client, callSocket, "123", mockContext)
-        newCall.onHoldUnholdPressed("123")
+        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        newCall.onHoldUnholdPressed(UUID.randomUUID())
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), true)
     }
 
     @Test
     fun `test loudspeaker pressed during call`() {
-        val newCall = Call(client, callSocket, "123", mockContext)
+        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
         newCall.onLoudSpeakerPressed()
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }
