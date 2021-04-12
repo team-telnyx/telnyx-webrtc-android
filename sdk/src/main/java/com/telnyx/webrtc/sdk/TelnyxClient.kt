@@ -49,8 +49,8 @@ class TelnyxClient(
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         return Call(
-            this,
-             txCallSocket, sessionId!!, audioManager!!, context
+            context,
+            this, txCallSocket, sessionId!!, audioManager!!
         )
     }
 

@@ -1,7 +1,6 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
@@ -11,9 +10,9 @@ import timber.log.Timber
 import java.util.*
 
 class Peer(
-        val client: TelnyxClient,
-        context: Context,
-        observer: PeerConnection.Observer
+    context: Context,
+    val client: TelnyxClient,
+    observer: PeerConnection.Observer
 ) {
 
     companion object {
