@@ -32,7 +32,6 @@ class TelnyxClient(
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    //private var peerConnection: Peer? = null
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
 
@@ -42,15 +41,13 @@ class TelnyxClient(
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    // lateinit var call: Call
     val call: Call?  by lazy { buildCall() }
-
 
     private fun buildCall(): Call {
         val txCallSocket = TxCallSocket(socket.getWebSocketSession())
         return Call(
-            this,
-             txCallSocket, sessionId!!, audioManager!!, context
+            context,
+            this, txCallSocket, sessionId!!, audioManager!!
         )
     }
 

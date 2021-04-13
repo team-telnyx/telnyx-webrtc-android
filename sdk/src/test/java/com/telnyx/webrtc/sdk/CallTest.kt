@@ -62,12 +62,18 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test call listen doesn't throw exception`() {
-        assertDoesNotThrow { val newCall = Call(client, callSocket, "123", audioManager, mockContext) }
+        assertDoesNotThrow { val newCall = Call(
+            mockContext,
+            client,
+            callSocket,
+            "123",
+            audioManager
+        ) }
     }
 
     @Test
     fun `test ending call resets our call options`() {
-        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
         newCall.endCall(UUID.randomUUID())
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), false)
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), false)
@@ -76,7 +82,7 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test mute pressed during call`() {
-        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
         newCall.endCall(UUID.randomUUID())
         newCall.onMuteUnmutePressed()
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), true)
@@ -84,14 +90,14 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test hold pressed during call`() {
-        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
         newCall.onHoldUnholdPressed(UUID.randomUUID())
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), true)
     }
 
     @Test
     fun `test loudspeaker pressed during call`() {
-        val newCall = Call(client, callSocket, "123", audioManager, mockContext)
+        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
         newCall.onLoudSpeakerPressed()
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }

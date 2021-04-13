@@ -24,12 +24,11 @@ import java.util.*
 @ExperimentalCoroutinesApi
 @KtorExperimentalAPI
 class Call(
+    var context: Context,
     var client: TelnyxClient,
     var socket: TxCallSocket,
-    //var callId: UUID,
     var sessionId: String,
-    var audioManager: AudioManager,
-    var context: Context
+    var audioManager: AudioManager
 ) : TxSocketCallListener {
     private var peerConnection: Peer? = null
 
@@ -72,7 +71,7 @@ class Call(
         var sentFlag = false
 
         //Create new peer
-        peerConnection = Peer(client, context,
+        peerConnection = Peer(context, client,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
@@ -328,7 +327,8 @@ class Call(
         //Set global callID
         callId = offerCallId
 
-        peerConnection = Peer(client, context,
+        peerConnection = Peer(
+            context, client,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
