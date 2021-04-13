@@ -17,8 +17,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.util.*
 import javax.inject.Inject
 
-@ExperimentalCoroutinesApi
-@KtorExperimentalAPI
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val userManager: UserManager

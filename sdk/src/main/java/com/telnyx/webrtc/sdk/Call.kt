@@ -20,9 +20,6 @@ import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
-
-@ExperimentalCoroutinesApi
-@KtorExperimentalAPI
 class Call(
     var context: Context,
     var client: TelnyxClient,

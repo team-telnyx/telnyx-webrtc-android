@@ -17,8 +17,6 @@ import kotlinx.coroutines.channels.ConflatedBroadcastChannel
 import timber.log.Timber
 import java.util.*
 
-@ExperimentalCoroutinesApi
-@KtorExperimentalAPI
 class TxCallSocket(
     var webSocketSession: DefaultWebSocketSession
 ) : CoroutineScope {
@@ -37,7 +35,12 @@ class TxCallSocket(
             while (true) {
                 callSend.poll()?.let {
                     Timber.tag("VERTO").d("[%s] Call Listener Sending [%s]", this@TxCallSocket.javaClass.simpleName, it)
-                   webSocketSession.outgoing.send(Frame.Text(it))
+                    //Can close when disconnected
+                    //if (!webSocketSession.outgoing.isClosedForSend) {
+                        webSocketSession.outgoing.send(Frame.Text(it))
+                //    } else {
+                  //      Timber.tag("VERTO").d("[%s] Call Listener Channel Closed Because: [%s]", this@TxCallSocket.javaClass.simpleName, webSocketSession.closeReason)
+                  //  }
                 }
                 //No longer receive for connect socket, then reopen and poll for call socket
                 webSocketSession.incoming.poll()?.let { frame ->

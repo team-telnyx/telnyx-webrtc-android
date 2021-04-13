@@ -22,8 +22,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import timber.log.Timber
 import java.util.*
 
-@KtorExperimentalAPI
-@ExperimentalCoroutinesApi
 class TelnyxClient(
     var context: Context,
     var socket: TxSocket,

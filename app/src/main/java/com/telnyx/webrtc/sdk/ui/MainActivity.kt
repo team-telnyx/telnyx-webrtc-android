@@ -162,7 +162,7 @@ class MainActivity : AppCompatActivity() {
 
                     //logout - so that the user has to relog and force a connection
                     if (message == "No Network Connection") {
-                        disconnectPressed()
+                        //disconnectPressed()
                     }
                 }
 

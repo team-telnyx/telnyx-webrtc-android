@@ -7,18 +7,19 @@ import com.telnyx.webrtc.sdk.model.SocketError.*
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
-import io.ktor.client.engine.cio.*
 import io.ktor.client.features.json.*
 import io.ktor.client.features.websocket.*
 import io.ktor.http.*
-import io.ktor.http.cio.websocket.*
 import io.ktor.util.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ConflatedBroadcastChannel
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.features.*
+import io.ktor.http.cio.websocket.*
 import timber.log.Timber
 
-@ExperimentalCoroutinesApi
-@KtorExperimentalAPI
 class TxSocket(
     private val host_address: String,
     private val port: Int
@@ -31,10 +32,27 @@ class TxSocket(
 
     override val coroutineContext = Dispatchers.IO + job
 
+    /*private val client = HttpClient(OkHttp) {
+        install(WebSockets)
+        install(JsonFeature) {
+            serializer = GsonSerializer()
+        }
+        install(HttpTimeout) {
+            // timeout config
+            requestTimeoutMillis = 100000
+        }
+    }*/
+
+
     private val client = HttpClient(CIO) {
         install(WebSockets)
         install(JsonFeature) {
             serializer = GsonSerializer()
+        }
+        expectSuccess = false
+        install(HttpTimeout) {
+            // timeout config
+            requestTimeoutMillis = 100000
         }
     }
 
