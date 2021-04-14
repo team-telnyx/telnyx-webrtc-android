@@ -8,13 +8,12 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
-import com.telnyx.webrtc.sdk.socket.TxCallSocket
-import com.telnyx.webrtc.sdk.socket.TxSocketCallListener
+import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
@@ -23,10 +22,10 @@ import java.util.*
 class Call(
     var context: Context,
     var client: TelnyxClient,
-    var socket: TxCallSocket,
+    var socket: TxSocket,
     var sessionId: String,
     var audioManager: AudioManager
-) : TxSocketCallListener {
+) : TxSocketListener {
     private var peerConnection: Peer? = null
 
     private var earlySDP = false
@@ -46,7 +45,7 @@ class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
-        socket.callListen(this)
+        //socket.callListen(this)
         callStateLiveData.postValue(CallState.RINGING)
 
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
@@ -93,7 +92,7 @@ class Call(
 
                     if (!sentFlag) {
                         sentFlag = true
-                        socket.callSend(inviteMessageBody)
+                        socket.send(inviteMessageBody)
                     }
                 }
             })
@@ -123,7 +122,7 @@ class Call(
                 )
             )
         )
-        socket.callSend(answerBodyMessage)
+        socket.send(answerBodyMessage)
         client.stopMediaPlayer()
         callStateLiveData.postValue(CallState.ACTIVE)
         client.callOngoing()
@@ -145,7 +144,7 @@ class Call(
         callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(callId)
         client.callNotOngoing()
-        socket.callSend(byeMessageBody)
+        socket.send(byeMessageBody)
         resetCallOptions()
         client.stopMediaPlayer()
     }
@@ -195,7 +194,7 @@ class Call(
                 )
             )
         )
-        socket.callSend(modifyMessageBody)
+        socket.send(modifyMessageBody)
     }
 
     fun getCallState(): LiveData<CallState> = callStateLiveData
@@ -364,6 +363,18 @@ class Call(
             this@Call.javaClass.simpleName,
             iceCandidate
         )
+    }
+
+    override fun onLoginSuccessful(jsonObject: JsonObject) {
+        //NOOP
+    }
+
+    override fun onConnectionEstablished() {
+        //NOOP
+    }
+
+    override fun onErrorReceived(jsonObject: JsonObject) {
+        //NOOP
     }
 
 }

@@ -10,7 +10,6 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.sdk.BuildConfig
-import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -18,7 +17,7 @@ import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 
@@ -42,11 +41,7 @@ class TelnyxClient(
     val call: Call?  by lazy { buildCall() }
 
     private fun buildCall(): Call {
-        val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(
-            context,
-            this, txCallSocket, sessionId!!, audioManager!!
-        )
+        return Call(context, this, socket, sessionId!!, audioManager!!)
     }
 
     internal fun addToCalls(call: Call) {
@@ -67,10 +62,7 @@ class TelnyxClient(
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             if (socket.ongoingCall) {
-                //socket.destroy()
-                call?.socket?.destroy()
                 socket.reconnect()
-                call?.socket?.reconnectCall(call!!)
             }
         }
 
@@ -301,9 +293,25 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
+    override fun onByeReceived(callId: UUID) {
+        call?.onByeReceived(callId)
+    }
+
+    override fun onAnswerReceived(jsonObject: JsonObject) {
+        call?.onAnswerReceived(jsonObject)
+    }
+
+    override fun onMediaReceived(jsonObject: JsonObject) {
+        call?.onMediaReceived(jsonObject)
+    }
+
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
         call?.onOfferReceived(jsonObject)
+    }
+
+    override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
+        call?.onIceCandidateReceived(iceCandidate)
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {

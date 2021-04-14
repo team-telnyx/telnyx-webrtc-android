@@ -21,6 +21,7 @@ import io.ktor.http.cio.*
 import io.ktor.http.cio.websocket.*
 import timber.log.Timber
 import java.time.Duration
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 class TxSocket(
@@ -91,7 +92,7 @@ class TxSocket(
                 host = host_address,
                 port = port
             ) {
-               outgoing.invokeOnClose {
+                outgoing.invokeOnClose {
                     val message = it?.message
                     Timber.tag("VERTO").d("The outgoing channel was closed $message")
                     destroy()
@@ -103,57 +104,72 @@ class TxSocket(
                 try {
                     while (true) {
                         sendData.poll()?.let {
-                            Timber.tag("VERTO").d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
+                            Timber.tag("VERTO")
+                                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
                             outgoing.send(Frame.Text(it))
                         }
-                        while (!ongoingCall) {
-                            incoming.poll()?.let { frame ->
-                                if (frame is Frame.Text) {
-                                    val data = frame.readText()
-                                    Timber.tag("VERTO").d(
-                                        "[%s] Receiving [%s]",
-                                        this@TxSocket.javaClass.simpleName,
-                                        data
-                                    )
-                                    val jsonObject = gson.fromJson(data, JsonObject::class.java)
-                                    withContext(Dispatchers.Main) {
-                                        when {
-                                            jsonObject.has("result") -> {
-                                                if (jsonObject.get("result").asJsonObject.has("message")) {
-                                                    val result = jsonObject.get("result")
-                                                    val message =
-                                                        result.asJsonObject.get("message").asString
-                                                    if (message == "logged in") {
-                                                        listener.onLoginSuccessful(jsonObject)
-                                                    }
+                        incoming.poll()?.let { frame ->
+                            if (frame is Frame.Text) {
+                                val data = frame.readText()
+                                Timber.tag("VERTO").d(
+                                    "[%s] Receiving [%s]",
+                                    this@TxSocket.javaClass.simpleName,
+                                    data
+                                )
+                                val jsonObject = gson.fromJson(data, JsonObject::class.java)
+                                withContext(Dispatchers.Main) {
+                                    when {
+                                        jsonObject.has("result") -> {
+                                            if (jsonObject.get("result").asJsonObject.has("message")) {
+                                                val result = jsonObject.get("result")
+                                                val message =
+                                                    result.asJsonObject.get("message").asString
+                                                if (message == "logged in") {
+                                                    listener.onLoginSuccessful(jsonObject)
                                                 }
                                             }
-                                            jsonObject.has("method") -> {
-                                                Timber.tag("VERTO").d(
-                                                    "[%s] Received Method [%s]",
-                                                    this@TxSocket.javaClass.simpleName,
-                                                    jsonObject.get("method").asString
-                                                )
-                                                when (jsonObject.get("method").asString) {
-                                                    INVITE.methodName -> {
-                                                        listener.onOfferReceived(jsonObject)
-                                                    }
+                                        }
+                                        jsonObject.has("method") -> {
+                                            Timber.tag("VERTO").d(
+                                                "[%s] Received Method [%s]",
+                                                this@TxSocket.javaClass.simpleName,
+                                                jsonObject.get("method").asString
+                                            )
+                                            when (jsonObject.get("method").asString) {
+                                                INVITE.methodName -> {
+                                                    listener.onOfferReceived(jsonObject)
+                                                }
+                                                ANSWER.methodName -> {
+                                                    listener.onAnswerReceived(jsonObject)
+                                                }
+                                                MEDIA.methodName -> {
+                                                    listener.onMediaReceived(jsonObject)
+                                                }
+                                                BYE.methodName -> {
+                                                    val params = jsonObject.getAsJsonObject("params")
+                                                    val callId = UUID.fromString(params.get("callID").asString)
+                                                    listener.onByeReceived(callId)
+                                                }
+                                                INVITE.methodName -> {
+                                                    listener.onOfferReceived(jsonObject)
                                                 }
                                             }
-                                            jsonObject.has("error") -> {
-                                                val errorCode = jsonObject.get("error").asJsonObject.get("code").asInt
-                                                Timber.tag("VERTO").d(
-                                                    "[%s] Received Error From Telnyx [%s]",
-                                                    this@TxSocket.javaClass.simpleName,
-                                                    jsonObject.get("error").asJsonObject.get("message").toString()
-                                                )
-                                                when (errorCode) {
-                                                    CREDENTIAL_ERROR.errorCode -> {
-                                                        listener.onErrorReceived(jsonObject)
-                                                    }
-                                                    TOKEN_ERROR.errorCode -> {
-                                                        listener.onErrorReceived(jsonObject)
-                                                    }
+                                        }
+                                        jsonObject.has("error") -> {
+                                            val errorCode =
+                                                jsonObject.get("error").asJsonObject.get("code").asInt
+                                            Timber.tag("VERTO").d(
+                                                "[%s] Received Error From Telnyx [%s]",
+                                                this@TxSocket.javaClass.simpleName,
+                                                jsonObject.get("error").asJsonObject.get("message")
+                                                    .toString()
+                                            )
+                                            when (errorCode) {
+                                                CREDENTIAL_ERROR.errorCode -> {
+                                                    listener.onErrorReceived(jsonObject)
+                                                }
+                                                TOKEN_ERROR.errorCode -> {
+                                                    listener.onErrorReceived(jsonObject)
                                                 }
                                             }
                                         }
@@ -192,8 +208,8 @@ class TxSocket(
         sendChannel.send(gson.toJson(dataObject))
     }
 
-   internal fun destroy() {
+    internal fun destroy() {
         client.close()
-         job.cancel()
+        job.cancel()
     }
 }
