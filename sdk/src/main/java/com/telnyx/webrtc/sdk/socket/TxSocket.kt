@@ -17,15 +17,18 @@ import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.features.*
+import io.ktor.http.cio.*
 import io.ktor.http.cio.websocket.*
 import timber.log.Timber
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 class TxSocket(
     private val host_address: String,
     private val port: Int
 ) : CoroutineScope {
 
-    private val job = Job()
+    private var job = Job()
     private val gson = Gson()
 
     internal var ongoingCall = false
@@ -33,26 +36,45 @@ class TxSocket(
     override val coroutineContext = Dispatchers.IO + job
 
     /*private val client = HttpClient(OkHttp) {
-        install(WebSockets)
+        install(WebSockets) {
+            pingInterval = 100000 // Disabled (null) by default
+        }
         install(JsonFeature) {
             serializer = GsonSerializer()
         }
+        ConnectionOptions.KeepAlive
         install(HttpTimeout) {
             // timeout config
             requestTimeoutMillis = 100000
+            socketTimeoutMillis = 100000
+            connectTimeoutMillis = 10000
+        }
+        engine {
+            config {
+                connectTimeout(30, TimeUnit.SECONDS)
+                readTimeout(60, TimeUnit.SECONDS)
+                writeTimeout(60, TimeUnit.SECONDS)
+                pingInterval(1000, TimeUnit.SECONDS)
+            }
         }
     }*/
 
-
     private val client = HttpClient(CIO) {
+        engine {
+            requestTimeout = 50000
+            endpoint.connectTimeout = 100000
+            endpoint.connectAttempts = 30
+            endpoint.keepAliveTime = 100000
+        }
         install(WebSockets)
         install(JsonFeature) {
             serializer = GsonSerializer()
         }
+        ConnectionOptions.KeepAlive
         expectSuccess = false
         install(HttpTimeout) {
             // timeout config
-            requestTimeoutMillis = 100000
+            //requestTimeoutMillis = 100000
         }
     }
 
@@ -60,12 +82,20 @@ class TxSocket(
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
 
+    private lateinit var telnyxClient: TelnyxClient
+
     fun connect(listener: TelnyxClient) = launch {
+        telnyxClient = listener
         try {
             client.wss(
                 host = host_address,
                 port = port
             ) {
+               outgoing.invokeOnClose {
+                    val message = it?.message
+                    Timber.tag("VERTO").d("The outgoing channel was closed $message")
+                    destroy()
+                }
                 webSocketSession = this
                 listener.onConnectionEstablished()
                 Timber.tag("VERTO").d("Connection established")
@@ -141,6 +171,11 @@ class TxSocket(
         }
     }
 
+    internal fun reconnect() {
+        job = Job()
+        connect(listener = telnyxClient)
+    }
+
     internal fun callOngoing() {
         ongoingCall = true
     }
@@ -149,16 +184,16 @@ class TxSocket(
         ongoingCall = false
     }
 
-    fun getWebSocketSession(): DefaultClientWebSocketSession {
+    internal fun getWebSocketSession(): DefaultClientWebSocketSession {
         return webSocketSession
     }
 
-    fun send(dataObject: Any?) = runBlocking {
+    internal fun send(dataObject: Any?) = runBlocking {
         sendChannel.send(gson.toJson(dataObject))
     }
 
-    fun destroy() {
+   internal fun destroy() {
         client.close()
-        job.cancel()
+         job.cancel()
     }
 }
