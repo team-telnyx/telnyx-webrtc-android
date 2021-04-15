@@ -13,52 +13,25 @@ import io.ktor.http.*
 import io.ktor.util.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ConflatedBroadcastChannel
-import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.features.*
 import io.ktor.http.cio.*
 import io.ktor.http.cio.websocket.*
 import timber.log.Timber
-import java.time.Duration
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 class TxSocket(
-    private val host_address: String,
-    private val port: Int
+    internal val host_address: String,
+    internal val port: Int
 ) : CoroutineScope {
 
-    private var job = Job()
+    private var job: Job = SupervisorJob()
     private val gson = Gson()
 
+    override var coroutineContext = Dispatchers.IO + job
+
     internal var ongoingCall = false
-
-    override val coroutineContext = Dispatchers.IO + job
-
-    /*private val client = HttpClient(OkHttp) {
-        install(WebSockets) {
-            pingInterval = 100000 // Disabled (null) by default
-        }
-        install(JsonFeature) {
-            serializer = GsonSerializer()
-        }
-        ConnectionOptions.KeepAlive
-        install(HttpTimeout) {
-            // timeout config
-            requestTimeoutMillis = 100000
-            socketTimeoutMillis = 100000
-            connectTimeoutMillis = 10000
-        }
-        engine {
-            config {
-                connectTimeout(30, TimeUnit.SECONDS)
-                readTimeout(60, TimeUnit.SECONDS)
-                writeTimeout(60, TimeUnit.SECONDS)
-                pingInterval(1000, TimeUnit.SECONDS)
-            }
-        }
-    }*/
 
     private val client = HttpClient(CIO) {
         engine {
@@ -70,12 +43,6 @@ class TxSocket(
         install(WebSockets)
         install(JsonFeature) {
             serializer = GsonSerializer()
-        }
-        ConnectionOptions.KeepAlive
-        expectSuccess = false
-        install(HttpTimeout) {
-            // timeout config
-            //requestTimeoutMillis = 100000
         }
     }
 
@@ -181,13 +148,8 @@ class TxSocket(
                 }
             }
         } catch (cause: Throwable) {
-            Timber.d(cause)
+            Timber.e(cause)
         }
-    }
-
-    internal fun reconnect(telnyxClient: TelnyxClient) {
-        job = Job()
-        connect(telnyxClient)
     }
 
     internal fun callOngoing() {
@@ -204,6 +166,6 @@ class TxSocket(
 
     internal fun destroy() {
         client.close()
-//        job.cancel()
+        job.cancel()
     }
 }

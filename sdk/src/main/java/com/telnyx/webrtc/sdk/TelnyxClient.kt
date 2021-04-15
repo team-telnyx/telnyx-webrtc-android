@@ -16,7 +16,9 @@ import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import io.ktor.server.cio.backend.*
 import io.ktor.util.*
+import kotlinx.coroutines.cancel
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
@@ -25,6 +27,9 @@ class TelnyxClient(
     var context: Context,
     var socket: TxSocket,
 ) : TxSocketListener {
+
+    private var credentialSessionConfig: CredentialConfig? = null
+    private var tokenSessionConfig: TokenConfig? = null
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -38,7 +43,7 @@ class TelnyxClient(
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    val call: Call?  by lazy { buildCall() }
+    val call: Call? by lazy { buildCall() }
 
     private fun buildCall(): Call {
         return Call(context, this, socket, sessionId!!, audioManager!!)
@@ -57,12 +62,15 @@ class TelnyxClient(
         calls.remove(callId)
     }
 
+    private var socketReconnection: TxSocket? = null
+
     private var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
-            if (socket.ongoingCall) {
-                socket.reconnect(this@TelnyxClient)
+            //User has been logged in
+            if (credentialSessionConfig != null || tokenSessionConfig != null) {
+                reconnectToSocket()
             }
         }
 
@@ -73,6 +81,28 @@ class TelnyxClient(
             )
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
+    }
+
+    private fun reconnectToSocket() {
+        //Create new socket connection
+        socketReconnection = TxSocket(
+            socket.host_address,
+            socket.port
+        )
+        // Cancel old socket coroutines
+        socket.cancel("Disconnected. We no longer need this.")
+        // Destroy old socket
+        socket.destroy()
+        //Socket is now the reconnectionSocket
+        socket = socketReconnection!!
+        //Connect to new socket
+        socket.connect(this@TelnyxClient)
+        //Login with stored configuration
+        credentialSessionConfig?.let {
+            credentialLogin(it)
+        } ?: tokenLogin(tokenSessionConfig!!)
+        //Change an ongoing call's socket to the new socket.
+        call?.socket = socket
     }
 
     init {
@@ -135,6 +165,9 @@ class TelnyxClient(
         val user = config.sipUser
         val password = config.sipPassword
         val logLevel = config.logLevel
+
+        credentialSessionConfig = config
+
         setSDKLogLevel(logLevel)
 
 
@@ -164,6 +197,9 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
         val logLevel = config.logLevel
+
+        tokenSessionConfig = config
+
         setSDKLogLevel(logLevel)
 
         val loginMessage = SendingMessageBody(
