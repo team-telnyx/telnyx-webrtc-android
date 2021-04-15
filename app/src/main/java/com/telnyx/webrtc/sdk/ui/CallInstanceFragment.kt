@@ -17,7 +17,6 @@ private const val CALLER_ID = "callId"
 lateinit var mainViewModel: MainViewModel
 
 
-
 /**
  * A simple [Fragment] subclass.
  * Use the [CallInstanceFragment.newInstance] factory method to

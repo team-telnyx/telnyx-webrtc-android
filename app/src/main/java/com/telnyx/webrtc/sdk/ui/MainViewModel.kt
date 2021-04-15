@@ -78,7 +78,12 @@ class MainViewModel @Inject constructor(
         telnyxClient?.tokenLogin(tokenConfig)
     }
 
-    fun sendInvite(callerName: String, callerNumber: String, destinationNumber: String, clientState: String) {
+    fun sendInvite(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String
+    ) {
         telnyxClient?.call?.newInvite(callerName, callerNumber, destinationNumber, clientState)
     }
 
@@ -89,7 +94,7 @@ class MainViewModel @Inject constructor(
     fun endCall(callId: UUID) {
         telnyxClient?.call?.endCall(callId)
         previousCall?.let {
-           currentCall = it
+            currentCall = it
         }
     }
 

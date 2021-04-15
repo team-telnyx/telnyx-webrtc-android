@@ -111,8 +111,10 @@ class TxSocket(
                                                     listener.onMediaReceived(jsonObject)
                                                 }
                                                 BYE.methodName -> {
-                                                    val params = jsonObject.getAsJsonObject("params")
-                                                    val callId = UUID.fromString(params.get("callID").asString)
+                                                    val params =
+                                                        jsonObject.getAsJsonObject("params")
+                                                    val callId =
+                                                        UUID.fromString(params.get("callID").asString)
                                                     listener.onByeReceived(callId)
                                                 }
                                                 INVITE.methodName -> {

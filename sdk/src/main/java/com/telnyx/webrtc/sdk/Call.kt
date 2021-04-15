@@ -128,7 +128,7 @@ class Call(
         client.callOngoing()
     }
 
-    fun endCall(callId: UUID,) {
+    fun endCall(callId: UUID) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
             uuid, SocketMethod.BYE.methodName,

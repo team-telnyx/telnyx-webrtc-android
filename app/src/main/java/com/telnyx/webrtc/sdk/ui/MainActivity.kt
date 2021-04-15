@@ -173,7 +173,12 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            mainViewModel.sendInvite(caller_id_name_id.text.toString(), caller_id_number_id.text.toString(), call_input_id.text.toString(), "Sample Client State")
+            mainViewModel.sendInvite(
+                caller_id_name_id.text.toString(),
+                caller_id_number_id.text.toString(),
+                call_input_id.text.toString(),
+                "Sample Client State"
+            )
         }
     }
 
