@@ -83,10 +83,8 @@ class TxSocket(
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
 
-    private lateinit var telnyxClient: TelnyxClient
 
     fun connect(listener: TelnyxClient) = launch {
-        telnyxClient = listener
         try {
             client.wss(
                 host = host_address,
@@ -187,9 +185,9 @@ class TxSocket(
         }
     }
 
-    internal fun reconnect() {
+    internal fun reconnect(telnyxClient: TelnyxClient) {
         job = Job()
-        connect(listener = telnyxClient)
+        connect(telnyxClient)
     }
 
     internal fun callOngoing() {
@@ -200,16 +198,12 @@ class TxSocket(
         ongoingCall = false
     }
 
-    internal fun getWebSocketSession(): DefaultClientWebSocketSession {
-        return webSocketSession
-    }
-
     internal fun send(dataObject: Any?) = runBlocking {
         sendChannel.send(gson.toJson(dataObject))
     }
 
     internal fun destroy() {
         client.close()
-        job.cancel()
+//        job.cancel()
     }
 }

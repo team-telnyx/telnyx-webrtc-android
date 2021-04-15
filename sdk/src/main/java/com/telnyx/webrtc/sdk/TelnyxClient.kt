@@ -57,12 +57,12 @@ class TelnyxClient(
         calls.remove(callId)
     }
 
-    internal var isNetworkCallbackRegistered = false
+    private var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             if (socket.ongoingCall) {
-                socket.reconnect()
+                socket.reconnect(this@TelnyxClient)
             }
         }
 
