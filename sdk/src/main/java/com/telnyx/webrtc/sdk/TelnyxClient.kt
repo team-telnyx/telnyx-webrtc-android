@@ -73,6 +73,7 @@ class TelnyxClient(
             //User has been logged in
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null ) {
                 reconnectToSocket()
+                reconnecting = false
             }
         }
 
