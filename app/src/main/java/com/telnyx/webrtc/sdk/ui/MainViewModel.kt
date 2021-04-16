@@ -93,7 +93,6 @@ class MainViewModel @Inject constructor(
     }
 
     fun endCall(callId: UUID) {
-        Timber.d("This is the call that we will end: ${callId.toString()}")
         telnyxClient?.call?.endCall(callId)
         previousCall?.let {
             currentCall = it

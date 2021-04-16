@@ -86,7 +86,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
     }
 
     private fun onEndCall() {
-        Timber.d("The call ID that we are sending to end is ${callId.toString()}")
         mainViewModel.endCall(callId!!)
         call_timer_id.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
