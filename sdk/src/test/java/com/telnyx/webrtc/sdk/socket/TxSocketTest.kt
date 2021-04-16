@@ -29,8 +29,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.*
 import org.mockito.Mockito
 import org.robolectric.RuntimeEnvironment.application
-import java.net.ConnectException
-import kotlin.test.assertFailsWith
 
 class TxSocketTest : BaseTest() {
     @Test
@@ -141,6 +139,8 @@ class TxSocketTest : BaseTest() {
         listener = TelnyxClient(mockContext, socket)
         socket.connect(listener)
     }
+
+    //ToDo disconnect from socket
 
     @Test
     fun `connect with empty host or port`() {

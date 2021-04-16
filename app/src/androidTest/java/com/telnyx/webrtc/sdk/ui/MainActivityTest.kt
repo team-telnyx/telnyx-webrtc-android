@@ -17,9 +17,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
 import org.junit.runner.RunWith
-import java.util.concurrent.CancellationException
 
 @RunWith(AndroidJUnit4::class)
 class MainActivityTest : BaseUITest() {
