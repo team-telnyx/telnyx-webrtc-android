@@ -95,7 +95,7 @@ class TelnyxClient(
             socket.port
         )
         // Cancel old socket coroutines
-        socket.cancel("Disconnected. We no longer need this.")
+        socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
         //Socket is now the reconnectionSocket
