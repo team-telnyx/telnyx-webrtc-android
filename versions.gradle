@@ -15,7 +15,7 @@ versions.gson = "2.8.6"
 versions.coroutines = "1.4.2"
 versions.websocket = "1.5.1"
 versions.okhttp = "4.9.0"
-versions.ktor = "1.5.0"
+versions.ktor = "1.5.3"
 versions.timber = "4.7.1"
 versions.dexter = "6.2.2"
 versions.googleservices = "4.3.4"
@@ -65,6 +65,7 @@ ktor.cio = "io.ktor:ktor-client-cio:$versions.ktor"
 ktor.gson = "io.ktor:ktor-client-gson:$versions.ktor"
 ktor.websockets = "io.ktor:ktor-client-websockets:$versions.ktor"
 ktor.client_test = "io.ktor:ktor-client-mock:$versions.ktor"
+ktor.okhttp = "io.ktor:ktor-client-okhttp:$versions.ktor"
 deps.ktor = ktor
 
 def hilt = [:]

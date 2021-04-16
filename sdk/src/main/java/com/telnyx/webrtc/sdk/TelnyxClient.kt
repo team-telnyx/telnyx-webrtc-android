@@ -10,24 +10,28 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.sdk.BuildConfig
-import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import io.ktor.server.cio.backend.*
 import io.ktor.util.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 
-@KtorExperimentalAPI
-@ExperimentalCoroutinesApi
 class TelnyxClient(
     var context: Context,
     var socket: TxSocket,
 ) : TxSocketListener {
+
+    private var credentialSessionConfig: CredentialConfig? = null
+    private var tokenSessionConfig: TokenConfig? = null
+
+    private var reconnecting = false
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -41,14 +45,10 @@ class TelnyxClient(
     /// Keeps track of all the created calls by theirs UUIDs
     private val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    val call: Call?  by lazy { buildCall() }
+    val call: Call? by lazy { buildCall() }
 
     private fun buildCall(): Call {
-        val txCallSocket = TxCallSocket(socket.getWebSocketSession())
-        return Call(
-            context,
-            this, txCallSocket, sessionId!!, audioManager!!
-        )
+        return Call(context, this, socket, sessionId!!, audioManager!!)
     }
 
     internal fun addToCalls(call: Call) {
@@ -64,10 +64,17 @@ class TelnyxClient(
         calls.remove(callId)
     }
 
-    internal var isNetworkCallbackRegistered = false
+    private var socketReconnection: TxSocket? = null
+
+    private var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
+            //User has been logged in
+            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null ) {
+                reconnectToSocket()
+                reconnecting = false
+            }
         }
 
         override fun onNetworkUnavailable() {
@@ -75,8 +82,32 @@ class TelnyxClient(
                 "[%s] :: There is no network available",
                 this@TelnyxClient.javaClass.simpleName
             )
+            reconnecting = true
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
+    }
+
+    private fun reconnectToSocket() {
+        //Create new socket connection
+        socketReconnection = TxSocket(
+            socket.host_address,
+            socket.port
+        )
+        // Cancel old socket coroutines
+        socket.cancel("Disconnected. We no longer need this.")
+        // Destroy old socket
+        socket.destroy()
+        //Socket is now the reconnectionSocket
+        socket = socketReconnection!!
+        //Connect to new socket
+        socket.connect(this@TelnyxClient)
+        //Login with stored configuration
+        credentialSessionConfig?.let {
+            credentialLogin(it)
+        } ?: tokenLogin(tokenSessionConfig!!)
+
+        //Change an ongoing call's socket to the new socket.
+        call?.let { call?.socket = socket }
     }
 
     init {
@@ -139,6 +170,9 @@ class TelnyxClient(
         val user = config.sipUser
         val password = config.sipPassword
         val logLevel = config.logLevel
+
+        credentialSessionConfig = config
+
         setSDKLogLevel(logLevel)
 
 
@@ -168,6 +202,9 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
         val logLevel = config.logLevel
+
+        tokenSessionConfig = config
+
         setSDKLogLevel(logLevel)
 
         val loginMessage = SendingMessageBody(
@@ -297,9 +334,25 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
+    override fun onByeReceived(callId: UUID) {
+        call?.onByeReceived(callId)
+    }
+
+    override fun onAnswerReceived(jsonObject: JsonObject) {
+        call?.onAnswerReceived(jsonObject)
+    }
+
+    override fun onMediaReceived(jsonObject: JsonObject) {
+        call?.onMediaReceived(jsonObject)
+    }
+
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
         call?.onOfferReceived(jsonObject)
+    }
+
+    override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
+        call?.onIceCandidateReceived(iceCandidate)
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {

@@ -24,7 +24,7 @@ open class PeerConnectionObserver : PeerConnection.Observer {
         Timber.tag("PeerObserver").d("onIceGatheringChange [%s]", "$p0")
     }
 
-    override fun onIceCandidate(p0: IceCandidate?) {
+    override  fun onIceCandidate(p0: IceCandidate?) {
         Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
     }
 

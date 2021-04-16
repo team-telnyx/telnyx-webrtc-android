@@ -10,12 +10,12 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_call_instance.*
+import timber.log.Timber
 import java.util.*
 
 private const val CALLER_ID = "callId"
 
 lateinit var mainViewModel: MainViewModel
-
 
 
 /**

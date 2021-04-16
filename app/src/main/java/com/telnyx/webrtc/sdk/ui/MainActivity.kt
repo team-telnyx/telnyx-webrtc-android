@@ -159,11 +159,6 @@ class MainActivity : AppCompatActivity() {
                         message ?: "Socket Connection Error",
                         Toast.LENGTH_SHORT
                     ).show()
-
-                    //logout - so that the user has to relog and force a connection
-                    if (message == "No Network Connection") {
-                        disconnectPressed()
-                    }
                 }
 
             })
@@ -178,7 +173,12 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            mainViewModel.sendInvite(caller_id_name_id.text.toString(), caller_id_number_id.text.toString(), call_input_id.text.toString(), "Sample Client State")
+            mainViewModel.sendInvite(
+                caller_id_name_id.text.toString(),
+                caller_id_number_id.text.toString(),
+                call_input_id.text.toString(),
+                "Sample Client State"
+            )
         }
     }
 

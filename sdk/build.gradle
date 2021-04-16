@@ -74,6 +74,7 @@ dependencies {
     implementation deps.ktor.cio
     implementation deps.ktor.gson
     implementation deps.ktor.websockets
+    implementation deps.ktor.okhttp
     testImplementation deps.ktor.client_test
 
     // Volley
