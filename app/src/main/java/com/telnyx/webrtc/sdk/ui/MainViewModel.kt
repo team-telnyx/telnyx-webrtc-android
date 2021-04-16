@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 
@@ -92,6 +93,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun endCall(callId: UUID) {
+        Timber.d("This is the call that we will end: ${callId.toString()}")
         telnyxClient?.call?.endCall(callId)
         previousCall?.let {
             currentCall = it

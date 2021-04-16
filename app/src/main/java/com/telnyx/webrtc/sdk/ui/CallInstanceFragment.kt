@@ -10,6 +10,7 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_call_instance.*
+import timber.log.Timber
 import java.util.*
 
 private const val CALLER_ID = "callId"
@@ -85,6 +86,7 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
     }
 
     private fun onEndCall() {
+        Timber.d("The call ID that we are sending to end is ${callId.toString()}")
         mainViewModel.endCall(callId!!)
         call_timer_id.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();

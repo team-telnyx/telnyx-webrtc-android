@@ -31,6 +31,8 @@ class TelnyxClient(
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
+    private var reconnecting = false
+
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
@@ -69,7 +71,7 @@ class TelnyxClient(
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             //User has been logged in
-            if (credentialSessionConfig != null || tokenSessionConfig != null) {
+            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null ) {
                 reconnectToSocket()
             }
         }
@@ -79,6 +81,7 @@ class TelnyxClient(
                 "[%s] :: There is no network available",
                 this@TelnyxClient.javaClass.simpleName
             )
+            reconnecting = true
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
     }
@@ -101,8 +104,9 @@ class TelnyxClient(
         credentialSessionConfig?.let {
             credentialLogin(it)
         } ?: tokenLogin(tokenSessionConfig!!)
+
         //Change an ongoing call's socket to the new socket.
-        call?.socket = socket
+        call?.let { call?.socket = socket }
     }
 
     init {
