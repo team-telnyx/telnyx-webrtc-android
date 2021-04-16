@@ -5,7 +5,6 @@ import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import com.telnyx.webrtc.sdk.socket.TxCallSocket
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
@@ -34,7 +33,7 @@ class CallTest: BaseTest() {
     @MockK
     lateinit var client: TelnyxClient
     @MockK
-    lateinit var callSocket: TxCallSocket
+    lateinit var socket: TxSocket
     @MockK
     lateinit var webSocketSession: DefaultClientWebSocketSession
     @MockK
@@ -44,7 +43,7 @@ class CallTest: BaseTest() {
     fun setup() {
         MockKAnnotations.init(this, true, true, true)
 
-        val socket = TxSocket(
+        socket = TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
@@ -57,7 +56,6 @@ class CallTest: BaseTest() {
         every { audioManager.isMicrophoneMute}  returns false
 
         client = TelnyxClient(mockContext, socket)
-        callSocket = TxCallSocket(webSocketSession)
     }
 
     @Test
@@ -65,7 +63,7 @@ class CallTest: BaseTest() {
         assertDoesNotThrow { val newCall = Call(
             mockContext,
             client,
-            callSocket,
+            socket,
             "123",
             audioManager
         ) }
@@ -73,7 +71,7 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test ending call resets our call options`() {
-        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
         newCall.endCall(UUID.randomUUID())
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), false)
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), false)
@@ -82,7 +80,7 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test mute pressed during call`() {
-        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
         newCall.endCall(UUID.randomUUID())
         newCall.onMuteUnmutePressed()
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), true)
@@ -90,14 +88,14 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test hold pressed during call`() {
-        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
         newCall.onHoldUnholdPressed(UUID.randomUUID())
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), true)
     }
 
     @Test
     fun `test loudspeaker pressed during call`() {
-        val newCall = Call(mockContext, client, callSocket, "123", audioManager)
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
         newCall.onLoudSpeakerPressed()
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }

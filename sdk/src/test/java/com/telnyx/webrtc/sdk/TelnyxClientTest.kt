@@ -106,6 +106,7 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `initiate connection`() {
+        client.connect()
         assertEquals(client.isNetworkCallbackRegistered, true)
     }
 

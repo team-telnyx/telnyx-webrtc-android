@@ -33,6 +33,4 @@ class PeerTest : BaseTest() {
         mockkStatic(PeerConnection::class)
         every {PeerConnectionFactory.initialize(options)} just runs
     }
-
-    //ToDo very hard to load native library in an Android JUnit test.... instrumentation test might need to be used.
 }

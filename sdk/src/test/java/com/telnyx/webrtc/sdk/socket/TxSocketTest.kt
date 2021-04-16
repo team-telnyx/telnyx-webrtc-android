@@ -176,11 +176,4 @@ class TxSocketTest : BaseTest() {
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false
     }
-
-    @Test
-    fun `get web socket session before connection is established`() {
-        assertFailsWith<UninitializedPropertyAccessException> {
-            socket.getWebSocketSession()
-        }
-    }
 }

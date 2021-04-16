@@ -54,8 +54,8 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.connect_button_id))
                 .perform(ViewActions.closeSoftKeyboard())
                 .perform(ViewActions.click())
-            Thread.sleep(500)
-            onView(withId(R.id.socket_text_value)).check(matches(withText("Connected")));
+            Thread.sleep(1500)
+            onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)));
         }
     }
 
@@ -66,13 +66,11 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.connect_button_id))
                 .perform(ViewActions.closeSoftKeyboard())
                 .perform(ViewActions.click())
-            Thread.sleep(500)
+            Thread.sleep(1500)
 
             openActionBarOverflowOrOptionsMenu(context);
             onView(withText("Disconnect"))
                 .perform(ViewActions.click())
-
-
         }
     }
 }
