@@ -160,8 +160,10 @@ class TxSocketTest : BaseTest() {
         ))
 
         client = Mockito.spy(TelnyxClient(mockContext, socket))
-        socket.connect(client)
 
+        client.disconnect()
+        Thread.sleep(3000)
+        Mockito.verify(socket, times(1)).destroy()
     }
 
 
@@ -202,7 +204,7 @@ class TxSocketTest : BaseTest() {
         ))
 
         client = Mockito.spy(TelnyxClient(mockContext, socket))
-        
+
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false
     }
