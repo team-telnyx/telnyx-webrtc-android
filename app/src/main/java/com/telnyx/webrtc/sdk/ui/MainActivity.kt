@@ -28,7 +28,6 @@ import kotlinx.android.synthetic.main.include_incoming_call_section.*
 import kotlinx.android.synthetic.main.include_login_credential_section.*
 import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
-import kotlinx.android.synthetic.main.include_ongoing_call_section.*
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
