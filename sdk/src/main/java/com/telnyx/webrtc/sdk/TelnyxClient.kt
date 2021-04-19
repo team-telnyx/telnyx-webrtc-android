@@ -43,7 +43,7 @@ class TelnyxClient(
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
 
     /// Keeps track of all the created calls by theirs UUIDs
-    private val calls: MutableMap<UUID, Call> = mutableMapOf()
+    internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     val call: Call? by lazy { buildCall() }
 

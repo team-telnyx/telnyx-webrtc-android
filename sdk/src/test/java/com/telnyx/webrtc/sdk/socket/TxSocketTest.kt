@@ -13,7 +13,6 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import io.kotest.matchers.shouldBe
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
@@ -32,7 +31,6 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Spy
 import org.robolectric.RuntimeEnvironment.application
-import kotlin.test.assertFailsWith
 
 
 class TxSocketTest : BaseTest() {
@@ -65,13 +63,8 @@ class TxSocketTest : BaseTest() {
 
     @MockK lateinit var capabilities: NetworkCapabilities
 
-    @MockK lateinit var networkRequest: NetworkRequest
-
     @MockK
     lateinit var audioManager: AudioManager
-
-   /* @MockK
-    private var listener: TelnyxClient = mock(TelnyxClient::class.java) */
 
     @Spy
     private lateinit var client: TelnyxClient
@@ -79,14 +72,15 @@ class TxSocketTest : BaseTest() {
     @MockK
     private var mockContext: Context = mock(Context::class.java)
 
+    @Spy
+    private lateinit var socket: TxSocket
+
+
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
         Manifest.permission.INTERNET,
         Manifest.permission.ACCESS_NETWORK_STATE,
     )
-
-    @Spy
-    private lateinit var socket: TxSocket
 
     @Before
     fun setup() {

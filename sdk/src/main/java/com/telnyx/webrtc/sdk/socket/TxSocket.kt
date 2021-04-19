@@ -50,7 +50,6 @@ class TxSocket(
     private val sendChannel = ConflatedBroadcastChannel<String>()
 
     fun connect(listener: TelnyxClient) = launch {
-        test()
         try {
             client.wss(
                 host = host_address,
@@ -151,7 +150,7 @@ class TxSocket(
             Timber.d(cause)
         }
     }
-    
+
     internal fun callOngoing() {
         ongoingCall = true
     }

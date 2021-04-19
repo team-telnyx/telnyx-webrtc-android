@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.Mockito
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -34,8 +35,6 @@ class CallTest: BaseTest() {
     lateinit var client: TelnyxClient
     @MockK
     lateinit var socket: TxSocket
-    @MockK
-    lateinit var webSocketSession: DefaultClientWebSocketSession
     @MockK
     lateinit var audioManager: AudioManager
 
@@ -100,6 +99,25 @@ class CallTest: BaseTest() {
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }
 
+
+    @Test
+    fun `test new call is added to calls map - then assert that remove`() {
+        socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+
+        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
+        newCall.callId = UUID.randomUUID()
+        client.addToCalls(newCall)
+        assert(client.calls.containsValue(newCall))
+
+        client.removeFromCalls(newCall.callId)
+        assert(!client.calls.containsValue(newCall))
+    }
 }
 
 //Extension function for getOrAwaitValue for unit tests
