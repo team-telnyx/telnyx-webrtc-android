@@ -13,6 +13,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import io.kotest.matchers.shouldBe
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
@@ -31,6 +32,7 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Spy
 import org.robolectric.RuntimeEnvironment.application
+import kotlin.test.assertFailsWith
 
 
 class TxSocketTest : BaseTest() {
@@ -170,17 +172,17 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `connect with empty host or port`() {
         socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
+            host_address = "",
+            port = 0,
         ))
 
         client = Mockito.spy(TelnyxClient(mockContext, socket))
+        socket.connect(client)
 
-        //Why doesn't this fail?
+        //Sleep to give time to connect
+        Thread.sleep(3000)
+        Mockito.verify(client, times(0)).onConnectionEstablished()
 
-       /* assertFailsWith<ConnectException> {
-            socket.connect(listener)
-        }*/
     }
 
     @Test
