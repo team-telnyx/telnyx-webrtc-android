@@ -151,11 +151,7 @@ class TxSocket(
             Timber.d(cause)
         }
     }
-
-    internal fun test() {
-       print("test")
-    }
-
+    
     internal fun callOngoing() {
         ongoingCall = true
     }
