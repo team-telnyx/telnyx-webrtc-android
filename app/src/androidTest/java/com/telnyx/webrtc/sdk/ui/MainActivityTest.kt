@@ -138,6 +138,8 @@ class MainActivityTest : BaseUITest() {
 
     @Test
     fun onCallSelfAndRejectTest() {
+        //Wait for call to reset after previous test otherwise will fail in pipeline
+        Thread.sleep(5000)
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
