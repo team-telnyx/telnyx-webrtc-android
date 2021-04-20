@@ -25,6 +25,7 @@ import org.junit.Rule
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
@@ -131,6 +132,13 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `attempt connection without network`() {
+        socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+        client = Mockito.spy(TelnyxClient(mockContext, socket))
         client.connect()
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
@@ -160,9 +168,11 @@ class TelnyxClientTest : BaseTest() {
         )
         client.credentialLogin(config)
 
-        Thread.sleep(3000)
+        val jsonMock = Mockito.mock(JsonObject::class.java)
+
+        Thread.sleep(6000)
         Mockito.verify(socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
-        Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(any(JsonObject::class.java))
+        Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(jsonMock)
     }
 
     @Test
@@ -260,6 +270,15 @@ class TelnyxClientTest : BaseTest() {
         client.getRawRingbackTone()
     }
 
+}
+
+object MockitoHelper {
+    fun <T> anyObject(): T {
+        Mockito.any<T>()
+        return uninitialized()
+    }
+    @Suppress("UNCHECKED_CAST")
+    fun <T> uninitialized(): T =  null as T
 }
 
 
