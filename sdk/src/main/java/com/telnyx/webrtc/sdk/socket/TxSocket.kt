@@ -46,10 +46,8 @@ class TxSocket(
         }
     }
 
-    private lateinit var webSocketSession: DefaultClientWebSocketSession
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
-
 
     fun connect(listener: TelnyxClient) = launch {
         try {
@@ -62,7 +60,6 @@ class TxSocket(
                     Timber.tag("VERTO").d("The outgoing channel was closed $message")
                     destroy()
                 }
-                webSocketSession = this
                 listener.onConnectionEstablished()
                 Timber.tag("VERTO").d("Connection established")
                 val sendData = sendChannel.openSubscription()
@@ -146,11 +143,11 @@ class TxSocket(
                         }
                     }
                 } catch (exception: Throwable) {
-                    Timber.e(exception)
+                    Timber.d(exception)
                 }
             }
         } catch (cause: Throwable) {
-            Timber.e(cause)
+            Timber.d(cause)
         }
     }
 

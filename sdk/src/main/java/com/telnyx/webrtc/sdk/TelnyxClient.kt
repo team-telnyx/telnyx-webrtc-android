@@ -43,7 +43,7 @@ class TelnyxClient(
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
 
     /// Keeps track of all the created calls by theirs UUIDs
-    private val calls: MutableMap<UUID, Call> = mutableMapOf()
+    internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     val call: Call? by lazy { buildCall() }
 
@@ -66,7 +66,8 @@ class TelnyxClient(
 
     private var socketReconnection: TxSocket? = null
 
-    private var isNetworkCallbackRegistered = false
+
+    internal var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
@@ -94,7 +95,7 @@ class TelnyxClient(
             socket.port
         )
         // Cancel old socket coroutines
-        socket.cancel("Disconnected. We no longer need this.")
+        socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
         //Socket is now the reconnectionSocket
