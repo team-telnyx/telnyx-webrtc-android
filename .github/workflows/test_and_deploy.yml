@@ -1,5 +1,5 @@
 # 1
-name: Test, deploy and generate docs
+name: Test, deploy, generate docs and publish to Github Packages
 
 # Actions that will be executed when you push code currently none
 on:
@@ -9,7 +9,7 @@ on:
 jobs:
   # 3 Unit Test Script
   unit_tests:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
@@ -18,7 +18,7 @@ jobs:
 
   # 4 Instrument test script
   android_tests:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
@@ -42,7 +42,7 @@ jobs:
     # Build test script
   build:
     needs: [unit_tests, android_tests]
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       # 1
       - name: Checkout code
@@ -88,7 +88,7 @@ jobs:
 
  generate_api_docs:
    needs: [build]
-   runs-on: macos-latest
+   runs-on: ubuntu-latest
    steps:
      - name: Checkout code
        uses: actions/checkout@v2
@@ -98,3 +98,4 @@ jobs:
      - name: Generate API documentation
        if: ${{github.event_name == 'push'}}
        run: ./gradlew dokkaHtml
+
