@@ -10,7 +10,7 @@ on:
 jobs:
   # 3 Unit Test Script
   unit_tests:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
@@ -19,7 +19,7 @@ jobs:
 
   # 4 Instrument test script
   android_tests:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
@@ -42,7 +42,7 @@ jobs:
     # Build test script
   build:
     needs: [unit_tests, android_tests]
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       # 1
       - name: Checkout code
@@ -87,7 +87,7 @@ jobs:
 
   generate_api_docs:
     needs: [build]
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
