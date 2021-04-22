@@ -3,6 +3,7 @@ package com.telnyx.webrtc.sdk.utility
 import android.app.NotificationManager
 import com.google.firebase.messaging.RemoteMessage
 import com.google.firebase.messaging.FirebaseMessagingService
+import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -13,6 +14,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
+        TelnyxFcm.processPushMessage(this, remoteMessage)
     }
 
     private fun setupChannels(notificationManager: NotificationManager?) {
@@ -35,7 +37,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      * @param token The new token.
      */
     private fun sendRegistrationToServer(token: String) {
-        // TODO: Implement this method to send token to your app server.
+        TelnyxFcm.sendRegistrationToServer(this, token)
     }
 
     /**

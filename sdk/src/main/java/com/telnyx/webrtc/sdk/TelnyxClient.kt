@@ -170,6 +170,7 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+        val fcmToken = config.fcmToken
         val logLevel = config.logLevel
 
         credentialSessionConfig = config
@@ -202,6 +203,7 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
+        val fcmToken = config.fcmToken
         val logLevel = config.logLevel
 
         tokenSessionConfig = config
