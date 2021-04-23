@@ -8,6 +8,9 @@ import retrofit2.http.POST
 
 interface RetrofitAPIInterface {
 
+
+    //Server key needs to be included as well.
+    // Remember id and token are different. Confirm if we need to send the token or ID
     @POST("register")
     @FormUrlEncoded
     fun registrationPost(@Field("action") action: String,
