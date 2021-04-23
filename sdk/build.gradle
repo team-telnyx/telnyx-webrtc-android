@@ -100,12 +100,14 @@ dependencies {
     implementation deps.retrofit.runtime
     implementation deps.retrofit.gson
 
+
     implementation deps.coroutines.core
     implementation deps.coroutines.android
 
     implementation deps.websocket
 
     implementation deps.okhttp
+    implementation deps.interceptor
 
     implementation deps.ktor.android
     implementation deps.ktor.cio

@@ -2,34 +2,39 @@ package com.telnyx.webrtc.sdk.utilities.fcm
 
 import android.content.Context
 import com.google.firebase.messaging.RemoteMessage
+import com.telnyx.webrtc.sdk.utilities.ApiUtils
+import com.telnyx.webrtc.sdk.utilities.RetrofitAPIInterface
+import com.telnyx.webrtc.sdk.verto.receive.FcmRegistrationResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import timber.log.Timber
 
 object TelnyxFcm {
     fun processPushMessage(context: Context, remoteMessage: RemoteMessage) {
-        // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
-        Timber.d( " Message From: ${remoteMessage.from}")
-
-        // Check if message contains a data payload.
-        if (remoteMessage.data.isNotEmpty()) {
-            Timber.d("Message data payload: ${remoteMessage.data}")
-
-            if (/* Check if data needs to be processed by long running job */ true) {
-                // For long-running tasks (10 seconds or more) use WorkManager.
-               // scheduleJob()
-            } else {
-                // Handle message within 10 seconds
-              //  handleNow()
-            }
-        }
-
-        // Check if message contains a notification payload.
-        remoteMessage.notification?.let {
-            Timber.d("Message Notification Body: ${it.body}")
-        }
-
+        //Todo
     }
 
     fun sendRegistrationToServer(context: Context, token: String) {
-        //ToDo
+        val apiService: RetrofitAPIInterface?
+        apiService = ApiUtils.apiService
+
+        apiService.registrationPost("register", "android", token).enqueue(object :
+            Callback<FcmRegistrationResponse> {
+
+            override fun onResponse(call: Call<FcmRegistrationResponse>, response: Response<FcmRegistrationResponse>) {
+                if (response.isSuccessful) {
+
+                    Timber.i("post registration to API %s", response.body().toString())
+                    Timber.i("post status to API %s", response.code().toString())
+                    Timber.i( "post msg to API %s", response.body()!!.message)
+
+                }
+            }
+            override fun onFailure(call: Call<FcmRegistrationResponse>, t: Throwable) {
+                    Timber.d("FCM Registration to Telnyx Notification Service failed.")
+            }
+        })
+
     }
 }
