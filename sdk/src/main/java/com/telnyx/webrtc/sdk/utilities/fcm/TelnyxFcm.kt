@@ -12,7 +12,7 @@ import timber.log.Timber
 
 object TelnyxFcm {
     fun processPushMessage(context: Context, remoteMessage: RemoteMessage) {
-        //Todo
+        Timber.d("Message received from FCM to be processed by Telnyx: $remoteMessage")
     }
 
     fun sendRegistrationToServer(context: Context, token: String) {
