@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar_id))
 
         FirebaseApp.initializeApp(this);
+        getFCMToken()
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
@@ -239,9 +240,6 @@ class MainActivity : AppCompatActivity() {
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
-        getFCMDeviceId()
-        getFCMToken()
-
         if (token_login_switch.isChecked) {
             val sipToken = sip_token_id.text.toString()
             val sipCallerName = token_caller_id_name_id.text.toString()
@@ -284,31 +282,20 @@ class MainActivity : AppCompatActivity() {
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
                 fcmToken = null
+                fcmDeviceId = null
             }
 
             // Get new FCM registration token
             val token = task.result
+            val deviceId = task.result?.split(":")?.first()
             Timber.d("FCM TOKEN RECEIVED: $token")
+            Timber.d("FCM DEVICE ID RECEIVED: $deviceId")
             Toast.makeText(this, token, Toast.LENGTH_SHORT).show()
             fcmToken = token
+            fcmDeviceId = deviceId
         }
     }
-
-   private fun getFCMDeviceId() {
-       FirebaseInstallations.getInstance().id.addOnCompleteListener  { task ->
-           if (!task.isSuccessful) {
-               Timber.d("Fetching FCM device ID failed")
-               fcmDeviceId = null
-           }
-
-           // Get new FCM device ID
-           val deviceId = task.result
-           Timber.d("FCM DEVICE ID RECEIVED: $deviceId")
-           Toast.makeText(this, deviceId, Toast.LENGTH_SHORT).show()
-           fcmDeviceId = deviceId
-       }
-   }
-
+    
     private fun disconnectPressed() {
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.GONE
