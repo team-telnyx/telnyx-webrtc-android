@@ -1,19 +1,20 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
-import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.util.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -43,6 +44,7 @@ class MainViewModel @Inject constructor(
     fun saveUserData(
         userName: String,
         password: String,
+        fcmToken: String?,
         callerIdName: String,
         callerIdNumber: String
     ) {
@@ -50,6 +52,7 @@ class MainViewModel @Inject constructor(
             userManager.isUserLogin = true
             userManager.sipUsername = userName
             userManager.sipPass = password
+            userManager.fcmToken = fcmToken
             userManager.calledIdName = callerIdName
             userManager.callerIdNumber = callerIdNumber
         }

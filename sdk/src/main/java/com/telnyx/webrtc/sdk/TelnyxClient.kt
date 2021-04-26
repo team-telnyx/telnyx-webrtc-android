@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
@@ -170,6 +171,7 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
+        val fcmToken = config.fcmToken
         val logLevel = config.logLevel
 
         credentialSessionConfig = config
@@ -191,6 +193,7 @@ class TelnyxClient(
                 login_token = null,
                 login = user,
                 passwd = password,
+                fcmToken = fcmToken,
                 userVariables = arrayListOf(),
                 loginParams = arrayListOf()
             )
@@ -202,6 +205,7 @@ class TelnyxClient(
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
+        val fcmToken = config.fcmToken
         val logLevel = config.logLevel
 
         tokenSessionConfig = config
@@ -215,6 +219,7 @@ class TelnyxClient(
                 login_token = token,
                 login = null,
                 passwd = null,
+                fcmToken = fcmToken,
                 userVariables = arrayListOf(),
                 loginParams = arrayListOf()
             )

@@ -10,6 +10,9 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
@@ -40,10 +43,14 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var mainViewModel: MainViewModel
 
+    private var fcmToken: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.toolbar_id))
+
+        FirebaseApp.initializeApp(this);
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
@@ -125,7 +132,8 @@ class MainActivity : AppCompatActivity() {
                     when (data?.method) {
                         SocketMethod.LOGIN.methodName -> {
                             val sessionId = (data.result as LoginResponse).sessid
-                            onLoginSuccessfullyViews(sessionId)
+                            Timber.d("Current Session: $sessionId")
+                            onLoginSuccessfullyViews()
                         }
 
                         SocketMethod.INVITE.methodName -> {
@@ -162,7 +170,6 @@ class MainActivity : AppCompatActivity() {
 
             })
     }
-
 
     private fun initViews() {
         mockInputs()
@@ -201,6 +208,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.sipPass,
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
+                userManager.fcmToken,
                 R.raw.incoming_call,
                 R.raw.ringback_tone,
                 LogLevel.ALL
@@ -228,6 +236,8 @@ class MainActivity : AppCompatActivity() {
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
+        getFCMToken()
+
         if (token_login_switch.isChecked) {
             val sipToken = sip_token_id.text.toString()
             val sipCallerName = token_caller_id_name_id.text.toString()
@@ -237,6 +247,7 @@ class MainActivity : AppCompatActivity() {
                 sipToken,
                 sipCallerName,
                 sipCallerNumber,
+                fcmToken,
                 ringtone,
                 ringBackTone,
                 LogLevel.ALL
@@ -255,11 +266,27 @@ class MainActivity : AppCompatActivity() {
                 password,
                 sipCallerName,
                 sipCallerNumber,
+                fcmToken,
                 ringtone,
                 ringBackTone,
                 LogLevel.ALL
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
+        }
+    }
+
+    fun getFCMToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Timber.d("Fetching FCM registration token failed")
+                fcmToken = null
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+            Timber.d("FCM TOKEN RECEIVED: $token")
+            Toast.makeText(this, token, Toast.LENGTH_SHORT).show()
+            fcmToken = token
         }
     }
 
@@ -278,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         connect_button_id.isClickable = true
     }
 
-    private fun onLoginSuccessfullyViews(sessionId: String) {
+    private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
         //call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
@@ -290,6 +317,7 @@ class MainActivity : AppCompatActivity() {
             mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
                 password_id.text.toString(),
+                fcmToken,
                 caller_id_name_id.text.toString(),
                 caller_id_number_id.text.toString()
             )

@@ -9,17 +9,19 @@ data class CredentialConfig(
     val sipPassword: String,
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
+    val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE
-    )
+    ) : TelnyxConfig()
 
 data class TokenConfig(
     val sipToken: String,
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
+    val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE
-    )
+    ) : TelnyxConfig()
 
