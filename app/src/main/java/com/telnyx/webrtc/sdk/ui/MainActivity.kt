@@ -336,7 +336,7 @@ class MainActivity : AppCompatActivity() {
             mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
                 password_id.text.toString(),
-                fcmToken,
+                fcmDeviceId,
                 caller_id_name_id.text.toString(),
                 caller_id_number_id.text.toString()
             )

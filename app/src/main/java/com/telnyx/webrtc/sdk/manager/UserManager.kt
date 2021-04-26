@@ -12,6 +12,7 @@ class UserManager @Inject constructor(private val sharedPreferences: SharedPrefe
         const val KEY_USER_SIP_USERNAME = "sip-username"
         const val KEY_USER_SIP_PASSWORD = "sip-password"
         const val KEY_USER_FCM_TOKEN = "fcm-token"
+        const val KEY_USER_FCM_DEVICE_ID = "fcm-device-id"
         const val KEY_USER_CALLER_ID_NAME = "caller-id-name"
         const val KEY_USER_CALLER_ID_NUMBER = "caller-id-number"
         const val KEY_USER_SESSION_ID = "session_id"
@@ -43,6 +44,13 @@ class UserManager @Inject constructor(private val sharedPreferences: SharedPrefe
             return temp ?: ""
         }
         set(bool) = sharedPreferences.edit().putString(KEY_USER_FCM_TOKEN, bool).apply()
+
+    var fcmDeviceId: String?
+        get() {
+            val temp = sharedPreferences.getString(KEY_USER_FCM_DEVICE_ID, "")
+            return temp ?: ""
+        }
+        set(bool) = sharedPreferences.edit().putString(KEY_USER_FCM_DEVICE_ID, bool).apply()
 
     var calledIdName: String
         get() {

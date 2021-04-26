@@ -44,7 +44,7 @@ class MainViewModel @Inject constructor(
     fun saveUserData(
         userName: String,
         password: String,
-        fcmToken: String?,
+        fcmDeviceId: String?,
         callerIdName: String,
         callerIdNumber: String
     ) {
@@ -52,7 +52,7 @@ class MainViewModel @Inject constructor(
             userManager.isUserLogin = true
             userManager.sipUsername = userName
             userManager.sipPass = password
-            userManager.fcmToken = fcmToken
+            userManager.fcmDeviceId = fcmDeviceId
             userManager.calledIdName = callerIdName
             userManager.callerIdNumber = callerIdNumber
         }
