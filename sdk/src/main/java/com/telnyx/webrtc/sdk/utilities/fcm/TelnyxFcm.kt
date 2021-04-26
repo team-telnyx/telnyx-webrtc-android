@@ -19,9 +19,10 @@ object TelnyxFcm {
         val apiService: RetrofitAPIInterface?
         apiService = ApiUtils.apiService
 
-        apiService.registrationPost("register", "android", token).enqueue(object :
-            Callback<FcmRegistrationResponse> {
+        val fcmDeviceId = token.split(":").first()
 
+        apiService.registrationPost("register", "android", fcmDeviceId).enqueue(object :
+            Callback<FcmRegistrationResponse> {
             override fun onResponse(call: Call<FcmRegistrationResponse>, response: Response<FcmRegistrationResponse>) {
                 if (response.isSuccessful) {
 

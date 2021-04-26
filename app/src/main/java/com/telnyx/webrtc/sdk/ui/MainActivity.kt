@@ -212,7 +212,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.sipPass,
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
-                userManager.fcmToken,
+                userManager.fcmDeviceId,
                 R.raw.incoming_call,
                 R.raw.ringback_tone,
                 LogLevel.ALL
@@ -295,7 +295,7 @@ class MainActivity : AppCompatActivity() {
             fcmDeviceId = deviceId
         }
     }
-    
+
     private fun disconnectPressed() {
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.GONE
