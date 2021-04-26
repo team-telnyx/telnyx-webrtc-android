@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.FirebaseApp
+import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
@@ -44,6 +45,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var mainViewModel: MainViewModel
 
     private var fcmToken: String? = null
+
+    private var fcmDeviceId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -236,6 +239,7 @@ class MainActivity : AppCompatActivity() {
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
+        getFCMDeviceId()
         getFCMToken()
 
         if (token_login_switch.isChecked) {
@@ -247,7 +251,7 @@ class MainActivity : AppCompatActivity() {
                 sipToken,
                 sipCallerName,
                 sipCallerNumber,
-                fcmToken,
+                fcmDeviceId,
                 ringtone,
                 ringBackTone,
                 LogLevel.ALL
@@ -266,7 +270,7 @@ class MainActivity : AppCompatActivity() {
                 password,
                 sipCallerName,
                 sipCallerNumber,
-                fcmToken,
+                fcmDeviceId,
                 ringtone,
                 ringBackTone,
                 LogLevel.ALL
@@ -275,7 +279,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun getFCMToken() {
+    private fun getFCMToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
@@ -289,6 +293,21 @@ class MainActivity : AppCompatActivity() {
             fcmToken = token
         }
     }
+
+   private fun getFCMDeviceId() {
+       FirebaseInstallations.getInstance().id.addOnCompleteListener  { task ->
+           if (!task.isSuccessful) {
+               Timber.d("Fetching FCM device ID failed")
+               fcmDeviceId = null
+           }
+
+           // Get new FCM device ID
+           val deviceId = task.result
+           Timber.d("FCM DEVICE ID RECEIVED: $deviceId")
+           Toast.makeText(this, deviceId, Toast.LENGTH_SHORT).show()
+           fcmDeviceId = deviceId
+       }
+   }
 
     private fun disconnectPressed() {
         incoming_call_section_id.visibility = View.GONE

@@ -9,7 +9,7 @@ data class CredentialConfig(
     val sipPassword: String,
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
-    val fcmToken: String?,
+    val fcmDeviceId: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE
@@ -19,7 +19,7 @@ data class TokenConfig(
     val sipToken: String,
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
-    val fcmToken: String?,
+    val fcmDeviceId: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE
