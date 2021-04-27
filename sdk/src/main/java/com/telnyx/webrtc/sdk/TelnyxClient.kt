@@ -306,11 +306,17 @@ class TelnyxClient(
         if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
-            //mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
 
+    /**
+     *  Creates credentials that can be used with the Telnyx Push Notification service in conjunction with Firebase Cloud Messaging
+     *  @param fcmServerKey, the Server Key provided in the Firebase Console.
+     */
+    fun createPushNotificationCredential(fcmServerKey: String) {
+        TelnyxFcm.setCredentials(fcmServerKey)
+    }
 
     // TxSocketListener Overrides
     override fun onLoginSuccessful(jsonObject: JsonObject) {

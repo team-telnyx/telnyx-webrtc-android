@@ -5,6 +5,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.telnyx.webrtc.sdk.utilities.ApiUtils
 import com.telnyx.webrtc.sdk.utilities.RetrofitAPIInterface
 import com.telnyx.webrtc.sdk.verto.receive.FcmRegistrationResponse
+import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -59,5 +60,14 @@ object TelnyxFcm {
                 Timber.d("FCM unregister request to Telnyx Notification Service failed.")
             }
         })
+    }
+
+    fun setCredentials(fcmServerKey: String) {
+        val apiService: RetrofitAPIInterface?
+        apiService = ApiUtils.apiService
+
+        val serverKeyJsonObject = JSONObject()
+        serverKeyJsonObject.put("server_key", fcmServerKey)
+        apiService.createCredentials("android", serverKeyJsonObject)
     }
 }

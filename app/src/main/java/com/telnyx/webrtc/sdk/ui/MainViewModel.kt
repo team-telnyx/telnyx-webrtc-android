@@ -38,7 +38,11 @@ class MainViewModel @Inject constructor(
             port = 14938
         )
         telnyxClient = TelnyxClient(context, socketConnection!!)
-        telnyxClient!!.connect()
+        telnyxClient?.connect()
+    }
+
+    fun createNotificationCredentials(fcmServerKey: String) {
+        telnyxClient?.createPushNotificationCredential(fcmServerKey)
     }
 
     fun saveUserData(
