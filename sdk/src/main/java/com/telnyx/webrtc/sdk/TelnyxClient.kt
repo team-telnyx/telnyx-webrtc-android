@@ -3,6 +3,7 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.ConnectivityManager
 import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
@@ -48,20 +49,27 @@ class TelnyxClient(
 
     val call: Call? by lazy { buildCall() }
 
+    /**
+     * Build a call containing all required parameters.
+     * @return [Call]
+     */
     private fun buildCall(): Call {
         return Call(context, this, socket, sessionId!!, audioManager!!)
     }
 
+    /**
+     * Add specified call to the calls MutableMap
+     * @param call, and instance of [Call]
+     */
     internal fun addToCalls(call: Call) {
-        println("Incoming callID to add: ${call.callId}")
         calls.getOrPut(call.callId) { call }
     }
 
+    /**
+     * Remove specified call from the calls MutableMap
+     * @param callId, the UUID used to identify a specific
+     */
     internal fun removeFromCalls(callId: UUID) {
-        println("Incoming callID to remove: $callId")
-        calls.entries.forEach {
-            println("callID in stack: " + it.key)
-        }
         calls.remove(callId)
     }
 
@@ -89,6 +97,11 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Reconnect to the Telnyx socket using saved Telnyx Config - either Token or Credential based
+     * @see [TxSocket]
+     * @see [TelnyxConfig]
+     */
     private fun reconnectToSocket() {
         //Create new socket connection
         socketReconnection = TxSocket(
@@ -119,15 +132,28 @@ class TelnyxClient(
     private var rawRingtone: Int? = null
     private var rawRingbackTone: Int? = null
 
-
+    /**
+     * Return the saved ringtone reference
+     * @returns [Int]
+     */
     fun getRawRingtone(): Int? {
         return rawRingtone
     }
 
+
+    /**
+     * Return the saved ringback tone reference
+     * @returns [Int]
+     */
     fun getRawRingbackTone(): Int? {
         return rawRingbackTone
     }
 
+    /**
+     * Connects to the socket using this client as the listener
+     * Will respond with 'No Network Connection' if there is no network available
+     * @see [TxSocket]
+     */
     fun connect() {
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             socket.connect(this)
@@ -136,16 +162,27 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Sets the callOngoing state to true. This can be used to see if the SDK thinks a call is ongoing.
+     */
     internal fun callOngoing() {
         socket.callOngoing()
     }
 
+    /**
+     * Sets the callOngoing state to false if the [calls] MutableMap is empty
+     * @see [calls]
+     */
     internal fun callNotOngoing() {
         if (calls.isEmpty()) {
             socket.callNotOngoing()
         }
     }
 
+    /**
+     * register network state change callback.
+     * @see [ConnectivityManager]
+     */
     private fun registerNetworkCallback() {
         context.let {
             ConnectivityHelper.registerNetworkStatusCallback(it, networkCallback)
@@ -153,6 +190,10 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Unregister network state change callback.
+     * @see [ConnectivityManager]
+     */
     private fun unregisterNetworkCallback() {
         if (isNetworkCallbackRegistered) {
             context.let {
@@ -162,11 +203,30 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Returns the socket response in the form of LiveData
+     * The format of each message is provided in SocketResponse and ReceivedMessageBody
+     * @see [SocketResponse]
+     * @see [ReceivedMessageBody]
+     */
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
+
+    /**
+     * Returns all active calls that have been stored in our calls MutableMap
+     * The MutableMap is converted into a Map - preventing any changes by the SDK User
+     *
+     * @see [calls]
+     */
     fun getActiveCalls(): Map<UUID, Call> {
         return calls.toMap()
     }
 
+    /**
+     * Logs the user in with credentials provided via CredentialConfig
+     *
+     * @param config, the CredentialConfig used to log in
+     * @see [CredentialConfig]
+     */
     fun credentialLogin(config: CredentialConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
@@ -202,6 +262,12 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    /**
+     * Logs the user in with credentials provided via TokenConfig
+     *
+     * @param config, the TokenConfig used to log in
+     * @see [TokenConfig]
+     */
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
@@ -227,6 +293,13 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    /**
+     * Sets the global SDK log level
+     * Logging is implemented with Timber
+     *
+     * @param logLevel, the LogLevel specified for the SDK
+     * @see [LogLevel]
+     */
     private fun setSDKLogLevel(logLevel: LogLevel) {
         Timber.uprootAll()
         if (BuildConfig.DEBUG) {
@@ -234,6 +307,13 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Returns a MutableList of available audio devices
+     * Audio devices are represented by their Int reference ids
+     *
+     * @param logLevel, the LogLevel specified for the SDK
+     * @return [MutableList] of [Int]
+     */
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
         audioManager!!.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
@@ -242,6 +322,12 @@ class TelnyxClient(
         return availableTypes
     }
 
+    /**
+     * Sets the audio device that the SDK should use
+     *
+     * @param audioDevice, the chosen [AudioDevice] to be used by the SDK
+     * @see [AudioDevice]
+     */
     fun setAudioOutputDevice(audioDevice: AudioDevice) {
         val availableTypes = getAvailableAudioOutputTypes()
         when (audioDevice) {
@@ -274,6 +360,12 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Use MediaPlayer to play the audio of the saved user Ringtone
+     * If no ringtone was provided, we print a relevant message
+     *
+     * @see [MediaPlayer]
+     */
     internal fun playRingtone() {
         rawRingtone?.let {
             stopMediaPlayer()
@@ -288,6 +380,12 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Use MediaPlayer to play the audio of the saved user Ringback tone
+     * If no ringback tone was provided, we print a relevant message
+     *
+     * @see [MediaPlayer]
+     */
     internal fun playRingBackTone() {
         rawRingbackTone?.let {
             stopMediaPlayer()
@@ -302,11 +400,14 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Stops any audio that the MediaPlayer is playing
+     * @see [MediaPlayer]
+     */
     internal fun stopMediaPlayer() {
         if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
-            //mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
@@ -366,6 +467,12 @@ class TelnyxClient(
         socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
     }
 
+    /**
+     * Disconnect from the TxSocket and unregister the provided network callback
+     *
+     * @see [ConnectivityHelper]
+     * @see [TxSocket]
+     */
     fun disconnect() {
         unregisterNetworkCallback()
         socket.destroy()

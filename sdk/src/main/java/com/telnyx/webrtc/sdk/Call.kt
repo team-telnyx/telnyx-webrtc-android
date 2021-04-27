@@ -45,13 +45,19 @@ class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
-        //socket.callListen(this)
         callStateLiveData.postValue(CallState.RINGING)
-
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
+    /**
+     * Initiates a new call invitation
+     * @param callerName, the name to appear on the invitation
+     * @param callerNumber, the number to appear on the invitation
+     * @param destinationNumber, the number or SIP name that will receive the invitation
+     * @param clientState, the provided client state.
+     * @see [Call]
+     */
     fun newInvite(
         callerName: String,
         callerNumber: String,
@@ -104,10 +110,13 @@ class Call(
         client.addToCalls(this)
     }
 
-
-    /* In case of accept a call (accept an invitation)
-     local user have to send provided answer (with both local and remote sdps)
-   */
+    /**
+     * Accepts an incoming call
+     * Local user response with both local and remote SDPs
+     * @param callId, the callId provided with the invitation
+     * @param destinationNumber, the number or SIP name that will receive the invitation
+     * @see [Call]
+     */
     fun acceptCall(callId: UUID, destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
@@ -128,6 +137,11 @@ class Call(
         client.callOngoing()
     }
 
+    /**
+     * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
+     * @param callId, the callId provided with the invitation
+     * @see [Call]
+     */
     fun endCall(callId: UUID) {
         val uuid: String = UUID.randomUUID().toString()
         val byeMessageBody = SendingMessageBody(
@@ -149,6 +163,10 @@ class Call(
         client.stopMediaPlayer()
     }
 
+    /**
+     * Either mutes or unmutes the [AudioManager] based on the current [muteLiveData] value
+     * @see [AudioManager]
+     */
     fun onMuteUnmutePressed() {
         if (!muteLiveData.value!!) {
             muteLiveData.postValue(true)
@@ -159,6 +177,10 @@ class Call(
         }
     }
 
+    /**
+     * Either enables or disables the [AudioManager] loudspeaker mode based on the current [loudSpeakerLiveData] value
+     * @see [AudioManager]
+     */
     fun onLoudSpeakerPressed() {
         if (!loudSpeakerLiveData.value!!) {
             loudSpeakerLiveData.postValue(true)
@@ -169,6 +191,11 @@ class Call(
         }
     }
 
+    /**
+     * Either places a call on hold, or unholds a call based on the current [holdLiveData] value
+     * @param callId, the unique UUID of the call you want to place or remove from hold with the [sendHoldModifier] method
+     * @see [sendHoldModifier]
+     */
     fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
@@ -181,6 +208,11 @@ class Call(
         }
     }
 
+    /**
+     * Sends the hold modifier message to Telnyx, placing the specified call on hold or removing it from hold based on a provided holdAction value
+     * @param callId, unique UUID of the call to modify
+     * @param holdAction, the modification action to perform
+     */
     private fun sendHoldModifier(callId: UUID, holdAction: String) {
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
@@ -197,11 +229,35 @@ class Call(
         socket.send(modifyMessageBody)
     }
 
+    /**
+     * Returns call state live data
+     * @see [CallState]
+     * @return [LiveData]
+     */
     fun getCallState(): LiveData<CallState> = callStateLiveData
+
+    /**
+     * Returns mute state live data
+     * @return [LiveData]
+     */
     fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
+
+    /**
+     * Returns hold state live data
+     * @return [LiveData]
+     */
     fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
+
+    /**
+     * Returns loudspeaker state live data
+     * @return [LiveData]
+     */
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
+    /**
+     * Resets all call options, primarily hold, mute and loudspeaker state, as well as the earlySDP boolean value.
+     * @return [LiveData]
+     */
     private fun resetCallOptions() {
         holdLiveData.postValue(false)
         muteLiveData.postValue(false)

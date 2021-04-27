@@ -46,7 +46,6 @@ class TxSocket(
         }
     }
 
-
     private val sendChannel = ConflatedBroadcastChannel<String>()
 
     fun connect(listener: TelnyxClient) = launch {
