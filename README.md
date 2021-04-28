@@ -115,7 +115,8 @@ We can then use this method to create a listener that listens for an invitation 
                         }
 
                         SocketMethod.INVITE.methodName -> {
-                           // Handle an invitation
+                           // Handle an invitation Update UI or Navigate to new screen, etc. 
+                           // Then, through an answer button of some kind we can accept the call with:
                             val inviteResponse = data.result as InviteResponse
                             mainViewModel.acceptCall(inviteResponse.callId,  inviteResponse.callerIdNumber)
                         }
