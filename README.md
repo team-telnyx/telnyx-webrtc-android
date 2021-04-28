@@ -131,7 +131,7 @@ We can then use this method to create a listener that listens for an invitation 
                 }
 ```
 
-When we receive a call we will receive an InviteResponse data class that contains the details we neeed to accept the call. We can then call the acceptCall method in TelnyxClient from our ViewModel:
+When we receive a call we will receive an InviteResponse data class that contains the details we need to accept the call. We can then call the acceptCall method in TelnyxClient from our ViewModel:
 
 ```kotlin
  telnyxClient.call.acceptCall(callId, destinationNumber)
