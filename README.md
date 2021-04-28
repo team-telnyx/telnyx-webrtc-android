@@ -111,7 +111,7 @@ We can then use this method to create a listener that listens for an invitation 
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     when (data?.method) {
                         SocketMethod.LOGIN.methodName -> {
-                           // Handle a successfull login 
+                           // Handle a successfull login - Update UI or Navigate to new screen, etc.
                         }
 
                         SocketMethod.INVITE.methodName -> {
@@ -123,11 +123,11 @@ We can then use this method to create a listener that listens for an invitation 
                         }
 
                         SocketMethod.ANSWER.methodName -> {
-                            //Handle a received call answer
+                            //Handle a received call answer - Update UI or Navigate to new screen, etc.
                         }
 
                         SocketMethod.BYE.methodName -> {
-                           // Handle a call rejection or ending
+                           // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
                         }
                     }
                 }
