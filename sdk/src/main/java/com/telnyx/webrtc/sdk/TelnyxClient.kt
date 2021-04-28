@@ -139,9 +139,10 @@ class TelnyxClient(
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     private fun onAppDestroyed() {
         Timber.d("Application is being destroyed")
-        call.let {
-            call?.endCall(call!!.callId)
+        calls.onEach { 
+            it.value.endCall(it.value.callId)
         }
+
     }
 
     private var rawRingtone: Int? = null
