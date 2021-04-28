@@ -80,7 +80,7 @@ class TelnyxClient(
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             //User has been logged in
-            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null ) {
+            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
                 reconnectToSocket()
                 reconnecting = false
             }
@@ -139,7 +139,7 @@ class TelnyxClient(
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     private fun onAppDestroyed() {
         Timber.d("Application is being destroyed")
-        calls.onEach { 
+        calls.onEach {
             it.value.endCall(it.value.callId)
         }
 
