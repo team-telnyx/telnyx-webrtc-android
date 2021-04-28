@@ -6,8 +6,7 @@ import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.*
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.sdk.BuildConfig
@@ -28,7 +27,7 @@ import java.util.*
 class TelnyxClient(
     var context: Context,
     var socket: TxSocket,
-) : TxSocketListener {
+) : TxSocketListener, LifecycleObserver {
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
@@ -127,6 +126,22 @@ class TelnyxClient(
 
     init {
         registerNetworkCallback()
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+    }
+
+    /**
+     * Observes the application lifecycle events
+     * If the application is being destroyed, we end the call.
+     * NOTE - there is no guarantee that onDestroyed will be called, like in the case of onStop being called when going to background first.
+     *
+     * @see LifecycleObserver
+     */
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    private fun onAppDestroyed() {
+        Timber.d("Application is being destroyed")
+        call.let {
+            call?.endCall(call!!.callId)
+        }
     }
 
     private var rawRingtone: Int? = null
