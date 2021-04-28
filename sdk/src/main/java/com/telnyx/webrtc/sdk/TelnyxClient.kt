@@ -130,7 +130,7 @@ class TelnyxClient(
     }
 
     /**
-     * Observes the application lifecycle events
+     * Observes the ON_DESTROY application lifecycle event
      * If the application is being destroyed, we end the call.
      * NOTE - there is no guarantee that onDestroyed will be called, like in the case of onStop being called when going to background first.
      *
