@@ -53,9 +53,9 @@ To initialize the TelnyxClient you will have to provide the application context 
  To log into the Telnyx WebRTC client, you'll need to authenticate using a Telnyx SIP Connection. Follow our [quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart) to create **JWTs** (JSON Web Tokens) to authenticate. To log in with a token we use the tokinLogin() method. You can also authenticate directly with the SIP Connection `username` and `password` with the credentialLogin() method:
  
  ```kotlin
-  telnyxClient?.tokenLogin(tokenConfig)
+  telnyxClient.tokenLogin(tokenConfig)
                  //OR
-  telnyxClient?.credentialLogin(credentialConfig)             
+  telnyxClient.credentialLogin(credentialConfig)             
  ```
 
 **Note:** **tokenConfig** and **credentialConfig** are data classes that represent login settings for the client to use. They look like this:
