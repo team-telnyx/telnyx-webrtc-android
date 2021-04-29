@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.utilities
 
 import com.telnyx.webrtc.sdk.model.LogLevel

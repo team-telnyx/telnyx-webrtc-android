@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.model
 
 //Coincides with AudioDeviceInfo class for AudioManager handling provided by Android
