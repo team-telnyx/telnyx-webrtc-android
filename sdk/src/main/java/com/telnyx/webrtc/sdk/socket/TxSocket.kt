@@ -46,9 +46,13 @@ class TxSocket(
         }
     }
 
-
     private val sendChannel = ConflatedBroadcastChannel<String>()
 
+    /**
+     * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
+     * @param listener, the [TelnyxClient] used to create an instance of TxSocket that contains our relevant listener methods via the [TxSocketListener] interface
+     * @see [TxSocketListener]
+     */
     fun connect(listener: TelnyxClient) = launch {
         try {
             client.wss(
@@ -151,18 +155,31 @@ class TxSocket(
         }
     }
 
+    /**
+     * Sets the ongoingCall boolean value to true
+     */
     internal fun callOngoing() {
         ongoingCall = true
     }
 
+    /**
+     * Sets the ongoingCall boolean value to false
+     */
     internal fun callNotOngoing() {
         ongoingCall = false
     }
 
+    /**
+     * Sends data to our [sendChannel], broadcasting the message to the subscription within our websocket connection which will then be sent to the Telnyx Socket connection
+     * @param dataObject, the data to be send to our subscriber
+     */
     internal fun send(dataObject: Any?) = runBlocking {
         sendChannel.send(gson.toJson(dataObject))
     }
 
+    /**
+     * Closes our websocket connection and cancels our coroutine job
+     */
     internal fun destroy() {
         client.close()
         job.cancel()

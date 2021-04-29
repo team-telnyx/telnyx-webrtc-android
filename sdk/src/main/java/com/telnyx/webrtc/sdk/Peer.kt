@@ -5,6 +5,7 @@ import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
+import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
@@ -28,17 +29,25 @@ class Peer(
 
     private val iceServer = getIceServers()
 
+    /**
+     * Retrieves the IceServers built with the provided STUN and TURN servers
+     *
+     * @see [TxSocket]
+     * @see [PeerConnection.IceServer]
+     *
+     * @return [List] of [PeerConnection.IceServer]
+     */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         iceServers.add(
-                PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(TEST_USERNAME).setPassword(
-                        TEST_PASSWORD
-                ).createIceServer()
+            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(TEST_USERNAME).setPassword(
+                TEST_PASSWORD
+            ).createIceServer()
         )
         iceServers.add(
-                PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(TEST_USERNAME).setPassword(
-                        TEST_PASSWORD
-                ).createIceServer()
+            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(TEST_USERNAME).setPassword(
+                TEST_PASSWORD
+            ).createIceServer()
         )
         return iceServers
     }
@@ -46,38 +55,63 @@ class Peer(
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     private val peerConnection by lazy { buildPeerConnection(observer) }
 
+    /**
+     * Initiates our peer connection factory with the specified options
+     * @param context the context
+     */
     private fun initPeerConnectionFactory(context: Context) {
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
-                .setEnableInternalTracer(true)
-                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-                //.setFieldTrials("WebRTC-IntelVP8/Enabled/")
-                .createInitializationOptions()
+            .setEnableInternalTracer(true)
+            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+            //.setFieldTrials("WebRTC-IntelVP8/Enabled/")
+            .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
     }
 
+    /**
+     * creates the PeerConnectionFactory
+     * @see [PeerConnectionFactory]
+     * @return [PeerConnectionFactory]
+     */
     private fun buildPeerConnectionFactory(): PeerConnectionFactory {
         return PeerConnectionFactory
-                .builder()
-                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-                .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase.eglBaseContext, true, true))
-                .setOptions(PeerConnectionFactory.Options().apply {
-                    disableEncryption = false
-                    disableNetworkMonitor = true
-                })
-                .createPeerConnectionFactory()
-
+            .builder()
+            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+            .setVideoEncoderFactory(
+                DefaultVideoEncoderFactory(
+                    rootEglBase.eglBaseContext,
+                    true,
+                    true
+                )
+            )
+            .setOptions(PeerConnectionFactory.Options().apply {
+                disableEncryption = false
+                disableNetworkMonitor = true
+            })
+            .createPeerConnectionFactory()
     }
 
-    private fun buildPeerConnection(observer: PeerConnection.Observer) = peerConnectionFactory.createPeerConnection(
+    /**
+     * Builds the PeerConnection with the provided IceServers from the getIceServers method
+     * @param observer, the [PeerConnection.Observer]
+     * @see [getIceServers]
+     */
+    private fun buildPeerConnection(observer: PeerConnection.Observer) =
+        peerConnectionFactory.createPeerConnection(
             iceServer,
             observer
-    )
+        )
 
+    /**
+     * Starts local audio capture to be used during call
+     * @see [AudioSource]
+     * @see [AudioTrack]
+     */
     fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
-                AUDIO_LOCAL_TRACK_ID,
-                audioSource
+            AUDIO_LOCAL_TRACK_ID,
+            audioSource
         )
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localAudioTrack.setEnabled(true)
@@ -86,6 +120,12 @@ class Peer(
         peerConnection?.addStream(localStream)
     }
 
+    /**
+     * Initiates a call, creating an offer with a local SDP
+     * The offer creation is handled with an [SdpObserver]
+     * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+     * @see [SdpObserver]
+     */
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -118,6 +158,12 @@ class Peer(
         }, constraints)
     }
 
+    /**
+     * Answers a received invitation, creating an answer with a local SDP
+     * The answer creation is handled with an [SdpObserver]
+     * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+     * @see [SdpObserver]
+     */
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -149,14 +195,29 @@ class Peer(
         }, constraints)
     }
 
+    /**
+     * Initiates an offer by setting a local SDP
+     * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+     * @see [call]
+     */
     fun createOfferForSdp(sdpObserver: SdpObserver) = peerConnection?.call(sdpObserver)
 
+    /**
+     * Answers an invitation by setting a local SDP
+     * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+     * @see [answer]
+     */
     fun answer(sdpObserver: SdpObserver) = peerConnection?.answer(sdpObserver)
 
+    /**
+     * Sets the local SDP once a remote session has been received
+     * @param sessionDescription, the provided [SessionDescription] that will attempt to be set.
+     * @see [SessionDescription]
+     */
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onSetFailure(p0: String?) {
-               client.onRemoteSessionErrorReceived(p0)
+                client.onRemoteSessionErrorReceived(p0)
                 Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
             }
 
@@ -175,17 +236,28 @@ class Peer(
         }, sessionDescription)
     }
 
+    /**
+     * Adds an [IceCandidate] to the [PeerConnection]
+     * @param iceCandidate, the [IceCandidate] that wil bee added to the [PeerConnection]
+     * @see [IceCandidate]
+     */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
+    /**
+     * Returns the current local SDP
+     * @return [SessionDescription]
+     */
     fun getLocalDescription(): SessionDescription? {
         return peerConnection?.localDescription
     }
 
+    /**
+     * Closes and disposes of current [PeerConnection]
+     */
     fun disconnect() {
         peerConnection?.close()
         peerConnection?.dispose()
     }
-
 }
