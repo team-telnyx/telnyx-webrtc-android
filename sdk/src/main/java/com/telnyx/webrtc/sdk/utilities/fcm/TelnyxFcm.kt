@@ -5,6 +5,8 @@ import com.google.firebase.messaging.RemoteMessage
 import com.telnyx.webrtc.sdk.utilities.ApiUtils
 import com.telnyx.webrtc.sdk.utilities.RetrofitAPIInterface
 import com.telnyx.webrtc.sdk.verto.receive.FcmRegistrationResponse
+import com.telnyx.webrtc.sdk.verto.send.CreateCredential
+import com.telnyx.webrtc.sdk.verto.send.Data
 import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
@@ -68,6 +70,9 @@ object TelnyxFcm {
 
         val serverKeyJsonObject = JSONObject()
         serverKeyJsonObject.put("server_key", fcmServerKey)
-        apiService.createCredentials("android", serverKeyJsonObject)
+        var data = Data(fcmServerKey)
+        var createCredential = CreateCredential("android", data)
+        apiService.createCredentials(createCredential)
+        //apiService.createCredentials("android", serverKeyJsonObject)
     }
 }

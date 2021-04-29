@@ -290,7 +290,6 @@ class MainActivity : AppCompatActivity() {
             val deviceId = task.result?.split(":")?.first()
             Timber.d("FCM TOKEN RECEIVED: $token")
             Timber.d("FCM DEVICE ID RECEIVED: $deviceId")
-            Toast.makeText(this, token, Toast.LENGTH_SHORT).show()
             fcmToken = token
             fcmDeviceId = deviceId
         }
@@ -313,9 +312,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
-        //call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
+
+        mainViewModel.createNotificationCredentials(FCM_SERVER_KEY)
 
         //Dont store login details if logged in via a token
         if (!token_login_switch.isChecked) {
