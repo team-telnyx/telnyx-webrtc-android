@@ -31,13 +31,14 @@ import java.util.*
 
 class TelnyxClient(
     var context: Context,
-    var socket: TxSocket,
 ) : TxSocketListener {
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
     private var reconnecting = false
+
+    private var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -130,6 +131,10 @@ class TelnyxClient(
     }
 
     init {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938
+        )
         registerNetworkCallback()
     }
 
