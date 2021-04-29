@@ -19,7 +19,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
-import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
@@ -132,8 +131,8 @@ class TelnyxClient(
 
     init {
         socket = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938
+            host_address = Config.TELNYX_HOST_ADDRESS,
+            port = Config.TELNYX_PORT
         )
         registerNetworkCallback()
     }
