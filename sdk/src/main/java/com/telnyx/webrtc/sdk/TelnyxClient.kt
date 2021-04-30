@@ -33,6 +33,8 @@ class TelnyxClient(
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
+    private var clientFcmDeviceId: String? = null
+
     private var reconnecting = false
 
     //MediaPlayer for ringtone / ringbacktone
@@ -235,6 +237,7 @@ class TelnyxClient(
         val logLevel = config.logLevel
 
         credentialSessionConfig = config
+        clientFcmDeviceId = fcmDeviceId
 
         setSDKLogLevel(logLevel)
 
@@ -275,6 +278,7 @@ class TelnyxClient(
         val logLevel = config.logLevel
 
         tokenSessionConfig = config
+        clientFcmDeviceId = fcmDeviceId
 
         setSDKLogLevel(logLevel)
 
@@ -417,7 +421,7 @@ class TelnyxClient(
      *  @param fcmServerKey, the Server Key provided in the Firebase Console.
      */
     fun createPushNotificationCredential(fcmServerKey: String) {
-        TelnyxFcm.setCredentials(fcmServerKey)
+        TelnyxFcm.setCredentials(fcmServerKey, clientFcmDeviceId)
     }
 
     // TxSocketListener Overrides

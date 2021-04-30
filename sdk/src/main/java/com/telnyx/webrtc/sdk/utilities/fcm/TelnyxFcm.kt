@@ -64,15 +64,16 @@ object TelnyxFcm {
         })
     }
 
-    fun setCredentials(fcmServerKey: String) {
+    fun setCredentials(fcmServerKey: String, deviceId: String?) {
         val apiService: RetrofitAPIInterface?
         apiService = ApiUtils.apiService
 
-        val serverKeyJsonObject = JSONObject()
-        serverKeyJsonObject.put("server_key", fcmServerKey)
-        val data = Data(fcmServerKey)
-        val createCredential = CreateCredential("android", data)
-        apiService.createCredentials(createCredential)
-        //apiService.createCredentials("android", serverKeyJsonObject)
+        deviceId?.let {
+            val serverKeyJsonObject = JSONObject()
+            serverKeyJsonObject.put("server_key", fcmServerKey)
+            val data = Data(fcmServerKey, it)
+            val createCredential = CreateCredential("android", data)
+            apiService.createCredentials(createCredential)
+        }
     }
 }
