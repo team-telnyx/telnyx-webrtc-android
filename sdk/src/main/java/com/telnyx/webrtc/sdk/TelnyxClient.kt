@@ -19,7 +19,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
-import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
@@ -31,13 +30,14 @@ import java.util.*
 
 class TelnyxClient(
     var context: Context,
-    var socket: TxSocket,
 ) : TxSocketListener {
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
     private var reconnecting = false
+
+    private var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -130,6 +130,10 @@ class TelnyxClient(
     }
 
     init {
+        socket = TxSocket(
+            host_address = Config.TELNYX_HOST_ADDRESS,
+            port = Config.TELNYX_PORT
+        )
         registerNetworkCallback()
     }
 
