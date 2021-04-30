@@ -8,5 +8,6 @@ data class CreateCredential (
 )
 
 data class Data (
-    @SerializedName("server_key") val server_server_key : String
+    @SerializedName("server_key") val server_server_key : String,
+    @SerializedName("device_id") val device_id : String
 )

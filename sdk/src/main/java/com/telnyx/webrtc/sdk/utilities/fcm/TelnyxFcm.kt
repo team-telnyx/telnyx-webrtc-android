@@ -70,8 +70,8 @@ object TelnyxFcm {
 
         val serverKeyJsonObject = JSONObject()
         serverKeyJsonObject.put("server_key", fcmServerKey)
-        var data = Data(fcmServerKey)
-        var createCredential = CreateCredential("android", data)
+        val data = Data(fcmServerKey)
+        val createCredential = CreateCredential("android", data)
         apiService.createCredentials(createCredential)
         //apiService.createCredentials("android", serverKeyJsonObject)
     }
