@@ -30,22 +30,12 @@ Enable Telnyx real-time communication services on Android :telephone_receiver: :
             </p>
             
  ## Usage
- 
- ### Telnyx Socket Connection
-Before creating and logging in to the TelnyxClient you will have to initialize a Socket Connection for the TelnyxClient to interact with. We do this by instantiating TxSocket with host and port parameters:
-
-```kotlin
- socketConnection = TxSocket(
-      host_address = "rtc.telnyx.com",
-      port = 14938
- )
-```
 
 ### Telnyx Client
-To initialize the TelnyxClient you will have to provide the application context as well as the socket connection that you just instanstiated. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
+To initialize the TelnyxClient you will have to provide the application context. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
 
 ```kotlin
-  telnyxClient = TelnyxClient(context, socketConnection)
+  telnyxClient = TelnyxClient(context)
   telnyxClient.connect()
 ```
 
