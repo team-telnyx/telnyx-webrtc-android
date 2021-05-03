@@ -28,6 +28,11 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 
+/**
+ * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
+ *
+ * @param context the Context that the application is using
+ */
 class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {

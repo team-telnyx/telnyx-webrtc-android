@@ -4,6 +4,16 @@
 
 package com.telnyx.webrtc.sdk.model
 
+
+/**
+ *
+ * Enum class to detail Socket Status messages
+ *
+ * @property ESTABLISHED a connection to the socket has been established
+ * @property MESSAGERECEIVED the socket has received a message
+ * @property ERROR the socket has encountered an error
+ * @property LOADING the socket is loading a connection
+ */
 enum class SocketStatus {
     ESTABLISHED,
     MESSAGERECEIVED,

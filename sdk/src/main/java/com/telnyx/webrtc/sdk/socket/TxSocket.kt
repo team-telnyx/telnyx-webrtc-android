@@ -25,6 +25,15 @@ import io.ktor.http.cio.websocket.*
 import timber.log.Timber
 import java.util.*
 
+/**
+ * The socket connection that will send and receive messages related to calls.
+ * This class will trigger the TxSocketListener methods which can be observed to make use of the application
+ *
+ * @see TxSocketListener
+ *
+ * @param host_address the host address for the websocket to connect to
+ * @param port the port that the websocket connection should use
+ */
 class TxSocket(
     internal val host_address: String,
     internal val port: Int

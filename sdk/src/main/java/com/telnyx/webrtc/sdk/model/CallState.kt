@@ -4,17 +4,22 @@
 
 package com.telnyx.webrtc.sdk.model
 
+/**
+ *
+ * Enum class to represent the different Call States that a call can be in.
+ *
+ * @property NEW the call has been created
+ * @property CONNECTING the call is being connected to the remote client
+ * @property RINGING the call invitation has been extended, we are waiting for an answer.
+ * @property ACTIVE the call is active and the two clients are fully connected.
+ * @property HELD the user has put the call on hold.
+ * @property DONE the call is finished - either party has ended the call.
+ */
 enum class CallState {
-    // Call is created
     NEW,
-    // Call is been connected to the remote client.
     CONNECTING,
-    // Call is pending to be answered.
     RINGING,
-    // Call is active when two clients are fully connected.
     ACTIVE,
-    // User has held the call
     HELD,
-    // When the call has  ended
     DONE,
 }
