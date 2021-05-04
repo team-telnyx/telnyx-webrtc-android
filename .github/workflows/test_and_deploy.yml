@@ -38,7 +38,6 @@ jobs:
         with:
           api-level: 30
           target: google_apis
-          profile: Pixel 3a
           disable-animations: true
           script: ./gradlew connectedAndroidTest
 
