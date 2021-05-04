@@ -58,7 +58,7 @@ dependencies {
     implementation deps.constraint_layout
 
     // SDK:
-    implementation project(':sdk')
+    implementation project(':telnyx_rtc')
 
     implementation deps.webrtc
 

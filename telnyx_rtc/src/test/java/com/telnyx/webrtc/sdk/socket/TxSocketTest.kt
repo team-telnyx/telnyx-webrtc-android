@@ -27,8 +27,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.times
+import org.mockito.Mockito.*
 import org.mockito.Spy
 import org.robolectric.RuntimeEnvironment.application
 
@@ -87,7 +86,6 @@ class TxSocketTest : BaseTest() {
         MockKAnnotations.init(this, true)
         Mockito.`when`(application.applicationContext).thenReturn(mockContext)
 
-
         every {socket.callOngoing()} just Runs
         every {socket.callNotOngoing()} just Runs
 
@@ -139,7 +137,7 @@ class TxSocketTest : BaseTest() {
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        client = Mockito.spy(TelnyxClient(mockContext))
 
         socket.connect(client)
 
@@ -150,16 +148,16 @@ class TxSocketTest : BaseTest() {
 
     @Test
     fun `disconnect from socket`() {
-        socket = Mockito.spy(TxSocket(
+        client = Mockito.spy(TelnyxClient(mockContext))
+
+        client.socket = Mockito.spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
-
         client.disconnect()
         Thread.sleep(3000)
-        Mockito.verify(socket, times(1)).destroy()
+        Mockito.verify(client.socket, atLeastOnce()).destroy()
     }
 
 
@@ -170,7 +168,7 @@ class TxSocketTest : BaseTest() {
             port = 0,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        client = Mockito.spy(TelnyxClient(mockContext))
         socket.connect(client)
 
         //Sleep to give time to connect
@@ -186,7 +184,7 @@ class TxSocketTest : BaseTest() {
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        client = Mockito.spy(TelnyxClient(mockContext))
 
         socket.callOngoing()
         socket.ongoingCall shouldBe true
@@ -199,7 +197,7 @@ class TxSocketTest : BaseTest() {
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        client = Mockito.spy(TelnyxClient(mockContext))
 
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false

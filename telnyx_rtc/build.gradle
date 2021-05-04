@@ -13,17 +13,17 @@ def githubProperties = new Properties()
 githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
 
 def getVersionName = { ->
-    return "0.0.1"
+    return "0.0.4"
 }
 
 def getArtificatId = { ->
-    return "webRTC"
+    return "telnyx_rtc"
 }
 
 publishing {
     publications {
         bar(MavenPublication) {
-            groupId 'com.telnyx.webrtc.sdk.sdk'
+            groupId 'com.telnyx.webrtc.sdk.telnyx_rtc'
             artifactId getArtificatId()
             version getVersionName()
             artifact("$buildDir/outputs/aar/${getArtificatId()}-release.aar")

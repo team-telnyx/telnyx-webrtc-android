@@ -54,7 +54,7 @@ class CallTest: BaseTest() {
         every { audioManager.isSpeakerphoneOn}  returns false
         every { audioManager.isMicrophoneMute}  returns false
 
-        client = TelnyxClient(mockContext, socket)
+        client = TelnyxClient(mockContext)
     }
 
     @Test
@@ -109,7 +109,7 @@ class CallTest: BaseTest() {
             )
         )
 
-        client = Mockito.spy(TelnyxClient(mockContext, socket))
+        client = Mockito.spy(TelnyxClient(mockContext))
         val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
         newCall.callId = UUID.randomUUID()
         client.addToCalls(newCall)

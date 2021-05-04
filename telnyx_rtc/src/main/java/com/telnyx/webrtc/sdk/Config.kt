@@ -10,7 +10,7 @@ internal class Config {
         const val TELNYX_PORT = 14938
         const val DEFAULT_TURN = "turn:turn.telnyx.com:3478?transport=tcp"
         const val DEFAULT_STUN = "stun:stun.telnyx.com:3843"
-        const val TEST_USERNAME = "testuser"
-        const val TEST_PASSWORD = "testpassword"
+        var USERNAME = "user"
+        var PASSWORD = "password"
     }
 }
