@@ -11,6 +11,9 @@ import org.webrtc.PeerConnection
 import org.webrtc.RtpReceiver
 import timber.log.Timber
 
+/**
+ * Class that represents and implements the WEBRTC events including ICE, Track, Stream an Signal change events.
+ */
 open class PeerConnectionObserver : PeerConnection.Observer {
     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
         Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")

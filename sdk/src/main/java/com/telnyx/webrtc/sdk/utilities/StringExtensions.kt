@@ -4,6 +4,9 @@
 
 package com.telnyx.webrtc.sdk.utilities
 
+/**
+ * String extensions functions used by the SDK
+ */
 import java.nio.charset.StandardCharsets
 
     fun String.encodeBase64(): String {
