@@ -41,7 +41,7 @@ class TelnyxClient(
 
     private var reconnecting = false
 
-    private var socket: TxSocket
+    internal var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -139,7 +139,6 @@ class TelnyxClient(
             port = Config.TELNYX_PORT
         )
         registerNetworkCallback()
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
     }
 
     /**
