@@ -158,7 +158,7 @@ class TelnyxClientTest : BaseTest() {
         val config = CredentialConfig(
             "OliverZimmerman6",
             "Welcome@6",
-            "Oliver",
+            "Test",
             "000000000",
             null,
             null,
@@ -185,9 +185,9 @@ class TelnyxClientTest : BaseTest() {
         client.connect()
 
         val config = CredentialConfig(
-            "OliverZimmerman6",
-            "Welcome@6",
-            "Oliver",
+            "asdfasass",
+            "asdlkfhjalsd",
+            "test",
             "000000000",
             null,
             null,
@@ -243,8 +243,8 @@ class TelnyxClientTest : BaseTest() {
 
         val config = TokenConfig(
             anyString(),
-            "Oliver",
-            "Welcome@6",
+            "test",
+            "00000",
             null,
             null,
             null,

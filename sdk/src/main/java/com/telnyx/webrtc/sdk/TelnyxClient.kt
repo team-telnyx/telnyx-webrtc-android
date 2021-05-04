@@ -262,6 +262,9 @@ class TelnyxClient(
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
 
+        Config.USERNAME = config.sipUser
+        Config.PASSWORD = config.sipPassword
+
         credentialSessionConfig = config
 
         setSDKLogLevel(logLevel)

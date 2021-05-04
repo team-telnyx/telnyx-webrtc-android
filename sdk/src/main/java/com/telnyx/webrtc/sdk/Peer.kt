@@ -7,8 +7,8 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
-import com.telnyx.webrtc.sdk.Config.Companion.TEST_USERNAME
-import com.telnyx.webrtc.sdk.Config.Companion.TEST_PASSWORD
+import com.telnyx.webrtc.sdk.Config.Companion.USERNAME
+import com.telnyx.webrtc.sdk.Config.Companion.PASSWORD
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber
@@ -51,13 +51,13 @@ internal class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(TEST_USERNAME).setPassword(
-                TEST_PASSWORD
+            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(USERNAME).setPassword(
+                PASSWORD
             ).createIceServer()
         )
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(TEST_USERNAME).setPassword(
-                TEST_PASSWORD
+            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(USERNAME).setPassword(
+                PASSWORD
             ).createIceServer()
         )
         return iceServers
