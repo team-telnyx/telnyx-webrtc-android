@@ -37,8 +37,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: google_apis
-          disable-animations: true
+          profile: Nexus 6
           script: ./gradlew connectedAndroidTest
 
     # Build test script
