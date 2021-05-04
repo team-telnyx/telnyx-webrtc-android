@@ -34,7 +34,6 @@ import java.util.*
  */
 class TelnyxClient(
     var context: Context,
-    var socket: TxSocket,
 ) : TxSocketListener, LifecycleObserver {
 
     private var credentialSessionConfig: CredentialConfig? = null
