@@ -14,6 +14,7 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
+import com.schibsted.spain.barista.interaction.BaristaClickInteractions.clickOn
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
@@ -56,9 +57,8 @@ class MainActivityTest : BaseUITest() {
     fun onLaunchAndConnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+            clickOn(R.id.connect_button_id)
+
             Thread.sleep(1500)
             onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)));
         }
@@ -68,9 +68,8 @@ class MainActivityTest : BaseUITest() {
     fun onDisconnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+            clickOn(R.id.connect_button_id)
+
             Thread.sleep(1500)
 
             openActionBarOverflowOrOptionsMenu(context);
@@ -83,9 +82,7 @@ class MainActivityTest : BaseUITest() {
     fun onSendInvite() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+            clickOn(R.id.connect_button_id)
             Thread.sleep(2000)
 
             onView(withId(R.id.call_button_id))
@@ -99,9 +96,7 @@ class MainActivityTest : BaseUITest() {
     fun onCallSelfAndAnswerAndEndToEndTest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+            clickOn(R.id.connect_button_id)
             Thread.sleep(2000)
 
             onView(withId(R.id.call_input_id))
@@ -142,9 +137,8 @@ class MainActivityTest : BaseUITest() {
         Thread.sleep(5000)
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+            clickOn(R.id.connect_button_id)
+
             Thread.sleep(2000)
 
             onView(withId(R.id.call_input_id))
