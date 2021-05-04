@@ -289,7 +289,6 @@ class MainActivity : AppCompatActivity() {
             // Get new FCM registration token
             val token = task.result
             Timber.d("FCM TOKEN RECEIVED: $token")
-            Toast.makeText(this, token, Toast.LENGTH_SHORT).show()
             fcmToken = token
         }
     }
