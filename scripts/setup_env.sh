@@ -15,6 +15,6 @@ sed -i '' 's/<SIP_USER>/'"$user"'/g' app/src/androidTest/java/com/telnyx/webrtc/
 sed -i '' 's/<SIP_PASSWORD>/'"$password"'/g' app/src/androidTest/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
 ##sed -i '' 's/<SIP_TOKEN>/'"$token"'/g' app/src/androidTest/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
 
-sed -i '' 's/<SIP_USER>/'"$user"'/g' sdk/src/test/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
-sed -i '' 's/<SIP_PASSWORD>/'"$password"'/g' sdk/src/test/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
+sed -i '' 's/<SIP_USER>/'"$user"'/g' telnyxRTC/src/test/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
+sed -i '' 's/<SIP_PASSWORD>/'"$password"'/g' telnyxRTC/src/test/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt
 ##sed -i '' 's/<SIP_TOKEN>/'"$token"'/g' sdk/src/test/java/com/telnyx/webrtc/sdk/testhelpers/TestConstants.kt

@@ -23,7 +23,7 @@ def getArtificatId = { ->
 publishing {
     publications {
         bar(MavenPublication) {
-            groupId 'com.telnyx.webrtc.sdk.sdk'
+            groupId 'com.telnyx.webrtc.sdk.telnyxRTC'
             artifactId getArtificatId()
             version getVersionName()
             artifact("$buildDir/outputs/aar/${getArtificatId()}-release.aar")
