@@ -1,8 +1,18 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.utilities
 
 import com.telnyx.webrtc.sdk.model.LogLevel
 import timber.log.Timber
+import  com.telnyx.webrtc.sdk.TelnyxConfig
 
+/**
+ * Class that provides log levels throughout the SDK. The log level is declared during login
+ *
+ * @see TelnyxConfig
+ */
 internal class TelnyxLoggingTree(logLevel: LogLevel) : Timber.DebugTree() {
 
     private val projectLogLevel = logLevel

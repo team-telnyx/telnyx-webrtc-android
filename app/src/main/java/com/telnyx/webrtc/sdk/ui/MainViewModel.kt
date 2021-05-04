@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
@@ -7,7 +11,6 @@ import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
-import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +22,6 @@ class MainViewModel @Inject constructor(
     private val userManager: UserManager
 ) : ViewModel() {
 
-    private var socketConnection: TxSocket? = null
     private var telnyxClient: TelnyxClient? = null
 
     private var currentCall: Call? = null
@@ -28,11 +30,7 @@ class MainViewModel @Inject constructor(
     private var calls: Map<UUID, Call> = mapOf()
 
     fun initConnection(context: Context) {
-        socketConnection = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938
-        )
-        telnyxClient = TelnyxClient(context, socketConnection!!)
+        telnyxClient = TelnyxClient(context)
         telnyxClient?.connect()
     }
 

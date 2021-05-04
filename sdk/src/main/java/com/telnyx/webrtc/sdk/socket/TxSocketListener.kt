@@ -1,10 +1,16 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.model.AudioDevice
 import org.webrtc.IceCandidate
 import java.util.*
 
+/**
+ * TxSocket interface containing the methods that the socket connection will fire
+ */
 interface TxSocketListener {
     /**
      * Fires when a successful login occurs on the TxSocket

@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
@@ -14,7 +18,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
-import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
@@ -24,6 +27,11 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 
+/**
+ * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
+ *
+ * @param context the Context that the application is using
+ */
 class TelnyxClient(
     var context: Context,
     var socket: TxSocket,
@@ -33,6 +41,8 @@ class TelnyxClient(
     private var tokenSessionConfig: TokenConfig? = null
 
     private var reconnecting = false
+
+    private var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -125,6 +135,10 @@ class TelnyxClient(
     }
 
     init {
+        socket = TxSocket(
+            host_address = Config.TELNYX_HOST_ADDRESS,
+            port = Config.TELNYX_PORT
+        )
         registerNetworkCallback()
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
     }

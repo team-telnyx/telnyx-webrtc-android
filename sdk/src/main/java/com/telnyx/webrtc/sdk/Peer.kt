@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
@@ -10,7 +14,14 @@ import org.webrtc.*
 import timber.log.Timber
 import java.util.*
 
-class Peer(
+/**
+ * Peer class that represents a peer connection which is required to initiate a call.
+ *
+ * @param context the Context of the application
+ * @param client the TelnyxClient instance in use.
+ * @param observer the [PeerConnection.Observer] which observes the the Peer Connection events including ICE candidate or Stream changes, etc.
+ */
+internal class Peer(
     context: Context,
     val client: TelnyxClient,
     observer: PeerConnection.Observer

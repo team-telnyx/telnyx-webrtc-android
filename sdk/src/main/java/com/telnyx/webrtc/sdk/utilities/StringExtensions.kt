@@ -1,5 +1,12 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.utilities
 
+/**
+ * String extensions functions used by the SDK
+ */
 import java.nio.charset.StandardCharsets
 
     fun String.encodeBase64(): String {

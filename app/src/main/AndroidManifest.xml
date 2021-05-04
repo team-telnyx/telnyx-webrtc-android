@@ -21,10 +21,12 @@
         android:name=".App"
         android:theme="@style/Theme.TelnyxAndroidWebRTCSDK">
 
-        <activity android:name="com.telnyx.webrtc.sdk.ui.MainActivity">
+        <activity android:name=".ui.MainActivity"/>
+
+        <activity android:name=".ui.SplashScreenActivity"
+            android:theme="@style/SplashScreenTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
@@ -19,6 +23,15 @@ import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 
+/**
+ * Class that represents a Call and handles all call related actions, including answering and ending a call.
+ *
+ * @param context the current application Context
+ * @param client the [TelnyxClient] instance in use.
+ * @param socket the [TxSocket] instance in use
+ * @param sessionId the session ID of the user session
+ * @param audioManager the [AudioManager] instance in use, used to change audio related settings.
+ */
 class Call(
     var context: Context,
     var client: TelnyxClient,

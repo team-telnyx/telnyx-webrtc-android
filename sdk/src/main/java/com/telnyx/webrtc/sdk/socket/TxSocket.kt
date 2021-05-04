@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.Gson
@@ -21,6 +25,15 @@ import io.ktor.http.cio.websocket.*
 import timber.log.Timber
 import java.util.*
 
+/**
+ * The socket connection that will send and receive messages related to calls.
+ * This class will trigger the TxSocketListener methods which can be observed to make use of the application
+ *
+ * @see TxSocketListener
+ *
+ * @param host_address the host address for the websocket to connect to
+ * @param port the port that the websocket connection should use
+ */
 class TxSocket(
     internal val host_address: String,
     internal val port: Int
