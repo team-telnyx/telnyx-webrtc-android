@@ -269,7 +269,6 @@ class TelnyxClient(
 
         setSDKLogLevel(logLevel)
 
-
         config.ringtone?.let {
             rawRingtone = it
         }

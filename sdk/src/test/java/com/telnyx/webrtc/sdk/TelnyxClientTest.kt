@@ -20,17 +20,16 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
-import org.json.JSONObject
 import org.junit.Rule
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 import org.mockito.Spy
 import kotlin.test.assertEquals
+import com.telnyx.webrtc.sdk.testhelpers.*
 
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -156,8 +155,8 @@ class TelnyxClientTest : BaseTest() {
         client.connect()
 
         val config = CredentialConfig(
-            "OliverZimmerman6",
-            "Welcome@6",
+            MOCK_USERNAME,
+            MOCK_PASSWORD,
             "Test",
             "000000000",
             null,
@@ -171,8 +170,6 @@ class TelnyxClientTest : BaseTest() {
 
         Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
-        //Thread.sleep(6000)
-        //Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(jsonMock)
     }
 
     @Test
@@ -215,9 +212,9 @@ class TelnyxClientTest : BaseTest() {
         client.connect()
 
         val config = TokenConfig(
-            anyString(),
-            "Oliver",
-            "Welcome@6",
+            MOCK_TOKEN,
+            "test",
+            "000000",
             null,
             null,
             null,
