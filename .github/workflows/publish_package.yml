@@ -1,6 +1,7 @@
 name: Publish package to GitHub Packages
 on:
-  workflow_dispatch:
+  release:
+    types: [created]
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -9,17 +10,15 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Setup Environment
-      
-      - shell: bash
-        env:
+      - name: Publish package
+
+          - shell: bash
+              env:
                 GPR_USR: ${{ secrets.GPR_USR }}
                 GPR_KEY: ${{ secrets.GPR_KEY }}
-        run: |
+              run: |
                 sh ./scripts/apply_github_credentials.sh -u "$GPR_USR" -k "$GPR_KEY"
-      
-      - name: Publish package
+
+        run: gradle -Pversion=${{ github.event.release.tag_name }} build publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gradle -Pversion=${{ github.event.release.tag_name }} build publish
-
