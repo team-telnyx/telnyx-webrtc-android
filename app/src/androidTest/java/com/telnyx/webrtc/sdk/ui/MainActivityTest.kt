@@ -78,7 +78,7 @@ class MainActivityTest : BaseUITest() {
         }
     }
 
-    @Test
+   /* @Test
     fun onSendInvite() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
@@ -169,6 +169,6 @@ class MainActivityTest : BaseUITest() {
                 return "replace text"
             }
         }
-    }
+    }*/
 
 }
