@@ -23,7 +23,7 @@ interface RetrofitAPIInterface {
 
 
 object ApiUtils {
-    val BASE_URL = "your_url"
+    val BASE_URL = "http://push-notification.query.consul:2023/v2"
     val apiService: RetrofitAPIInterface
         get() = RetrofitAPIClient.getClient(BASE_URL)!!.create(RetrofitAPIInterface::class.java)
 }
