@@ -14,7 +14,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import com.karumi.dexter.Dexter
@@ -176,6 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        mockInputs()
         handleUserLoginState()
 
         connect_button_id.setOnClickListener {
@@ -183,12 +183,20 @@ class MainActivity : AppCompatActivity() {
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
-                caller_id_name_id.text.toString(),
-                caller_id_number_id.text.toString(),
+                userManager.calledIdName,
+                userManager.callerIdNumber,
                 call_input_id.text.toString(),
                 "Sample Client State"
             )
         }
+    }
+
+    private fun mockInputs() {
+        sip_username_id.setText(MOCK_USERNAME)
+        password_id.setText(MOCK_PASSWORD)
+        caller_id_name_id.setText(MOCK_CALLER_NAME)
+        caller_id_number_id.setText(MOCK_CALLER_NUMBER)
+        call_input_id.setText(MOCK_DESTINATION_NUMBER)
     }
 
     private fun handleUserLoginState() {
