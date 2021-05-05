@@ -18,11 +18,23 @@ buildscript {
     }
 }
 
+def githubProperties = new Properties()
+githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
+
 allprojects {
     repositories {
         google()
         jcenter()
         mavenCentral()
+        mavenLocal()
+        /*maven {
+            name = "AndroidLibForArtifactory"
+            url = uri("https://maven.pkg.github.com/team-telnyx/webrtc-android-sdk")
+            credentials {
+                username = githubProperties['gpr.usr'] ?: System.getenv("GPR_USER")
+                password = githubProperties['gpr.key'] ?: System.getenv("GPR_API_KEY")
+            }
+        }*/
     }
 
     configurations.all {
