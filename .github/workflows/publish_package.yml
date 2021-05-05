@@ -19,6 +19,6 @@ jobs:
                 sh ./scripts/apply_github_credentials.sh -u "$GPR_USR" -k "$GPR_KEY"
       
       - name: Publish package
-        run: gradle -Pversion=${{ github.event.release.tag_name }} build publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gradle -Pversion=${{ github.event.release.tag_name }} build publish
