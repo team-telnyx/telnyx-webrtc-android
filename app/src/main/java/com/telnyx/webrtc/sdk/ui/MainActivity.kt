@@ -176,7 +176,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        mockInputs()
         handleUserLoginState()
 
         connect_button_id.setOnClickListener {
@@ -190,14 +189,6 @@ class MainActivity : AppCompatActivity() {
                 "Sample Client State"
             )
         }
-    }
-
-    private fun mockInputs() {
-        sip_username_id.setText(MOCK_USERNAME)
-        password_id.setText(MOCK_PASSWORD)
-        caller_id_name_id.setText(MOCK_CALLER_NAME)
-        caller_id_number_id.setText(MOCK_CALLER_NUMBER)
-        call_input_id.setText(MOCK_DESTINATION_NUMBER)
     }
 
     private fun handleUserLoginState() {
