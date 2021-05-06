@@ -1,6 +1,6 @@
 # compiler: R8
 # compiler_version: 2.1.86
-# pg_map_id: 5ff9be3
+# pg_map_id: 2d3b453
 # common_typos_disable
 RetrofitAPIClient -> RetrofitAPIClient:
     retrofit2.Retrofit retrofit -> a
@@ -404,15 +404,15 @@ com.telnyx.webrtc.sdk.socket.TxSocket -> com.telnyx.webrtc.sdk.socket.TxSocket:
     1:1:io.ktor.client.HttpClient access$getClient$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getClient$p
     1:1:com.google.gson.Gson access$getGson$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getGson$p
     1:1:kotlinx.coroutines.channels.ConflatedBroadcastChannel access$getSendChannel$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getSendChannel$p
-    1:1:void callNotOngoing$telnyx_rtc_release():182:182 -> callNotOngoing$telnyx_rtc_release
-    1:1:void callOngoing$telnyx_rtc_release():175:175 -> callOngoing$telnyx_rtc_release
+    1:1:void callNotOngoing$telnyx_rtc_release():179:179 -> callNotOngoing$telnyx_rtc_release
+    1:1:void callOngoing$telnyx_rtc_release():172:172 -> callOngoing$telnyx_rtc_release
     1:1:kotlinx.coroutines.Job connect(com.telnyx.webrtc.sdk.TelnyxClient):69:69 -> connect
-    1:2:void destroy$telnyx_rtc_release():197:198 -> destroy$telnyx_rtc_release
+    1:2:void destroy$telnyx_rtc_release():194:195 -> destroy$telnyx_rtc_release
     1:1:kotlin.coroutines.CoroutineContext getCoroutineContext():45:45 -> getCoroutineContext
     1:1:java.lang.String getHost_address$telnyx_rtc_release():38:38 -> getHost_address$telnyx_rtc_release
     1:1:boolean getOngoingCall$telnyx_rtc_release():47:47 -> getOngoingCall$telnyx_rtc_release
     1:1:int getPort$telnyx_rtc_release():39:39 -> getPort$telnyx_rtc_release
-    1:1:void send$telnyx_rtc_release(java.lang.Object):189:189 -> send$telnyx_rtc_release
+    1:1:void send$telnyx_rtc_release(java.lang.Object):186:186 -> send$telnyx_rtc_release
     1:1:void setCoroutineContext(kotlin.coroutines.CoroutineContext):45:45 -> setCoroutineContext
     1:1:void setOngoingCall$telnyx_rtc_release(boolean):47:47 -> setOngoingCall$telnyx_rtc_release
 com.telnyx.webrtc.sdk.socket.TxSocket$client$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$a:
@@ -431,17 +431,17 @@ com.telnyx.webrtc.sdk.socket.TxSocket$connect$1 -> com.telnyx.webrtc.sdk.socket.
     com.telnyx.webrtc.sdk.TelnyxClient $listener -> c
     com.telnyx.webrtc.sdk.socket.TxSocket this$0 -> b
     int label -> a
-    1:102:java.lang.Object invokeSuspend(java.lang.Object):69:69 -> invokeSuspend
-    104:108:java.lang.Object invokeSuspend(java.lang.Object):71:71 -> invokeSuspend
-    204:206:java.lang.Object invokeSuspend(java.lang.Object):167:169 -> invokeSuspend
+    1:99:java.lang.Object invokeSuspend(java.lang.Object):69:69 -> invokeSuspend
+    101:105:java.lang.Object invokeSuspend(java.lang.Object):71:71 -> invokeSuspend
+    198:200:java.lang.Object invokeSuspend(java.lang.Object):164:166 -> invokeSuspend
 com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b$a:
     java.lang.Object L$1 -> b
     java.lang.Object L$0 -> a
     com.telnyx.webrtc.sdk.socket.TxSocket$connect$1 this$0 -> d
     int label -> c
-    1:93:java.lang.Object invokeSuspend(java.lang.Object):74:74 -> invokeSuspend
-    94:115:java.lang.Object invokeSuspend(java.lang.Object):75:96 -> invokeSuspend
-    116:188:java.lang.Object invokeSuspend(java.lang.Object):93:165 -> invokeSuspend
+    1:90:java.lang.Object invokeSuspend(java.lang.Object):74:74 -> invokeSuspend
+    91:112:java.lang.Object invokeSuspend(java.lang.Object):75:96 -> invokeSuspend
+    113:182:java.lang.Object invokeSuspend(java.lang.Object):93:162 -> invokeSuspend
 com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b$a$a:
     com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1 this$0 -> a
     1:3:void invoke(java.lang.Throwable):76:78 -> a
@@ -451,14 +451,14 @@ com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1$invokeSuspend$$inlined$let$lam
     kotlin.jvm.internal.Ref$ObjectRef $jsonObject -> b
     int label -> a
     1:17:java.lang.Object invokeSuspend(java.lang.Object):99:115 -> invokeSuspend
-    18:52:java.lang.Object invokeSuspend(java.lang.Object):112:146 -> invokeSuspend
-    53:69:java.lang.Object invokeSuspend(java.lang.Object):142:158 -> invokeSuspend
+    18:49:java.lang.Object invokeSuspend(java.lang.Object):112:143 -> invokeSuspend
+    50:66:java.lang.Object invokeSuspend(java.lang.Object):139:155 -> invokeSuspend
 com.telnyx.webrtc.sdk.socket.TxSocket$send$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$c:
     com.telnyx.webrtc.sdk.socket.TxSocket this$0 -> b
     java.lang.Object $dataObject -> c
     int label -> a
-    1:4:java.lang.Object invokeSuspend(java.lang.Object):189:189 -> invokeSuspend
-    5:6:java.lang.Object invokeSuspend(java.lang.Object):190:191 -> invokeSuspend
+    1:4:java.lang.Object invokeSuspend(java.lang.Object):186:186 -> invokeSuspend
+    5:6:java.lang.Object invokeSuspend(java.lang.Object):187:188 -> invokeSuspend
 com.telnyx.webrtc.sdk.utilities.ApiUtils -> com.telnyx.webrtc.sdk.utilities.ApiUtils:
     java.lang.String BASE_URL -> a
     1:1:void <clinit>():25:25 -> <clinit>

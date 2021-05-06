@@ -13,7 +13,7 @@ def githubProperties = new Properties()
 githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
 
 def getVersionName = { ->
-    return "0.0.6"
+    return "0.0.10"
 }
 
 def getArtificatId = { ->
@@ -61,7 +61,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/team-telnyx/webrtc-android-sdk")
+            url = uri("https://maven.pkg.github.com/team-telnyx/telnyx-webrtc-android")
             credentials {
                 username = githubProperties['gpr.usr'] ?: System.getenv("GPR_USER")
                 password = githubProperties['gpr.key'] ?: System.getenv("GPR_API_KEY")
@@ -98,8 +98,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled false
         }
     }
     compileOptions {
