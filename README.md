@@ -32,6 +32,13 @@ Enable Telnyx real-time communication services on Android :telephone_receiver: :
  ## Usage
 
 ### Telnyx Client
+NOTE:
+       Remember to add and handle INTERNET, RECORD_AUDIO and ACCESS_NETWORK_STATE permissions
+       
+   <p align="center">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png">
+            </p>
+
 To initialize the TelnyxClient you will have to provide the application context. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
 
 ```kotlin
@@ -120,6 +127,16 @@ We can then use this method to create a listener that listens for an invitation 
                         }
                     }
                 }
+                
+                override fun onLoading() {
+                    // Show loading dialog
+                }
+
+                override fun onError(message: String?) {
+                   // Handle errors - Update UI or Navigate to new screen, etc.
+                }
+
+            })
 ```
 
 When we receive a call we will receive an InviteResponse data class that contains the details we need to accept the call. We can then call the acceptCall method in TelnyxClient from our ViewModel:
