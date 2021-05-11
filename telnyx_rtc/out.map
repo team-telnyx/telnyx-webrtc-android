@@ -1,0 +1,648 @@
+# compiler: R8
+# compiler_version: 2.1.86
+# pg_map_id: 2d3b453
+# common_typos_disable
+RetrofitAPIClient -> RetrofitAPIClient:
+    retrofit2.Retrofit retrofit -> a
+    1:1:void <clinit>():11:11 -> <clinit>
+    1:1:void <init>():11:11 -> <init>
+    1:18:retrofit2.Retrofit getClient(java.lang.String):16:33 -> getClient
+    1:1:retrofit2.Retrofit getRetrofit():13:13 -> getRetrofit
+    1:1:void setRetrofit(retrofit2.Retrofit):13:13 -> setRetrofit
+com.telnyx.webrtc.sdk.AppSdpObserver -> com.telnyx.webrtc.sdk.AppSdpObserver:
+    1:1:void <init>():17:17 -> <init>
+    1:1:void onCreateFailure(java.lang.String):31:31 -> onCreateFailure
+    1:1:void onCreateSuccess(org.webrtc.SessionDescription):27:27 -> onCreateSuccess
+    1:1:void onSetFailure(java.lang.String):19:19 -> onSetFailure
+    1:1:void onSetSuccess():23:23 -> onSetSuccess
+com.telnyx.webrtc.sdk.Call -> com.telnyx.webrtc.sdk.Call:
+    com.telnyx.webrtc.sdk.socket.TxSocket socket -> i
+    androidx.lifecycle.MutableLiveData callStateLiveData -> c
+    java.lang.String sessionId -> j
+    android.media.AudioManager audioManager -> k
+    androidx.lifecycle.MutableLiveData muteLiveData -> d
+    com.telnyx.webrtc.sdk.TelnyxClient client -> h
+    boolean earlySDP -> b
+    androidx.lifecycle.MutableLiveData holdLiveData -> e
+    com.telnyx.webrtc.sdk.Peer peerConnection -> a
+    androidx.lifecycle.MutableLiveData loudSpeakerLiveData -> f
+    android.content.Context context -> g
+    1:29:void <init>(android.content.Context,com.telnyx.webrtc.sdk.TelnyxClient,com.telnyx.webrtc.sdk.socket.TxSocket,java.lang.String,android.media.AudioManager):35:63 -> <init>
+    1:8:void sendHoldModifier(java.util.UUID,java.lang.String):230:237 -> a
+    9:9:void sendHoldModifier(java.util.UUID,java.lang.String):234:234 -> a
+    10:21:void sendHoldModifier(java.util.UUID,java.lang.String):231:242 -> a
+    22:25:void resetCallOptions():275:278 -> a
+    1:8:void acceptCall(java.util.UUID,java.lang.String):134:141 -> acceptCall
+    9:9:void acceptCall(java.util.UUID,java.lang.String):139:139 -> acceptCall
+    10:23:void acceptCall(java.util.UUID,java.lang.String):137:150 -> acceptCall
+    1:1:com.telnyx.webrtc.sdk.Peer access$getPeerConnection$p(com.telnyx.webrtc.sdk.Call):35:35 -> access$getPeerConnection$p
+    1:1:void access$setPeerConnection$p(com.telnyx.webrtc.sdk.Call,com.telnyx.webrtc.sdk.Peer):35:35 -> access$setPeerConnection$p
+    1:8:void endCall(java.util.UUID):159:166 -> endCall
+    9:9:void endCall(java.util.UUID):162:162 -> endCall
+    10:26:void endCall(java.util.UUID):160:176 -> endCall
+    1:1:android.media.AudioManager getAudioManager():40:40 -> getAudioManager
+    1:1:java.util.UUID getCallId():46:46 -> getCallId
+    1:1:androidx.lifecycle.LiveData getCallState():250:250 -> getCallState
+    1:1:com.telnyx.webrtc.sdk.TelnyxClient getClient():37:37 -> getClient
+    1:1:android.content.Context getContext():36:36 -> getContext
+    1:1:androidx.lifecycle.LiveData getIsMuteStatus():256:256 -> getIsMuteStatus
+    1:1:androidx.lifecycle.LiveData getIsOnHoldStatus():262:262 -> getIsOnHoldStatus
+    1:1:androidx.lifecycle.LiveData getIsOnLoudSpeakerStatus():268:268 -> getIsOnLoudSpeakerStatus
+    1:1:java.lang.String getSessionId():39:39 -> getSessionId
+    1:1:com.telnyx.webrtc.sdk.socket.TxSocket getSocket():38:38 -> getSocket
+    1:11:void newInvite(java.lang.String,java.lang.String,java.lang.String,java.lang.String):80:90 -> newInvite
+    12:46:void newInvite(java.lang.String,java.lang.String,java.lang.String,java.lang.String):89:123 -> newInvite
+    1:3:void onAnswerReceived(com.google.gson.JsonObject):301:303 -> onAnswerReceived
+    4:30:void onAnswerReceived(com.google.gson.JsonObject):300:326 -> onAnswerReceived
+    31:31:void onAnswerReceived(com.google.gson.JsonObject):324:324 -> onAnswerReceived
+    32:32:void onAnswerReceived(com.google.gson.JsonObject):323:323 -> onAnswerReceived
+    33:49:void onAnswerReceived(com.google.gson.JsonObject):322:338 -> onAnswerReceived
+    50:50:void onAnswerReceived(com.google.gson.JsonObject):336:336 -> onAnswerReceived
+    51:51:void onAnswerReceived(com.google.gson.JsonObject):335:335 -> onAnswerReceived
+    52:68:void onAnswerReceived(com.google.gson.JsonObject):334:350 -> onAnswerReceived
+    1:5:void onByeReceived(java.util.UUID):282:286 -> onByeReceived
+    6:6:void onByeReceived(java.util.UUID):285:285 -> onByeReceived
+    7:7:void onByeReceived(java.util.UUID):284:284 -> onByeReceived
+    8:21:void onByeReceived(java.util.UUID):283:296 -> onByeReceived
+    1:8:void onHoldUnholdPressed(java.util.UUID):213:220 -> onHoldUnholdPressed
+    1:5:void onIceCandidateReceived(org.webrtc.IceCandidate):429:433 -> onIceCandidateReceived
+    6:6:void onIceCandidateReceived(org.webrtc.IceCandidate):430:430 -> onIceCandidateReceived
+    1:6:void onLoudSpeakerPressed():198:203 -> onLoudSpeakerPressed
+    1:21:void onMediaReceived(com.google.gson.JsonObject):354:374 -> onMediaReceived
+    1:6:void onMuteUnmutePressed():184:189 -> onMuteUnmutePressed
+    1:12:void onOfferReceived(com.google.gson.JsonObject):386:397 -> onOfferReceived
+    13:27:void onOfferReceived(com.google.gson.JsonObject):395:409 -> onOfferReceived
+    28:28:void onOfferReceived(com.google.gson.JsonObject):408:408 -> onOfferReceived
+    29:42:void onOfferReceived(com.google.gson.JsonObject):407:420 -> onOfferReceived
+    43:43:void onOfferReceived(com.google.gson.JsonObject):418:418 -> onOfferReceived
+    44:44:void onOfferReceived(com.google.gson.JsonObject):417:417 -> onOfferReceived
+    45:54:void onOfferReceived(com.google.gson.JsonObject):416:425 -> onOfferReceived
+    1:1:void setAudioManager(android.media.AudioManager):40:40 -> setAudioManager
+    1:1:void setCallId(java.util.UUID):46:46 -> setCallId
+    1:1:void setClient(com.telnyx.webrtc.sdk.TelnyxClient):37:37 -> setClient
+    1:1:void setContext(android.content.Context):36:36 -> setContext
+    1:1:void setSessionId(java.lang.String):39:39 -> setSessionId
+    1:1:void setSocket(com.telnyx.webrtc.sdk.socket.TxSocket):38:38 -> setSocket
+com.telnyx.webrtc.sdk.Call$newInvite$1 -> com.telnyx.webrtc.sdk.Call$newInvite$1:
+    com.telnyx.webrtc.sdk.Call this$0 -> a
+    java.lang.String $destinationNumber -> g
+    java.util.UUID $inviteCallId -> f
+    java.lang.String $callerName -> c
+    kotlin.jvm.internal.Ref$BooleanRef $sentFlag -> h
+    java.lang.String $uuid -> b
+    java.lang.String $clientState -> e
+    java.lang.String $callerNumber -> d
+    1:1:void <init>(com.telnyx.webrtc.sdk.Call,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.util.UUID,java.lang.String,kotlin.jvm.internal.Ref$BooleanRef):90:90 -> <init>
+    1:16:void onIceCandidate(org.webrtc.IceCandidate):92:107 -> onIceCandidate
+    17:17:void onIceCandidate(org.webrtc.IceCandidate):102:102 -> onIceCandidate
+    18:18:void onIceCandidate(org.webrtc.IceCandidate):99:99 -> onIceCandidate
+    19:37:void onIceCandidate(org.webrtc.IceCandidate):96:114 -> onIceCandidate
+com.telnyx.webrtc.sdk.Call$onOfferReceived$1 -> com.telnyx.webrtc.sdk.Call$onOfferReceived$1:
+    com.telnyx.webrtc.sdk.Call this$0 -> a
+    1:1:void <init>(com.telnyx.webrtc.sdk.Call):397:397 -> <init>
+    1:2:void onIceCandidate(org.webrtc.IceCandidate):399:400 -> onIceCandidate
+com.telnyx.webrtc.sdk.Config -> com.telnyx.webrtc.sdk.Config:
+    java.lang.String USERNAME -> a
+    java.lang.String PASSWORD -> b
+    1:2:void <clinit>():13:14 -> <clinit>
+    1:1:void <init>():7:7 -> <init>
+    1:1:java.lang.String access$getPASSWORD$cp():7:7 -> access$getPASSWORD$cp
+    1:1:java.lang.String access$getUSERNAME$cp():7:7 -> access$getUSERNAME$cp
+    1:1:void access$setPASSWORD$cp(java.lang.String):7:7 -> access$setPASSWORD$cp
+    1:1:void access$setUSERNAME$cp(java.lang.String):7:7 -> access$setUSERNAME$cp
+com.telnyx.webrtc.sdk.Config$Companion -> com.telnyx.webrtc.sdk.Config$Companion:
+    1:1:void <init>():8:8 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):8:8 -> <init>
+    1:1:java.lang.String getPASSWORD():14:14 -> getPASSWORD
+    1:1:java.lang.String getUSERNAME():13:13 -> getUSERNAME
+    1:1:void setPASSWORD(java.lang.String):14:14 -> setPASSWORD
+    1:1:void setUSERNAME(java.lang.String):13:13 -> setUSERNAME
+com.telnyx.webrtc.sdk.CredentialConfig -> com.telnyx.webrtc.sdk.CredentialConfig:
+    java.lang.Integer ringtone -> f
+    java.lang.Integer ringBackTone -> g
+    java.lang.String sipUser -> a
+    java.lang.String sipCallerIDName -> c
+    java.lang.String sipPassword -> b
+    java.lang.String fcmToken -> e
+    java.lang.String sipCallerIDNumber -> d
+    com.telnyx.webrtc.sdk.model.LogLevel logLevel -> h
+    1:1:void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.Integer,java.lang.Integer,com.telnyx.webrtc.sdk.model.LogLevel,int,kotlin.jvm.internal.DefaultConstructorMarker):42:42 -> <init>
+    2:2:void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.Integer,java.lang.Integer,com.telnyx.webrtc.sdk.model.LogLevel):43:43 -> <init>
+    1:1:java.lang.String getFcmToken():39:39 -> getFcmToken
+    1:1:com.telnyx.webrtc.sdk.model.LogLevel getLogLevel():42:42 -> getLogLevel
+    1:1:java.lang.Integer getRingBackTone():41:41 -> getRingBackTone
+    1:1:java.lang.Integer getRingtone():40:40 -> getRingtone
+    1:1:java.lang.String getSipCallerIDName():37:37 -> getSipCallerIDName
+    1:1:java.lang.String getSipCallerIDNumber():38:38 -> getSipCallerIDNumber
+    1:1:java.lang.String getSipPassword():36:36 -> getSipPassword
+    1:1:java.lang.String getSipUser():35:35 -> getSipUser
+com.telnyx.webrtc.sdk.Peer -> com.telnyx.webrtc.sdk.Peer:
+    java.util.List iceServer -> b
+    kotlin.Lazy peerConnectionFactory$delegate -> c
+    kotlin.Lazy peerConnection$delegate -> d
+    com.telnyx.webrtc.sdk.TelnyxClient client -> e
+    org.webrtc.EglBase rootEglBase -> a
+    1:44:void <init>(android.content.Context,com.telnyx.webrtc.sdk.TelnyxClient,org.webrtc.PeerConnection$Observer):24:67 -> <init>
+    1:6:void initPeerConnectionFactory(android.content.Context):74:79 -> a
+    7:11:org.webrtc.PeerConnectionFactory buildPeerConnectionFactory():89:93 -> a
+    12:12:org.webrtc.PeerConnectionFactory buildPeerConnectionFactory():92:92 -> a
+    13:22:org.webrtc.PeerConnectionFactory buildPeerConnectionFactory():91:100 -> a
+    23:27:org.webrtc.PeerConnectionFactory buildPeerConnectionFactory():98:102 -> a
+    28:30:org.webrtc.PeerConnection buildPeerConnection(org.webrtc.PeerConnection$Observer):111:111 -> a
+    31:37:void answer(org.webrtc.PeerConnection,org.webrtc.SdpObserver):179:185 -> a
+    1:1:org.webrtc.PeerConnection access$buildPeerConnection(com.telnyx.webrtc.sdk.Peer,org.webrtc.PeerConnection$Observer):24:24 -> access$buildPeerConnection
+    1:1:org.webrtc.PeerConnectionFactory access$buildPeerConnectionFactory(com.telnyx.webrtc.sdk.Peer):24:24 -> access$buildPeerConnectionFactory
+    1:1:void addIceCandidate(org.webrtc.IceCandidate):256:256 -> addIceCandidate
+    1:1:kotlin.Unit answer(org.webrtc.SdpObserver):221:221 -> answer
+    1:4:java.util.List getIceServers():52:55 -> b
+    5:7:java.util.List getIceServers():54:56 -> b
+    8:15:java.util.List getIceServers():53:60 -> b
+    16:18:java.util.List getIceServers():59:61 -> b
+    19:19:java.util.List getIceServers():58:58 -> b
+    20:26:void call(org.webrtc.PeerConnection,org.webrtc.SdpObserver):141:147 -> b
+    org.webrtc.PeerConnection getPeerConnection() -> c
+    1:1:kotlin.Unit createOfferForSdp(org.webrtc.SdpObserver):214:214 -> createOfferForSdp
+    org.webrtc.PeerConnectionFactory getPeerConnectionFactory() -> d
+    1:2:void disconnect():271:272 -> disconnect
+    1:1:com.telnyx.webrtc.sdk.TelnyxClient getClient():26:26 -> getClient
+    1:1:org.webrtc.SessionDescription getLocalDescription():264:264 -> getLocalDescription
+    1:1:void onRemoteSessionReceived(org.webrtc.SessionDescription):229:229 -> onRemoteSessionReceived
+    1:10:void startLocalAudioCapture():122:131 -> startLocalAudioCapture
+com.telnyx.webrtc.sdk.Peer$Companion -> com.telnyx.webrtc.sdk.Peer$Companion:
+    1:1:void <init>():30:30 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):30:30 -> <init>
+com.telnyx.webrtc.sdk.Peer$answer$1 -> com.telnyx.webrtc.sdk.Peer$answer$1:
+    org.webrtc.PeerConnection $this_answer -> b
+    org.webrtc.SdpObserver $$delegate_0 -> a
+    org.webrtc.SdpObserver $sdpObserver -> c
+    1:1:void <init>(org.webrtc.PeerConnection,org.webrtc.SdpObserver):185:185 -> <init>
+    1:18:void onCreateSuccess(org.webrtc.SessionDescription):187:204 -> onCreateSuccess
+com.telnyx.webrtc.sdk.Peer$answer$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.Peer$answer$1$onCreateSuccess$1:
+    1:1:void <init>():187:187 -> <init>
+    1:1:void onCreateFailure(java.lang.String):201:201 -> onCreateFailure
+    1:1:void onCreateSuccess(org.webrtc.SessionDescription):197:197 -> onCreateSuccess
+    1:1:void onSetFailure(java.lang.String):189:189 -> onSetFailure
+    1:1:void onSetSuccess():193:193 -> onSetSuccess
+com.telnyx.webrtc.sdk.Peer$call$1 -> com.telnyx.webrtc.sdk.Peer$call$1:
+    org.webrtc.PeerConnection $this_call -> b
+    org.webrtc.SdpObserver $$delegate_0 -> a
+    org.webrtc.SdpObserver $sdpObserver -> c
+    1:1:void <init>(org.webrtc.PeerConnection,org.webrtc.SdpObserver):147:147 -> <init>
+    1:19:void onCreateSuccess(org.webrtc.SessionDescription):149:167 -> onCreateSuccess
+com.telnyx.webrtc.sdk.Peer$call$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.Peer$call$1$onCreateSuccess$1:
+    1:1:void <init>():149:149 -> <init>
+    1:1:void onCreateFailure(java.lang.String):163:163 -> onCreateFailure
+    1:1:void onCreateSuccess(org.webrtc.SessionDescription):159:159 -> onCreateSuccess
+    1:1:void onSetFailure(java.lang.String):151:151 -> onSetFailure
+    1:1:void onSetSuccess():155:155 -> onSetSuccess
+com.telnyx.webrtc.sdk.Peer$onRemoteSessionReceived$1 -> com.telnyx.webrtc.sdk.Peer$onRemoteSessionReceived$1:
+    com.telnyx.webrtc.sdk.Peer this$0 -> a
+    1:1:void <init>(com.telnyx.webrtc.sdk.Peer):229:229 -> <init>
+    1:2:void onCreateFailure(java.lang.String):244:245 -> onCreateFailure
+    1:1:void onCreateSuccess(org.webrtc.SessionDescription):240:240 -> onCreateSuccess
+    1:2:void onSetFailure(java.lang.String):231:232 -> onSetFailure
+    1:1:void onSetSuccess():236:236 -> onSetSuccess
+com.telnyx.webrtc.sdk.Peer$peerConnection$2 -> com.telnyx.webrtc.sdk.Peer$a:
+    org.webrtc.PeerConnection$Observer $observer -> b
+    com.telnyx.webrtc.sdk.Peer this$0 -> a
+    1:1:org.webrtc.PeerConnection invoke():67:67 -> a
+    1:1:java.lang.Object invoke():24:24 -> invoke
+com.telnyx.webrtc.sdk.Peer$peerConnectionFactory$2 -> com.telnyx.webrtc.sdk.Peer$b:
+    com.telnyx.webrtc.sdk.Peer this$0 -> a
+    1:1:org.webrtc.PeerConnectionFactory invoke():66:66 -> a
+    1:1:java.lang.Object invoke():24:24 -> invoke
+com.telnyx.webrtc.sdk.PeerConnectionObserver -> com.telnyx.webrtc.sdk.PeerConnectionObserver:
+    1:1:void <init>():17:17 -> <init>
+    1:1:void onAddStream(org.webrtc.MediaStream):43:43 -> onAddStream
+    1:1:void onAddTrack(org.webrtc.RtpReceiver,org.webrtc.MediaStream[]):59:59 -> onAddTrack
+    1:1:void onDataChannel(org.webrtc.DataChannel):51:51 -> onDataChannel
+    1:1:void onIceCandidate(org.webrtc.IceCandidate):35:35 -> onIceCandidate
+    1:1:void onIceCandidatesRemoved(org.webrtc.IceCandidate[]):39:39 -> onIceCandidatesRemoved
+    1:1:void onIceConnectionChange(org.webrtc.PeerConnection$IceConnectionState):23:23 -> onIceConnectionChange
+    1:1:void onIceConnectionReceivingChange(boolean):27:27 -> onIceConnectionReceivingChange
+    1:1:void onIceGatheringChange(org.webrtc.PeerConnection$IceGatheringState):31:31 -> onIceGatheringChange
+    1:1:void onRemoveStream(org.webrtc.MediaStream):47:47 -> onRemoveStream
+    1:1:void onRenegotiationNeeded():55:55 -> onRenegotiationNeeded
+    1:1:void onSignalingChange(org.webrtc.PeerConnection$SignalingState):19:19 -> onSignalingChange
+com.telnyx.webrtc.sdk.TelnyxClient -> com.telnyx.webrtc.sdk.TelnyxClient:
+    android.media.MediaPlayer mediaPlayer -> e
+    java.lang.String sessionId -> f
+    com.telnyx.webrtc.sdk.CredentialConfig credentialSessionConfig -> a
+    com.telnyx.webrtc.sdk.TokenConfig tokenSessionConfig -> b
+    boolean isNetworkCallbackRegistered -> l
+    kotlin.Lazy call$delegate -> j
+    android.content.Context context -> p
+    com.telnyx.webrtc.sdk.TelnyxClient$networkCallback$1 networkCallback -> m
+    com.telnyx.webrtc.sdk.socket.TxSocket socketReconnection -> k
+    android.media.AudioManager audioManager -> h
+    java.util.Map calls -> i
+    com.telnyx.webrtc.sdk.socket.TxSocket socket -> d
+    java.lang.Integer rawRingtone -> n
+    java.lang.Integer rawRingbackTone -> o
+    boolean reconnecting -> c
+    androidx.lifecycle.MutableLiveData socketResponseLiveData -> g
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> <init>
+    1:1:void <init>(android.content.Context):35 -> <init>
+    2:93:void <init>(android.content.Context):50:141 -> <init>
+    1:1:com.telnyx.webrtc.sdk.Call buildCall():65:65 -> a
+    2:2:void setSDKLogLevel(com.telnyx.webrtc.sdk.model.LogLevel):334:334 -> a
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$buildCall
+    1:1:com.telnyx.webrtc.sdk.Call access$buildCall(com.telnyx.webrtc.sdk.TelnyxClient):35 -> access$buildCall
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$getCredentialSessionConfig$p
+    1:1:com.telnyx.webrtc.sdk.CredentialConfig access$getCredentialSessionConfig$p(com.telnyx.webrtc.sdk.TelnyxClient):35 -> access$getCredentialSessionConfig$p
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$getReconnecting$p
+    1:1:boolean access$getReconnecting$p(com.telnyx.webrtc.sdk.TelnyxClient):35 -> access$getReconnecting$p
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$getTokenSessionConfig$p
+    1:1:com.telnyx.webrtc.sdk.TokenConfig access$getTokenSessionConfig$p(com.telnyx.webrtc.sdk.TelnyxClient):35 -> access$getTokenSessionConfig$p
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$reconnectToSocket
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$setCredentialSessionConfig$p
+    1:1:void access$setCredentialSessionConfig$p(com.telnyx.webrtc.sdk.TelnyxClient,com.telnyx.webrtc.sdk.CredentialConfig):35 -> access$setCredentialSessionConfig$p
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$setReconnecting$p
+    1:1:void access$setReconnecting$p(com.telnyx.webrtc.sdk.TelnyxClient,boolean):35 -> access$setReconnecting$p
+    1:1:void access$reconnectToSocket(com.telnyx.webrtc.sdk.TelnyxClient):35:35 -> access$setTokenSessionConfig$p
+    1:1:void access$setTokenSessionConfig$p(com.telnyx.webrtc.sdk.TelnyxClient,com.telnyx.webrtc.sdk.TokenConfig):35 -> access$setTokenSessionConfig$p
+    1:442:void addToCalls$telnyx_rtc_release(com.telnyx.webrtc.sdk.Call):73:514 -> addToCalls$telnyx_rtc_release
+    1:174:java.util.List getAvailableAudioOutputTypes():348:521 -> b
+    175:175:java.util.List getAvailableAudioOutputTypes():350:350 -> b
+    1:4:void reconnectToSocket():115:115 -> c
+    9:22:void reconnectToSocket():120:133 -> c
+    1:2:void callNotOngoing$telnyx_rtc_release():205:206 -> callNotOngoing$telnyx_rtc_release
+    1:1:void callOngoing$telnyx_rtc_release():197:197 -> callOngoing$telnyx_rtc_release
+    1:4:void connect():186:189 -> connect
+    1:30:void credentialLogin(com.telnyx.webrtc.sdk.CredentialConfig):259:288 -> credentialLogin
+    31:31:void credentialLogin(com.telnyx.webrtc.sdk.CredentialConfig):282:282 -> credentialLogin
+    32:45:void credentialLogin(com.telnyx.webrtc.sdk.CredentialConfig):279:292 -> credentialLogin
+    1:3:void registerNetworkCallback():215:217 -> d
+    1:2:void disconnect():507:508 -> disconnect
+    1:4:void unregisterNetworkCallback():226:229 -> e
+    1:1:java.util.Map getActiveCalls():249:249 -> getActiveCalls
+    1:1:void <init>(android.content.Context):56:56 -> getCalls$telnyx_rtc_release
+    1:1:java.util.Map getCalls$telnyx_rtc_release():56 -> getCalls$telnyx_rtc_release
+    1:1:void setContext(android.content.Context):36:36 -> getContext
+    1:1:android.content.Context getContext():36 -> getContext
+    1:1:java.lang.Integer getRawRingbackTone():177:177 -> getRawRingbackTone
+    1:1:java.lang.Integer getRawRingtone():168:168 -> getRawRingtone
+    1:1:void setSocket$telnyx_rtc_release(com.telnyx.webrtc.sdk.socket.TxSocket):44:44 -> getSocket$telnyx_rtc_release
+    1:1:com.telnyx.webrtc.sdk.socket.TxSocket getSocket$telnyx_rtc_release():44 -> getSocket$telnyx_rtc_release
+    1:1:androidx.lifecycle.LiveData getSocketResponse():240:240 -> getSocketResponse
+    1:1:void <init>(android.content.Context):50:50 -> getSocketResponseLiveData
+    1:1:androidx.lifecycle.MutableLiveData getSocketResponseLiveData():50 -> getSocketResponseLiveData
+    1:1:void setNetworkCallbackRegistered$telnyx_rtc_release(boolean):87:87 -> isNetworkCallbackRegistered$telnyx_rtc_release
+    1:1:boolean isNetworkCallbackRegistered$telnyx_rtc_release():87 -> isNetworkCallbackRegistered$telnyx_rtc_release
+    1:1:void onAnswerReceived(com.google.gson.JsonObject):479:479 -> onAnswerReceived
+    1:367:void onAppDestroyed():153:519 -> onAppDestroyed
+    368:368:void onAppDestroyed():155:155 -> onAppDestroyed
+    1:1:void onByeReceived(java.util.UUID):475:475 -> onByeReceived
+    1:2:void onConnectionEstablished():465:466 -> onConnectionEstablished
+    1:2:void onErrorReceived(com.google.gson.JsonObject):470:471 -> onErrorReceived
+    1:1:void onIceCandidateReceived(org.webrtc.IceCandidate):492:492 -> onIceCandidateReceived
+    1:3:void onLoginSuccessful(com.google.gson.JsonObject):449:451 -> onLoginSuccessful
+    4:14:void onLoginSuccessful(com.google.gson.JsonObject):448:458 -> onLoginSuccessful
+    15:15:void onLoginSuccessful(com.google.gson.JsonObject):456:456 -> onLoginSuccessful
+    16:16:void onLoginSuccessful(com.google.gson.JsonObject):455:455 -> onLoginSuccessful
+    17:17:void onLoginSuccessful(com.google.gson.JsonObject):454:454 -> onLoginSuccessful
+    1:1:void onMediaReceived(com.google.gson.JsonObject):483:483 -> onMediaReceived
+    1:2:void onOfferReceived(com.google.gson.JsonObject):487:488 -> onOfferReceived
+    1:2:void onRemoteSessionErrorReceived$telnyx_rtc_release(java.lang.String):496:497 -> onRemoteSessionErrorReceived$telnyx_rtc_release
+    1:10:void playRingBackTone$telnyx_rtc_release():420:429 -> playRingBackTone$telnyx_rtc_release
+    1:10:void playRingtone$telnyx_rtc_release():400:409 -> playRingtone$telnyx_rtc_release
+    1:1:void removeFromCalls$telnyx_rtc_release(java.util.UUID):81:81 -> removeFromCalls$telnyx_rtc_release
+    1:27:void setAudioOutputDevice(com.telnyx.webrtc.sdk.model.AudioDevice):362:388 -> setAudioOutputDevice
+    28:31:void setAudioOutputDevice(com.telnyx.webrtc.sdk.model.AudioDevice):378:381 -> setAudioOutputDevice
+    32:39:void setAudioOutputDevice(com.telnyx.webrtc.sdk.model.AudioDevice):365:372 -> setAudioOutputDevice
+    40:40:void setAudioOutputDevice(com.telnyx.webrtc.sdk.model.AudioDevice):370:370 -> setAudioOutputDevice
+    1:1:void setContext(android.content.Context):36:36 -> setContext
+    1:1:void setNetworkCallbackRegistered$telnyx_rtc_release(boolean):87:87 -> setNetworkCallbackRegistered$telnyx_rtc_release
+    1:1:void setSocket$telnyx_rtc_release(com.telnyx.webrtc.sdk.socket.TxSocket):44:44 -> setSocket$telnyx_rtc_release
+    1:5:void stopMediaPlayer$telnyx_rtc_release():438:442 -> stopMediaPlayer$telnyx_rtc_release
+    1:19:void tokenLogin(com.telnyx.webrtc.sdk.TokenConfig):302:320 -> tokenLogin
+    20:20:void tokenLogin(com.telnyx.webrtc.sdk.TokenConfig):314:314 -> tokenLogin
+    21:33:void tokenLogin(com.telnyx.webrtc.sdk.TokenConfig):311:323 -> tokenLogin
+com.telnyx.webrtc.sdk.TelnyxClient$call$2 -> com.telnyx.webrtc.sdk.TelnyxClient$a:
+    com.telnyx.webrtc.sdk.TelnyxClient this$0 -> a
+    1:1:com.telnyx.webrtc.sdk.Call invoke():58:58 -> a
+    1:1:java.lang.Object invoke():35:35 -> invoke
+com.telnyx.webrtc.sdk.TelnyxClient$networkCallback$1 -> com.telnyx.webrtc.sdk.TelnyxClient$networkCallback$1:
+    com.telnyx.webrtc.sdk.TelnyxClient this$0 -> a
+    1:1:void <init>(com.telnyx.webrtc.sdk.TelnyxClient):88:88 -> <init>
+    1:5:void onNetworkAvailable():90:94 -> onNetworkAvailable
+    1:2:void onNetworkUnavailable():100:101 -> onNetworkUnavailable
+    3:8:void onNetworkUnavailable():99:104 -> onNetworkUnavailable
+com.telnyx.webrtc.sdk.TelnyxConfig -> com.telnyx.webrtc.sdk.TelnyxConfig:
+    1:1:void <init>():20:20 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):20:20 -> <init>
+com.telnyx.webrtc.sdk.TokenConfig -> com.telnyx.webrtc.sdk.TokenConfig:
+    java.lang.Integer ringtone -> e
+    java.lang.Integer ringBackTone -> f
+    com.telnyx.webrtc.sdk.model.LogLevel logLevel -> g
+    java.lang.String sipToken -> a
+    java.lang.String sipCallerIDNumber -> c
+    java.lang.String sipCallerIDName -> b
+    java.lang.String fcmToken -> d
+    1:1:void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.Integer,java.lang.Integer,com.telnyx.webrtc.sdk.model.LogLevel,int,kotlin.jvm.internal.DefaultConstructorMarker):63:63 -> <init>
+    2:2:void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.Integer,java.lang.Integer,com.telnyx.webrtc.sdk.model.LogLevel):64:64 -> <init>
+    1:1:java.lang.String getFcmToken():60:60 -> getFcmToken
+    1:1:com.telnyx.webrtc.sdk.model.LogLevel getLogLevel():63:63 -> getLogLevel
+    1:1:java.lang.Integer getRingBackTone():62:62 -> getRingBackTone
+    1:1:java.lang.Integer getRingtone():61:61 -> getRingtone
+    1:1:java.lang.String getSipCallerIDName():58:58 -> getSipCallerIDName
+    1:1:java.lang.String getSipCallerIDNumber():59:59 -> getSipCallerIDNumber
+    1:1:java.lang.String getSipToken():57:57 -> getSipToken
+com.telnyx.webrtc.sdk.model.AudioDevice -> com.telnyx.webrtc.sdk.model.AudioDevice:
+    com.telnyx.webrtc.sdk.model.AudioDevice[] $VALUES -> b
+    int code -> a
+    1:3:void <clinit>():19:21 -> <clinit>
+    1:1:void <init>(java.lang.String,int,int):18:18 -> <init>
+    1:1:int getCode():18:18 -> getCode
+    1:1:void setCode(int):18:18 -> setCode
+com.telnyx.webrtc.sdk.model.CallState -> com.telnyx.webrtc.sdk.model.CallState:
+    com.telnyx.webrtc.sdk.model.CallState[] $VALUES -> a
+    1:1:void <init>(java.lang.String,int):18:18 -> <init>
+com.telnyx.webrtc.sdk.model.CauseCode -> com.telnyx.webrtc.sdk.model.CauseCode:
+    com.telnyx.webrtc.sdk.model.CauseCode[] $VALUES -> b
+    int code -> a
+    1:4:void <clinit>():20:23 -> <clinit>
+    1:1:void <init>(java.lang.String,int,int):19:19 -> <init>
+    1:1:int getCode():19:19 -> getCode
+    1:1:void setCode(int):19:19 -> setCode
+com.telnyx.webrtc.sdk.model.LogLevel -> com.telnyx.webrtc.sdk.model.LogLevel:
+    com.telnyx.webrtc.sdk.model.LogLevel[] $VALUES -> b
+    java.lang.Integer priority -> a
+    1:7:void <clinit>():27:33 -> <clinit>
+    1:1:void <init>(java.lang.String,int,java.lang.Integer):26:26 -> <init>
+    1:1:java.lang.Integer getPriority():26:26 -> getPriority
+    1:1:void setPriority(java.lang.Integer):26:26 -> setPriority
+com.telnyx.webrtc.sdk.model.SocketError -> com.telnyx.webrtc.sdk.model.SocketError:
+    com.telnyx.webrtc.sdk.model.SocketError[] $VALUES -> b
+    int errorCode -> a
+    1:2:void <clinit>():17:18 -> <clinit>
+    1:1:void <init>(java.lang.String,int,int):16:16 -> <init>
+    1:1:int getErrorCode():16:16 -> getErrorCode
+    1:1:void setErrorCode(int):16:16 -> setErrorCode
+com.telnyx.webrtc.sdk.model.SocketMethod -> com.telnyx.webrtc.sdk.model.SocketMethod:
+    com.telnyx.webrtc.sdk.model.SocketMethod[] $VALUES -> b
+    java.lang.String methodName -> a
+    1:6:void <clinit>():22:27 -> <clinit>
+    1:1:void <init>(java.lang.String,int,java.lang.String):21:21 -> <init>
+    1:1:java.lang.String getMethodName():21:21 -> getMethodName
+    1:1:void setMethodName(java.lang.String):21:21 -> setMethodName
+com.telnyx.webrtc.sdk.model.SocketStatus -> com.telnyx.webrtc.sdk.model.SocketStatus:
+    com.telnyx.webrtc.sdk.model.SocketStatus[] $VALUES -> a
+    1:1:void <init>(java.lang.String,int):17:17 -> <init>
+com.telnyx.webrtc.sdk.sdk.BuildConfig -> com.telnyx.webrtc.sdk.sdk.BuildConfig:
+    1:1:void <init>():6:6 -> <init>
+com.telnyx.webrtc.sdk.socket.TxSocket -> com.telnyx.webrtc.sdk.socket.TxSocket:
+    java.lang.String host_address -> g
+    kotlinx.coroutines.channels.ConflatedBroadcastChannel sendChannel -> f
+    com.google.gson.Gson gson -> b
+    int port -> h
+    kotlinx.coroutines.Job job -> a
+    io.ktor.client.HttpClient client -> e
+    kotlin.coroutines.CoroutineContext coroutineContext -> c
+    boolean ongoingCall -> d
+    1:26:void <init>(java.lang.String,int):37:62 -> <init>
+    1:1:io.ktor.client.HttpClient access$getClient$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getClient$p
+    1:1:com.google.gson.Gson access$getGson$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getGson$p
+    1:1:kotlinx.coroutines.channels.ConflatedBroadcastChannel access$getSendChannel$p(com.telnyx.webrtc.sdk.socket.TxSocket):37:37 -> access$getSendChannel$p
+    1:1:void callNotOngoing$telnyx_rtc_release():179:179 -> callNotOngoing$telnyx_rtc_release
+    1:1:void callOngoing$telnyx_rtc_release():172:172 -> callOngoing$telnyx_rtc_release
+    1:1:kotlinx.coroutines.Job connect(com.telnyx.webrtc.sdk.TelnyxClient):69:69 -> connect
+    1:2:void destroy$telnyx_rtc_release():194:195 -> destroy$telnyx_rtc_release
+    1:1:kotlin.coroutines.CoroutineContext getCoroutineContext():45:45 -> getCoroutineContext
+    1:1:java.lang.String getHost_address$telnyx_rtc_release():38:38 -> getHost_address$telnyx_rtc_release
+    1:1:boolean getOngoingCall$telnyx_rtc_release():47:47 -> getOngoingCall$telnyx_rtc_release
+    1:1:int getPort$telnyx_rtc_release():39:39 -> getPort$telnyx_rtc_release
+    1:1:void send$telnyx_rtc_release(java.lang.Object):186:186 -> send$telnyx_rtc_release
+    1:1:void setCoroutineContext(kotlin.coroutines.CoroutineContext):45:45 -> setCoroutineContext
+    1:1:void setOngoingCall$telnyx_rtc_release(boolean):47:47 -> setOngoingCall$telnyx_rtc_release
+com.telnyx.webrtc.sdk.socket.TxSocket$client$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$a:
+    com.telnyx.webrtc.sdk.socket.TxSocket$client$1 INSTANCE -> a
+    1:8:void invoke(io.ktor.client.HttpClientConfig):50:57 -> a
+    1:1:java.lang.Object invoke(java.lang.Object):37:37 -> invoke
+com.telnyx.webrtc.sdk.socket.TxSocket$client$1$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$a$a:
+    com.telnyx.webrtc.sdk.socket.TxSocket$client$1$1 INSTANCE -> a
+    1:4:void invoke(io.ktor.client.engine.cio.CIOEngineConfig):51:54 -> a
+    1:1:java.lang.Object invoke(java.lang.Object):37:37 -> invoke
+com.telnyx.webrtc.sdk.socket.TxSocket$client$1$2 -> com.telnyx.webrtc.sdk.socket.TxSocket$a$b:
+    com.telnyx.webrtc.sdk.socket.TxSocket$client$1$2 INSTANCE -> a
+    1:1:void invoke(io.ktor.client.features.json.JsonFeature$Config):58:58 -> a
+    1:1:java.lang.Object invoke(java.lang.Object):37:37 -> invoke
+com.telnyx.webrtc.sdk.socket.TxSocket$connect$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b:
+    com.telnyx.webrtc.sdk.TelnyxClient $listener -> c
+    com.telnyx.webrtc.sdk.socket.TxSocket this$0 -> b
+    int label -> a
+    1:99:java.lang.Object invokeSuspend(java.lang.Object):69:69 -> invokeSuspend
+    101:105:java.lang.Object invokeSuspend(java.lang.Object):71:71 -> invokeSuspend
+    198:200:java.lang.Object invokeSuspend(java.lang.Object):164:166 -> invokeSuspend
+com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b$a:
+    java.lang.Object L$1 -> b
+    java.lang.Object L$0 -> a
+    com.telnyx.webrtc.sdk.socket.TxSocket$connect$1 this$0 -> d
+    int label -> c
+    1:90:java.lang.Object invokeSuspend(java.lang.Object):74:74 -> invokeSuspend
+    91:112:java.lang.Object invokeSuspend(java.lang.Object):75:96 -> invokeSuspend
+    113:182:java.lang.Object invokeSuspend(java.lang.Object):93:162 -> invokeSuspend
+com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b$a$a:
+    com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1 this$0 -> a
+    1:3:void invoke(java.lang.Throwable):76:78 -> a
+    1:1:java.lang.Object invoke(java.lang.Object):37:37 -> invoke
+com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1$invokeSuspend$$inlined$let$lambda$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$b$a$b:
+    com.telnyx.webrtc.sdk.socket.TxSocket$connect$1$1 this$0 -> c
+    kotlin.jvm.internal.Ref$ObjectRef $jsonObject -> b
+    int label -> a
+    1:17:java.lang.Object invokeSuspend(java.lang.Object):99:115 -> invokeSuspend
+    18:49:java.lang.Object invokeSuspend(java.lang.Object):112:143 -> invokeSuspend
+    50:66:java.lang.Object invokeSuspend(java.lang.Object):139:155 -> invokeSuspend
+com.telnyx.webrtc.sdk.socket.TxSocket$send$1 -> com.telnyx.webrtc.sdk.socket.TxSocket$c:
+    com.telnyx.webrtc.sdk.socket.TxSocket this$0 -> b
+    java.lang.Object $dataObject -> c
+    int label -> a
+    1:4:java.lang.Object invokeSuspend(java.lang.Object):186:186 -> invokeSuspend
+    5:6:java.lang.Object invokeSuspend(java.lang.Object):187:188 -> invokeSuspend
+com.telnyx.webrtc.sdk.utilities.ApiUtils -> com.telnyx.webrtc.sdk.utilities.ApiUtils:
+    java.lang.String BASE_URL -> a
+    1:1:void <clinit>():25:25 -> <clinit>
+    1:1:void <init>():25:25 -> <init>
+    1:1:com.telnyx.webrtc.sdk.utilities.RetrofitAPIInterface getApiService():28:28 -> getApiService
+    1:1:java.lang.String getBASE_URL():26:26 -> getBASE_URL
+com.telnyx.webrtc.sdk.utilities.ConnectivityHelper -> com.telnyx.webrtc.sdk.utilities.ConnectivityHelper:
+    1:1:void <clinit>():17:17 -> <clinit>
+    1:1:void <init>():17:17 -> <init>
+    1:5:boolean isNetworkEnabled(android.content.Context):68:68 -> isNetworkEnabled
+    1:7:void registerNetworkStatusCallback(android.content.Context,com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback):49:55 -> registerNetworkStatusCallback
+    8:11:void registerNetworkStatusCallback(android.content.Context,com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback):54:57 -> registerNetworkStatusCallback
+    1:3:void unregisterNetworkStatusCallback(android.content.Context,com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback):30:30 -> unregisterNetworkStatusCallback
+    6:6:void unregisterNetworkStatusCallback(android.content.Context,com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback):33:33 -> unregisterNetworkStatusCallback
+com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback -> com.telnyx.webrtc.sdk.utilities.ConnectivityHelper$NetworkCallback:
+    1:1:void <init>():79:79 -> <init>
+    1:1:void onAvailable(android.net.Network):92:92 -> onAvailable
+    1:1:void onLost(android.net.Network):100:100 -> onLost
+    1:1:void onUnavailable():96:96 -> onUnavailable
+com.telnyx.webrtc.sdk.utilities.StringExtensionsKt -> com.telnyx.webrtc.sdk.utilities.StringExtensionsKt:
+    1:2:java.lang.String decodeBase64(java.lang.String):21:22 -> decodeBase64
+    3:3:java.lang.String decodeBase64(java.lang.String):20:20 -> decodeBase64
+    1:2:java.lang.String encodeBase64(java.lang.String):14:15 -> encodeBase64
+    3:3:java.lang.String encodeBase64(java.lang.String):13:13 -> encodeBase64
+com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree -> com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree:
+    com.telnyx.webrtc.sdk.model.LogLevel projectLogLevel -> a
+    1:3:void <init>(com.telnyx.webrtc.sdk.model.LogLevel):16:18 -> <init>
+    1:31:void log(int,java.lang.String,java.lang.String,java.lang.Throwable):21:51 -> log
+    32:33:void log(int,java.lang.String,java.lang.String,java.lang.Throwable):46:47 -> log
+    34:35:void log(int,java.lang.String,java.lang.String,java.lang.Throwable):41:42 -> log
+    36:37:void log(int,java.lang.String,java.lang.String,java.lang.Throwable) -> log
+    38:39:void log(int,java.lang.String,java.lang.String,java.lang.Throwable):31:32 -> log
+    40:41:void log(int,java.lang.String,java.lang.String,java.lang.Throwable):26:27 -> log
+com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm -> com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm:
+    1:1:void <clinit>():17:17 -> <clinit>
+    1:1:void <init>():17:17 -> <init>
+    1:1:void processPushMessage(android.content.Context,com.google.firebase.messaging.RemoteMessage):19:19 -> processPushMessage
+    1:3:void sendRegistrationToServer(android.content.Context,java.lang.String):24:26 -> sendRegistrationToServer
+com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm$sendRegistrationToServer$1 -> com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm$sendRegistrationToServer$1:
+    1:1:void <init>():26:26 -> <init>
+    1:1:void onFailure(retrofit2.Call,java.lang.Throwable):39:39 -> onFailure
+    1:5:void onResponse(retrofit2.Call,retrofit2.Response):30:34 -> onResponse
+com.telnyx.webrtc.sdk.verto.receive.AnswerResponse -> com.telnyx.webrtc.sdk.verto.receive.AnswerResponse:
+    java.util.UUID callId -> a
+    java.lang.String sdp -> b
+    1:1:void <init>(java.util.UUID,java.lang.String):33:33 -> <init>
+    1:1:java.util.UUID getCallId():31:31 -> getCallId
+    1:1:java.lang.String getSdp():32:32 -> getSdp
+com.telnyx.webrtc.sdk.verto.receive.FcmRegistrationResponse -> com.telnyx.webrtc.sdk.verto.receive.FcmRegistrationResponse:
+    java.lang.String message -> a
+    1:1:void <init>(java.lang.String):9:9 -> <init>
+    1:1:java.lang.String getMessage():10:10 -> getMessage
+com.telnyx.webrtc.sdk.verto.receive.InviteResponse -> com.telnyx.webrtc.sdk.verto.receive.InviteResponse:
+    java.util.UUID callId -> a
+    java.lang.String callerIdName -> c
+    java.lang.String sdp -> b
+    java.lang.String sessionId -> e
+    java.lang.String callerIdNumber -> d
+    1:1:void <init>(java.util.UUID,java.lang.String,java.lang.String,java.lang.String,java.lang.String):54:54 -> <init>
+    1:1:java.util.UUID getCallId():46:46 -> getCallId
+    1:1:java.lang.String getCallerIdName():49:49 -> getCallerIdName
+    1:1:java.lang.String getCallerIdNumber():51:51 -> getCallerIdNumber
+    1:1:java.lang.String getSdp():47:47 -> getSdp
+    1:1:java.lang.String getSessionId():53:53 -> getSessionId
+com.telnyx.webrtc.sdk.verto.receive.LoginResponse -> com.telnyx.webrtc.sdk.verto.receive.LoginResponse:
+    java.lang.String sessid -> a
+    1:1:void <init>(java.lang.String):21:21 -> <init>
+    1:1:java.lang.String getSessid():21:21 -> getSessid
+com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody -> com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody:
+    com.telnyx.webrtc.sdk.verto.receive.ReceivedResult result -> b
+    java.lang.String method -> a
+    1:1:void <init>(java.lang.String,com.telnyx.webrtc.sdk.verto.receive.ReceivedResult):15:15 -> <init>
+    1:1:java.lang.String getMethod():15:15 -> getMethod
+    1:1:com.telnyx.webrtc.sdk.verto.receive.ReceivedResult getResult():15:15 -> getResult
+com.telnyx.webrtc.sdk.verto.receive.ReceivedResult -> com.telnyx.webrtc.sdk.verto.receive.ReceivedResult:
+    1:1:void <init>():14:14 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):14:14 -> <init>
+com.telnyx.webrtc.sdk.verto.receive.SocketObserver -> com.telnyx.webrtc.sdk.verto.receive.SocketObserver:
+    1:1:void <init>():10:10 -> <init>
+    1:1:void onChanged(java.lang.Object):10:10 -> onChanged
+    2:8:void onChanged(com.telnyx.webrtc.sdk.verto.receive.SocketResponse):19:25 -> onChanged
+    9:9:void onChanged(com.telnyx.webrtc.sdk.verto.receive.SocketResponse):24:24 -> onChanged
+    10:10:void onChanged(com.telnyx.webrtc.sdk.verto.receive.SocketResponse):23:23 -> onChanged
+    11:11:void onChanged(com.telnyx.webrtc.sdk.verto.receive.SocketResponse):22:22 -> onChanged
+com.telnyx.webrtc.sdk.verto.receive.SocketResponse -> com.telnyx.webrtc.sdk.verto.receive.SocketResponse:
+    com.telnyx.webrtc.sdk.model.SocketStatus status -> a
+    java.lang.Object data -> b
+    java.lang.String errorMessage -> c
+    1:1:void <init>(com.telnyx.webrtc.sdk.model.SocketStatus,java.lang.Object,java.lang.String):9:9 -> <init>
+    1:1:java.lang.Object getData():9:9 -> getData
+    1:1:java.lang.String getErrorMessage():9:9 -> getErrorMessage
+    1:1:com.telnyx.webrtc.sdk.model.SocketStatus getStatus():9:9 -> getStatus
+com.telnyx.webrtc.sdk.verto.receive.SocketResponse$Companion -> com.telnyx.webrtc.sdk.verto.receive.SocketResponse$Companion:
+    1:1:void <init>():10:10 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):10:10 -> <init>
+    1:1:com.telnyx.webrtc.sdk.verto.receive.SocketResponse error(java.lang.String):28:28 -> error
+    1:3:com.telnyx.webrtc.sdk.verto.receive.SocketResponse established():12:12 -> established
+    1:3:com.telnyx.webrtc.sdk.verto.receive.SocketResponse loading():32:32 -> loading
+    1:3:com.telnyx.webrtc.sdk.verto.receive.SocketResponse messageReceived(java.lang.Object):20:20 -> messageReceived
+com.telnyx.webrtc.sdk.verto.send.ByeDialogParams -> com.telnyx.webrtc.sdk.verto.send.ByeDialogParams:
+    java.util.UUID callId -> a
+    1:1:void <init>(java.util.UUID):13:13 -> <init>
+    1:1:java.util.UUID getCallId():13:13 -> getCallId
+com.telnyx.webrtc.sdk.verto.send.ByeParams -> com.telnyx.webrtc.sdk.verto.send.ByeParams:
+    com.telnyx.webrtc.sdk.verto.send.ByeDialogParams dialogParams -> d
+    java.lang.String sessid -> a
+    int causeCode -> b
+    java.lang.String cause -> c
+    1:1:void <init>(java.lang.String,int,java.lang.String,com.telnyx.webrtc.sdk.verto.send.ByeDialogParams):20:20 -> <init>
+    1:1:java.lang.String getCause():19:19 -> getCause
+    1:1:int getCauseCode():18:18 -> getCauseCode
+    1:1:com.telnyx.webrtc.sdk.verto.send.ByeDialogParams getDialogParams():19:19 -> getDialogParams
+    1:1:java.lang.String getSessid():18:18 -> getSessid
+com.telnyx.webrtc.sdk.verto.send.CallDialogParams -> com.telnyx.webrtc.sdk.verto.send.CallDialogParams:
+    java.lang.String clientState -> g
+    java.lang.String remoteCallerIdName -> i
+    java.util.UUID callId -> h
+    java.lang.String callerIdName -> k
+    java.lang.String callerIdNumber -> j
+    java.lang.String destinationNumber -> l
+    boolean audio -> e
+    java.util.ArrayList userVariables -> f
+    boolean useStereo -> a
+    boolean attach -> b
+    boolean video -> c
+    boolean screenShare -> d
+    1:1:void <init>(boolean,boolean,boolean,boolean,boolean,java.util.ArrayList,java.lang.String,java.util.UUID,java.lang.String,java.lang.String,java.lang.String,java.lang.String):15:15 -> <init>
+    2:14:void <init>(boolean,boolean,boolean,boolean,boolean,java.util.ArrayList,java.lang.String,java.util.UUID,java.lang.String,java.lang.String,java.lang.String,java.lang.String,int,kotlin.jvm.internal.DefaultConstructorMarker):20:32 -> <init>
+    1:1:boolean getAttach():16:16 -> getAttach
+    1:1:boolean getAudio():19:19 -> getAudio
+    1:1:java.util.UUID getCallId():24:24 -> getCallId
+    1:1:java.lang.String getCallerIdName():30:30 -> getCallerIdName
+    1:1:java.lang.String getCallerIdNumber():28:28 -> getCallerIdNumber
+    1:1:java.lang.String getClientState():22:22 -> getClientState
+    1:1:java.lang.String getDestinationNumber():32:32 -> getDestinationNumber
+    1:1:java.lang.String getRemoteCallerIdName():26:26 -> getRemoteCallerIdName
+    1:1:boolean getScreenShare():18:18 -> getScreenShare
+    1:1:boolean getUseStereo():15:15 -> getUseStereo
+    1:1:java.util.ArrayList getUserVariables():20:20 -> getUserVariables
+    1:1:boolean getVideo():17:17 -> getVideo
+com.telnyx.webrtc.sdk.verto.send.CallParams -> com.telnyx.webrtc.sdk.verto.send.CallParams:
+    com.telnyx.webrtc.sdk.verto.send.CallDialogParams dialogParams -> c
+    java.lang.String sessionId -> a
+    java.lang.String sdp -> b
+    1:1:void <init>(java.lang.String,java.lang.String,com.telnyx.webrtc.sdk.verto.send.CallDialogParams):16:16 -> <init>
+    1:1:com.telnyx.webrtc.sdk.verto.send.CallDialogParams getDialogParams():15:15 -> getDialogParams
+    1:1:java.lang.String getSdp():14:14 -> getSdp
+    1:1:java.lang.String getSessionId():14:14 -> getSessionId
+com.telnyx.webrtc.sdk.verto.send.DialogParams -> com.telnyx.webrtc.sdk.verto.send.DialogParams:
+    1:1:void <init>():11:11 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):11:11 -> <init>
+com.telnyx.webrtc.sdk.verto.send.LoginParam -> com.telnyx.webrtc.sdk.verto.send.LoginParam:
+    java.util.ArrayList loginParams -> f
+    java.lang.String login_token -> a
+    java.util.ArrayList userVariables -> e
+    java.lang.String passwd -> c
+    java.lang.String login -> b
+    java.lang.String fcmToken -> d
+    1:1:void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.util.ArrayList,java.util.ArrayList):12:12 -> <init>
+    1:1:java.lang.String getFcmToken():10:10 -> getFcmToken
+    1:1:java.lang.String getLogin():9:9 -> getLogin
+    1:1:java.util.ArrayList getLoginParams():11:11 -> getLoginParams
+    1:1:java.lang.String getLogin_token():9:9 -> getLogin_token
+    1:1:java.lang.String getPasswd():10:10 -> getPasswd
+    1:1:java.util.ArrayList getUserVariables():10:10 -> getUserVariables
+com.telnyx.webrtc.sdk.verto.send.ModifyParams -> com.telnyx.webrtc.sdk.verto.send.ModifyParams:
+    com.telnyx.webrtc.sdk.verto.send.CallDialogParams dialogParams -> c
+    java.lang.String sessid -> a
+    java.lang.String action -> b
+    1:1:void <init>(java.lang.String,java.lang.String,com.telnyx.webrtc.sdk.verto.send.CallDialogParams):24:24 -> <init>
+    1:1:java.lang.String getAction():22:22 -> getAction
+    1:1:com.telnyx.webrtc.sdk.verto.send.CallDialogParams getDialogParams():23:23 -> getDialogParams
+    1:1:java.lang.String getSessid():22:22 -> getSessid
+com.telnyx.webrtc.sdk.verto.send.ParamRequest -> com.telnyx.webrtc.sdk.verto.send.ParamRequest:
+    1:1:void <init>():7:7 -> <init>
+    2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):7:7 -> <init>
+com.telnyx.webrtc.sdk.verto.send.SendingMessageBody -> com.telnyx.webrtc.sdk.verto.send.SendingMessageBody:
+    com.telnyx.webrtc.sdk.verto.send.ParamRequest params -> c
+    java.lang.String id -> a
+    java.lang.String method -> b
+    java.lang.String jsonrpc -> d
+    1:1:void <init>(java.lang.String,java.lang.String,com.telnyx.webrtc.sdk.verto.send.ParamRequest,java.lang.String):16:16 -> <init>
+    2:2:void <init>(java.lang.String,java.lang.String,com.telnyx.webrtc.sdk.verto.send.ParamRequest,java.lang.String,int,kotlin.jvm.internal.DefaultConstructorMarker):16:16 -> <init>
+    1:1:java.lang.String getId():16:16 -> getId
+    1:1:java.lang.String getJsonrpc():16:16 -> getJsonrpc
+    1:1:java.lang.String getMethod():16:16 -> getMethod
+    1:1:com.telnyx.webrtc.sdk.verto.send.ParamRequest getParams():16:16 -> getParams

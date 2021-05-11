@@ -4,7 +4,7 @@ name: Test, deploy and generate docs
 
 ## Actions that will be executed when you push code currently none
 on:
-  push:
+  workflow_dispatch:
 
 ## 2
 jobs:
@@ -19,7 +19,7 @@ jobs:
 
   # 4 Instrument test script
   android_tests:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
 
@@ -36,13 +36,14 @@ jobs:
       - name: Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 30
+          profile: Nexus 6
           script: ./gradlew connectedAndroidTest
 
     # Build test script
   build:
     needs: [unit_tests, android_tests]
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       # 1
       - name: Checkout code

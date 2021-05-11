@@ -21,7 +21,7 @@ versions.dexter = "6.2.2"
 versions.googleservices = "4.3.4"
 versions.volley = "1.1.1"
 versions.firebasebom = "26.3.0"
-versions.hilt = "2.31.2-alpha"
+versions.hilt = "2.35.1"
 
 ext.versions = versions
 

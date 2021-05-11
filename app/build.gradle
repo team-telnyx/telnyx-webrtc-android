@@ -27,6 +27,14 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
+        }
+        debug {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
         }
     }
     compileOptions {
@@ -57,8 +65,10 @@ dependencies {
     implementation deps.material
     implementation deps.constraint_layout
 
+    //implementation 'com.telnyx.webrtc.sdk.telnyx_rtc:telnyx_rtc:0.0.5'
+
     // SDK:
-    implementation project(':sdk')
+    implementation project(':telnyx_rtc')
 
     implementation deps.webrtc
 

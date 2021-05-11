@@ -1,3 +1,7 @@
+/*
+ * Copyright © 2021 Telnyx LLC. All rights reserved.
+ */
+
 package com.telnyx.webrtc.sdk.ui
 
 import android.Manifest.permission.*
@@ -10,7 +14,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.FirebaseApp
 import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
@@ -184,8 +187,8 @@ class MainActivity : AppCompatActivity() {
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
-                caller_id_name_id.text.toString(),
-                caller_id_number_id.text.toString(),
+                userManager.calledIdName,
+                userManager.callerIdNumber,
                 call_input_id.text.toString(),
                 "Sample Client State"
             )

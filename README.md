@@ -30,22 +30,19 @@ Enable Telnyx real-time communication services on Android :telephone_receiver: :
             </p>
             
  ## Usage
- 
- ### Telnyx Socket Connection
-Before creating and logging in to the TelnyxClient you will have to initialize a Socket Connection for the TelnyxClient to interact with. We do this by instantiating TxSocket with host and port parameters:
-
-```kotlin
- socketConnection = TxSocket(
-      host_address = "rtc.telnyx.com",
-      port = 14938
- )
-```
 
 ### Telnyx Client
-To initialize the TelnyxClient you will have to provide the application context as well as the socket connection that you just instanstiated. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
+NOTE:
+       Remember to add and handle INTERNET, RECORD_AUDIO and ACCESS_NETWORK_STATE permissions
+       
+   <p align="center">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png">
+            </p>
+
+To initialize the TelnyxClient you will have to provide the application context. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
 
 ```kotlin
-  telnyxClient = TelnyxClient(context, socketConnection)
+  telnyxClient = TelnyxClient(context)
   telnyxClient.connect()
 ```
 
@@ -130,6 +127,16 @@ We can then use this method to create a listener that listens for an invitation 
                         }
                     }
                 }
+                
+                override fun onLoading() {
+                    // Show loading dialog
+                }
+
+                override fun onError(message: String?) {
+                   // Handle errors - Update UI or Navigate to new screen, etc.
+                }
+
+            })
 ```
 
 When we receive a call we will receive an InviteResponse data class that contains the details we need to accept the call. We can then call the acceptCall method in TelnyxClient from our ViewModel:

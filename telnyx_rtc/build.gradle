@@ -1,0 +1,231 @@
+plugins {
+    id 'com.android.library'
+    id 'kotlin-android'
+    id 'kotlin-kapt'
+    id 'dagger.hilt.android.plugin'
+    id 'org.jetbrains.dokka'
+    id 'maven-publish'
+}
+
+apply plugin: 'maven-publish'
+
+def githubProperties = new Properties()
+githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
+
+def getVersionName = { ->
+    return "0.0.24"
+}
+
+def getArtificatId = { ->
+    return "telnyx_rtc"
+}
+
+task sourceJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier "sources"
+}
+
+publishing {
+    publications {
+        bar(MavenPublication) {
+            groupId 'com.telnyx.webrtc.sdk.telnyx_rtc'
+            artifactId getArtificatId()
+            version getVersionName()
+            artifact("$buildDir/outputs/aar/${getArtificatId()}-release.aar")
+            artifact(sourceJar)
+            pom.withXml {
+                final dependenciesNode = asNode().appendNode('dependencies')
+                ext.addDependency = { Dependency dep, String scope ->
+                    if (dep.group == null || dep.version == null || dep.name == null || dep.name == "unspecified")
+                        return // ignore invalid dependencies
+                    final dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', dep.group)
+                    dependencyNode.appendNode('artifactId', dep.name)
+                    dependencyNode.appendNode('version', dep.version)
+                    dependencyNode.appendNode('scope', scope)
+                    if (!dep.transitive) {
+                        final exclusionNode = dependencyNode.appendNode('exclusions').appendNode('exclusion')
+                        exclusionNode.appendNode('groupId', '*')
+                        exclusionNode.appendNode('artifactId', '*')
+                    } else if (!dep.properties.excludeRules.empty) {
+                        final exclusionNode = dependencyNode.appendNode('exclusions').appendNode('exclusion')
+                        dep.properties.excludeRules.each { ExcludeRule rule ->
+                            exclusionNode.appendNode('groupId', rule.group ?: '*')
+                            exclusionNode.appendNode('artifactId', rule.module ?: '*')
+                        }
+                    }
+                }
+                configurations.compile.getDependencies().each { dep -> addDependency(dep, "compile") }
+
+                configurations.api.getDependencies().each { dep -> addDependency(dep, "compile") }
+
+                configurations.implementation.getDependencies().each { dep -> addDependency(dep, "runtime") }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/team-telnyx/telnyx-webrtc-android")
+            credentials {
+                username = githubProperties['gpr.usr'] ?: System.getenv("GPR_USER")
+                password = githubProperties['gpr.key'] ?: System.getenv("GPR_API_KEY")
+            }
+        }
+    }
+}
+
+
+dokkaHtml.configure {
+    dokkaSourceSets {
+        named("main") {
+            noAndroidSdkLink.set(false)
+        }
+    }
+}
+
+
+android {
+    compileSdkVersion 30
+    buildToolsVersion "30.0.3"
+
+    defaultConfig {
+        minSdkVersion 23
+        targetSdkVersion 30
+        versionCode 1
+        versionName "1.0"
+
+        multiDexEnabled true
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles 'proguard-rules.txt'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
+        }
+        debug {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+
+    implementation deps.kotlin.stdlib
+    implementation deps.androidx_core
+    implementation deps.appcompat
+    implementation deps.material
+    implementation deps.constraint_layout
+
+    implementation deps.webrtc
+
+    implementation deps.gson
+    implementation deps.retrofit.runtime
+    implementation deps.retrofit.gson
+
+
+    implementation deps.coroutines.core
+    implementation deps.coroutines.android
+
+    implementation deps.websocket
+
+    implementation deps.okhttp
+    implementation deps.interceptor
+
+    implementation deps.ktor.android
+    implementation deps.ktor.cio
+    implementation deps.ktor.gson
+    implementation deps.ktor.websockets
+    implementation deps.ktor.okhttp
+    implementation 'androidx.lifecycle:lifecycle-process:2.3.1'
+    testImplementation deps.ktor.client_test
+
+    // Volley
+    implementation deps.volley
+
+    // Firebase
+    implementation platform(deps.firebasebom)
+    implementation deps.firebase_analytics
+    implementation deps.firebase_messaging
+
+    // Timber
+    implementation deps.timber
+
+    //permissions
+    implementation deps.dexter
+
+    implementation deps.hilt.android
+    kapt deps.hilt.compiler
+
+    //Testing:
+    testImplementation "androidx.arch.core:core-testing:2.1.0"
+    androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.4.3'
+    testImplementation('org.robolectric:robolectric:4.5.1') {
+        exclude group: 'com.google.protobuf'
+    }
+    testImplementation "io.mockk:mockk:1.10.4"
+    testImplementation "com.squareup.okhttp3:mockwebserver:4.9.0"
+    testImplementation 'org.hamcrest:hamcrest-library:2.2'
+
+    // jUnit 4
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation "org.junit.vintage:junit-vintage-engine:5.7.0"
+    testImplementation "androidx.test:core-ktx:1.3.0"
+
+    // jUnit 5
+    def jupiter_version = "5.7.0"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$jupiter_version"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$jupiter_version"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:$jupiter_version"
+
+    def kotest_version = "4.3.2"
+    testImplementation "io.kotest:kotest-runner-junit5:$kotest_version"
+    testImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
+    testImplementation "io.kotest:kotest-property-jvm:$kotest_version"
+    androidTestImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
+    androidTestImplementation "io.kotest:kotest-property-jvm:$kotest_version"
+
+    testImplementation "org.slf4j:slf4j-nop:1.7.25"
+
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+
+
+    // Testing - Instrumentation
+    androidTestImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.3.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+    testImplementation 'androidx.test:rules:1.3.0'
+    androidTestImplementation 'androidx.test.ext:truth:1.3.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
+    androidTestImplementation 'androidx.work:work-testing:2.5.0'
+    androidTestImplementation "io.mockk:mockk-android:1.10.4"
+    debugImplementation 'androidx.fragment:fragment-testing:1.3.2'
+    debugImplementation 'androidx.test:core-ktx:1.3.0'
+
+    testImplementation "org.mockito:mockito-inline:3.8.0"
+    androidTestImplementation "org.mockito:mockito-android:3.8.0"
+
+    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+}
