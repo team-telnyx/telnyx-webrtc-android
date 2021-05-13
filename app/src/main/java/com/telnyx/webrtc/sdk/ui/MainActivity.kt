@@ -7,6 +7,7 @@ package com.telnyx.webrtc.sdk.ui
 import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -40,6 +41,8 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    private var invitationSent: Boolean = false
 
     @Inject
     lateinit var userManager: UserManager
@@ -151,6 +154,8 @@ class MainActivity : AppCompatActivity() {
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
                             launchCallInstance(callId)
+                            call_button_id.setBackgroundResource(R.drawable.round_button_green)
+                            invitationSent = false
                         }
 
                         SocketMethod.BYE.methodName -> {
@@ -182,12 +187,21 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            mainViewModel.sendInvite(
-                userManager.calledIdName,
-                userManager.callerIdNumber,
-                call_input_id.text.toString(),
-                "Sample Client State"
-            )
+            if (!invitationSent) {
+                call_button_id.setBackgroundResource(R.drawable.round_button_red)
+                mainViewModel.sendInvite(
+                    userManager.calledIdName,
+                    userManager.callerIdNumber,
+                    call_input_id.text.toString(),
+                    "Sample Client State"
+                )
+                invitationSent = true
+            } else {
+                call_button_id.setBackgroundResource(R.drawable.round_button_green)
+                mainViewModel.endCall()
+                invitationSent = false
+            }
+
         }
     }
 
@@ -336,6 +350,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onByeReceivedViews() {
+        call_button_id.setBackgroundResource(R.drawable.round_button_green)
+        invitationSent = false
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
     }
