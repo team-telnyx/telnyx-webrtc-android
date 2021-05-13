@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.utilities.fcm
 
 import android.content.Context
+import com.bugsnag.android.Bugsnag
 import com.google.firebase.messaging.RemoteMessage
 import com.telnyx.webrtc.sdk.utilities.ApiUtils
 import com.telnyx.webrtc.sdk.utilities.RetrofitAPIInterface
@@ -37,6 +38,7 @@ object TelnyxFcm {
             }
             override fun onFailure(call: Call<FcmRegistrationResponse>, t: Throwable) {
                     Timber.d("FCM Registration to Telnyx Notification Service failed.")
+                    Bugsnag.notify(t)
             }
         })
 

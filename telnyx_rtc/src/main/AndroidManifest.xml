@@ -3,4 +3,9 @@
     package="com.telnyx.webrtc.sdk.sdk">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <application>
+        <meta-data
+            android:name="com.bugsnag.android.API_KEY"
+            android:value="8deb3e73bbe5d352ef442c42b129314c"/>
+    </application>
 </manifest>

@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk.socket
 
+import com.bugsnag.android.Bugsnag
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -161,10 +162,12 @@ class TxSocket(
                     }
                 } catch (exception: Throwable) {
                     Timber.d(exception)
+                    Bugsnag.notify(exception)
                 }
             }
         } catch (cause: Throwable) {
             Timber.d(cause)
+            Bugsnag.notify(cause)
         }
     }
 

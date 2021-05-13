@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
+import com.bugsnag.android.Bugsnag
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -134,6 +135,10 @@ class TelnyxClient(
     }
 
     init {
+
+        //Initialize BugSnag
+        Bugsnag.start(context)
+
         socket = TxSocket(
             host_address = Config.TELNYX_HOST_ADDRESS,
             port = Config.TELNYX_PORT

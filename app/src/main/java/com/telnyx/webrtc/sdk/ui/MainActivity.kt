@@ -182,6 +182,8 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
+            //Change view / change button
+
             mainViewModel.sendInvite(
                 userManager.calledIdName,
                 userManager.callerIdNumber,
@@ -278,7 +280,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun getFCMToken() {
+    private fun getFCMToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
