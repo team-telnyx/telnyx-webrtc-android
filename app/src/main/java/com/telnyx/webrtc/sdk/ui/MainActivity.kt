@@ -154,7 +154,8 @@ class MainActivity : AppCompatActivity() {
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
                             launchCallInstance(callId)
-                            call_button_id.setBackgroundResource(R.drawable.round_button_green)
+                            call_button_id.visibility = View.VISIBLE
+                            cancel_call_button_id.visibility = View.GONE
                             invitationSent = false
                         }
 
@@ -187,21 +188,19 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            if (!invitationSent) {
-                call_button_id.setBackgroundResource(R.drawable.round_button_red)
-                mainViewModel.sendInvite(
-                    userManager.calledIdName,
-                    userManager.callerIdNumber,
-                    call_input_id.text.toString(),
-                    "Sample Client State"
-                )
-                invitationSent = true
-            } else {
-                call_button_id.setBackgroundResource(R.drawable.round_button_green)
-                mainViewModel.endCall()
-                invitationSent = false
-            }
-
+            mainViewModel.sendInvite(
+                userManager.calledIdName,
+                userManager.callerIdNumber,
+                call_input_id.text.toString(),
+                "Sample Client State"
+            )
+            call_button_id.visibility = View.GONE
+            cancel_call_button_id.visibility = View.VISIBLE
+        }
+        cancel_call_button_id.setOnClickListener {
+            mainViewModel.endCall()
+            call_button_id.visibility = View.VISIBLE
+            cancel_call_button_id.visibility = View.GONE
         }
     }
 
@@ -350,10 +349,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onByeReceivedViews() {
-        call_button_id.setBackgroundResource(R.drawable.round_button_green)
         invitationSent = false
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
+        call_button_id.visibility = View.VISIBLE
+        cancel_call_button_id.visibility = View.GONE
     }
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {

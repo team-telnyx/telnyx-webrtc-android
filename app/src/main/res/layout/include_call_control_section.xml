@@ -29,6 +29,20 @@
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintTop_toBottomOf="@id/call_input_id"/>
 
+    <ImageButton
+        android:id="@+id/cancel_call_button_id"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginBottom="@dimen/spacing_small"
+        android:src="@drawable/ic_call_white"
+        android:background="@drawable/round_button_red"
+        android:gravity="center_vertical|center_horizontal"
+        android:layout_marginTop="@dimen/spacing_medium"
+        app:layout_constraintStart_toStartOf="@id/guideline_start"
+        app:layout_constraintEnd_toEndOf="@id/guideline_end"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/call_input_id"/>
+
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"
         android:layout_width="wrap_content"

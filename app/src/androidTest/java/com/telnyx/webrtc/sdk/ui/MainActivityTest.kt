@@ -17,6 +17,7 @@ import androidx.test.rule.ActivityTestRule
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
+import io.kotest.matchers.string.match
 import org.hamcrest.Matchers.allOf
 import org.junit.After
 import org.junit.Before
@@ -92,6 +93,24 @@ class MainActivityTest : BaseUITest() {
                 .perform(ViewActions.closeSoftKeyboard())
                 .perform(ViewActions.click())
             Thread.sleep(2000)
+        }
+    }
+
+    @Test
+    fun onSendInviteCanBeCancelled() {
+        assertDoesNotThrow {
+            activityRule.launchActivity(null)
+            onView(withId(R.id.connect_button_id))
+                .perform(ViewActions.closeSoftKeyboard())
+                .perform(ViewActions.click())
+            Thread.sleep(2000)
+
+            onView(withId(R.id.call_button_id))
+                .perform(ViewActions.closeSoftKeyboard())
+                .perform(ViewActions.click())
+
+            onView(withId(R.id.cancel_call_button_id))
+                .check(matches(isDisplayed()))
         }
     }
 
