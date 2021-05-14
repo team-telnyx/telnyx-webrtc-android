@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.telnyx.webrtc.sdk.sdk">
+    package="com.telnyx.webrtc.sdk.telnyx_rtc">
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <application>
+        <meta-data android:name="com.bugsnag.android.APP_TYPE"
+            android:value="telnyx_rtc"/>
+        <meta-data android:name="com.bugsnag.android.PROJECT_PACKAGES"
+            android:value="com.telnyx.webrtc.sdk.telnyx_rtc"/>
+        <meta-data android:name="com.bugsnag.android.SEND_THREADS"
+            android:value="ALWAYS"/>
         <meta-data
             android:name="com.bugsnag.android.API_KEY"
             android:value="8deb3e73bbe5d352ef442c42b129314c"/>

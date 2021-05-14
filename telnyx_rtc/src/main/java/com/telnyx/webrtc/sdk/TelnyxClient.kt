@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
-import com.telnyx.webrtc.sdk.sdk.BuildConfig
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -27,6 +27,8 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Configuration
+import com.bugsnag.android.ThreadSendPolicy
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -137,6 +139,11 @@ class TelnyxClient(
     init {
 
         //Initialize BugSnag
+        val config = Configuration.load(context)
+        config.projectPackages = setOf("com.telnyx.webrtc.sdk.telnyx_rtc")
+        config.sendThreads = ThreadSendPolicy.ALWAYS
+        config.enabledErrorTypes.anrs = false
+        config.appType = "telnyx_rtc"
         Bugsnag.start(context)
 
         socket = TxSocket(
