@@ -213,7 +213,7 @@ class MainActivity : AppCompatActivity() {
                 hasEmptyFileds = true
             }
         } else {
-            if (sip_username_id.text.isEmpty() || sip_token_id.text.isEmpty()) {
+            if (sip_username_id.text.isEmpty() || sip_password_id.text.isEmpty()) {
                 showEmptyFieldsToast()
                 hasEmptyFileds = true
             }
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun mockInputs() {
         sip_username_id.setText(MOCK_USERNAME)
-        password_id.setText(MOCK_PASSWORD)
+        sip_password_id.setText(MOCK_PASSWORD)
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)
@@ -294,7 +294,7 @@ class MainActivity : AppCompatActivity() {
 
         } else {
             val sipUsername = sip_username_id.text.toString()
-            val password = password_id.text.toString()
+            val password = sip_password_id.text.toString()
             val sipCallerName = caller_id_name_id.text.toString()
             val sipCallerNumber = caller_id_number_id.text.toString()
 
@@ -352,7 +352,7 @@ class MainActivity : AppCompatActivity() {
             //Set Shared Preferences now that user has logged in - storing the session:
             mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
-                password_id.text.toString(),
+                sip_password_id.text.toString(),
                 fcmToken,
                 caller_id_name_id.text.toString(),
                 caller_id_number_id.text.toString()
