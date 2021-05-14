@@ -62,10 +62,14 @@ class TelnyxClient(
 
     /**
      * Build a call containing all required parameters.
+     * Will return null if there has been no session established (No successful connection and login)
      * @return [Call]
      */
-    private fun buildCall(): Call {
-        return Call(context, this, socket, sessionId!!, audioManager!!)
+    private fun buildCall(): Call? {
+        sessionId?.let {
+            return Call(context, this, socket, sessionId!!, audioManager!!)
+        }
+        return null
     }
 
     /**
