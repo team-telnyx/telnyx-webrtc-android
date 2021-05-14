@@ -17,7 +17,6 @@ import androidx.test.rule.ActivityTestRule
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
-import io.kotest.matchers.string.match
 import org.hamcrest.Matchers.allOf
 import org.junit.After
 import org.junit.Before

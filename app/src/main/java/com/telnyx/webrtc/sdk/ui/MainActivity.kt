@@ -7,7 +7,6 @@ package com.telnyx.webrtc.sdk.ui
 import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -185,7 +184,9 @@ class MainActivity : AppCompatActivity() {
         handleUserLoginState()
 
         connect_button_id.setOnClickListener {
-            connectButtonPressed()
+            if (!hasLoginEmptyFields()) {
+                connectButtonPressed()
+            }
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
@@ -202,6 +203,26 @@ class MainActivity : AppCompatActivity() {
             call_button_id.visibility = View.VISIBLE
             cancel_call_button_id.visibility = View.GONE
         }
+    }
+
+    private fun hasLoginEmptyFields(): Boolean {
+        var hasEmptyFileds = false
+        if (token_login_switch.isChecked) {
+            if (sip_token_id.text.isEmpty()) {
+                showEmptyFieldsToast()
+                hasEmptyFileds = true
+            }
+        } else {
+            if (sip_username_id.text.isEmpty() || sip_token_id.text.isEmpty()) {
+                showEmptyFieldsToast()
+                hasEmptyFileds = true
+            }
+        }
+        return hasEmptyFileds
+    }
+
+    private fun showEmptyFieldsToast() {
+        Toast.makeText(this, getString(R.string.empty_msj_toast), Toast.LENGTH_LONG).show()
     }
 
     private fun mockInputs() {
