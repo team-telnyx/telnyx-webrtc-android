@@ -166,6 +166,8 @@ class TxSocket(
                     Bugsnag.notify(exception) { event ->
                         // Add extra information
                         event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
+                        //This is not an issue, the coroutine has just been cancelled
+                        event.severity = Severity.INFO
                         true
                     }
                 }
