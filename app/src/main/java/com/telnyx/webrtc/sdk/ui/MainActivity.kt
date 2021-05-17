@@ -182,8 +182,6 @@ class MainActivity : AppCompatActivity() {
             connectButtonPressed()
         }
         call_button_id.setOnClickListener {
-            //Change view / change button
-
             mainViewModel.sendInvite(
                 userManager.calledIdName,
                 userManager.callerIdNumber,
