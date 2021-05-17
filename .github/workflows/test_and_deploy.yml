@@ -42,7 +42,7 @@ jobs:
 
     # Build test script
   build:
-    needs: [unit_tests, android_tests]
+    needs: [unit_tests]
     runs-on: macos-latest
     steps:
       # 1
