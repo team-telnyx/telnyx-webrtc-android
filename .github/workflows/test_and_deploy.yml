@@ -18,27 +18,27 @@ jobs:
         run: ./gradlew test
 
   # 4 Instrument test script
-  android_tests:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v2
+    #android_tests:
+    #runs-on: macos-latest
+      #steps:
+      #- uses: actions/checkout@v2
 
-      - name: Grant execute permission for script
-        run: chmod +x ./scripts/setup_env.sh
+        #- name: Grant execute permission for script
+      # run: chmod +x ./scripts/setup_env.sh
 
-      - shell: bash
-        env:
-          TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
-          TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-          TELNYX_SIP_TOKEN: ${{ secrets.TELNYX_SIP_TOKEN }}
-        run: |
-          sh ./scripts/setup_env.sh -u "$TELNYX_SIP_USER" -p "$TELNYX_SIP_PASSWORD" -t "$TELNYX_SIP_TOKEN"
-      - name: Instrumentation Tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          profile: Nexus 6
-          script: ./gradlew connectedAndroidTest
+        #- shell: bash
+          #env:
+          #TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
+          #TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        #TELNYX_SIP_TOKEN: ${{ secrets.TELNYX_SIP_TOKEN }}
+          #run: |
+        #sh ./scripts/setup_env.sh -u "$TELNYX_SIP_USER" -p "$TELNYX_SIP_PASSWORD" -t "$TELNYX_SIP_TOKEN"
+        #- name: Instrumentation Tests
+        # uses: reactivecircus/android-emulator-runner@v2
+          # with:
+          #api-level: 30
+          #profile: Nexus 6
+        #script: ./gradlew connectedAndroidTest
 
     # Build test script
   build:

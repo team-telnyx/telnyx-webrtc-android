@@ -4,6 +4,8 @@
 
 package com.telnyx.webrtc.sdk.socket
 
+import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Severity
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -161,10 +163,25 @@ class TxSocket(
                     }
                 } catch (exception: Throwable) {
                     Timber.d(exception)
+                    Bugsnag.notify(exception) { event ->
+                        // Add extra information
+                        event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
+                        //This is not an issue, the coroutine has just been cancelled
+                        event.severity = Severity.INFO
+                        true
+                    }
                 }
             }
         } catch (cause: Throwable) {
             Timber.d(cause)
+            Bugsnag.notify(cause) { event ->
+                // Add extra information
+                event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
+                //This is not an issue, the coroutine has just been cancelled
+                event.severity = Severity.INFO
+                true
+            }
+
         }
     }
 

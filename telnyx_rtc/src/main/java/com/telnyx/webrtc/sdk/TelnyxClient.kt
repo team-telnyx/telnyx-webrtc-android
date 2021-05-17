@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
-import com.telnyx.webrtc.sdk.sdk.BuildConfig
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -26,6 +26,9 @@ import kotlinx.coroutines.cancel
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
+import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Configuration
+import com.bugsnag.android.ThreadSendPolicy
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -59,10 +62,14 @@ class TelnyxClient(
 
     /**
      * Build a call containing all required parameters.
+     * Will return null if there has been no session established (No successful connection and login)
      * @return [Call]
      */
-    private fun buildCall(): Call {
-        return Call(context, this, socket, sessionId!!, audioManager!!)
+    private fun buildCall(): Call? {
+        sessionId?.let {
+            return Call(context, this, socket, sessionId!!, audioManager!!)
+        }
+        return null
     }
 
     /**
@@ -134,6 +141,15 @@ class TelnyxClient(
     }
 
     init {
+
+        //Initialize BugSnag
+        val config = Configuration.load(context)
+        config.projectPackages = setOf("com.telnyx.webrtc.sdk.telnyx_rtc")
+        config.sendThreads = ThreadSendPolicy.ALWAYS
+        config.enabledErrorTypes.anrs = false
+        config.appType = "telnyx_rtc"
+        Bugsnag.start(context)
+
         socket = TxSocket(
             host_address = Config.TELNYX_HOST_ADDRESS,
             port = Config.TELNYX_PORT

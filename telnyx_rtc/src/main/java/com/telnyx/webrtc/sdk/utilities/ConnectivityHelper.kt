@@ -9,6 +9,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import com.bugsnag.android.Bugsnag
 import timber.log.Timber
 
 /**
@@ -31,6 +32,7 @@ object ConnectivityHelper {
             manager.unregisterNetworkCallback(callback)
         } catch (e: Exception) {
             Timber.e(e,"unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
+            Bugsnag.notify(e)
         }
     }
 
@@ -55,6 +57,7 @@ object ConnectivityHelper {
             manager.registerNetworkCallback(request, callback)
         } catch (e: Exception) {
             Timber.e(e,"registerNetworkStatusCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
+            Bugsnag.notify(e)
         }
     }
 
