@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SDK Test</string>
+    <string name="app_name">Telnyx WebRTC</string>
     <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
     <string name="connect">connect</string>
     <string name="socket">Socket:</string>

@@ -312,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun getFCMToken() {
+    private fun getFCMToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")

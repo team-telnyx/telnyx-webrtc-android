@@ -8,6 +8,8 @@ plugins {
 }
 
 apply plugin: 'maven-publish'
+apply plugin: "com.bugsnag.android.gradle"
+
 
 def githubProperties = new Properties()
 githubProperties.load(new FileInputStream(rootProject.file("github.properties")))
@@ -158,6 +160,9 @@ dependencies {
     implementation deps.ktor.okhttp
     implementation 'androidx.lifecycle:lifecycle-process:2.3.1'
     testImplementation deps.ktor.client_test
+
+    //BugSnag:
+    implementation deps.bugsnag
 
     // Volley
     implementation deps.volley
