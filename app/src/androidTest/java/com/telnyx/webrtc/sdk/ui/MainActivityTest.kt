@@ -7,7 +7,6 @@ import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu
 import androidx.test.espresso.UiController
 import androidx.test.espresso.ViewAction
-import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.intent.Intents
@@ -73,10 +72,11 @@ class MainActivityTest : BaseUITest() {
             .perform(closeSoftKeyboard())
             .perform(click())
         onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
-        onView(withId(R.id.sip_username_id)).perform(typeText("SIP_USER"))
+        onView(withId(R.id.sip_username_id)).perform(setTextInTextView("SIP_USER"))
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
             .perform(click())
+        Thread.sleep(1500)
         onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
     }
 
@@ -88,10 +88,11 @@ class MainActivityTest : BaseUITest() {
             .perform(closeSoftKeyboard())
             .perform(click())
         onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
-        onView(withId(R.id.sip_password_id)).perform(typeText("SIP_PWD"))
+        onView(withId(R.id.sip_password_id)).perform(setTextInTextView("SIP_PWD"))
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
             .perform(click())
+        Thread.sleep(1500)
         onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
     }
 
