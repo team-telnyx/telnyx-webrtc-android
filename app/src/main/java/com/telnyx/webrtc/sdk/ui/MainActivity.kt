@@ -41,6 +41,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
+    private var invitationSent: Boolean = false
+
     @Inject
     lateinit var userManager: UserManager
 
@@ -151,6 +153,9 @@ class MainActivity : AppCompatActivity() {
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
                             launchCallInstance(callId)
+                            call_button_id.visibility = View.VISIBLE
+                            cancel_call_button_id.visibility = View.GONE
+                            invitationSent = false
                         }
 
                         SocketMethod.BYE.methodName -> {
@@ -179,7 +184,9 @@ class MainActivity : AppCompatActivity() {
         handleUserLoginState()
 
         connect_button_id.setOnClickListener {
-            connectButtonPressed()
+            if (!hasLoginEmptyFields()) {
+                connectButtonPressed()
+            }
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
@@ -188,12 +195,39 @@ class MainActivity : AppCompatActivity() {
                 call_input_id.text.toString(),
                 "Sample Client State"
             )
+            call_button_id.visibility = View.GONE
+            cancel_call_button_id.visibility = View.VISIBLE
         }
+        cancel_call_button_id.setOnClickListener {
+            mainViewModel.endCall()
+            call_button_id.visibility = View.VISIBLE
+            cancel_call_button_id.visibility = View.GONE
+        }
+    }
+
+    private fun hasLoginEmptyFields(): Boolean {
+        var hasEmptyFileds = false
+        if (token_login_switch.isChecked) {
+            if (sip_token_id.text.isEmpty()) {
+                showEmptyFieldsToast()
+                hasEmptyFileds = true
+            }
+        } else {
+            if (sip_username_id.text.isEmpty() || sip_password_id.text.isEmpty()) {
+                showEmptyFieldsToast()
+                hasEmptyFileds = true
+            }
+        }
+        return hasEmptyFileds
+    }
+
+    private fun showEmptyFieldsToast() {
+        Toast.makeText(this, getString(R.string.empty_msj_toast), Toast.LENGTH_LONG).show()
     }
 
     private fun mockInputs() {
         sip_username_id.setText(MOCK_USERNAME)
-        password_id.setText(MOCK_PASSWORD)
+        sip_password_id.setText(MOCK_PASSWORD)
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)
@@ -260,7 +294,7 @@ class MainActivity : AppCompatActivity() {
 
         } else {
             val sipUsername = sip_username_id.text.toString()
-            val password = password_id.text.toString()
+            val password = sip_password_id.text.toString()
             val sipCallerName = caller_id_name_id.text.toString()
             val sipCallerNumber = caller_id_number_id.text.toString()
 
@@ -318,7 +352,7 @@ class MainActivity : AppCompatActivity() {
             //Set Shared Preferences now that user has logged in - storing the session:
             mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
-                password_id.text.toString(),
+                sip_password_id.text.toString(),
                 fcmToken,
                 caller_id_name_id.text.toString(),
                 caller_id_number_id.text.toString()
@@ -336,8 +370,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onByeReceivedViews() {
+        invitationSent = false
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
+        call_button_id.visibility = View.VISIBLE
+        cancel_call_button_id.visibility = View.GONE
     }
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {

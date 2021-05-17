@@ -88,8 +88,13 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
-    fun endCall(callId: UUID) {
-        telnyxClient?.call?.endCall(callId)
+    fun endCall(callId: UUID? = null) {
+        callId?.let {
+            telnyxClient?.call?.endCall(callId)
+        } ?: run {
+            val clientCallId = telnyxClient?.call?.callId
+            clientCallId?.let { telnyxClient?.call?.endCall(it) }
+        }
         previousCall?.let {
             currentCall = it
         }

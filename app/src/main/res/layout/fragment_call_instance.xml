@@ -23,11 +23,10 @@
       android:id="@+id/end_call_id"
       android:layout_width="100dp"
       android:layout_height="100dp"
-      android:background="@drawable/round_button"
+      android:background="@drawable/round_button_red"
       android:gravity="center_vertical|center_horizontal"
       android:src="@drawable/ic_call_end_white"
       android:layout_marginBottom="@dimen/spacing_huge"
-      app:backgroundTint="@color/reject_red"
       app:layout_constraintTop_toBottomOf="@+id/call_timer_id"
       app:layout_constraintEnd_toStartOf="@id/guideline_end"
       app:layout_constraintStart_toEndOf="@id/guideline_start"/>

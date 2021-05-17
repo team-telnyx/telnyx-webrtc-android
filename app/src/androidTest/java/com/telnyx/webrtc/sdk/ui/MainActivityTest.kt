@@ -7,7 +7,7 @@ import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu
 import androidx.test.espresso.UiController
 import androidx.test.espresso.ViewAction
-import androidx.test.espresso.action.ViewActions
+import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.matcher.ViewMatchers.*
@@ -57,11 +57,43 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(1500)
             onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)));
         }
+    }
+
+    @Test
+    fun testEmptyLoginDoesNotLaunchAndConnect() {
+        activityRule.launchActivity(null)
+        onView(withId(R.id.sip_username_id)).perform(clearText())
+        onView(withId(R.id.connect_button_id))
+            .perform(closeSoftKeyboard())
+            .perform(click())
+        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
+        onView(withId(R.id.sip_username_id)).perform(setTextInTextView("SIP_USER"))
+        onView(withId(R.id.connect_button_id))
+            .perform(closeSoftKeyboard())
+            .perform(click())
+        Thread.sleep(1500)
+        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
+    }
+
+    @Test
+    fun testEmptyPwdDoesNotLaunchAndConnect() {
+        activityRule.launchActivity(null)
+        onView(withId(R.id.sip_password_id)).perform(clearText())
+        onView(withId(R.id.connect_button_id))
+            .perform(closeSoftKeyboard())
+            .perform(click())
+        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
+        onView(withId(R.id.sip_password_id)).perform(setTextInTextView("SIP_PWD"))
+        onView(withId(R.id.connect_button_id))
+            .perform(closeSoftKeyboard())
+            .perform(click())
+        Thread.sleep(1500)
+        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
     }
 
     @Test
@@ -69,13 +101,13 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(1500)
 
             openActionBarOverflowOrOptionsMenu(context);
             onView(withText("Disconnect"))
-                .perform(ViewActions.click())
+                .perform(click())
         }
     }
 
@@ -84,14 +116,32 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.call_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
+        }
+    }
+
+    @Test
+    fun onSendInviteCanBeCancelled() {
+        assertDoesNotThrow {
+            activityRule.launchActivity(null)
+            onView(withId(R.id.connect_button_id))
+                .perform(closeSoftKeyboard())
+                .perform(click())
+            Thread.sleep(2000)
+
+            onView(withId(R.id.call_button_id))
+                .perform(closeSoftKeyboard())
+                .perform(click())
+
+            onView(withId(R.id.cancel_call_button_id))
+                .check(matches(isDisplayed()))
         }
     }
 
@@ -100,38 +150,38 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.call_input_id))
                 .perform(setTextInTextView(MOCK_CALLER_NUMBER))
 
             onView(withId(R.id.call_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(4000)
 
             onView(withId(R.id.answer_call_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.fragment_call_instance)).check(matches(isDisplayed()))
 
             onView(withId(R.id.mute_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.loud_speaker_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.end_call_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
         }
     }
@@ -143,21 +193,21 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
             onView(withId(R.id.connect_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(2000)
 
             onView(withId(R.id.call_input_id))
                 .perform(setTextInTextView(MOCK_CALLER_NUMBER))
 
             onView(withId(R.id.call_button_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
             Thread.sleep(4000)
 
             onView(withId(R.id.reject_call_id))
-                .perform(ViewActions.closeSoftKeyboard())
-                .perform(ViewActions.click())
+                .perform(closeSoftKeyboard())
+                .perform(click())
         }
     }
 
