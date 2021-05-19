@@ -22,7 +22,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun setupChannels(notificationManager: NotificationManager?) {
-
     }
 
     /**
@@ -41,7 +40,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      * @param token The new token.
      */
     private fun sendRegistrationToServer(token: String) {
-        TelnyxFcm.sendRegistrationToServer(this, token)
     }
 
     /**

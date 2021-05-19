@@ -7,7 +7,10 @@ package com.telnyx.webrtc.sdk.verto.send
 sealed class ParamRequest
 
 data class LoginParam(val login_token: String?, val login: String?,
-                      val passwd: String?, val fcmToken: String?, val userVariables: ArrayList<Any>?,
+                      val passwd: String?,
+                      val push_device_token: String?,
+                      val push_notification_provider: String = "firebase",
+                      val userVariables: ArrayList<Any>?,
                       val loginParams: ArrayList<Any>?
                       ) : ParamRequest()
 

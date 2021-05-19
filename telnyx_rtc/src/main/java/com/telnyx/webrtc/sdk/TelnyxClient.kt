@@ -299,7 +299,7 @@ class TelnyxClient(
                 login_token = null,
                 login = user,
                 passwd = password,
-                fcmToken = fcmToken,
+                push_device_token = fcmToken,
                 userVariables = arrayListOf(),
                 loginParams = arrayListOf()
             )
@@ -331,7 +331,7 @@ class TelnyxClient(
                 login_token = token,
                 login = null,
                 passwd = null,
-                fcmToken = fcmToken,
+                push_device_token = fcmToken,
                 userVariables = arrayListOf(),
                 loginParams = arrayListOf()
             )

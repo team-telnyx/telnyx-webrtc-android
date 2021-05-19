@@ -182,6 +182,7 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         mockInputs()
         handleUserLoginState()
+        getFCMToken()
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -273,8 +274,6 @@ class MainActivity : AppCompatActivity() {
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
-        getFCMToken()
-
         if (token_login_switch.isChecked) {
             val sipToken = sip_token_id.text.toString()
             val sipCallerName = token_caller_id_name_id.text.toString()
@@ -343,7 +342,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
-        //call_state_text_value.text = sessionId
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
