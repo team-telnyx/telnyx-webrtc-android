@@ -27,15 +27,6 @@ allprojects {
         google()
         jcenter()
         mavenCentral()
-        mavenLocal()
-        /*maven {
-            name = "AndroidLibForArtifactory"
-            url = uri("https://maven.pkg.github.com/team-telnyx/telnyx-webrtc-android")
-            credentials {
-                username = githubProperties['gpr.usr'] ?: System.getenv("GPR_USER")
-                password = githubProperties['gpr.key'] ?: System.getenv("GPR_API_KEY")
-            }
-        }*/
     }
 
     configurations.all {

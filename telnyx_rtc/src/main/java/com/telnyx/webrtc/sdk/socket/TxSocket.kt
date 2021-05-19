@@ -168,7 +168,7 @@ class TxSocket(
                         event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
                         //This is not an issue, the coroutine has just been cancelled
                         event.severity = Severity.INFO
-                        true
+                        false
                     }
                 }
             }
@@ -179,7 +179,7 @@ class TxSocket(
                 event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
                 //This is not an issue, the coroutine has just been cancelled
                 event.severity = Severity.INFO
-                true
+                false
             }
 
         }
