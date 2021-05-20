@@ -127,7 +127,7 @@ class Call(
     }
 
     /**
-     * Sends a dial tone multi frequency tone down the current peer connection.
+     * Sends Dual-Tone Multi-Frequency tones down the current peer connection.
      * @param tones This parameter is treated as a series of characters. The characters 0
      *              through 9, A through D, #, and * generate the associated DTMF tones. The
      *              characters a to d are equivalent to A to D. The character ',' indicates a
@@ -233,7 +233,6 @@ class Call(
      * @see [AudioManager]
      */
     fun onLoudSpeakerPressed() {
-        sendDTMF("1")
         if (!loudSpeakerLiveData.value!!) {
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true
