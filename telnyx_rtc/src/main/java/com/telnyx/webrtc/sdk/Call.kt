@@ -138,26 +138,28 @@ class Call(
      * @param interToneGap Indicates the gap between tones in ms. Must be at least 50 ms but should be
      *                     as short as possible.
      */
-    fun sendDTMF(tones: String, duration: Int, interToneGap: Int){
+    fun sendDTMF(tones: String, duration: Int, interToneGap: Int): Boolean {
         peerConnection?.let {
             for (sender in it.getRTPSenders()!!) {
                 if (sender.track()?.kind().equals("audio")) {
                     it.audioSender = sender
                 }
             }
-            if (it.audioSender != null) {
+            return if (it.audioSender != null) {
                 val dtmfSender: DtmfSender? = it.audioSender?.dtmf()!!
                 if (dtmfSender!!.canInsertDtmf()) {
                     dtmfSender.insertDtmf(tones, duration, interToneGap)
-                 }
-                else {
+                } else {
                     Timber.d("[%s] :: sendDTMF :: AudioSender not capable of inserting DTMF", this@Call.javaClass.simpleName)
+                    false
                 }
             } else {
                 Timber.d("[%s] :: sendDTMF :: no AudioSender found", this@Call.javaClass.simpleName)
+                false
             }
         } ?: run {
             Timber.d("[%s] :: sendDTMF :: no PeerConnection established", this@Call.javaClass.simpleName)
+            return false
         }
     }
 

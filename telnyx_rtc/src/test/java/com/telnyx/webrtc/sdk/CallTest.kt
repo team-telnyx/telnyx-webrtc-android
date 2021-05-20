@@ -118,6 +118,21 @@ class CallTest: BaseTest() {
         client.removeFromCalls(newCall.callId)
         assert(!client.calls.containsValue(newCall))
     }
+
+    @Test
+    fun `test send tone via DTMF`() {
+        socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+
+        client = Mockito.spy(TelnyxClient(mockContext))
+        val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
+        newCall.callId = UUID.randomUUID()
+        newCall.sendDTMF("123,123,*", 1000, 500)
+    }
 }
 
 //Extension function for getOrAwaitValue for unit tests
