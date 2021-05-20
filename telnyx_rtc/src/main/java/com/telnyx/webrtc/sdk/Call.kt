@@ -18,10 +18,13 @@ import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
+import org.webrtc.DtmfSender
 import org.webrtc.IceCandidate
+import org.webrtc.RtpSender
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
@@ -124,6 +127,41 @@ class Call(
     }
 
     /**
+     * Sends a dial tone multi frequency tone down the current peer connection.
+     * @param tones This parameter is treated as a series of characters. The characters 0
+     *              through 9, A through D, #, and * generate the associated DTMF tones. The
+     *              characters a to d are equivalent to A to D. The character ',' indicates a
+     *              delay of 2 seconds before processing the next character in the tones parameter.
+     *              Unrecognized characters are ignored.
+     * @param duration Indicates the duration in ms to use for each character passed in the tone parameter.
+     *                 The duration cannot be more than 6000 or less than 70.
+     * @param interToneGap Indicates the gap between tones in ms. Must be at least 50 ms but should be
+     *                     as short as possible.
+     */
+    fun sendDTMF(tones: String, duration: Int, interToneGap: Int){
+        peerConnection?.let {
+            for (sender in it.getRTPSenders()!!) {
+                if (sender.track()?.kind().equals("audio")) {
+                    it.audioSender = sender
+                }
+            }
+            if (it.audioSender != null) {
+                val dtmfSender: DtmfSender? = it.audioSender?.dtmf()!!
+                if (dtmfSender!!.canInsertDtmf()) {
+                    dtmfSender.insertDtmf(tones, duration, interToneGap)
+                 }
+                else {
+                    Timber.d("[%s] :: sendDTMF :: AudioSender not capable of inserting DTMF", this@Call.javaClass.simpleName)
+                }
+            } else {
+                Timber.d("[%s] :: sendDTMF :: no AudioSender found", this@Call.javaClass.simpleName)
+            }
+        } ?: run {
+            Timber.d("[%s] :: sendDTMF :: no PeerConnection established", this@Call.javaClass.simpleName)
+        }
+    }
+
+    /**
      * Accepts an incoming call
      * Local user response with both local and remote SDPs
      * @param callId, the callId provided with the invitation
@@ -195,6 +233,7 @@ class Call(
      * @see [AudioManager]
      */
     fun onLoudSpeakerPressed() {
+        sendDTMF("1")
         if (!loudSpeakerLiveData.value!!) {
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true

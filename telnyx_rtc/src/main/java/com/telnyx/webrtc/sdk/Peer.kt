@@ -7,12 +7,13 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
-import com.telnyx.webrtc.sdk.Config.Companion.USERNAME
 import com.telnyx.webrtc.sdk.Config.Companion.PASSWORD
+import com.telnyx.webrtc.sdk.Config.Companion.USERNAME
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber
 import java.util.*
+
 
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
@@ -26,6 +27,8 @@ internal class Peer(
     val client: TelnyxClient,
     observer: PeerConnection.Observer
 ) {
+
+    internal var audioSender: RtpSender? = null
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
@@ -204,6 +207,10 @@ internal class Peer(
                 sdpObserver.onCreateSuccess(desc)
             }
         }, constraints)
+    }
+
+    fun getRTPSenders(): MutableList<RtpSender>? {
+            return peerConnection?.senders
     }
 
     /**
