@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mockito
+import org.mockito.Spy
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -127,20 +128,6 @@ class CallTest: BaseTest() {
 
         client.removeFromCalls(newCall.callId)
         assert(!client.calls.containsValue(newCall))
-    }
-
-    @Test
-    fun `test send valid tones via DTMF`() {
-        socket = Mockito.spy(
-            TxSocket(
-                host_address = "rtc.telnyx.com",
-                port = 14938,
-            )
-        )
-
-        val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
-        newCall.callId = UUID.randomUUID()
-        assertEquals(newCall.sendDTMF("123,123,*", 1000, 500), true)
     }
 }
 

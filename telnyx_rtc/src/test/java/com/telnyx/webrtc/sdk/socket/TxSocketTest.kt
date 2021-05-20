@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.test.rule.GrantPermissionRule
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import io.kotest.matchers.shouldBe
@@ -85,6 +86,8 @@ class TxSocketTest : BaseTest() {
     fun setup() {
         MockKAnnotations.init(this, true)
         Mockito.`when`(application.applicationContext).thenReturn(mockContext)
+
+        BuildConfig.IS_TESTING.set(true);
 
         every {socket.callOngoing()} just Runs
         every {socket.callNotOngoing()} just Runs
