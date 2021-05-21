@@ -16,6 +16,7 @@ package com.telnyx.webrtc.sdk.model
  * @property BYE a user has ended the call
  * @property MODIFY a modifier that allows the user to hold the call, etc
  * @property MEDIA received media from destination, such as a dialtone
+ * @property MEDIA send information to the destination such as DTMF
  * @property LOGIN the response to a login request.
  */
 enum class SocketMethod(var methodName: String) {
@@ -24,5 +25,6 @@ enum class SocketMethod(var methodName: String) {
     BYE("telnyx_rtc.bye"),
     MODIFY("telnyx_rtc.modify"),
     MEDIA("telnyx_rtc.media"),
+    INFO("telnyx_rtc.info"),
     LOGIN("login")
 }

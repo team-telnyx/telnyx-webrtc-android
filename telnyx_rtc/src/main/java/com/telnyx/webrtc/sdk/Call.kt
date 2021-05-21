@@ -18,10 +18,12 @@ import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
+import org.webrtc.DtmfSender
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
@@ -232,7 +234,7 @@ class Call(
             id = uuid,
             method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
-                sessid = sessionId,
+                sessionId = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
                     callId = callId,
@@ -240,6 +242,29 @@ class Call(
             )
         )
         socket.send(modifyMessageBody)
+    }
+
+    /**
+     * Sends Dual-Tone Multi-Frequency tones down the current peer connection.
+     * @param callId unique UUID of the call to send the DTMF INFO message to
+     * @param tone This parameter is treated as a series of characters. The characters 0
+     *              through 9, A through D, #, and * generate the associated DTMF tones. Unrecognized characters are ignored.
+     */
+
+    fun dtmf(callId: UUID, tone: String){
+        val uuid: String = UUID.randomUUID().toString()
+        val infoMessageBody = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.INFO.methodName,
+            params = InfoParams(
+                sessionId = sessionId,
+                dtmf = tone,
+                dialogParams = CallDialogParams(
+                    callId = callId,
+                )
+            )
+        )
+        socket.send(infoMessageBody)
     }
 
     /**

@@ -12,6 +12,7 @@ import androidx.test.rule.GrantPermissionRule
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
@@ -70,6 +71,8 @@ class TelnyxClientTest : BaseTest() {
     fun setUp() {
         MockKAnnotations.init(this, true, true, true)
         networkCallbackSetup()
+
+        BuildConfig.IS_TESTING.set(true);
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager

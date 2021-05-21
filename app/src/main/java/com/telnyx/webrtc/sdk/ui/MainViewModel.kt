@@ -112,6 +112,10 @@ class MainViewModel @Inject constructor(
         currentCall?.onLoudSpeakerPressed()
     }
 
+    fun dtmfPressed(callId: UUID, tone: String){
+        currentCall?.dtmf(callId, tone)
+    }
+
     fun disconnect() {
         telnyxClient?.disconnect()
         userManager.isUserLogin = false

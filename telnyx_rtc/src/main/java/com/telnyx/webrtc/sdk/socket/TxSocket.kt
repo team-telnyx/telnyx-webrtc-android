@@ -11,6 +11,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.*
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.features.json.*
@@ -163,25 +164,32 @@ class TxSocket(
                     }
                 } catch (exception: Throwable) {
                     Timber.d(exception)
-                    Bugsnag.notify(exception) { event ->
-                        // Add extra information
-                        event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
-                        //This is not an issue, the coroutine has just been cancelled
-                        event.severity = Severity.INFO
-                        false
+                    if(!BuildConfig.IS_TESTING.get()) {
+                        Bugsnag.notify(exception) { event ->
+                            // Add extra information
+                            event.addMetadata(
+                                "availableMemory",
+                                "",
+                                Runtime.getRuntime().freeMemory()
+                            )
+                            //This is not an issue, the coroutine has just been cancelled
+                            event.severity = Severity.INFO
+                            false
+                        }
                     }
                 }
             }
         } catch (cause: Throwable) {
             Timber.d(cause)
-            Bugsnag.notify(cause) { event ->
-                // Add extra information
-                event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
-                //This is not an issue, the coroutine has just been cancelled
-                event.severity = Severity.INFO
-                false
+            if(!BuildConfig.IS_TESTING.get()) {
+                Bugsnag.notify(cause) { event ->
+                    // Add extra information
+                    event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
+                    //This is not an issue, the coroutine has just been cancelled
+                    event.severity = Severity.INFO
+                    false
+                }
             }
-
         }
     }
 

@@ -1,14 +1,25 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Client
+import com.bugsnag.android.Configuration
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.ktor.client.features.websocket.*
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
@@ -19,42 +30,51 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
+import org.mockito.Spy
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
 
+
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class CallTest: BaseTest() {
 
-
-    @MockK private lateinit var mockContext: Context
     @MockK
+    private lateinit var mockContext: Context
+    @Spy
     lateinit var client: TelnyxClient
-    @MockK
+    @Spy
     lateinit var socket: TxSocket
+    @Spy
+    lateinit var call: Call
     @MockK
     lateinit var audioManager: AudioManager
 
     @BeforeEach
     fun setup() {
         MockKAnnotations.init(this, true, true, true)
-
         socket = TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         )
 
+        BuildConfig.IS_TESTING.set(true);
+
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
         every { audioManager.isMicrophoneMute = true } just Runs
         every { audioManager.isSpeakerphoneOn = true } just Runs
+        every { audioManager.isSpeakerphoneOn} returns false
+        every { audioManager.isMicrophoneMute} returns false
 
-        every { audioManager.isSpeakerphoneOn}  returns false
-        every { audioManager.isMicrophoneMute}  returns false
-
-        client = TelnyxClient(mockContext)
+        client = Mockito.spy(
+            TelnyxClient(
+                mockContext
+            )
+        )
     }
 
     @Test
@@ -99,7 +119,6 @@ class CallTest: BaseTest() {
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }
 
-
     @Test
     fun `test new call is added to calls map - then assert that remove`() {
         socket = Mockito.spy(
@@ -109,7 +128,6 @@ class CallTest: BaseTest() {
             )
         )
 
-        client = Mockito.spy(TelnyxClient(mockContext))
         val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
         newCall.callId = UUID.randomUUID()
         client.addToCalls(newCall)
@@ -118,6 +136,23 @@ class CallTest: BaseTest() {
         client.removeFromCalls(newCall.callId)
         assert(!client.calls.containsValue(newCall))
     }
+
+    @Test
+    fun `test dtmf pressed during call with value 2`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
+        call = Mockito.spy(
+            Call(mockContext, client, client.socket, "123", audioManager)
+        )
+        call.dtmf(UUID.randomUUID(), "2")
+        Thread.sleep(1000)
+        Mockito.verify(client.socket, Mockito.times(1)).send(ArgumentMatchers.any(SendingMessageBody::class.java))
+    }
+
 }
 
 //Extension function for getOrAwaitValue for unit tests

@@ -102,6 +102,8 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'proguard-rules.txt'
+
+        buildConfigField "java.util.concurrent.atomic.AtomicBoolean", "IS_TESTING", "new java.util.concurrent.atomic.AtomicBoolean(false)"
     }
 
     buildTypes {
@@ -127,6 +129,9 @@ android {
     }
     testOptions {
         unitTests.returnDefaultValues = true
+    }
+    sourceSets {
+        test.manifest.srcFile "src/main/AndroidManifest.xml"
     }
 }
 

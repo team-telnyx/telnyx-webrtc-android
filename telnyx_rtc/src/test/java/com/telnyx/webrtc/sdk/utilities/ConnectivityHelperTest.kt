@@ -3,6 +3,7 @@ package com.telnyx.webrtc.sdk.utilities
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkRequest
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
@@ -18,6 +19,8 @@ class ConnectivityHelperTest : BaseTest() {
     @Before
     fun setUp() {
         MockKAnnotations.init(this)
+
+        BuildConfig.IS_TESTING.set(true);
     }
 
     /**
