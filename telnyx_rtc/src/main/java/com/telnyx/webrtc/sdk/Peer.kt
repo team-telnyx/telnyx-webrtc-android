@@ -206,7 +206,7 @@ internal class Peer(
             }
         }, constraints)
     }
-    
+
     /**
      * Initiates an offer by setting a local SDP
      * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events

@@ -101,8 +101,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun onHoldUnholdPressed(callId: UUID) {
-        currentCall?.dtmf(callId, "2")
-        //currentCall?.onHoldUnholdPressed(callId)
+        currentCall?.onHoldUnholdPressed(callId)
     }
 
     fun onMuteUnmutePressed() {
@@ -111,6 +110,10 @@ class MainViewModel @Inject constructor(
 
     fun onLoudSpeakerPressed() {
         currentCall?.onLoudSpeakerPressed()
+    }
+
+    fun dtmfPressed(callId: UUID, tone: String){
+        currentCall?.dtmf(callId, tone)
     }
 
     fun disconnect() {
