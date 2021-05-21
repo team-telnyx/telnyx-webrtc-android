@@ -129,6 +129,20 @@ class CallTest: BaseTest() {
         client.removeFromCalls(newCall.callId)
         assert(!client.calls.containsValue(newCall))
     }
+
+    @Test
+    fun `test send DTMF without a peerConnection established`() {
+        socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+
+        val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
+        newCall.callId = UUID.randomUUID()
+        assertEquals(newCall.sendDTMF("123,123,*", 1000, 500), false)
+    }
 }
 
 //Extension function for getOrAwaitValue for unit tests
