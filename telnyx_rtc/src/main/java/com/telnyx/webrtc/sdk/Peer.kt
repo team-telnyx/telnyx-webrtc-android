@@ -28,8 +28,6 @@ internal class Peer(
     observer: PeerConnection.Observer
 ) {
 
-    internal var audioSender: RtpSender? = null
-
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
@@ -208,11 +206,7 @@ internal class Peer(
             }
         }, constraints)
     }
-
-    fun getRTPSenders(): MutableList<RtpSender>? {
-            return peerConnection?.senders
-    }
-
+    
     /**
      * Initiates an offer by setting a local SDP
      * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events

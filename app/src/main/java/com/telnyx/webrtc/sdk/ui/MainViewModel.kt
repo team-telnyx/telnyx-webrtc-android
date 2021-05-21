@@ -101,7 +101,8 @@ class MainViewModel @Inject constructor(
     }
 
     fun onHoldUnholdPressed(callId: UUID) {
-        currentCall?.onHoldUnholdPressed(callId)
+        currentCall?.dtmf(callId, "2")
+        //currentCall?.onHoldUnholdPressed(callId)
     }
 
     fun onMuteUnmutePressed() {

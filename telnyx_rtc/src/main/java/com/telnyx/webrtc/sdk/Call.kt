@@ -20,7 +20,6 @@ import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import org.webrtc.DtmfSender
 import org.webrtc.IceCandidate
-import org.webrtc.RtpSender
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
@@ -124,43 +123,6 @@ class Call(
 
         client.playRingBackTone()
         client.addToCalls(this)
-    }
-
-    /**
-     * Sends Dual-Tone Multi-Frequency tones down the current peer connection.
-     * @param tones This parameter is treated as a series of characters. The characters 0
-     *              through 9, A through D, #, and * generate the associated DTMF tones. The
-     *              characters a to d are equivalent to A to D. The character ',' indicates a
-     *              delay of 2 seconds before processing the next character in the tones parameter.
-     *              Unrecognized characters are ignored.
-     * @param duration Indicates the duration in ms to use for each character passed in the tone parameter.
-     *                 The duration cannot be more than 6000 or less than 70.
-     * @param interToneGap Indicates the gap between tones in ms. Must be at least 50 ms but should be
-     *                     as short as possible.
-     */
-    fun sendDTMF(tones: String, duration: Int, interToneGap: Int): Boolean {
-        peerConnection?.let {
-            for (sender in it.getRTPSenders()!!) {
-                if (sender.track()?.kind().equals("audio")) {
-                    it.audioSender = sender
-                }
-            }
-            return if (it.audioSender != null) {
-                val dtmfSender: DtmfSender? = it.audioSender?.dtmf()!!
-                if (dtmfSender!!.canInsertDtmf()) {
-                    dtmfSender.insertDtmf(tones, duration, interToneGap)
-                } else {
-                    Timber.d("[%s] :: sendDTMF :: AudioSender not capable of inserting DTMF", this@Call.javaClass.simpleName)
-                    false
-                }
-            } else {
-                Timber.d("[%s] :: sendDTMF :: no AudioSender found", this@Call.javaClass.simpleName)
-                false
-            }
-        } ?: run {
-            Timber.d("[%s] :: sendDTMF :: no PeerConnection established", this@Call.javaClass.simpleName)
-            return false
-        }
     }
 
     /**
@@ -272,7 +234,7 @@ class Call(
             id = uuid,
             method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
-                sessid = sessionId,
+                sessionId = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
                     callId = callId,
@@ -280,6 +242,29 @@ class Call(
             )
         )
         socket.send(modifyMessageBody)
+    }
+
+    /**
+     * Sends Dual-Tone Multi-Frequency tones down the current peer connection.
+     * @param callId unique UUID of the call to send the DTMF INFO message to
+     * @param tone This parameter is treated as a series of characters. The characters 0
+     *              through 9, A through D, #, and * generate the associated DTMF tones. Unrecognized characters are ignored.
+     */
+
+    fun dtmf(callId: UUID, tone: String){
+        val uuid: String = UUID.randomUUID().toString()
+        val infoMessageBody = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.INFO.methodName,
+            params = InfoParams(
+                sessionId = sessionId,
+                dtmf = tone,
+                dialogParams = CallDialogParams(
+                    callId = callId,
+                )
+            )
+        )
+        socket.send(infoMessageBody)
     }
 
     /**
