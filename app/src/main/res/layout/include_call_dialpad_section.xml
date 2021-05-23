@@ -2,9 +2,11 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:keyboard="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
+    android:background="@color/cardview_light_background"
     android:layout_height="match_parent">
 
     <com.davidmiguel.numberkeyboard.NumberKeyboard
+        android:id="@+id/dialpad_id"
         keyboard:layout_constraintEnd_toEndOf="parent"
         keyboard:layout_constraintTop_toTopOf="parent"
         keyboard:numberkeyboard_keyboardType="integer"
