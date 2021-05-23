@@ -68,7 +68,7 @@ dependencies {
     // SDK:
     implementation project(':telnyx_rtc')
 
-    implementation 'com.github.davidmigloz:number-keyboard:3.0.0'
+    implementation deps.dialpad
 
     implementation deps.webrtc
 

@@ -23,10 +23,12 @@ versions.volley = "1.1.1"
 versions.firebasebom = "26.3.0"
 versions.hilt = "2.35.1"
 versions.bugsnag = "5.+"
+versions.dialpad = "3.0.0"
 
 ext.versions = versions
 
 def deps = [:]
+deps.dialpad = "com.github.davidmigloz:number-keyboard:$versions.dialpad"
 deps.google_play_services = "com.google.gms:google-services:$versions.google_play_services"
 deps.android_gradle_plugin = "com.android.tools.build:gradle:$versions.android_gradle_plugin"
 deps.androidx_core = "androidx.core:core-ktx:$versions.androidx_core"
