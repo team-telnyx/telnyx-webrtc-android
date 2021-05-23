@@ -32,6 +32,19 @@
       app:layout_constraintStart_toEndOf="@id/guideline_start"/>
 
   <ImageButton
+      android:id="@+id/dial_pad_button_id"
+      android:layout_width="75dp"
+      android:layout_height="75dp"
+      android:background="@android:color/transparent"
+      android:backgroundTint="@color/white"
+      android:gravity="center_vertical|center_horizontal"
+      android:src="@drawable/outline_dialpad_black_24"
+      android:layout_marginBottom="@dimen/spacing_medium"
+      android:layout_marginEnd="@dimen/spacing_medium"
+      app:layout_constraintBottom_toTopOf="@+id/loud_speaker_button_id"
+      app:layout_constraintEnd_toStartOf="@+id/end_call_id" />
+
+  <ImageButton
       android:id="@+id/loud_speaker_button_id"
       android:layout_width="75dp"
       android:layout_height="75dp"
@@ -72,6 +85,17 @@
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintStart_toStartOf="parent"
       />
+
+  <include
+      android:id="@+id/dialpad_section_id"
+      layout="@layout/include_call_dialpad_section"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/spacing_small"
+      android:visibility="invisible"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
 
   <androidx.constraintlayout.widget.Guideline
       android:id="@+id/guideline_start"
