@@ -35,6 +35,8 @@ lateinit var mainViewModel: MainViewModel
 class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKeyboardListener {
     private var callId: UUID? = null
 
+    private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         arguments?.let {
@@ -162,7 +164,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
     }
 
     override fun onNumberClicked(number: Int) {
-        val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
         mainViewModel.dtmfPressed(callId!!, number.toString())
         when(number) {
             0 -> {
