@@ -4,18 +4,23 @@
 
 package com.telnyx.webrtc.sdk.ui
 
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.media.ToneGenerator.*
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.View
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.davidmiguel.numberkeyboard.NumberKeyboard
+import com.davidmiguel.numberkeyboard.NumberKeyboardListener
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_call_instance.*
-import timber.log.Timber
 import java.util.*
+
 
 private const val CALLER_ID = "callId"
 
@@ -27,8 +32,10 @@ lateinit var mainViewModel: MainViewModel
  * Use the [CallInstanceFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
-class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
+class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKeyboardListener {
     private var callId: UUID? = null
+
+    private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -87,6 +94,11 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
         loud_speaker_button_id.setOnClickListener {
             mainViewModel.onLoudSpeakerPressed()
         }
+        dial_pad_button_id.setOnClickListener {
+            dialpad_section_id.visibility = View.VISIBLE
+            val numberKeyboard = view?.findViewById<NumberKeyboard>(R.id.dialpad_id)
+            numberKeyboard?.setListener(this)
+        }
     }
 
     private fun onEndCall() {
@@ -138,7 +150,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
          * @param callId
          * @return A new instance of fragment CallInstanceFragment.
          */
-        // TODO: Rename and change types and number of parameters
         @JvmStatic
         fun newInstance(callId: String) =
             CallInstanceFragment().apply {
@@ -146,5 +157,50 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance) {
                     putString(CALLER_ID, callId)
                 }
             }
+    }
+
+    override fun onLeftAuxButtonClicked() {
+       //NOOP
+    }
+
+    override fun onNumberClicked(number: Int) {
+        mainViewModel.dtmfPressed(callId!!, number.toString())
+        when(number) {
+            0 -> {
+                toneGenerator.startTone(TONE_DTMF_0, 500)
+            }
+            1 -> {
+                toneGenerator.startTone(TONE_DTMF_1, 500)
+            }
+            2 -> {
+                toneGenerator.startTone(TONE_DTMF_2, 500)
+            }
+            3 -> {
+                toneGenerator.startTone(TONE_DTMF_3, 500)
+            }
+            4 -> {
+                toneGenerator.startTone(TONE_DTMF_4, 500)
+            }
+            5 -> {
+                toneGenerator.startTone(TONE_DTMF_5, 500)
+            }
+            6 -> {
+                toneGenerator.startTone(TONE_DTMF_6, 500)
+            }
+            7 -> {
+                toneGenerator.startTone(TONE_DTMF_7, 500)
+            }
+            8 -> {
+                toneGenerator.startTone(TONE_DTMF_8, 500)
+            }
+            9 -> {
+                toneGenerator.startTone(TONE_DTMF_9, 500)
+            }
+        }
+
+    }
+
+    override fun onRightAuxButtonClicked() {
+        dialpad_section_id.visibility = View.INVISIBLE
     }
 }

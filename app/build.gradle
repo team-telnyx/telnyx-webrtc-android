@@ -68,6 +68,8 @@ dependencies {
     // SDK:
     implementation project(':telnyx_rtc')
 
+    implementation deps.dialpad
+
     implementation deps.webrtc
 
     implementation deps.gson
