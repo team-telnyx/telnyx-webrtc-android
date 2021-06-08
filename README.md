@@ -146,6 +146,36 @@ When we receive a call we will receive an InviteResponse data class that contain
  telnyxClient.call.acceptCall(callId, destinationNumber)
 ```
 
+ ## ProGuard changes
+ NOTE:
+       In case that you need to modify proguard default settings in order to obfuscate your code:
+    
+#### **`app/build.gradle`**
+```gradle
+buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
+        }
+        debug {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable true
+            jniDebuggable true
+        }
+    }
+```
+please have also in mind to add the following rules to proguard-rules.pro file in your app
+
+#### **`app/proguard-rules.pro`**
+```gradle
+-keep class org.webrtc.** { *; }
+-keep class com.telnyx.webrtc.sdk.** { *; }
+```
 
 -----
 
