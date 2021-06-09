@@ -110,7 +110,6 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            debuggable true
             jniDebuggable true
         }
         debug {
@@ -218,7 +217,6 @@ dependencies {
     testImplementation "org.slf4j:slf4j-nop:1.7.25"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
-
 
     // Testing - Instrumentation
     androidTestImplementation 'junit:junit:4.13.2'
