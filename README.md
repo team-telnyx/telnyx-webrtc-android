@@ -148,7 +148,7 @@ When we receive a call we will receive an InviteResponse data class that contain
 
  ## ProGuard changes
  NOTE:
-       In case that you need to modify proguard default settings in order to obfuscate your code:
+       In the case that you need to modify your application's proguard settings in order to obfuscate your code, such as we have done below:
     
 #### **`app/build.gradle`**
 ```gradle
@@ -157,7 +157,6 @@ buildTypes {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            debuggable true
             jniDebuggable true
         }
         debug {
@@ -169,7 +168,7 @@ buildTypes {
         }
     }
 ```
-please have also in mind to add the following rules to proguard-rules.pro file in your app
+please keep in mind that you will need to add the following rules to the proguard-rules.pro file in your app in order for the SDK to continue functioning
 
 #### **`app/proguard-rules.pro`**
 ```gradle
