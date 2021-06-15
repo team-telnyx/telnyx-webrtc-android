@@ -47,10 +47,10 @@ data class InviteResponse(
     val callId: UUID,
     @SerializedName("sdp")
     val sdp: String,
-    @SerializedName("caller_id_name")
+    @SerializedName("callerIdName")
     val callerIdName: String,
-    @SerializedName("caller_id_number")
+    @SerializedName("callerIdNumber")
     val callerIdNumber: String,
-    @SerializedName("telnyx_session_id")
+    @SerializedName("sessionId")
     val sessionId: String
 ) : ReceivedResult()
