@@ -29,6 +29,7 @@ data class LoginResponse(val sessid: String) : ReceivedResult()
 data class AnswerResponse(
     @SerializedName("callID")
     val callId: UUID,
+    @SerializedName("sdp")
     val sdp: String
 ) : ReceivedResult()
 
@@ -44,6 +45,7 @@ data class AnswerResponse(
 data class InviteResponse(
     @SerializedName("callID")
     val callId: UUID,
+    @SerializedName("sdp")
     val sdp: String,
     @SerializedName("caller_id_name")
     val callerIdName: String,

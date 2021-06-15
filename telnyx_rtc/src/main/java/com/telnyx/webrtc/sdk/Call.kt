@@ -18,12 +18,10 @@ import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
-import org.webrtc.DtmfSender
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
-
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
