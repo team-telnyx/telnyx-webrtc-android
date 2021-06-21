@@ -5,6 +5,8 @@ plugins {
     id 'dagger.hilt.android.plugin'
     id 'org.jetbrains.dokka'
     id 'maven-publish'
+    id 'kotlin-android-extensions'
+
 }
 
 apply plugin: 'maven-publish'
@@ -78,6 +80,10 @@ android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
 
+    androidExtensions {
+        experimental = true
+    }
+
     defaultConfig {
         minSdkVersion 23
         targetSdkVersion 30
@@ -150,6 +156,9 @@ dependencies {
     implementation deps.ktor.okhttp
     implementation 'androidx.lifecycle:lifecycle-process:2.3.1'
     testImplementation deps.ktor.client_test
+
+    implementation 'org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.5.10'
+
 
     //BugSnag:
     implementation deps.bugsnag

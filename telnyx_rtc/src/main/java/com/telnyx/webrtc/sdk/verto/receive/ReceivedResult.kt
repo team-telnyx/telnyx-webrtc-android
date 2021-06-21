@@ -4,7 +4,9 @@
 
 package com.telnyx.webrtc.sdk.verto.receive
 
+import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
+import kotlinx.android.parcel.Parcelize
 import java.util.*
 
 
@@ -26,12 +28,13 @@ data class LoginResponse(val sessid: String) : ReceivedResult()
  * @param callId a unique UUID that represents each ongoing call.
  * @param sdp the Session Description Protocol that is received as a part of the answer to the call.
  */
+@Parcelize
 data class AnswerResponse(
     @SerializedName("callID")
     val callId: UUID,
     @SerializedName("sdp")
     val sdp: String
-) : ReceivedResult()
+) : ReceivedResult(), Parcelable
 
 /**
  * An invitation response containing the required information
@@ -42,6 +45,7 @@ data class AnswerResponse(
  * @param callerIdNumber the number of the person who sent the invitation
  * @param sessionId the Telnyx Session ID on the socket connection.
  */
+@Parcelize
 data class InviteResponse(
     @SerializedName("callID")
     val callId: UUID,
@@ -53,4 +57,4 @@ data class InviteResponse(
     val callerIdNumber: String,
     @SerializedName("sessionId")
     val sessionId: String
-) : ReceivedResult()
+) : ReceivedResult(), Parcelable
