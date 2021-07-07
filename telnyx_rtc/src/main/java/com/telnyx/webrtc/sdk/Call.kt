@@ -45,6 +45,9 @@ class Call(
 
     lateinit var callId: UUID
 
+    private var telnyxSessionId: UUID? = null
+    private var telnyxLegId: UUID? = null
+
     private val callStateLiveData = MutableLiveData(CallState.NEW)
 
     // Ongoing call options
@@ -291,6 +294,24 @@ class Call(
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
 
     /**
+     * Returns the TelnyxSessionId set as a response
+     * from an invite or ringing socket call
+     * @return [UUID]
+     */
+    fun getTelnyxSessionId(): UUID? {
+        return telnyxSessionId
+    }
+
+    /**
+     * Returns the TelnyxSessionId set as a response
+     * from an invite or ringing socket call
+     * @return [UUID]
+     */
+    fun getTelnyxLegId(): UUID? {
+        return telnyxLegId
+    }
+
+    /**
      * Resets all call options, primarily hold, mute and loudspeaker state, as well as the earlySDP boolean value.
      * @return [LiveData]
      */
@@ -411,6 +432,8 @@ class Call(
         val remoteSdp = params.get("sdp").asString
         val callerName = params.get("caller_id_name").asString
         val callerNumber = params.get("caller_id_number").asString
+        telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
+        telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
         //Set global callID
         callId = offerCallId
@@ -446,6 +469,12 @@ class Call(
         )
         client.playRingtone()
         client.addToCalls(this)
+    }
+
+    override fun onRingingReceived(jsonObject: JsonObject) {
+        val params = jsonObject.getAsJsonObject("params")
+        telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
+        telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {

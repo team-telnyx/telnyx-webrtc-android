@@ -201,7 +201,6 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onLoginSuccessful(jsonMock)
-
     }
 
     @Test

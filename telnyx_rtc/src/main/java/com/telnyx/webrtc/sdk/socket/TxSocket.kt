@@ -137,6 +137,9 @@ class TxSocket(
                                                 INVITE.methodName -> {
                                                     listener.onOfferReceived(jsonObject)
                                                 }
+                                                RINGING.methodName -> {
+                                                    listener.onRingingReceived(jsonObject)
+                                                }
                                             }
                                         }
                                         jsonObject.has("error") -> {

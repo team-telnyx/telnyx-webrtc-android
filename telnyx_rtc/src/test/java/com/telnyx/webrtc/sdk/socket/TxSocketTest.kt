@@ -87,7 +87,7 @@ class TxSocketTest : BaseTest() {
         MockKAnnotations.init(this, true)
         Mockito.`when`(application.applicationContext).thenReturn(mockContext)
 
-        BuildConfig.IS_TESTING.set(true);
+        BuildConfig.IS_TESTING.set(true)
 
         every {socket.callOngoing()} just Runs
         every {socket.callNotOngoing()} just Runs
@@ -182,6 +182,7 @@ class TxSocketTest : BaseTest() {
 
     @Test
     fun `set call to ongoing`() {
+        BuildConfig.IS_TESTING.set(true)
         socket = Mockito.spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,

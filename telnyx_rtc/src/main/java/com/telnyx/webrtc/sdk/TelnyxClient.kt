@@ -88,7 +88,6 @@ class TelnyxClient(
 
     private var socketReconnection: TxSocket? = null
 
-
     internal var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
@@ -147,6 +146,7 @@ class TelnyxClient(
             host_address = Config.TELNYX_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
+
         registerNetworkCallback()
     }
 
@@ -495,6 +495,11 @@ class TelnyxClient(
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
         call?.onOfferReceived(jsonObject)
+    }
+
+    override fun onRingingReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onRingingReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        call?.onRingingReceived(jsonObject)
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
