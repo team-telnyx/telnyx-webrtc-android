@@ -61,6 +61,13 @@ interface TxSocketListener {
     fun onOfferReceived(jsonObject: JsonObject)
 
     /**
+     * Fires once we receive a ringing socket response, containing Telnyx information
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onRingingReceived(jsonObject: JsonObject)
+
+    /**
      * Fires when a usable IceCandidate has been received
      * @param iceCandidate, the [IceCandidate] that was received
      * @see [IceCandidate]
