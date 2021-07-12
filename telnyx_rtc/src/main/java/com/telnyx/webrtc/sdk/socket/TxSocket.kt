@@ -44,6 +44,7 @@ class TxSocket(
 
     private var job: Job = SupervisorJob()
     private val gson = Gson()
+    internal var isConnected = false
 
     override var coroutineContext = Dispatchers.IO + job
 
@@ -80,9 +81,10 @@ class TxSocket(
                     Timber.tag("VERTO").d("The outgoing channel was closed $message")
                     destroy()
                 }
-                listener.onConnectionEstablished()
                 Timber.tag("VERTO").d("Connection established")
                 val sendData = sendChannel.openSubscription()
+                listener.onConnectionEstablished()
+                isConnected = true
                 try {
                     while (true) {
                         sendData.poll()?.let {
@@ -215,13 +217,18 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
-        sendChannel.send(gson.toJson(dataObject))
+        if(isConnected) {
+            sendChannel.send(gson.toJson(dataObject))
+        } else {
+            Timber.tag("VERTO").d("Message cannot be sent. There is no established WebSocket connection")
+        }
     }
 
     /**
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        isConnected = false
         client.close()
         job.cancel()
     }

@@ -10,6 +10,7 @@ import android.net.NetworkRequest
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.rule.GrantPermissionRule
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.MockitoHelper.anyObject
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -268,6 +269,32 @@ class TelnyxClientTest : BaseTest() {
         client.getRawRingbackTone()
     }
 
+    @Test
+    fun `try and send message when isConnected is false - do not connect before doing login`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
+        val config = CredentialConfig(
+            "asdfasass",
+            "asdlkfhjalsd",
+            "test",
+            "000000000",
+            null,
+            null,
+            null,
+            LogLevel.ALL
+        )
+
+        client.credentialLogin(config)
+
+        val jsonMock = Mockito.mock(JsonObject::class.java)
+
+        Thread.sleep(2000)
+        Mockito.verify(client, Mockito.times(0)).onLoginSuccessful(jsonMock)
+    }
 }
 
 object MockitoHelper {
@@ -278,5 +305,7 @@ object MockitoHelper {
     @Suppress("UNCHECKED_CAST")
     fun <T> uninitialized(): T =  null as T
 }
+
+
 
 
