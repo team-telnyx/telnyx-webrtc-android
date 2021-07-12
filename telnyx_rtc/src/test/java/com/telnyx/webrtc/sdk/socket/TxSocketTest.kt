@@ -85,7 +85,7 @@ class TxSocketTest : BaseTest() {
     @Before
     fun setup() {
         MockKAnnotations.init(this, true)
-        Mockito.`when`(application.applicationContext).thenReturn(mockContext)
+        `when`(application.applicationContext).thenReturn(mockContext)
 
         BuildConfig.IS_TESTING.set(true)
 
@@ -135,60 +135,63 @@ class TxSocketTest : BaseTest() {
 
     @Test
     fun `connect with valid host and port`() {
-        socket = Mockito.spy(TxSocket(
+        BuildConfig.IS_TESTING.set(true)
+        socket = spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spy(TelnyxClient(mockContext))
 
         socket.connect(client)
 
         //Sleep to give time to connect
         Thread.sleep(3000)
-        Mockito.verify(client, times(1)).onConnectionEstablished()
+        verify(client, times(1)).onConnectionEstablished()
     }
 
     @Test
     fun `disconnect from socket`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
+        BuildConfig.IS_TESTING.set(true)
+        client = spy(TelnyxClient(mockContext))
 
-        client.socket = Mockito.spy(TxSocket(
+        client.socket = spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
 
         client.disconnect()
         Thread.sleep(3000)
-        Mockito.verify(client.socket, atLeastOnce()).destroy()
+        verify(client.socket, atLeastOnce()).destroy()
     }
 
 
     @Test
     fun `connect with empty host or port`() {
-        socket = Mockito.spy(TxSocket(
+        BuildConfig.IS_TESTING.set(true)
+        socket = spy(TxSocket(
             host_address = "",
             port = 0,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spy(TelnyxClient(mockContext))
         socket.connect(client)
 
         //Sleep to give time to connect
         Thread.sleep(3000)
-        Mockito.verify(client, times(0)).onConnectionEstablished()
+        verify(client, times(0)).onConnectionEstablished()
 
     }
 
     @Test
     fun `set call to ongoing`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = Mockito.spy(TxSocket(
+        socket = spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spy(TelnyxClient(mockContext))
 
         socket.callOngoing()
         socket.ongoingCall shouldBe true
@@ -196,12 +199,13 @@ class TxSocketTest : BaseTest() {
 
     @Test
     fun `set call to not ongoing`() {
-        socket = Mockito.spy(TxSocket(
+        BuildConfig.IS_TESTING.set(true)
+        socket = spy(TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
 
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spy(TelnyxClient(mockContext))
 
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false

@@ -33,7 +33,9 @@ object ConnectivityHelper {
             manager.unregisterNetworkCallback(callback)
         } catch (e: Exception) {
             Timber.e(e,"unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
-            Bugsnag.notify(e)
+            if(!BuildConfig.IS_TESTING.get()) {
+                Bugsnag.notify(e)
+            }
         }
     }
 
