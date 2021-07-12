@@ -268,8 +268,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectButtonPressed() {
-        checkPermissions()
-
         //path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
