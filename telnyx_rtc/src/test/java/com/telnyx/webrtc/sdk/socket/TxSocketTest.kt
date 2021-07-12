@@ -27,11 +27,10 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.mockito.Spy
 import org.robolectric.RuntimeEnvironment.application
-
+import kotlin.test.assertEquals
 
 class TxSocketTest : BaseTest() {
     @Test
@@ -190,9 +189,6 @@ class TxSocketTest : BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
-
-        client = spy(TelnyxClient(mockContext))
-
         socket.callOngoing()
         socket.ongoingCall shouldBe true
     }
@@ -204,10 +200,34 @@ class TxSocketTest : BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
-
-        client = spy(TelnyxClient(mockContext))
-
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false
+    }
+
+    @Test
+    fun `ensure connect changes isConnected appropriately`() {
+        BuildConfig.IS_TESTING.set(true)
+        socket = spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        client = spy(TelnyxClient(mockContext))
+        socket.connect(client)
+        Thread.sleep(2000)
+        assertEquals(socket.isConnected, true)
+    }
+
+    @Test
+    fun `make sure isConnected is false before connect is called`() {
+        BuildConfig.IS_TESTING.set(true)
+        client = spy(TelnyxClient(mockContext))
+        client.socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+        assertEquals(client.socket.isConnected, false)
+
     }
 }

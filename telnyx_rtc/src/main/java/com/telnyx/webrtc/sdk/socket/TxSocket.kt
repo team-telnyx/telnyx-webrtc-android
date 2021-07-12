@@ -44,7 +44,7 @@ class TxSocket(
 
     private var job: Job = SupervisorJob()
     private val gson = Gson()
-    private var isConnected = false
+    internal var isConnected = false
 
     override var coroutineContext = Dispatchers.IO + job
 
