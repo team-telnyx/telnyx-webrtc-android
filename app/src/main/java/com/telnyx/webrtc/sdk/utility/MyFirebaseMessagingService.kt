@@ -107,14 +107,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        private const val TAG = "MyFirebaseMsgService"
         private const val TELNYX_CHANNEL_ID = "telnyx_channel"
         private const val ANSWER_REQUEST_CODE = 0
-        private const val REJECT_REQUEST_CODE = 1
-
-        const val EXT_KEY_DO_ACTION = "ext_key_do_action"
-        const val EXT_CALL_ID = "ext_call_id"
-        const val EXT_DESTINATION_NUMBER = "ext_destination_number"
         const val ACT_ANSWER_CALL = "open"
     }
 }
