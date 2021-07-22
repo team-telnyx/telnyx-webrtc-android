@@ -7,36 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:894569387136:android:6725c342bfd56772c18265",
-        "android_client_info": {
-          "package_name": "com.telnyx.oz.webrtcdemo"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA90_8C7Yv5JGxNOqKdQo242Y2XLfm_sb8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:894569387136:android:b899815cb0766307c18265",
+        "mobilesdk_app_id": "1:894569387136:android:ba55aa224418e38cc18265",
         "android_client_info": {
           "package_name": "com.telnyx.webrtc.sdk"
         }

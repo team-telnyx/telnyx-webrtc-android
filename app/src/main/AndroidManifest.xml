@@ -33,11 +33,19 @@
 
         <service
             android:name=".utility.MyFirebaseMessagingService"
-            android:exported="false">
+            android:priority="10000">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/white" />
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="telnyx_channel" />
 
     </application>
 </manifest>
