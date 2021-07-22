@@ -36,7 +36,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notificationID = Random().nextInt(3000)
-        
+
         /*
         Apps targeting SDK 26 or above (Android O) must implement notification channels and add its notifications
         to at least one of them.
@@ -44,9 +44,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setupChannels(notificationManager)
         }
-
-        val rejectResultIntent = Intent(this, MainActivity::class.java)
-        val rejectPendingIntent = PendingIntent.getActivity(this, REJECT_REQUEST_CODE, rejectResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
 
         val answerResultIntent = Intent(this, MainActivity::class.java)
         val answerPendingIntent = PendingIntent.getActivity(this, ANSWER_REQUEST_CODE, answerResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
@@ -59,7 +56,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(remoteMessage.data["message"])
             .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
             .addAction(R.drawable.ic_call_black, ACT_ANSWER_CALL, answerPendingIntent)
-            .addAction(R.drawable.ic_call_end_black, ACT_REJECT_CALL, rejectPendingIntent)
             .setAutoCancel(true)
             .setSound(notificationSoundUri)
 
@@ -119,7 +115,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val EXT_KEY_DO_ACTION = "ext_key_do_action"
         const val EXT_CALL_ID = "ext_call_id"
         const val EXT_DESTINATION_NUMBER = "ext_destination_number"
-        const val ACT_ANSWER_CALL = "answer"
-        const val ACT_REJECT_CALL = "reject"
+        const val ACT_ANSWER_CALL = "open"
     }
 }
