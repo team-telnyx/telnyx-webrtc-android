@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.verto.send
 
 import com.google.gson.annotations.SerializedName
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -18,6 +19,10 @@ data class CallDialogParams(val useStereo: Boolean = false,
                             val screenShare: Boolean = false,
                             val audio: Boolean = true,
                             val userVariables: ArrayList<Any> = arrayListOf(),
+                            @SerializedName("client_version")
+                            val clientVersion: String = BuildConfig.SDK_VERSION.toString(),
+                            @SerializedName("client_type")
+                            val clientType: String = "Android",
                             @SerializedName("clientState")
                             val clientState: String = "",
                             @SerializedName("callID")
