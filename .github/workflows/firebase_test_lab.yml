@@ -97,7 +97,7 @@ jobs:
         run: gcloud firebase test android run --type instrumentation --app app-debug/app-debug.apk --test app-debug-androidTest/app-debug-androidTest.apk --device version=28,orientation=portrait
 
   generate_api_docs:
-    needs: [Run UI tests with Firebase Test Lab]
+    needs: [firebase]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
