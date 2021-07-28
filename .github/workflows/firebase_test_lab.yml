@@ -95,3 +95,16 @@ jobs:
 
       - name: Run Instrumentation Tests in Firebase Test Lab
         run: gcloud firebase test android run --type instrumentation --app app-debug/app-debug.apk --test app-debug-androidTest/app-debug-androidTest.apk --device version=28,orientation=portrait
+
+  generate_api_docs:
+    needs: [Run UI tests with Firebase Test Lab]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Generate API documentation
+        if: ${{github.event_name == 'push'}}
+        run: ./gradlew dokkaHtml

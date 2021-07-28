@@ -1,4 +1,4 @@
-name: Scheduled Instrument Tests
+name: Scheduled Unit Tests
 
 on:
   schedule:
