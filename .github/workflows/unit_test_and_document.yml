@@ -1,0 +1,32 @@
+
+## 1
+name: Unit test and Generate Docs
+
+## Actions that will be executed when you push code currently none
+on:
+  workflow_dispatch:
+
+## 2
+jobs:
+  # 3 Unit Test Script
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Unit tests
+        run: ./gradlew test
+
+
+  generate_api_docs:
+    needs: [unit_tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Generate API documentation
+        if: ${{github.event_name == 'push'}}
+        run: ./gradlew dokkaHtml
