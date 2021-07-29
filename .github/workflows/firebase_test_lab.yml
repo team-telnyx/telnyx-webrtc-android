@@ -28,29 +28,19 @@ jobs:
     steps:
       # 1
       - name: Checkout code
-
-        # - name: Touch local properties
-      #   run: touch local.properties
-
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-
-      - name: Grant execute permission for script
-        run: chmod +x ./scripts/setup_env.sh
-
       - name: Access MOCK_USERNAME
         env:
           TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
         run: echo MOCK_USERNAME=\"MOCK_USERNAME\" > ./local.properties
-
       - name: Access MOCK_PASSWORD
         env:
           TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
         run: echo MOCK_PASSWORD=\"MOCK_PASSWORD\" > ./local.properties
-
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
 
