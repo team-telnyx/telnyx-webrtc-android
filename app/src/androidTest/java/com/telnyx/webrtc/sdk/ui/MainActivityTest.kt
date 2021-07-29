@@ -14,19 +14,20 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
-import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
+import com.telnyx.webrtc.sdk.testhelpers.MOCK_CALLER_NUMBER
+import com.telnyx.webrtc.sdk.testhelpers.MOCK_PASSWORD
+import com.telnyx.webrtc.sdk.testhelpers.MOCK_USERNAME
 import org.hamcrest.Matchers.allOf
-import org.junit.After
-import org.junit.Before
-import org.junit.Rule
-import org.junit.Test
+import org.junit.*
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.runner.RunWith
+import org.junit.runners.MethodSorters
 
 
 @RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class MainActivityTest : BaseUITest() {
 
     @get:Rule
@@ -53,114 +54,68 @@ class MainActivityTest : BaseUITest() {
     }
 
     @Test
-    fun onLaunchAndConnect() {
+    fun a_onLaunchAndConnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            Thread.sleep(1500)
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
             Thread.sleep(1500)
-            onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)));
+            onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
         }
     }
 
     @Test
-    fun testEmptyLoginDoesNotLaunchAndConnect() {
+    fun b_testEmptyLoginDoesNotLaunchAndConnect() {
         activityRule.launchActivity(null)
         onView(withId(R.id.sip_username_id)).perform(clearText())
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
             .perform(click())
-        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
-        onView(withId(R.id.sip_username_id)).perform(setTextInTextView("SIP_USER"))
-        onView(withId(R.id.connect_button_id))
-            .perform(closeSoftKeyboard())
-            .perform(click())
         Thread.sleep(1500)
-        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
+        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
     }
 
     @Test
-    fun testEmptyPwdDoesNotLaunchAndConnect() {
+    fun c_testEmptyPwdDoesNotLaunchAndConnect() {
         activityRule.launchActivity(null)
         onView(withId(R.id.sip_password_id)).perform(clearText())
+        onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+        Thread.sleep(1500)
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
             .perform(click())
         onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.disconnected)))
-        onView(withId(R.id.sip_password_id)).perform(setTextInTextView("SIP_PWD"))
-        onView(withId(R.id.connect_button_id))
-            .perform(closeSoftKeyboard())
-            .perform(click())
-        Thread.sleep(1500)
-        onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
+
     }
 
     @Test
-    fun onDisconnect() {
+    fun d_onCallSelfAndAnswerAndEndToEndTest() {
         assertDoesNotThrow {
+            //Wait for call to reset after previous test otherwise will fail in pipeline
+            Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
             Thread.sleep(1500)
-
-            openActionBarOverflowOrOptionsMenu(context);
-            onView(withText("Disconnect"))
-                .perform(click())
-        }
-    }
-
-    @Test
-    fun onSendInvite() {
-        assertDoesNotThrow {
-            activityRule.launchActivity(null)
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(2000)
-
-            onView(withId(R.id.call_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-            Thread.sleep(2000)
-        }
-    }
-
-    @Test
-    fun onSendInviteCanBeCancelled() {
-        assertDoesNotThrow {
-            activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-            Thread.sleep(2000)
-
-            onView(withId(R.id.call_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-
-            onView(withId(R.id.cancel_call_button_id))
-                .check(matches(isDisplayed()))
-        }
-    }
-
-    @Test
-    fun onCallSelfAndAnswerAndEndToEndTest() {
-        assertDoesNotThrow {
-            activityRule.launchActivity(null)
-            onView(withId(R.id.connect_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-            Thread.sleep(2000)
+            Thread.sleep(3000)
 
             onView(withId(R.id.call_input_id))
                 .perform(setTextInTextView(MOCK_CALLER_NUMBER))
+            Thread.sleep(2000)
 
             onView(withId(R.id.call_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(4000)
+            Thread.sleep(2000)
 
             onView(withId(R.id.answer_call_id))
                 .perform(closeSoftKeyboard())
@@ -168,46 +123,70 @@ class MainActivityTest : BaseUITest() {
             Thread.sleep(2000)
 
             onView(withId(R.id.fragment_call_instance)).check(matches(isDisplayed()))
-
-            onView(withId(R.id.mute_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-            Thread.sleep(2000)
-
-            onView(withId(R.id.loud_speaker_button_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
-            Thread.sleep(2000)
-
-            onView(withId(R.id.end_call_id))
-                .perform(closeSoftKeyboard())
-                .perform(click())
             Thread.sleep(2000)
         }
     }
 
     @Test
-    fun onCallSelfAndRejectTest() {
-        //Wait for call to reset after previous test otherwise will fail in pipeline
-        Thread.sleep(5000)
+    fun e_onDisconnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            Thread.sleep(1500)
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(2000)
+            Thread.sleep(1500)
+            openActionBarOverflowOrOptionsMenu(context);
+            onView(withText("Disconnect"))
+                .perform(click())
+        }
+    }
 
-            onView(withId(R.id.call_input_id))
-                .perform(setTextInTextView(MOCK_CALLER_NUMBER))
+    @Test
+    fun f_onSendInviteCanBeCancelled() {
+        assertDoesNotThrow {
+            Thread.sleep(7000)
+            activityRule.launchActivity(null)
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            Thread.sleep(1500)
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            Thread.sleep(1500)
+            onView(withId(R.id.connect_button_id))
+                .perform(closeSoftKeyboard())
+                .perform(click())
+            Thread.sleep(3000)
 
             onView(withId(R.id.call_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(4000)
 
-            onView(withId(R.id.reject_call_id))
+            onView(withId(R.id.cancel_call_button_id))
+                .check(matches(isDisplayed()))
+
+            onView(withId(R.id.cancel_call_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
+        }
+    }
+
+    @Test
+    fun g_onSendInvite() {
+        assertDoesNotThrow {
+            activityRule.launchActivity(null)
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            Thread.sleep(1500)
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            Thread.sleep(1500)
+            onView(withId(R.id.connect_button_id))
+                .perform(closeSoftKeyboard())
+                .perform(click())
+            Thread.sleep(2000)
+            onView(withId(R.id.call_button_id))
+                .perform(closeSoftKeyboard())
+                .perform(click())
+            Thread.sleep(2000)
         }
     }
 
