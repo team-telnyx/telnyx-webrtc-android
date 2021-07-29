@@ -14,6 +14,7 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
+import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
 import com.telnyx.webrtc.sdk.testhelpers.MOCK_CALLER_NUMBER
@@ -57,9 +58,9 @@ class MainActivityTest : BaseUITest() {
     fun a_onLaunchAndConnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -84,7 +85,7 @@ class MainActivityTest : BaseUITest() {
     fun c_testEmptyPwdDoesNotLaunchAndConnect() {
         activityRule.launchActivity(null)
         onView(withId(R.id.sip_password_id)).perform(clearText())
-        onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+        onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
         Thread.sleep(1500)
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
@@ -99,9 +100,9 @@ class MainActivityTest : BaseUITest() {
             //Wait for call to reset after previous test otherwise will fail in pipeline
             Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -131,9 +132,9 @@ class MainActivityTest : BaseUITest() {
     fun e_onDisconnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
@@ -149,9 +150,9 @@ class MainActivityTest : BaseUITest() {
         assertDoesNotThrow {
             Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -175,9 +176,9 @@ class MainActivityTest : BaseUITest() {
     fun g_onSendInvite() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(MOCK_USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(MOCK_PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
