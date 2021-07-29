@@ -17,6 +17,19 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Access MOCK_USERNAME
+        env:
+          TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
+        run: echo MOCK_USERNAME=\"MOCK_USERNAME\" > ./local.properties
+
+      - name: Access MOCK_PASSWORD
+        env:
+          TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        run: echo MOCK_PASSWORD=\"MOCK_PASSWORD\" > ./local.properties
+
+      - name: Assemble app debug APK
+        run: bash ./gradlew assembleDebug --stacktrace
+
         #  - name: Touch local properties
       #   run: touch local.properties
 

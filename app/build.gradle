@@ -59,15 +59,17 @@ android {
 }
 
 String getUsername() {
-    def usernameProperties = new Properties()
-    usernameProperties.load(new FileInputStream(rootProject.file("local.properties")))
-    return usernameProperties['MOCK_USERNAME']
+    def propFile = rootProject.file("./local.properties")
+    def properties = new Properties()
+    properties.load(new FileInputStream(propFile))
+    return properties['MOCK_USERNAME']
 }
 
 String getPassword() {
-    def passwordProperties = new Properties()
-    passwordProperties.load(new FileInputStream(rootProject.file("local.properties")))
-    return passwordProperties['MOCK_PASSWORD']
+    def propFile = rootProject.file("./local.properties")
+    def properties = new Properties()
+    properties.load(new FileInputStream(propFile))
+    return properties['MOCK_PASSWORD']
 }
 
 dependencies {
