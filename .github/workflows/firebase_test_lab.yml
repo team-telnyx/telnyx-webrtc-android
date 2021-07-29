@@ -38,13 +38,15 @@ jobs:
       - name: Grant execute permission for script
         run: chmod +x ./scripts/setup_env.sh
 
-            - shell: bash
-              env:
-                TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
-                TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-                TELNYX_SIP_TOKEN: ${{ secrets.TELNYX_SIP_TOKEN }}
-              run: |
-                sh ./scripts/setup_env.sh -u "$TELNYX_SIP_USER" -p "$TELNYX_SIP_PASSWORD" -t "$TELNYX_SIP_TOKEN"
+      - name: Access MOCK_USERNAME
+        env:
+          TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
+        run: echo MOCK_USERNAME=\"MOCK_USERNAME\" > ./local.properties
+
+      - name: Access MOCK_PASSWORD
+        env:
+          TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        run: echo MOCK_PASSWORD=\"MOCK_PASSWORD\" > ./local.properties
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
@@ -63,7 +65,6 @@ jobs:
         with:
           name: app-debug-androidTest
           path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-
 
   firebase:
     name: Run UI tests with Firebase Test Lab

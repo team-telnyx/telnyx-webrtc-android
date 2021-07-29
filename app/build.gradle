@@ -21,6 +21,9 @@ android {
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField ("String", "USERNAME", getUsername())
+        buildConfigField ("String", "PASSWORD", getPassword())
     }
 
     buildTypes {
@@ -53,6 +56,20 @@ android {
         exclude "META-INF/LICENSE.md"
         exclude "META-INF/LICENSE-notice.md"
     }
+}
+
+String getUsername() {
+    def propFile = rootProject.file("./local.properties")
+    def properties = new Properties()
+    properties.load(new FileInputStream(propFile))
+    return properties['MOCK_USERNAME']
+}
+
+String getPassword() {
+    def propFile = rootProject.file("./local.properties")
+    def properties = new Properties()
+    properties.load(new FileInputStream(propFile))
+    return properties['MOCK_PASSWORD']
 }
 
 dependencies {
