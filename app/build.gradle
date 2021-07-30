@@ -7,6 +7,10 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+
+def localProperties = new Properties()
+localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+
 android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
@@ -22,17 +26,23 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField ("String", "USERNAME", getUsername())
-        buildConfigField ("String", "PASSWORD", getPassword())
+        buildConfigField ("String", "USERNAME", localProperties['MOCK_USERNAME'])
+        buildConfigField ("String", "PASSWORD", localProperties['MOCK_PASSWORD'])
     }
 
     buildTypes {
         release {
+            resValue("string", "mock_username", localProperties['MOCK_USERNAME'])
+            resValue("string", "mock_password", localProperties['MOCK_PASSWORD'])
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
+            resValue("string", "mock_username", localProperties['MOCK_USERNAME'])
+            resValue("string", "mock_password", localProperties['MOCK_PASSWORD'])
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             debuggable true
@@ -58,7 +68,7 @@ android {
     }
 }
 
-String getUsername() {
+/*String getUsername() {
     def propFile = rootProject.file("./local.properties")
     def properties = new Properties()
     properties.load(new FileInputStream(propFile))
@@ -70,7 +80,7 @@ String getPassword() {
     def properties = new Properties()
     properties.load(new FileInputStream(propFile))
     return properties['MOCK_PASSWORD']
-}
+}*/
 
 dependencies {
 

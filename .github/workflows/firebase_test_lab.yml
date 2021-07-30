@@ -33,14 +33,14 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Access MOCK_USERNAME
-        env:
-          TELNYX_SIP_USER: ${{ secrets.TELNYX_SIP_USER }}
-        run: echo MOCK_USERNAME=\"MOCK_USERNAME\" > ./local.properties
-      - name: Access MOCK_PASSWORD
-        env:
-          TELNYX_SIP_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-        run: echo MOCK_PASSWORD=\"MOCK_PASSWORD\" > ./local.properties
+
+      - name: Grant execute permission for script
+          run: chmod +x ./scripts/update_properties.sh
+
+      - name: Print Login Params Values
+        run: |
+          bash update_properties.sh ${{ secrets.TELNYX_SIP_USER }} ${{ secrets.TELNYX_SIP_PASSWORD }}
+
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
 
