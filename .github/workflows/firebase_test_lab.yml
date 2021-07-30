@@ -31,7 +31,7 @@ jobs:
   # 1 Generate APKs so that we can install on Firebase Test Lab devices
   apk:
     name: Generate APK
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       # 1
       - name: Checkout code
