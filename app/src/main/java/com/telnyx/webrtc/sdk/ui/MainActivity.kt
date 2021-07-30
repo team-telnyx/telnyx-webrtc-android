@@ -35,6 +35,7 @@ import kotlinx.android.synthetic.main.include_login_credential_section.*
 import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import timber.log.Timber
+import java.io.IOException
 import java.util.*
 import javax.inject.Inject
 
@@ -317,7 +318,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Get new FCM registration token
-            val token = task.result
+            var token = ""
+            try {
+                 token = task.result
+            } catch (e: IOException) {
+                Timber.d(e)
+            }
             Timber.d("FCM TOKEN RECEIVED: $token")
             fcmToken = token
         }
