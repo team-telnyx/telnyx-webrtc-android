@@ -18,7 +18,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Grant execute permission for script
-          run: chmod +x ./scripts/update_properties.sh
+        run: chmod +x ./scripts/update_properties.sh
 
       - name: Print Login Params Values
         run: |
