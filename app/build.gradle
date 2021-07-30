@@ -22,8 +22,8 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField ("String", "USERNAME", getUsername() ?: "null")
-        buildConfigField ("String", "PASSWORD", getPassword() ?: "null")
+        buildConfigField ("String", "USERNAME", getUsername())
+        buildConfigField ("String", "PASSWORD", getPassword())
     }
 
     buildTypes {
