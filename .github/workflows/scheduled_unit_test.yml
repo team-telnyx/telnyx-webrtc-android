@@ -19,7 +19,7 @@ jobs:
 
       - name: Print Login Params Values
         run: |
-          bash update_properties.sh ${{ secrets.TELNYX_SIP_USER }} ${{ secrets.TELNYX_SIP_PASSWORD }}
+          bash ./scripts/update_properties.sh ${{ secrets.TELNYX_SIP_USER }} ${{ secrets.TELNYX_SIP_PASSWORD }}
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
