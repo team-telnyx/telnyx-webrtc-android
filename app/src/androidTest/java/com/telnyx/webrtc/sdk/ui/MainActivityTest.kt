@@ -1,7 +1,6 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
-import android.content.res.Resources
 import android.provider.Settings.Global.getString
 import android.view.View
 import android.widget.TextView
@@ -36,6 +35,7 @@ class MainActivityTest : BaseUITest() {
     @get:Rule
     val activityRule = ActivityTestRule(MainActivity::class.java, false, false)
 
+
     private lateinit var context: Context
 
     @Before
@@ -60,9 +60,9 @@ class MainActivityTest : BaseUITest() {
     fun a_onLaunchAndConnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -87,7 +87,7 @@ class MainActivityTest : BaseUITest() {
     fun c_testEmptyPwdDoesNotLaunchAndConnect() {
         activityRule.launchActivity(null)
         onView(withId(R.id.sip_password_id)).perform(clearText())
-        onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+        onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
         Thread.sleep(1500)
         onView(withId(R.id.connect_button_id))
             .perform(closeSoftKeyboard())
@@ -102,9 +102,9 @@ class MainActivityTest : BaseUITest() {
             //Wait for call to reset after previous test otherwise will fail in pipeline
             Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -134,9 +134,9 @@ class MainActivityTest : BaseUITest() {
     fun e_onDisconnect() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
@@ -149,13 +149,12 @@ class MainActivityTest : BaseUITest() {
 
     @Test
     fun f_onSendInviteCanBeCancelled() {
-
         assertDoesNotThrow {
             Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(Resources.getSystem().getString(R.string.mock_username)))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(Resources.getSystem().getString(R.string.mock_password)))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
@@ -179,9 +178,9 @@ class MainActivityTest : BaseUITest() {
     fun g_onSendInvite() {
         assertDoesNotThrow {
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
