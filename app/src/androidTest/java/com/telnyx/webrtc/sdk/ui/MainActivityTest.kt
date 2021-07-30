@@ -1,6 +1,8 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import android.content.res.Resources
+import android.provider.Settings.Global.getString
 import android.view.View
 import android.widget.TextView
 import androidx.test.espresso.Espresso.onView
@@ -147,12 +149,13 @@ class MainActivityTest : BaseUITest() {
 
     @Test
     fun f_onSendInviteCanBeCancelled() {
+
         assertDoesNotThrow {
             Thread.sleep(7000)
             activityRule.launchActivity(null)
-            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(BuildConfig.USERNAME))
+            onView(withId(R.id.sip_username_id)).perform(setTextInTextView(Resources.getSystem().getString(R.string.mock_username)))
             Thread.sleep(1500)
-            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(BuildConfig.PASSWORD))
+            onView(withId(R.id.sip_password_id)).perform(setTextInTextView(Resources.getSystem().getString(R.string.mock_password)))
             Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
