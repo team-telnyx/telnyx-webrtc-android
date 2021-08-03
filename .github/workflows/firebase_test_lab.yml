@@ -13,14 +13,9 @@ jobs:
   unit_tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-        uses: actions/checkout@v2
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
-        with:
-          java-version: 1.8
+
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
@@ -79,8 +74,6 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-      - uses: actions/checkout@v2
-
       - name: Download app APK
         uses: actions/download-artifact@v1
         with:
