@@ -17,7 +17,7 @@ jobs:
           java-version: 1.8
       - name: Update Username from Secrets
         env:
-          MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
+          MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
         run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
       - name: Update Password from Secrets
         env:
