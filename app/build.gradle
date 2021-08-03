@@ -40,22 +40,22 @@ android {
         def password = properties['MOCK_PASSWORD']
 
         release {
-            buildConfigField 'String', "USERNAME", username ?: "test"
-            buildConfigField 'String', "PASSWORD", password ?: "test"
+            buildConfigField 'String', "USERNAME", username ?: "'test'"
+            buildConfigField 'String', "PASSWORD", password ?: "'test'"
 
-            resValue('string', "mock_username", username ?: "test")
-            resValue('string', "mock_password", password ?: "test")
+            resValue('string', "mock_username", username ?: "'test'")
+            resValue('string', "mock_password", password ?: "'test'")
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
-            buildConfigField 'String', "USERNAME", username ?: "test"
-            buildConfigField 'String', "PASSWORD", password ?: "test"
+            buildConfigField 'String', "USERNAME", username ?: "'test'"
+            buildConfigField 'String', "PASSWORD", password ?: "'test'"
 
-            resValue('string', "mock_username", username ?: "test")
-            resValue('string', "mock_password", password ?: "test")
+            resValue('string', "mock_username", username ?: "'test'")
+            resValue('string', "mock_password", password ?: "'test'")
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
