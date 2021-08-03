@@ -21,9 +21,19 @@ jobs:
       - name: Grant execute permission for script
         run: chmod +x ./scripts/update_properties.sh
 
-      - name: Print Login Params Values
-        run: |
-          bash ./scripts/update_properties.sh ${{ secrets.TELNYX_SIP_USER }} ${{ secrets.TELNYX_SIP_PASSWORD }}
+        # - name: Touch Local Properties
+          # run: |
+      #   bash ./scripts/update_properties.sh
+
+      - name: Update Username from Secrets
+        env:
+          MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
+          run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+
+      - name: Update Password from Secrets
+        env:
+          MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+          run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
 
       - name: Unit tests
         run: ./gradlew test
@@ -41,12 +51,15 @@ jobs:
         with:
           java-version: 1.8
 
-      - name: Grant execute permission for script
-        run: chmod +x ./scripts/update_properties.sh
+      - name: Update Username from Secrets
+        env:
+          MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
+          run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
 
-      - name: Print Login Params Values
-        run: |
-          bash ./scripts/update_properties.sh ${{ secrets.TELNYX_SIP_USER }} ${{ secrets.TELNYX_SIP_PASSWORD }}
+      - name: Update Password from Secrets
+        env:
+          MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+          run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
