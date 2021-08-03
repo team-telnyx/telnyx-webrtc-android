@@ -15,16 +15,19 @@ jobs:
     steps:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-
+      - uses: actions/checkout@v2
+      - name: set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
-          run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
-
+        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
       - name: Update Password from Secrets
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-          run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
+        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
 
       - name: Unit tests
         run: ./gradlew test
@@ -35,20 +38,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 1
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
       - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - uses: actions/checkout@v2
+      - name: set up JDK 1.8
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: {{ secrets.TELNYX_SIP_USER }}
-          run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
       - name: Update Password from Secrets
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-          run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
+        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
