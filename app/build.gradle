@@ -43,8 +43,8 @@ android {
             buildConfigField 'String', "USERNAME", username ?: "test"
             buildConfigField 'String', "PASSWORD", password ?: "test"
 
-            resValue('string', "mock_username", username)
-            resValue('string', "mock_password", password)
+            resValue('string', "mock_username", username ?: "test")
+            resValue('string', "mock_password", password ?: "test")
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -54,8 +54,8 @@ android {
             buildConfigField 'String', "USERNAME", username ?: "test"
             buildConfigField 'String', "PASSWORD", password ?: "test"
 
-            resValue('string', "mock_username", username)
-            resValue('string', "mock_password", password)
+            resValue('string', "mock_username", username ?: "test")
+            resValue('string', "mock_password", password ?: "test")
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
