@@ -32,22 +32,35 @@ android {
 
     buildTypes {
 
-        Properties properties = new Properties()
+        /*Properties properties = new Properties()
         properties.load(project.rootProject.file('local.properties').newDataInputStream())
         def username = properties.getProperty('MOCK_USERNAME')
-        def password = properties.getProperty('MOCK_PASSWORD')
+        def password = properties.getProperty('MOCK_PASSWORD')*/
+
+        Properties properties = new Properties()
+        if (project.rootProject.file('local.properties').canRead()) {
+            properties.load(project.rootProject.file("local.properties").newDataInputStream())
+        } else {
+            throw new GradleException("Could not read local.properties!")
+        }
 
         release {
-            resValue('string', "mock_username", username)
-            resValue('string', "mock_password", password)
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxx"')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxx"')
+
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxx"'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxx"'))
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
-            resValue('string', "mock_username", username)
-            resValue('string', "mock_password", password)
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxx"')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxx"')
+
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxx"'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxx"'))
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
