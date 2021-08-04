@@ -31,15 +31,13 @@ android {
     }
 
     buildTypes {
+
+        Properties properties = new Properties()
+        properties.load(project.rootProject.file('local.properties').newDataInputStream())
+        def username = properties.getProperty('MOCK_USERNAME')
+        def password = properties.getProperty('MOCK_PASSWORD')
+
         release {
-
-            def propFile=rootProject.file("./local.properties")
-            def properties = new Properties()
-            properties.load(new FileInputStream(propFile))
-
-            def username = properties['MOCK_USERNAME']
-            def password = properties['MOCK_PASSWORD']
-
             buildConfigField 'String', "MOCK_PASSWORD", username
             buildConfigField 'String', "MOCK_PASSWORD", password
 
@@ -51,13 +49,6 @@ android {
             jniDebuggable true
         }
         debug {
-            def propFile=rootProject.file("./local.properties")
-            def properties = new Properties()
-            properties.load(new FileInputStream(propFile))
-
-            def username = properties['MOCK_USERNAME']
-            def password = properties['MOCK_PASSWORD']
-
             buildConfigField 'String', "MOCK_PASSWORD", username
             buildConfigField 'String', "MOCK_PASSWORD", password
 
