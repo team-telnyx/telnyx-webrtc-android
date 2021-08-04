@@ -32,7 +32,7 @@ android {
 
     buildTypes {
 
-        def propFile=rootProject.file("./github.properties")
+        def propFile=rootProject.file("./local.properties")
         def properties = new Properties()
         properties.load(new FileInputStream(propFile))
 
