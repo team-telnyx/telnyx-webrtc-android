@@ -1,4 +1,5 @@
 #!/bin/bash
+touch ./local.properties
 while getopts u:p: flag
 do
     case "${flag}" in
