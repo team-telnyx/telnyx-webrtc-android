@@ -32,7 +32,7 @@ android {
 
     buildTypes {
 
-        def propFile=rootProject.file("./local.properties")
+        def propFile=rootProject.file("./github.properties")
         def properties = new Properties()
         properties.load(new FileInputStream(propFile))
 
@@ -40,22 +40,22 @@ android {
         def password = properties['MOCK_PASSWORD']
 
         release {
-            buildConfigField 'String', "USERNAME", username ?: "\"foo\""
-            buildConfigField 'String', "PASSWORD", password ?: "\"foo\""
+            buildConfigField 'String', "USERNAME", username
+            buildConfigField 'String', "PASSWORD", password
 
-            resValue('string', "mock_username", username ?: "\"foo\"")
-            resValue('string', "mock_password", password ?: "\"foo\"")
+            resValue('string', "mock_username", username)
+            resValue('string', "mock_password", password)
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
-            buildConfigField 'String', "USERNAME", username ?: "\"foo\""
-            buildConfigField 'String', "PASSWORD", password ?: "\"foo\""
+            buildConfigField 'String', "USERNAME", username
+            buildConfigField 'String', "PASSWORD", password
 
-            resValue('string', "mock_username", username ?: "\"foo\"")
-            resValue('string', "mock_password", password ?: "\"foo\"")
+            resValue('string', "mock_username", username)
+            resValue('string', "mock_password", password)
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
