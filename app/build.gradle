@@ -38,9 +38,6 @@ android {
         def password = properties.getProperty('MOCK_PASSWORD')
 
         release {
-            buildConfigField 'String', "MOCK_PASSWORD", username
-            buildConfigField 'String', "MOCK_PASSWORD", password
-
             resValue('string', "mock_username", username)
             resValue('string', "mock_password", password)
 
@@ -49,9 +46,6 @@ android {
             jniDebuggable true
         }
         debug {
-            buildConfigField 'String', "MOCK_PASSWORD", username
-            buildConfigField 'String', "MOCK_PASSWORD", password
-
             resValue('string', "mock_username", username)
             resValue('string', "mock_password", password)
 
