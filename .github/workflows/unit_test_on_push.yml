@@ -27,18 +27,18 @@ jobs:
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
-        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./github.properties
+        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
       - name: Update Password from Secrets
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./github.properties
+        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
 
       - name: Read local.properties
         id: properties
         uses: juliangruber/read-file-action@v1
         with:
-          path: ./github.properties
-      - name: Echo github.properties
+          path: ./local.properties
+      - name: Echo local.properties
         run: echo "${{ steps.package.outputs.content }}"
 
       - name: Assemble app debug APK
