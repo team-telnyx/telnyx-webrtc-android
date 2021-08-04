@@ -36,8 +36,8 @@ android {
         def properties = new Properties()
         properties.load(new FileInputStream(propFile))
 
-        def username = properties['MOCK_USERNAME']
-        def password = properties['MOCK_PASSWORD']
+        def username = properties['gpr.usr']
+        def password = properties['gpr.pass']
 
         release {
             buildConfigField 'String', "USERNAME", username ?: "\"foo\""
