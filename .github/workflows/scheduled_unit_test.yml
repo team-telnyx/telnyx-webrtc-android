@@ -14,16 +14,15 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-
-      - shell: bash
-        env:
-                GPR_USR: ${{ secrets.TELNYX_SIP_USER }}
-                GPR_PASS: ${{ secrets.TELNYX_SIP_PASSWORD }}
-        run: |
-                sh ./scripts/apply_properties.sh -u "$GPR_USR" -p "$GPR_PASS"
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
+      - name: Setup Environment
+      - shell: bash
+        env:
+            GPR_USR: ${{ secrets.TELNYX_SIP_USER }}
+            GPR_PASS: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        run: |
+            sh ./scripts/apply_properties.sh -u "$GPR_USR" -p "$GPR_PASS"
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
