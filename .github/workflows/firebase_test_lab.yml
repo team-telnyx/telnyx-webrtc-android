@@ -26,6 +26,9 @@ jobs:
           MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
         run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
 
+      - name: Add new line
+        run: echo -e "\n" >> ./local.properties
+
       - name: Update Password from Secrets
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
@@ -56,6 +59,9 @@ jobs:
         env:
           MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
         run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+
+      - name: Add new line
+        run: echo -e "\n" >> ./local.properties
 
       - name: Update Password from Secrets
         env:
