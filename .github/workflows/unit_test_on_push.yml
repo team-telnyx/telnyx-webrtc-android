@@ -36,9 +36,6 @@ jobs:
       - name: Clean
         run: ./gradlew clean
 
-      - name: Build with Gradle
-        run: ./gradlew build
-
       - name: Read local.properties
         id: properties
         uses: juliangruber/read-file-action@v1

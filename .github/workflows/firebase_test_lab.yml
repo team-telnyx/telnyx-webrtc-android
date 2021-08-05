@@ -33,9 +33,6 @@ jobs:
       - name: Clean
         run: ./gradlew clean
 
-      - name: Build with Gradle
-        run: ./gradlew build
-
       - name: Unit tests
         run: ./gradlew test
 
@@ -62,14 +59,12 @@ jobs:
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
         run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
-      - name: Assemble app debug APK
-        run: bash ./gradlew assembleDebug --stacktrace
 
       - name: Clean
         run: ./gradlew clean
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Assemble app debug APK
+        run: bash ./gradlew assembleDebug --stacktrace
 
       - name: Upload app APK
         uses: actions/upload-artifact@v1
