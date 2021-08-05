@@ -27,11 +27,11 @@ jobs:
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
-        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+        run: echo MOCK_USERNAME=\"$MOCK_USERNAME\" > ./local.properties
       - name: Update Password from Secrets
         env:
           MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" > ./local.properties
+        run: echo MOCK_PASSWORD=\"$MOCK_PASSWORD\" > ./local.properties
 
       - name: Clean
         run: ./gradlew clean
