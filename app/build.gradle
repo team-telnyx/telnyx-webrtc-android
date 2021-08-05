@@ -45,22 +45,22 @@ android {
         }
 
         release {
-            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxxxx"')
-            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxxxx"')
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD')
 
-            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxxxx"'))
-            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxxxx"'))
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD'))
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
-            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxxxx"')
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME')
             buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxxxx"')
 
-            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxxxx"'))
-            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxxxx"'))
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD'))
 
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
