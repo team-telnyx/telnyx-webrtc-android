@@ -122,6 +122,7 @@ class MainActivityTest : BaseUITest() {
 
             onView(withId(R.id.answer_call_id))
                 .perform(closeSoftKeyboard())
+                .perform(scrollTo())
                 .perform(click())
             Thread.sleep(2000)
 
