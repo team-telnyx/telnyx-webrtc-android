@@ -167,8 +167,6 @@ class TxSocket(
                                                       listener.onErrorReceived(jsonObject)
                                                   }
                                               }
-                                          } else {
-                                              // handle error that doesn't have a code
                                           }
                                         }
                                     }

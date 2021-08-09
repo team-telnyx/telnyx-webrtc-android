@@ -494,7 +494,7 @@ class TelnyxClient(
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
         Timber.d(
-            "[%s] :: onClientReady",
+            "[%s] :: onClientReady :: retrieving gateway state",
             this@TelnyxClient.javaClass.simpleName,
         )
         if (waitingForReg) {
@@ -510,6 +510,7 @@ class TelnyxClient(
                         "[%s] :: Gateway registration has timed out",
                         this@TelnyxClient.javaClass.simpleName,
                     )
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
                 }
             }, 3000)
         }
@@ -527,8 +528,7 @@ class TelnyxClient(
             onLoginSuccessful(sessionId)
         } else if (gatewayState == "NOREG") {
             gatewayResponseTimer.cancel()
-            waitingForReg = false
-            // provide error
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
         }
     }
 
