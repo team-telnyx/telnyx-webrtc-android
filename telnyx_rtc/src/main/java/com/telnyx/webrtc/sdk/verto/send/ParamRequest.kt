@@ -4,6 +4,9 @@
 
 package com.telnyx.webrtc.sdk.verto.send
 
+import com.google.gson.annotations.SerializedName
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+
 sealed class ParamRequest
 
 data class LoginParam(val login_token: String?, val login: String?,
@@ -14,7 +17,10 @@ data class LoginParam(val login_token: String?, val login: String?,
                       val loginParams: ArrayList<Any>?
                       ) : ParamRequest()
 
-data class CallParams(val sessionId: String, val sdp: String,
+data class CallParams(val sessionId: String,
+                      val sdp: String,
+                      @SerializedName("User-Agent")
+                      val userAgent: String = "Android-"+ BuildConfig.SDK_VERSION.toString(),
                       val dialogParams: CallDialogParams
                       ) : ParamRequest()
 

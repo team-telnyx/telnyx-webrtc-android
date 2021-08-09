@@ -140,8 +140,9 @@ class Call(
         val answerBodyMessage = SendingMessageBody(
             uuid, SocketMethod.ANSWER.methodName,
             CallParams(
-                sessionId, sessionDescriptionString,
-                CallDialogParams(
+                sessionId = sessionId,
+                sdp = sessionDescriptionString,
+                dialogParams = CallDialogParams(
                     callId = callId,
                     destinationNumber = destinationNumber
                 )

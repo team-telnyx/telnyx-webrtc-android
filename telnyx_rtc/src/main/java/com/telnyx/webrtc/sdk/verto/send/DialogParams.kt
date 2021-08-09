@@ -19,10 +19,6 @@ data class CallDialogParams(val useStereo: Boolean = false,
                             val screenShare: Boolean = false,
                             val audio: Boolean = true,
                             val userVariables: ArrayList<Any> = arrayListOf(),
-                            @SerializedName("client_version")
-                            val clientVersion: String = BuildConfig.SDK_VERSION.toString(),
-                            @SerializedName("client_type")
-                            val clientType: String = "Android",
                             @SerializedName("clientState")
                             val clientState: String = "",
                             @SerializedName("callID")
