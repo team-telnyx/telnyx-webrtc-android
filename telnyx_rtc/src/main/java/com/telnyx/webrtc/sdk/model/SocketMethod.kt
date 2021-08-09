@@ -27,5 +27,7 @@ enum class SocketMethod(var methodName: String) {
     MEDIA("telnyx_rtc.media"),
     INFO("telnyx_rtc.info"),
     RINGING("telnyx_rtc.ringing"),
+    CLIENT_READY("telnyx_rtc.clientReady"),
+    GATEWAY_STATE("telnyx_rtc.gatewayState"),
     LOGIN("login")
 }

@@ -27,6 +27,7 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
+import kotlin.concurrent.timerTask
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -42,6 +43,10 @@ class TelnyxClient(
 
     private var reconnecting = false
 
+    //Gateway registration variables
+    private var retryCounter = 0
+    private var waitingForReg = true
+
     internal var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
@@ -53,7 +58,7 @@ class TelnyxClient(
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
 
-    /// Keeps track of all the created calls by theirs UUIDs
+    // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     val call: Call? by lazy { buildCall() }
@@ -449,6 +454,17 @@ class TelnyxClient(
         Timber.d("ringtone/ringback media player stopped and released")
     }
 
+    private fun requestGatewayStatus() {
+        socket.send(
+            SendingMessageBody(
+                id = UUID.randomUUID().toString(),
+                method = SocketMethod.GATEWAY_STATE.methodName,
+                params = EmptyParams(
+                    sessionId = null
+                )
+            ))
+    }
+
 
     // TxSocketListener Overrides
     override fun onLoginSuccessful(jsonObject: JsonObject) {
@@ -466,6 +482,29 @@ class TelnyxClient(
                 )
             )
         )
+    }
+
+    override fun onClientReady(jsonObject: JsonObject) {
+        Timber.d(
+            "[%s] :: onClientReady",
+            this@TelnyxClient.javaClass.simpleName,
+        )
+
+        while (waitingForReg) {
+            //Send request to get gateway status
+            requestGatewayStatus()
+
+            //Start a timer for 3 seconds
+            Timer().schedule(timerTask {
+                //increment retry counter
+                if (retryCounter < 2) {
+                    retryCounter++
+                } else {
+                    // Send error
+                }
+            }, 3000)
+
+        }
     }
 
     override fun onConnectionEstablished() {

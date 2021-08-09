@@ -487,6 +487,11 @@ class Call(
         )
     }
 
+    override fun onClientReady(jsonObject: JsonObject) {
+        //NOOP
+    }
+
+
     override fun onLoginSuccessful(jsonObject: JsonObject) {
         //NOOP
     }

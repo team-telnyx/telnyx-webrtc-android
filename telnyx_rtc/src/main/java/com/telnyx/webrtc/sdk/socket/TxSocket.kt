@@ -120,6 +120,12 @@ class TxSocket(
                                                 jsonObject.get("method").asString
                                             )
                                             when (jsonObject.get("method").asString) {
+                                                CLIENT_READY.methodName -> {
+                                                    listener.onLoginSuccessful(jsonObject)
+                                                }
+                                                GATEWAY_STATE.methodName -> {
+                                                    
+                                                }
                                                 INVITE.methodName -> {
                                                     listener.onOfferReceived(jsonObject)
                                                 }

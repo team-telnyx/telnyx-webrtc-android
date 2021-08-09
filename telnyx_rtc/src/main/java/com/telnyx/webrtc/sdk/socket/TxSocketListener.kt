@@ -20,6 +20,13 @@ interface TxSocketListener {
     fun onLoginSuccessful(jsonObject: JsonObject)
 
     /**
+     * Fires once the client is ready and gateway status updates can be received
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onClientReady(jsonObject: JsonObject)
+
+    /**
      * Fires when a socket connection is established
      * @see [TxSocket]
      */
