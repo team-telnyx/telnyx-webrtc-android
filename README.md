@@ -30,6 +30,9 @@ Enable Telnyx real-time communication services on Android :telephone_receiver: :
                <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif">
             </p>
             
+
+_Don't have SIP credentials? [Follow our guide](https://developers.telnyx.com/docs/v2/sip-trunking/quickstarts/portal-setup) to get set up on our portal and generate them._
+            
  ## Usage
 
 ### Telnyx Client
