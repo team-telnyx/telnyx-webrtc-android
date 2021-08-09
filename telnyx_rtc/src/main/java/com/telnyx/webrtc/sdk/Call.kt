@@ -491,8 +491,7 @@ class Call(
         //NOOP
     }
 
-
-    override fun onLoginSuccessful(jsonObject: JsonObject) {
+    override fun onGatewayStateReceived(jsonObject: JsonObject) {
         //NOOP
     }
 

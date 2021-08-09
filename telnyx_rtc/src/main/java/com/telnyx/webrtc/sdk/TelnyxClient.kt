@@ -44,8 +44,10 @@ class TelnyxClient(
     private var reconnecting = false
 
     //Gateway registration variables
-    private var retryCounter = 0
+    private val gatewayResponseTimer = Timer()
     private var waitingForReg = true
+    private var retryCounter = 0
+    private var gatewayState = "idle"
 
     internal var socket: TxSocket
 
@@ -455,55 +457,78 @@ class TelnyxClient(
     }
 
     private fun requestGatewayStatus() {
-        socket.send(
-            SendingMessageBody(
-                id = UUID.randomUUID().toString(),
-                method = SocketMethod.GATEWAY_STATE.methodName,
-                params = EmptyParams(
-                    sessionId = null
+        if (waitingForReg) {
+            socket.send(
+                SendingMessageBody(
+                    id = UUID.randomUUID().toString(),
+                    method = SocketMethod.GATEWAY_STATE.methodName,
+                    params = EmptyParams(
+                        sessionId = null
+                    )
                 )
-            ))
+            )
+        }
     }
 
-
-    // TxSocketListener Overrides
-    override fun onLoginSuccessful(jsonObject: JsonObject) {
+    /**
+     * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
+     * @param sessionId, the session ID of the successfully registered session.
+     */
+    private fun onLoginSuccessful(sessionId: String) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
             this@TelnyxClient.javaClass.simpleName,
-            jsonObject
+            sessionId
         )
-        sessionId = jsonObject.getAsJsonObject("result").get("sessid").asString
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.LOGIN.methodName,
-                    LoginResponse(sessionId!!)
+                    LoginResponse(sessionId)
                 )
             )
         )
     }
 
+
+    // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
         Timber.d(
             "[%s] :: onClientReady",
             this@TelnyxClient.javaClass.simpleName,
         )
-
-        while (waitingForReg) {
-            //Send request to get gateway status
+        if (waitingForReg) {
             requestGatewayStatus()
-
-            //Start a timer for 3 seconds
-            Timer().schedule(timerTask {
-                //increment retry counter
+            gatewayResponseTimer.schedule(timerTask {
                 if (retryCounter < 2) {
+                    if (waitingForReg) {
+                        onClientReady(jsonObject)
+                    }
                     retryCounter++
                 } else {
-                    // Send error
+                    Timber.d(
+                        "[%s] :: Gateway registration has timed out",
+                        this@TelnyxClient.javaClass.simpleName,
+                    )
                 }
             }, 3000)
+        }
+    }
 
+    override fun onGatewayStateReceived(jsonObject: JsonObject) {
+        val result = jsonObject.get("result")
+        val params = result.asJsonObject.get("params")
+        val sessionId = result.asJsonObject.get("sessid").asString
+        gatewayState = params.asJsonObject.get("state").asString
+
+        if (gatewayState == "REGED") {
+            gatewayResponseTimer.cancel()
+            waitingForReg = false
+            onLoginSuccessful(sessionId)
+        } else if (gatewayState == "NOREG") {
+            gatewayResponseTimer.cancel()
+            waitingForReg = false
+            // provide error
         }
     }
 

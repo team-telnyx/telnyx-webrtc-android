@@ -12,12 +12,6 @@ import java.util.*
  * TxSocket interface containing the methods that the socket connection will fire
  */
 interface TxSocketListener {
-    /**
-     * Fires when a successful login occurs on the TxSocket
-     * @param jsonObject, the socket response in a jsonObject format
-     * @see [TxSocket]
-     */
-    fun onLoginSuccessful(jsonObject: JsonObject)
 
     /**
      * Fires once the client is ready and gateway status updates can be received
@@ -25,6 +19,13 @@ interface TxSocketListener {
      * @see [TxSocket]
      */
     fun onClientReady(jsonObject: JsonObject)
+
+    /**
+     * Fires once a Gateway state has been received. These are used to find a verified registration
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onGatewayStateReceived(jsonObject: JsonObject)
 
     /**
      * Fires when a socket connection is established
