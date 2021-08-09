@@ -96,7 +96,7 @@ class MainActivityTest : BaseUITest() {
 
     }
 
-    @Test
+   /* @Test
     fun d_onCallSelfAndAnswerAndEndToEndTest() {
         assertDoesNotThrow {
             //Wait for call to reset after previous test otherwise will fail in pipeline
@@ -129,7 +129,7 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.fragment_call_instance)).check(matches(isDisplayed()))
             Thread.sleep(2000)
         }
-    }
+    }*/
 
     @Test
     fun e_onDisconnect() {
