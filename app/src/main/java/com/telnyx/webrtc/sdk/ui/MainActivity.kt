@@ -8,7 +8,6 @@ import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -36,6 +35,7 @@ import kotlinx.android.synthetic.main.include_login_credential_section.*
 import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import timber.log.Timber
+import java.io.IOException
 import java.util.*
 import javax.inject.Inject
 
@@ -228,8 +228,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
-        sip_username_id.setText(MOCK_USERNAME)
-        sip_password_id.setText(MOCK_PASSWORD)
+        sip_username_id.setText(BuildConfig.MOCK_USERNAME)
+        sip_password_id.setText(BuildConfig.MOCK_PASSWORD)
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)
@@ -318,7 +318,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Get new FCM registration token
-            val token = task.result
+            var token = ""
+            try {
+                 token = task.result
+            } catch (e: IOException) {
+                Timber.d(e)
+            }
             Timber.d("FCM TOKEN RECEIVED: $token")
             fcmToken = token
         }
