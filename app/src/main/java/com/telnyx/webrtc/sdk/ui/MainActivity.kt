@@ -136,6 +136,7 @@ class MainActivity : AppCompatActivity() {
                     Timber.d("onMessageReceived from SDK [%s]", data?.method)
                     when (data?.method) {
                         SocketMethod.LOGIN.methodName -> {
+                            progress_indicator_id.visibility = View.INVISIBLE
                             val sessionId = (data.result as LoginResponse).sessid
                             Timber.d("Current Session: $sessionId")
                             onLoginSuccessfullyViews()
@@ -268,6 +269,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectButtonPressed() {
+        progress_indicator_id.visibility = View.VISIBLE
+
         //path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
