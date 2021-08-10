@@ -1,0 +1,131 @@
+name: Unit Test and Firebase Test Lab
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # 1 Run unit tests
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Update Username from Secrets
+        env:
+          MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
+        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+
+      - name: Add new line
+        run: echo -e "\n" >> ./local.properties
+
+      - name: Update Password from Secrets
+        env:
+          MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" >> ./local.properties
+
+      - name: Clean
+        run: ./gradlew clean
+
+      - name: Unit tests
+        run: ./gradlew test
+
+  # 1 Generate APKs so that we can install on Firebase Test Lab devices
+  apk:
+    name: Generate APK
+    runs-on: ubuntu-latest
+    steps:
+      # 1
+      - uses: actions/checkout@v1
+      - name: set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Update Username from Secrets
+        env:
+          MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
+        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
+
+      - name: Add new line
+        run: echo -e "\n" >> ./local.properties
+
+      - name: Update Password from Secrets
+        env:
+          MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
+        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" >> ./local.properties
+
+      - name: Clean
+        run: ./gradlew clean
+
+      - name: Assemble app debug APK
+        run: bash ./gradlew assembleDebug --stacktrace
+
+      - name: Upload app APK
+        uses: actions/upload-artifact@v1
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Assemble Android Instrumentation Tests
+        run: bash ./gradlew assembleDebugAndroidTest
+
+      - name: Upload Android Test APK
+        uses: actions/upload-artifact@v1
+        with:
+          name: app-debug-androidTest
+          path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+  firebase:
+    name: Run UI tests with Firebase Test Lab
+    needs: apk
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: Download app APK
+        uses: actions/download-artifact@v1
+        with:
+          name: app-debug
+
+      - name: Download Android test APK
+        uses: actions/download-artifact@v1
+        with:
+          name: app-debug-androidTest
+
+      - name: Login to Google Cloud
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          version: '270.0.0'
+          service_account_key: ${{ secrets.GCLOUD_AUTH }}
+
+      - name: Set current project
+        run: gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+
+      - name: Run Instrumentation Tests in Firebase Test Lab
+        run: gcloud firebase test android run --type instrumentation --app app-debug/app-debug.apk --test app-debug-androidTest/app-debug-androidTest.apk --device version=28,orientation=portrait
+
+  generate_api_docs:
+    needs: [firebase]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Generate API documentation
+        if: ${{github.event_name == 'push'}}
+        run: ./gradlew dokkaHtml
