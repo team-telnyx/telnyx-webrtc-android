@@ -122,9 +122,6 @@ class TxSocket(
                                                 CLIENT_READY.methodName -> {
                                                     listener.onClientReady(jsonObject)
                                                 }
-                                                /*GATEWAY_STATE.methodName -> {
-                                                    listener.onGatewayStateReceived(jsonObject)
-                                                }*/
                                                 INVITE.methodName -> {
                                                     listener.onOfferReceived(jsonObject)
                                                 }

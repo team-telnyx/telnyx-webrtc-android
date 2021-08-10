@@ -462,8 +462,8 @@ class TelnyxClient(
                 SendingMessageBody(
                     id = UUID.randomUUID().toString(),
                     method = SocketMethod.GATEWAY_STATE.methodName,
-                    params = EmptyParams(
-                        sessionId = null
+                    params = StateParams(
+                        state = null
                     )
                 )
             )
@@ -474,7 +474,7 @@ class TelnyxClient(
      * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
      * @param sessionId, the session ID of the successfully registered session.
      */
-    private fun onLoginSuccessful(sessionId: String) {
+    internal fun onLoginSuccessful(sessionId: String) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
             this@TelnyxClient.javaClass.simpleName,
@@ -521,12 +521,11 @@ class TelnyxClient(
         val params = result.asJsonObject.get("params")
         val sessionId = result.asJsonObject.get("sessid").asString
         gatewayState = params.asJsonObject.get("state").asString
-
-        if (gatewayState == "REGED") {
+        if (gatewayState == GatewayState.REGED.state) {
             gatewayResponseTimer.cancel()
             waitingForReg = false
             onLoginSuccessful(sessionId)
-        } else if (gatewayState == "NOREG") {
+        } else if (gatewayState == GatewayState.NOREG.state) {
             gatewayResponseTimer.cancel()
             socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
         }
