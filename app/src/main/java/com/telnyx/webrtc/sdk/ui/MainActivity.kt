@@ -175,6 +175,7 @@ class MainActivity : AppCompatActivity() {
                         message ?: "Socket Connection Error",
                         Toast.LENGTH_SHORT
                     ).show()
+                    progress_indicator_id.visibility = View.INVISIBLE
                 }
 
             })
