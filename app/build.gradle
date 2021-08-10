@@ -7,6 +7,10 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+
+def localProperties = new Properties()
+localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+
 android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
@@ -24,12 +28,31 @@ android {
     }
 
     buildTypes {
+        Properties properties = new Properties()
+        if (project.rootProject.file('local.properties').canRead()) {
+            properties.load(project.rootProject.file("local.properties").newDataInputStream())
+        } else {
+            throw new GradleException("Could not read local.properties!")
+        }
+
         release {
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxxxx"')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxxxx"')
+
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxxxx"'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxxxx"'))
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             jniDebuggable true
         }
         debug {
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxxxx"')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxxxx"')
+
+            resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxxxx"'))
+            resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxxxx"'))
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             debuggable true
