@@ -28,7 +28,7 @@ task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest', 'crea
     classDirectories.setFrom(files([kotlinDebugTree]))
     executionData.setFrom(fileTree(dir: "$buildDir", includes: [
             "jacoco/testDebugUnitTest.exec",
-            "outputs/code-coverage/connected/*coverage.ec"
+            "outputs/code-coverage/debugAndroidTest/connected/*coverage.ec"
     ]))
 }
 
