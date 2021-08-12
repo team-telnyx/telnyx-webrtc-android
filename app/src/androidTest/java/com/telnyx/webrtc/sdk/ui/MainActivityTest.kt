@@ -1,7 +1,7 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
-import android.provider.Settings.Global.getString
+import android.provider.Settings.Global.*
 import android.view.View
 import android.widget.TextView
 import androidx.test.espresso.Espresso.onView
@@ -42,11 +42,22 @@ class MainActivityTest : BaseUITest() {
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         Intents.init()
+        setAnimations(false)
     }
 
     @After
     fun tearDown() {
         Intents.release()
+        setAnimations(true)
+    }
+
+    private fun setAnimations(enabled: Boolean) {
+        val value = if (enabled) "1.0" else "0.0"
+        InstrumentationRegistry.getInstrumentation().uiAutomation.run {
+            this.executeShellCommand("settings put global $WINDOW_ANIMATION_SCALE $value")
+            this.executeShellCommand("settings put global $TRANSITION_ANIMATION_SCALE $value")
+            this.executeShellCommand("settings put global $ANIMATOR_DURATION_SCALE $value")
+        }
     }
 
     @Test
@@ -67,7 +78,7 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(1500)
+            Thread.sleep(6500)
             onView(withId(R.id.socket_text_value)).check(matches(withText(R.string.connected)))
         }
     }
@@ -141,7 +152,7 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(1500)
+            Thread.sleep(6500)
             openActionBarOverflowOrOptionsMenu(context);
             onView(withText("Disconnect"))
                 .perform(click())
@@ -156,7 +167,7 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
             onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
-            Thread.sleep(1500)
+            Thread.sleep(6500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
@@ -182,7 +193,7 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
             onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
-            Thread.sleep(1500)
+            Thread.sleep(6500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
