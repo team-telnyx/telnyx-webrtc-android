@@ -167,11 +167,11 @@ class MainActivityTest : BaseUITest() {
             onView(withId(R.id.sip_username_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_username)))
             Thread.sleep(1500)
             onView(withId(R.id.sip_password_id)).perform(setTextInTextView(context.resources.getString(R.string.mock_password)))
-            Thread.sleep(6500)
+            Thread.sleep(1500)
             onView(withId(R.id.connect_button_id))
                 .perform(closeSoftKeyboard())
                 .perform(click())
-            Thread.sleep(3000)
+            Thread.sleep(6500)
 
             onView(withId(R.id.call_button_id))
                 .perform(closeSoftKeyboard())
