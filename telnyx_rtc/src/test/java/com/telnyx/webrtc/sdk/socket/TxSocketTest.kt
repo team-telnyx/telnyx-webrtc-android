@@ -8,7 +8,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.appcompat.app.AppCompatActivity
-import androidx.test.rule.GrantPermissionRule
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -25,11 +24,9 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.mockito.Mockito.*
 import org.mockito.Spy
-import org.robolectric.RuntimeEnvironment.application
 import kotlin.test.assertEquals
 
 class TxSocketTest : BaseTest() {
@@ -74,23 +71,10 @@ class TxSocketTest : BaseTest() {
     @Spy
     private lateinit var socket: TxSocket
 
-
-   /* @get:Rule
-    val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
-        Manifest.permission.INTERNET,
-        Manifest.permission.ACCESS_NETWORK_STATE,
-    )*/
-
     @Before
     fun setup() {
         MockKAnnotations.init(this, true)
-        //`when`(application.applicationContext).thenReturn(mockContext)
-
         BuildConfig.IS_TESTING.set(true)
-
-        //every {socket.callOngoing()} just Runs
-        //every {socket.callNotOngoing()} just Runs
-
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
         networkCallbackSetup()
