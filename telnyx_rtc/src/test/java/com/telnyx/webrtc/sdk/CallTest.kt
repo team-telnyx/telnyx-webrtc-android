@@ -3,6 +3,7 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -17,10 +18,12 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.rules.TestRule
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 import org.mockito.Spy
@@ -45,7 +48,10 @@ class CallTest: BaseTest() {
     @MockK
     lateinit var audioManager: AudioManager
 
-    @BeforeEach
+    @get:Rule
+    val rule: TestRule = InstantTaskExecutorRule()
+
+    @Before
     fun setup() {
         MockKAnnotations.init(this, true, true, true)
         socket = TxSocket(
