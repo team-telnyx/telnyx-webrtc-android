@@ -130,13 +130,14 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.getSocketResponse()
             ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
-                    onConnectionEstablishedViews()
+                    doLogin()
                 }
 
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     Timber.d("onMessageReceived from SDK [%s]", data?.method)
                     when (data?.method) {
                         SocketMethod.LOGIN.methodName -> {
+                            progress_indicator_id.visibility = View.INVISIBLE
                             val sessionId = (data.result as LoginResponse).sessid
                             Timber.d("Current Session: $sessionId")
                             onLoginSuccessfullyViews()
@@ -175,6 +176,7 @@ class MainActivity : AppCompatActivity() {
                         message ?: "Socket Connection Error",
                         Toast.LENGTH_SHORT
                     ).show()
+                    progress_indicator_id.visibility = View.INVISIBLE
                 }
 
             })
@@ -269,6 +271,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectButtonPressed() {
+        progress_indicator_id.visibility = View.VISIBLE
+        connectToSocketAndObserve()
+    }
+
+    private fun doLogin() {
         //path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
@@ -340,9 +347,6 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.disconnect()
     }
 
-    private fun onConnectionEstablishedViews() {
-        connect_button_id.isClickable = true
-    }
 
     private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
@@ -420,7 +424,7 @@ class MainActivity : AppCompatActivity() {
             .withListener(object : MultiplePermissionsListener {
                 override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                     if (report!!.areAllPermissionsGranted()) {
-                        connectToSocketAndObserve()
+                        connect_button_id.isClickable = true
                     } else if (report.isAnyPermissionPermanentlyDenied) {
                         Toast.makeText(
                             this@MainActivity,

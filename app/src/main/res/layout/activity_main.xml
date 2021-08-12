@@ -20,6 +20,15 @@
         app:title="WebRTC Demo"
         app:titleTextColor="@color/white" />
 
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progress_indicator_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:visibility="invisible"
+        app:layout_constraintStart_toEndOf="@id/guideline_start"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar_id" />
+
     <ImageView
         android:id="@+id/telnyx_image_id"
         android:layout_width="188dp"

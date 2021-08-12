@@ -27,6 +27,7 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
+import kotlin.concurrent.timerTask
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -42,6 +43,12 @@ class TelnyxClient(
 
     private var reconnecting = false
 
+    //Gateway registration variables
+    private val gatewayResponseTimer = Timer()
+    private var waitingForReg = true
+    private var retryCounter = 0
+    private var gatewayState = "idle"
+
     internal var socket: TxSocket
 
     //MediaPlayer for ringtone / ringbacktone
@@ -53,7 +60,7 @@ class TelnyxClient(
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
 
-    /// Keeps track of all the created calls by theirs UUIDs
+    // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     val call: Call? by lazy { buildCall() }
@@ -67,7 +74,6 @@ class TelnyxClient(
         sessionId?.let {
             return Call(context, this, socket, sessionId!!, audioManager!!)
         }
-        socketResponseLiveData.postValue(SocketResponse.error("No session ID has been set, no call can be made"))
         return null
     }
 
@@ -450,27 +456,79 @@ class TelnyxClient(
         Timber.d("ringtone/ringback media player stopped and released")
     }
 
-    /*
+    private fun requestGatewayStatus() {
+        if (waitingForReg) {
+            socket.send(
+                SendingMessageBody(
+                    id = UUID.randomUUID().toString(),
+                    method = SocketMethod.GATEWAY_STATE.methodName,
+                    params = StateParams(
+                        state = null
+                    )
+                )
+            )
+        }
+    }
+
+    /**
      * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
      * @param sessionId, the session ID of the successfully registered session.
      */
-    internal fun onLoginSuccessful(receivedLoginSessionId: String) {
+    internal fun onLoginSuccessful(sessionId: String) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
             this@TelnyxClient.javaClass.simpleName,
-            receivedLoginSessionId
+            sessionId
         )
-
-        sessionId = receivedLoginSessionId
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.LOGIN.methodName,
-
-                    LoginResponse(receivedLoginSessionId)
+                    LoginResponse(sessionId)
                 )
             )
         )
+    }
+
+
+    // TxSocketListener Overrides
+    override fun onClientReady(jsonObject: JsonObject) {
+        Timber.d(
+            "[%s] :: onClientReady :: retrieving gateway state",
+            this@TelnyxClient.javaClass.simpleName,
+        )
+        if (waitingForReg) {
+            requestGatewayStatus()
+            gatewayResponseTimer.schedule(timerTask {
+                if (retryCounter < 2) {
+                    if (waitingForReg) {
+                        onClientReady(jsonObject)
+                    }
+                    retryCounter++
+                } else {
+                    Timber.d(
+                        "[%s] :: Gateway registration has timed out",
+                        this@TelnyxClient.javaClass.simpleName,
+                    )
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                }
+            }, 3000)
+        }
+    }
+
+    override fun onGatewayStateReceived(jsonObject: JsonObject) {
+        val result = jsonObject.get("result")
+        val params = result.asJsonObject.get("params")
+        val sessionId = result.asJsonObject.get("sessid").asString
+        gatewayState = params.asJsonObject.get("state").asString
+        if (gatewayState == GatewayState.REGED.state) {
+            gatewayResponseTimer.cancel()
+            waitingForReg = false
+            onLoginSuccessful(sessionId)
+        } else if (gatewayState == GatewayState.NOREG.state) {
+            gatewayResponseTimer.cancel()
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+        }
     }
 
     override fun onConnectionEstablished() {
