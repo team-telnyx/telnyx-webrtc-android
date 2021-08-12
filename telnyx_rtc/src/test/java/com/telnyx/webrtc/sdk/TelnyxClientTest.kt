@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk
 
-import android.Manifest
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
@@ -8,9 +7,9 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.appcompat.app.AppCompatActivity
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import androidx.test.rule.GrantPermissionRule
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -30,11 +29,12 @@ import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.verto.send.StateParams
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
+import org.junit.Before
 import org.junit.Rule
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.rules.TestRule
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
@@ -44,7 +44,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
-
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class TelnyxClientTest : BaseTest() {
@@ -72,14 +71,10 @@ class TelnyxClientTest : BaseTest() {
     @MockK
     lateinit var audioManager: AudioManager
 
-
     @get:Rule
-    val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
-        Manifest.permission.ACCESS_NETWORK_STATE,
-    )
+    val rule: TestRule = InstantTaskExecutorRule()
 
-
-    @BeforeEach
+    @Before
     fun setUp() {
         MockKAnnotations.init(this, true, true, true)
         networkCallbackSetup()

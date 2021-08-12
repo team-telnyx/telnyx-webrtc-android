@@ -24,6 +24,8 @@ versions.firebasebom = "28.2.1"
 versions.hilt = "2.35.1"
 versions.bugsnag = "5.+"
 versions.dialpad = "3.0.0"
+versions.jacoco = "0.8.7"
+
 
 ext.versions = versions
 
@@ -48,6 +50,7 @@ deps.firebasebom = "com.google.firebase:firebase-bom:$versions.firebasebom"
 deps.firebase_analytics = "com.google.firebase:firebase-analytics-ktx"
 deps.firebase_messaging = "com.google.firebase:firebase-messaging-ktx"
 deps.bugsnag = "com.bugsnag:bugsnag-android:$versions.bugsnag"
+deps.jacoco = "org.jacoco:org.jacoco.core:$versions.jacoco"
 
 def kotlin = [:]
 kotlin.plugin = "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"

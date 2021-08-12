@@ -318,20 +318,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getFCMToken() {
+        var token = ""
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
                 fcmToken = null
             }
-
-            // Get new FCM registration token
-            var token = ""
-            try {
-                 token = task.result
-            } catch (e: IOException) {
-                Timber.d(e)
+            else if (task.isSuccessful){
+                // Get new FCM registration token
+                try {
+                    token = task.result
+                } catch (e: IOException) {
+                    Timber.d(e)
+                }
+                Timber.d("FCM TOKEN RECEIVED: $token")
             }
-            Timber.d("FCM TOKEN RECEIVED: $token")
             fcmToken = token
         }
     }
