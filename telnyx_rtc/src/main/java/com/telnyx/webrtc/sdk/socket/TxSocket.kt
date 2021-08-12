@@ -104,12 +104,11 @@ class TxSocket(
                                 withContext(Dispatchers.Main) {
                                     when {
                                         jsonObject.has("result") -> {
-                                            if (jsonObject.get("result").asJsonObject.has("message")) {
-                                                val result = jsonObject.get("result")
-                                                val message =
-                                                    result.asJsonObject.get("message").asString
-                                                if (message == "logged in") {
-                                                    listener.onLoginSuccessful(jsonObject)
+                                            if (jsonObject.get("result").asJsonObject.has("params")) {
+                                                val result = jsonObject.get("result").asJsonObject
+                                                val params = result.get("params").asJsonObject
+                                                if (params.asJsonObject.has("state")) {
+                                                    listener.onGatewayStateReceived(jsonObject)
                                                 }
                                             }
                                         }
@@ -120,6 +119,9 @@ class TxSocket(
                                                 jsonObject.get("method").asString
                                             )
                                             when (jsonObject.get("method").asString) {
+                                                CLIENT_READY.methodName -> {
+                                                    listener.onClientReady(jsonObject)
+                                                }
                                                 INVITE.methodName -> {
                                                     listener.onOfferReceived(jsonObject)
                                                 }
@@ -145,22 +147,24 @@ class TxSocket(
                                             }
                                         }
                                         jsonObject.has("error") -> {
-                                            val errorCode =
-                                                jsonObject.get("error").asJsonObject.get("code").asInt
-                                            Timber.tag("VERTO").d(
-                                                "[%s] Received Error From Telnyx [%s]",
-                                                this@TxSocket.javaClass.simpleName,
-                                                jsonObject.get("error").asJsonObject.get("message")
-                                                    .toString()
-                                            )
-                                            when (errorCode) {
-                                                CREDENTIAL_ERROR.errorCode -> {
-                                                    listener.onErrorReceived(jsonObject)
-                                                }
-                                                TOKEN_ERROR.errorCode -> {
-                                                    listener.onErrorReceived(jsonObject)
-                                                }
-                                            }
+                                          if(jsonObject.get("error").asJsonObject.has("code")) {
+                                              val errorCode =
+                                                  jsonObject.get("error").asJsonObject.get("code").asInt
+                                              Timber.tag("VERTO").d(
+                                                  "[%s] Received Error From Telnyx [%s]",
+                                                  this@TxSocket.javaClass.simpleName,
+                                                  jsonObject.get("error").asJsonObject.get("message")
+                                                      .toString()
+                                              )
+                                              when (errorCode) {
+                                                  CREDENTIAL_ERROR.errorCode -> {
+                                                      listener.onErrorReceived(jsonObject)
+                                                  }
+                                                  TOKEN_ERROR.errorCode -> {
+                                                      listener.onErrorReceived(jsonObject)
+                                                  }
+                                              }
+                                          }
                                         }
                                     }
                                 }

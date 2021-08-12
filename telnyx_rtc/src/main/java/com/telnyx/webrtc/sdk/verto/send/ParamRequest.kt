@@ -35,3 +35,5 @@ data class ModifyParams(val sessionId: String, val action: String,
 data class InfoParams(val sessionId: String, val dtmf: String,
                       val dialogParams: CallDialogParams) : ParamRequest()
 
+data class StateParams(val state: String?) : ParamRequest()
+
