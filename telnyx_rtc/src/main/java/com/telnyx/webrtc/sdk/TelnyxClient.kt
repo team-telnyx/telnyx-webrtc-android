@@ -67,6 +67,7 @@ class TelnyxClient(
         sessionId?.let {
             return Call(context, this, socket, sessionId!!, audioManager!!)
         }
+        socketResponseLiveData.postValue(SocketResponse.error("No session ID has been set, no call can be made"))
         return null
     }
 
@@ -449,20 +450,24 @@ class TelnyxClient(
         Timber.d("ringtone/ringback media player stopped and released")
     }
 
-
-    // TxSocketListener Overrides
-    override fun onLoginSuccessful(jsonObject: JsonObject) {
+    /*
+     * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
+     * @param sessionId, the session ID of the successfully registered session.
+     */
+    internal fun onLoginSuccessful(receivedLoginSessionId: String) {
         Timber.d(
             "[%s] :: onLoginSuccessful [%s]",
             this@TelnyxClient.javaClass.simpleName,
-            jsonObject
+            receivedLoginSessionId
         )
-        sessionId = jsonObject.getAsJsonObject("result").get("sessid").asString
+
+        sessionId = receivedLoginSessionId
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.LOGIN.methodName,
-                    LoginResponse(sessionId!!)
+
+                    LoginResponse(receivedLoginSessionId)
                 )
             )
         )
