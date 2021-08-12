@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk
 
-import android.Manifest
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
@@ -11,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import androidx.test.rule.GrantPermissionRule
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser

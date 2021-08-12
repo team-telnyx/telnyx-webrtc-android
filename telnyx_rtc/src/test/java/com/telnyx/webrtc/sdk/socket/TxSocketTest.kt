@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk.socket
 
-import android.Manifest
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager

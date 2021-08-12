@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
 
-
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class CallTest: BaseTest() {
 
