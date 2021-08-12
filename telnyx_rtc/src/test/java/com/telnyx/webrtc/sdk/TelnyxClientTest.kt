@@ -10,7 +10,6 @@ import android.net.NetworkRequest
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.rule.GrantPermissionRule
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.MockitoHelper.anyObject
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -33,7 +32,6 @@ import org.mockito.Spy
 import kotlin.test.assertEquals
 import com.telnyx.webrtc.sdk.testhelpers.*
 
-
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class TelnyxClientTest : BaseTest() {
 
@@ -49,8 +47,6 @@ class TelnyxClientTest : BaseTest() {
     @MockK lateinit var activeNetwork: Network
 
     @MockK lateinit var capabilities: NetworkCapabilities
-
-    @MockK lateinit var networkRequest: NetworkRequest
 
     @Spy
     private lateinit var socket: TxSocket
@@ -78,10 +74,6 @@ class TelnyxClientTest : BaseTest() {
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
-        val socket = TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        )
         client = TelnyxClient(mockContext)
     }
 
@@ -170,8 +162,6 @@ class TelnyxClientTest : BaseTest() {
         )
         client.credentialLogin(config)
 
-        val jsonMock = Mockito.mock(JsonObject::class.java)
-
         Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
     }
@@ -224,8 +214,6 @@ class TelnyxClientTest : BaseTest() {
             LogLevel.ALL
         )
         client.tokenLogin(config)
-
-        val jsonMock = Mockito.mock(JsonObject::class.java)
 
         Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1)).send(dataObject = any(SendingMessageBody::class.java))
@@ -295,15 +283,6 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(2000)
         Mockito.verify(client, Mockito.times(0)).onLoginSuccessful(jsonMock)
     }
-}
-
-object MockitoHelper {
-    fun <T> anyObject(): T {
-        Mockito.any<T>()
-        return uninitialized()
-    }
-    @Suppress("UNCHECKED_CAST")
-    fun <T> uninitialized(): T =  null as T
 }
 
 

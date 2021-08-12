@@ -26,7 +26,7 @@ import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
-import org.junit.jupiter.api.Test
+import org.junit.Test
 import org.mockito.Mockito.*
 import org.mockito.Spy
 import org.robolectric.RuntimeEnvironment.application
@@ -75,21 +75,21 @@ class TxSocketTest : BaseTest() {
     private lateinit var socket: TxSocket
 
 
-    @get:Rule
+   /* @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
         Manifest.permission.INTERNET,
         Manifest.permission.ACCESS_NETWORK_STATE,
-    )
+    )*/
 
     @Before
     fun setup() {
         MockKAnnotations.init(this, true)
-        `when`(application.applicationContext).thenReturn(mockContext)
+        //`when`(application.applicationContext).thenReturn(mockContext)
 
         BuildConfig.IS_TESTING.set(true)
 
-        every {socket.callOngoing()} just Runs
-        every {socket.callNotOngoing()} just Runs
+        //every {socket.callOngoing()} just Runs
+        //every {socket.callNotOngoing()} just Runs
 
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
