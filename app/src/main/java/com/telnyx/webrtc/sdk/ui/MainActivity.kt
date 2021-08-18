@@ -121,7 +121,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectToSocketAndObserve() {
-        mainViewModel.initConnection(applicationContext)
+        if (!isDev) {
+            mainViewModel.initConnection(applicationContext, null, null)
+        } else {
+            mainViewModel.initConnection(applicationContext, Config.TELNYX_DEV_HOST_ADDRESS, Config.TELNYX_PORT)
+        }
         observeSocketResponses()
     }
 
@@ -210,7 +214,6 @@ class MainActivity : AppCompatActivity() {
             environmentSwitchCounter++
             if (environmentSwitchCounter == 3) {
                 environmentSwitchCounter = 0
-                mainViewModel.switchEnvironment(!isDev)
                 if (isDev){
                     Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
                 } else {

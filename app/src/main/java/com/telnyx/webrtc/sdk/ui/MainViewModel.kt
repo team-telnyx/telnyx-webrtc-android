@@ -29,9 +29,18 @@ class MainViewModel @Inject constructor(
 
     private var calls: Map<UUID, Call> = mapOf()
 
-    fun initConnection(context: Context) {
+    fun initConnection(context: Context, providedHostname: String?, providedPort: Int?) {
         telnyxClient = TelnyxClient(context)
-        telnyxClient?.connect()
+        providedHostname?.let {
+            if (providedPort == null) {
+                telnyxClient?.connect(it)
+            } else {
+                telnyxClient?.connect(it, providedPort)
+            }
+        } ?: run {
+            telnyxClient?.connect()
+        }
+
     }
 
     fun saveUserData(
@@ -123,13 +132,5 @@ class MainViewModel @Inject constructor(
 
     fun changeAudioOutput(audioDevice: AudioDevice) {
         telnyxClient?.setAudioOutputDevice(audioDevice)
-    }
-
-    fun switchEnvironment(isDev: Boolean) {
-        if (isDev) {
-            Config.TELNYX_HOST_ADDRESS = Config.TELNYX_DEV_ENV
-        } else {
-            Config.TELNYX_HOST_ADDRESS = Config.TELNYX_PROD_ENV
-        }
     }
 }

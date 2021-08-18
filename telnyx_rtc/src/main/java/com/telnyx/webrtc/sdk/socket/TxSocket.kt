@@ -38,8 +38,8 @@ import java.util.*
  * @param port the port that the websocket connection should use
  */
 class TxSocket(
-    internal val host_address: String,
-    internal val port: Int
+    internal var host_address: String,
+    internal var port: Int
 ) : CoroutineScope {
 
     private var job: Job = SupervisorJob()
@@ -70,8 +70,14 @@ class TxSocket(
      * @param listener, the [TelnyxClient] used to create an instance of TxSocket that contains our relevant listener methods via the [TxSocketListener] interface
      * @see [TxSocketListener]
      */
-    fun connect(listener: TelnyxClient) = launch {
+    fun connect(listener: TelnyxClient, providedHostAddress: String?, providedPort: Int?) = launch {
         try {
+            providedHostAddress?.let {
+                host_address = it
+            }
+            providedPort?.let {
+                port = it
+            }
             client.wss(
                 host = host_address,
                 port = port

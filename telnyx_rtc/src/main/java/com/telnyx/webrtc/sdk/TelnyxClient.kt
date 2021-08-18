@@ -50,6 +50,8 @@ class TelnyxClient(
     private var gatewayState = "idle"
 
     internal var socket: TxSocket
+    internal var clientProvidedHostAddress: String? = null
+    internal var clientProvidedPort: Int? = null
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -135,7 +137,7 @@ class TelnyxClient(
         //Socket is now the reconnectionSocket
         socket = socketReconnection!!
         //Connect to new socket
-        socket.connect(this@TelnyxClient)
+        socket.connect(this@TelnyxClient, clientProvidedHostAddress, clientProvidedPort)
         //Login with stored configuration
         credentialSessionConfig?.let {
             credentialLogin(it)
@@ -151,7 +153,7 @@ class TelnyxClient(
         }
 
         socket = TxSocket(
-            host_address = Config.TELNYX_HOST_ADDRESS,
+            host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
 
@@ -199,9 +201,11 @@ class TelnyxClient(
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      */
-    fun connect() {
+    fun connect(providedHostAddress: String = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int = Config.TELNYX_PORT) {
+        clientProvidedHostAddress = providedHostAddress
+        clientProvidedPort = providedPort
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this)
+            socket.connect(this, clientProvidedHostAddress, clientProvidedPort)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -456,7 +460,7 @@ class TelnyxClient(
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
-    
+
     private fun requestGatewayStatus() {
         if (waitingForReg) {
             socket.send(
