@@ -149,7 +149,7 @@ class TxSocketTest : BaseTest() {
 
 
     @Test
-    fun `connect with empty host or port`() {
+    fun `connect with empty host or port - still connects with default`() {
         BuildConfig.IS_TESTING.set(true)
         socket = spy(TxSocket(
             host_address = "",
@@ -161,7 +161,7 @@ class TxSocketTest : BaseTest() {
 
         //Sleep to give time to connect
         Thread.sleep(3000)
-        verify(client, times(0)).onConnectionEstablished()
+        verify(client, times(1)).onConnectionEstablished()
 
     }
 
