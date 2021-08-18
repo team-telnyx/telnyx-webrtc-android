@@ -124,4 +124,12 @@ class MainViewModel @Inject constructor(
     fun changeAudioOutput(audioDevice: AudioDevice) {
         telnyxClient?.setAudioOutputDevice(audioDevice)
     }
+
+    fun switchEnvironment(isDev: Boolean) {
+        if (isDev) {
+            Config.TELNYX_HOST_ADDRESS = Config.TELNYX_DEV_ENV
+        } else {
+            Config.TELNYX_HOST_ADDRESS = Config.TELNYX_PROD_ENV
+        }
+    }
 }

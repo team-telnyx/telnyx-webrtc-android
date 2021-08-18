@@ -42,14 +42,13 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
-    private var invitationSent: Boolean = false
-
     @Inject
     lateinit var userManager: UserManager
-
+    private var invitationSent: Boolean = false
     lateinit var mainViewModel: MainViewModel
-
     private var fcmToken: String? = null
+    private var environmentSwitchCounter = 0
+    private var isDev = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -207,26 +206,39 @@ class MainActivity : AppCompatActivity() {
             call_button_id.visibility = View.VISIBLE
             cancel_call_button_id.visibility = View.GONE
         }
+        telnyx_image_id.setOnClickListener {
+            environmentSwitchCounter++
+            if (environmentSwitchCounter == 3) {
+                environmentSwitchCounter = 0
+                mainViewModel.switchEnvironment(!isDev)
+                if (isDev){
+                    Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG).show()
+                }
+                isDev = !isDev
+            }
+        }
     }
 
     private fun hasLoginEmptyFields(): Boolean {
-        var hasEmptyFileds = false
+        var hasEmptyFields = false
         if (token_login_switch.isChecked) {
             if (sip_token_id.text.isEmpty()) {
                 showEmptyFieldsToast()
-                hasEmptyFileds = true
+                hasEmptyFields = true
             }
         } else {
             if (sip_username_id.text.isEmpty() || sip_password_id.text.isEmpty()) {
                 showEmptyFieldsToast()
-                hasEmptyFileds = true
+                hasEmptyFields = true
             }
         }
-        return hasEmptyFileds
+        return hasEmptyFields
     }
 
     private fun showEmptyFieldsToast() {
-        Toast.makeText(this, getString(R.string.empty_msj_toast), Toast.LENGTH_LONG).show()
+        Toast.makeText(this, getString(R.string.empty_msg_toast), Toast.LENGTH_LONG).show()
     }
 
     private fun mockInputs() {

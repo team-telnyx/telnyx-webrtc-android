@@ -5,10 +5,10 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
-import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
-import com.telnyx.webrtc.sdk.Config.Companion.PASSWORD
-import com.telnyx.webrtc.sdk.Config.Companion.USERNAME
+import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
+import com.telnyx.webrtc.sdk.Config.PASSWORD
+import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber

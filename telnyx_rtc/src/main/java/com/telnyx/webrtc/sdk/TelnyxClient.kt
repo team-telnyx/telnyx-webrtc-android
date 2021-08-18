@@ -456,7 +456,7 @@ class TelnyxClient(
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
-
+    
     private fun requestGatewayStatus() {
         if (waitingForReg) {
             socket.send(
@@ -491,7 +491,6 @@ class TelnyxClient(
             )
         )
     }
-
 
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
