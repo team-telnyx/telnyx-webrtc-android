@@ -25,8 +25,8 @@ import java.util.*
 internal class Peer(
     context: Context,
     val client: TelnyxClient,
-    private val providedTurn: String,
-    private val providedStun: String,
+    private val providedTurn: String = DEFAULT_TURN,
+    private val providedStun: String = DEFAULT_STUN,
     observer: PeerConnection.Observer
 ) {
 

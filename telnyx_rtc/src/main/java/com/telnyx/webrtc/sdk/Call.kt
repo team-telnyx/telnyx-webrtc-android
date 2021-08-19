@@ -38,8 +38,8 @@ class Call(
     var socket: TxSocket,
     val sessionId: String,
     private val audioManager: AudioManager,
-    private val providedTurn: String,
-    private val providedStun: String
+    private val providedTurn: String = Config.DEFAULT_TURN,
+    private val providedStun: String = Config.DEFAULT_STUN
 ) : TxSocketListener {
     private var peerConnection: Peer? = null
 
