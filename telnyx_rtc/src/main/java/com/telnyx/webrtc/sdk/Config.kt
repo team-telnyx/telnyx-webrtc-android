@@ -4,7 +4,7 @@
 
 package com.telnyx.webrtc.sdk
 
-object Config {
+internal object Config {
         const val TELNYX_PROD_HOST_ADDRESS = "rtc.telnyx.com"
         const val TELNYX_DEV_HOST_ADDRESS = "rtcdev.telnyx.com"
         const val TELNYX_PORT = 14938

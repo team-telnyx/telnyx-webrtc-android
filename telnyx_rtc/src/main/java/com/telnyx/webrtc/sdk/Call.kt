@@ -33,11 +33,13 @@ import java.util.*
  * @param audioManager the [AudioManager] instance in use, used to change audio related settings.
  */
 class Call(
-    var context: Context,
-    var client: TelnyxClient,
+    val context: Context,
+    val client: TelnyxClient,
     var socket: TxSocket,
-    var sessionId: String,
-    var audioManager: AudioManager
+    val sessionId: String,
+    private val audioManager: AudioManager,
+    private val providedTurn: String,
+    private val providedStun: String
 ) : TxSocketListener {
     private var peerConnection: Peer? = null
 
@@ -89,7 +91,7 @@ class Call(
         var sentFlag = false
 
         //Create new peer
-        peerConnection = Peer(context, client,
+        peerConnection = Peer(context, client, providedTurn, providedStun,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
@@ -440,7 +442,7 @@ class Call(
         callId = offerCallId
 
         peerConnection = Peer(
-            context, client,
+            context, client, providedTurn, providedStun,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)

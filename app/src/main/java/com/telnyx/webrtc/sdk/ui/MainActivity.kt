@@ -7,6 +7,10 @@ package com.telnyx.webrtc.sdk.ui
 import android.Manifest.permission.*
 import android.app.AlertDialog
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.DialogInterface
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -26,6 +30,7 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
@@ -45,9 +50,8 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var userManager: UserManager
     private var invitationSent: Boolean = false
-    lateinit var mainViewModel: MainViewModel
+    private lateinit var mainViewModel: MainViewModel
     private var fcmToken: String? = null
-    private var environmentSwitchCounter = 0
     private var isDev = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.toolbar_id))
 
-        FirebaseApp.initializeApp(this);
+        FirebaseApp.initializeApp(this)
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
 
@@ -64,8 +68,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.actionbar_menu, menu);
-        return true;
+        menuInflater.inflate(R.menu.actionbar_menu, menu)
+        return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
@@ -122,9 +126,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectToSocketAndObserve() {
         if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null, null)
+            mainViewModel.initConnection(applicationContext, null)
         } else {
-            mainViewModel.initConnection(applicationContext, Config.TELNYX_DEV_HOST_ADDRESS, Config.TELNYX_PORT)
+            mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"))
         }
         observeSocketResponses()
     }
@@ -210,19 +214,42 @@ class MainActivity : AppCompatActivity() {
             call_button_id.visibility = View.VISIBLE
             cancel_call_button_id.visibility = View.GONE
         }
-        telnyx_image_id.setOnClickListener {
-            environmentSwitchCounter++
-            if (environmentSwitchCounter == 3) {
-                environmentSwitchCounter = 0
-                if (isDev){
-                    Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG).show()
-                }
-                isDev = !isDev
-            }
+        telnyx_image_id.setOnLongClickListener {
+            onCreateSecretMenuDialog().show()
+            true
         }
     }
+
+    private fun onCreateSecretMenuDialog() : Dialog {
+        return this.let {
+            val secretOptionList = arrayOf("Development Environment", "Production Environment", "Copy Firebase Instance Token")
+            val builder = AlertDialog.Builder(it)
+            builder.setTitle("Select Secret Setting")
+                .setItems(secretOptionList
+                ) { _, which ->
+                    when (which) {
+                        0 -> {
+                            // Switch to Dev
+                            isDev = true
+                            Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG).show()
+                        }
+                        1 -> {
+                            // Switch to Prod
+                            isDev = false
+                            Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
+                        }
+                        2 -> {
+                            val clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clipData = ClipData.newPlainText("text", fcmToken)
+                            clipboardManager.setPrimaryClip(clipData)
+                            Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            builder.create()
+        } ?: throw IllegalStateException("Activity cannot be null")
+    }
+
 
     private fun hasLoginEmptyFields(): Boolean {
         var hasEmptyFields = false

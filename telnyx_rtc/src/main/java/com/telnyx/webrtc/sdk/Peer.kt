@@ -25,6 +25,8 @@ import java.util.*
 internal class Peer(
     context: Context,
     val client: TelnyxClient,
+    private val providedTurn: String,
+    private val providedStun: String,
     observer: PeerConnection.Observer
 ) {
 
@@ -52,12 +54,12 @@ internal class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(USERNAME).setPassword(
+            PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
             ).createIceServer()
         )
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(USERNAME).setPassword(
+            PeerConnection.IceServer.builder(providedTurn).setUsername(USERNAME).setPassword(
                 PASSWORD
             ).createIceServer()
         )
