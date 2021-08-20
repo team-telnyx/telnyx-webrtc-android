@@ -11,6 +11,7 @@ import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,9 +30,14 @@ class MainViewModel @Inject constructor(
 
     private var calls: Map<UUID, Call> = mapOf()
 
-    fun initConnection(context: Context) {
+    fun initConnection(context: Context, providedServerConfig: TxServerConfiguration?) {
         telnyxClient = TelnyxClient(context)
-        telnyxClient?.connect()
+        providedServerConfig?.let {
+                telnyxClient?.connect(it)
+        } ?: run {
+            telnyxClient?.connect()
+        }
+
     }
 
     fun saveUserData(

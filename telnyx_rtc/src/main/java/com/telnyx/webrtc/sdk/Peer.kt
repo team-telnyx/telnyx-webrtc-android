@@ -5,10 +5,10 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_STUN
-import com.telnyx.webrtc.sdk.Config.Companion.DEFAULT_TURN
-import com.telnyx.webrtc.sdk.Config.Companion.PASSWORD
-import com.telnyx.webrtc.sdk.Config.Companion.USERNAME
+import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
+import com.telnyx.webrtc.sdk.Config.PASSWORD
+import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber
@@ -25,6 +25,8 @@ import java.util.*
 internal class Peer(
     context: Context,
     val client: TelnyxClient,
+    private val providedTurn: String = DEFAULT_TURN,
+    private val providedStun: String = DEFAULT_STUN,
     observer: PeerConnection.Observer
 ) {
 
@@ -52,12 +54,12 @@ internal class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_STUN).setUsername(USERNAME).setPassword(
+            PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
             ).createIceServer()
         )
         iceServers.add(
-            PeerConnection.IceServer.builder(DEFAULT_TURN).setUsername(USERNAME).setPassword(
+            PeerConnection.IceServer.builder(providedTurn).setUsername(USERNAME).setPassword(
                 PASSWORD
             ).createIceServer()
         )

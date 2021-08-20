@@ -50,6 +50,10 @@ class TelnyxClient(
     private var gatewayState = "idle"
 
     internal var socket: TxSocket
+    private var providedHostAddress: String? = null
+    private var providedPort: Int? = null
+    private var providedTurn: String? = null
+    private var providedStun: String? = null
 
     //MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -72,7 +76,7 @@ class TelnyxClient(
      */
     private fun buildCall(): Call? {
         sessionId?.let {
-            return Call(context, this, socket, sessionId!!, audioManager!!)
+            return Call(context, this, socket, sessionId!!, audioManager!!, providedTurn!!, providedStun!!)
         }
         socketResponseLiveData.postValue(SocketResponse.error("Session ID is not set, failed to build call"))
         return null
@@ -135,7 +139,7 @@ class TelnyxClient(
         //Socket is now the reconnectionSocket
         socket = socketReconnection!!
         //Connect to new socket
-        socket.connect(this@TelnyxClient)
+        socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
         //Login with stored configuration
         credentialSessionConfig?.let {
             credentialLogin(it)
@@ -151,7 +155,7 @@ class TelnyxClient(
         }
 
         socket = TxSocket(
-            host_address = Config.TELNYX_HOST_ADDRESS,
+            host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
 
@@ -199,9 +203,13 @@ class TelnyxClient(
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      */
-    fun connect() {
+    fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration()) {
+        providedHostAddress = providedServerConfig.host
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this)
+            socket.connect(this, providedHostAddress, providedPort)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -491,7 +499,6 @@ class TelnyxClient(
             )
         )
     }
-
 
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
