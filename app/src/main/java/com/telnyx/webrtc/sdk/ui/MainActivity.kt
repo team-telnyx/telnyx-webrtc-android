@@ -130,7 +130,10 @@ class MainActivity : AppCompatActivity() {
         if (!isDev) {
             mainViewModel.initConnection(applicationContext, null)
         } else {
-            mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"))
+            mainViewModel.initConnection(
+                applicationContext,
+                TxServerConfiguration(host = "rtcdev.telnyx.com")
+            )
         }
         observeSocketResponses()
     }
@@ -222,36 +225,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onCreateSecretMenuDialog() : Dialog {
+    private fun onCreateSecretMenuDialog(): Dialog {
         return this.let {
-            val secretOptionList = arrayOf("Development Environment", "Production Environment", "Copy Firebase Instance Token")
+            val secretOptionList = arrayOf(
+                "Development Environment",
+                "Production Environment",
+                "Copy Firebase Instance Token"
+            )
             val builder = AlertDialog.Builder(it)
             builder.setTitle("Select Secret Setting")
-                .setItems(secretOptionList
+                .setItems(
+                    secretOptionList
                 ) { _, which ->
                     when (which) {
                         0 -> {
                             // Switch to Dev
                             isDev = true
-                            Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG)
+                                .show()
                         }
                         1 -> {
                             // Switch to Prod
                             isDev = false
-                            Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG)
+                                .show()
                         }
                         2 -> {
-                            val clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clipboardManager =
+                                getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clipData = ClipData.newPlainText("text", fcmToken)
                             clipboardManager.setPrimaryClip(clipData)
-                            Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_LONG)
+                                .show()
                         }
                     }
                 }
             builder.create()
         } ?: throw IllegalStateException("Activity cannot be null")
     }
-
 
     private fun hasLoginEmptyFields(): Boolean {
         var hasEmptyFields = false
