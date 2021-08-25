@@ -1,6 +1,7 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.provider.Settings.Global.*
 import android.view.View
 import android.widget.TextView
@@ -14,13 +15,11 @@ import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
 import androidx.test.rule.ActivityTestRule
-import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
+import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
-import com.telnyx.webrtc.sdk.testhelpers.MOCK_CALLER_NUMBER
-import com.telnyx.webrtc.sdk.testhelpers.MOCK_PASSWORD
-import com.telnyx.webrtc.sdk.testhelpers.MOCK_USERNAME
 import org.hamcrest.Matchers.allOf
 import org.junit.*
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -38,9 +37,21 @@ class MainActivityTest : BaseUITest() {
 
     private lateinit var context: Context
 
+    /**
+     * Clears everything in the SharedPreferences
+     */
+    private fun clearSharedPrefs() {
+        val sharedPreferences: SharedPreferences = getInstrumentation().targetContext
+            .getSharedPreferences("TelnyxSharedPreferences", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.clear()
+        editor.commit()
+    }
+
     @Before
     fun setUp() {
-        context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        context = getInstrumentation().targetContext.applicationContext
+        clearSharedPrefs()
         Intents.init()
         setAnimations(false)
     }
@@ -48,6 +59,7 @@ class MainActivityTest : BaseUITest() {
     @After
     fun tearDown() {
         Intents.release()
+        clearSharedPrefs()
         setAnimations(true)
     }
 
