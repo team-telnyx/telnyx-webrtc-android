@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mainViewModel: MainViewModel
     private var fcmToken: String? = null
     private var isDev = false
+    private var isAutomaticLogin = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +77,7 @@ class MainActivity : AppCompatActivity() {
         R.id.action_disconnect -> {
             if (userManager.isUserLogin) {
                 disconnectPressed()
+                isAutomaticLogin = false
             } else {
                 Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
             }
@@ -128,7 +130,10 @@ class MainActivity : AppCompatActivity() {
         if (!isDev) {
             mainViewModel.initConnection(applicationContext, null)
         } else {
-            mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"))
+            mainViewModel.initConnection(
+                applicationContext,
+                TxServerConfiguration(host = "rtcdev.telnyx.com")
+            )
         }
         observeSocketResponses()
     }
@@ -137,7 +142,7 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.getSocketResponse()
             ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
-                    doLogin()
+                    doLogin(isAutomaticLogin)
                 }
 
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
@@ -220,36 +225,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onCreateSecretMenuDialog() : Dialog {
+    private fun onCreateSecretMenuDialog(): Dialog {
         return this.let {
-            val secretOptionList = arrayOf("Development Environment", "Production Environment", "Copy Firebase Instance Token")
+            val secretOptionList = arrayOf(
+                "Development Environment",
+                "Production Environment",
+                "Copy Firebase Instance Token"
+            )
             val builder = AlertDialog.Builder(it)
             builder.setTitle("Select Secret Setting")
-                .setItems(secretOptionList
+                .setItems(
+                    secretOptionList
                 ) { _, which ->
                     when (which) {
                         0 -> {
                             // Switch to Dev
                             isDev = true
-                            Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG)
+                                .show()
                         }
                         1 -> {
                             // Switch to Prod
                             isDev = false
-                            Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG)
+                                .show()
                         }
                         2 -> {
-                            val clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clipboardManager =
+                                getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clipData = ClipData.newPlainText("text", fcmToken)
                             clipboardManager.setPrimaryClip(clipData)
-                            Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_LONG)
+                                .show()
                         }
                     }
                 }
             builder.create()
         } ?: throw IllegalStateException("Activity cannot be null")
     }
-
 
     private fun hasLoginEmptyFields(): Boolean {
         var hasEmptyFields = false
@@ -286,17 +299,8 @@ class MainActivity : AppCompatActivity() {
             incoming_call_section_id.visibility = View.GONE
             call_control_section_id.visibility = View.GONE
         } else {
-            val loginConfig = CredentialConfig(
-                userManager.sipUsername,
-                userManager.sipPass,
-                userManager.callerIdNumber,
-                userManager.callerIdNumber,
-                userManager.fcmToken,
-                R.raw.incoming_call,
-                R.raw.ringback_tone,
-                LogLevel.ALL
-            )
-            mainViewModel.doLoginWithCredentials(loginConfig)
+            isAutomaticLogin = true
+            connectButtonPressed()
         }
     }
 
@@ -317,45 +321,58 @@ class MainActivity : AppCompatActivity() {
         connectToSocketAndObserve()
     }
 
-    private fun doLogin() {
+    private fun doLogin(isAuto: Boolean) {
         //path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
-        if (token_login_switch.isChecked) {
-            val sipToken = sip_token_id.text.toString()
-            val sipCallerName = token_caller_id_name_id.text.toString()
-            val sipCallerNumber = token_caller_id_number_id.text.toString()
-
-            val loginConfig = TokenConfig(
-                sipToken,
-                sipCallerName,
-                sipCallerNumber,
-                fcmToken,
-                ringtone,
-                ringBackTone,
-                LogLevel.ALL
-            )
-
-            mainViewModel.doLoginWithToken(loginConfig)
-
-        } else {
-            val sipUsername = sip_username_id.text.toString()
-            val password = sip_password_id.text.toString()
-            val sipCallerName = caller_id_name_id.text.toString()
-            val sipCallerNumber = caller_id_number_id.text.toString()
-
+        if (isAuto) {
             val loginConfig = CredentialConfig(
-                sipUsername,
-                password,
-                sipCallerName,
-                sipCallerNumber,
-                fcmToken,
-                ringtone,
-                ringBackTone,
+                userManager.sipUsername,
+                userManager.sipPass,
+                userManager.callerIdNumber,
+                userManager.callerIdNumber,
+                userManager.fcmToken,
+                R.raw.incoming_call,
+                R.raw.ringback_tone,
                 LogLevel.ALL
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
+        }
+        else {
+            if (token_login_switch.isChecked) {
+                val sipToken = sip_token_id.text.toString()
+                val sipCallerName = token_caller_id_name_id.text.toString()
+                val sipCallerNumber = token_caller_id_number_id.text.toString()
+
+                val loginConfig = TokenConfig(
+                    sipToken,
+                    sipCallerName,
+                    sipCallerNumber,
+                    fcmToken,
+                    ringtone,
+                    ringBackTone,
+                    LogLevel.ALL
+                )
+                mainViewModel.doLoginWithToken(loginConfig)
+            } else {
+                val sipUsername = sip_username_id.text.toString()
+                val password = sip_password_id.text.toString()
+                val sipCallerName = caller_id_name_id.text.toString()
+                val sipCallerNumber = caller_id_number_id.text.toString()
+
+                val loginConfig = CredentialConfig(
+                    sipUsername,
+                    password,
+                    sipCallerName,
+                    sipCallerNumber,
+                    fcmToken,
+                    ringtone,
+                    ringBackTone,
+                    LogLevel.ALL
+                )
+                mainViewModel.doLoginWithCredentials(loginConfig)
+            }
         }
     }
 
