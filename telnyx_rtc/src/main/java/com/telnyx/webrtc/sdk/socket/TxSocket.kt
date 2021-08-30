@@ -118,6 +118,13 @@ class TxSocket(
                                                     listener.onGatewayStateReceived(jsonObject)
                                                 }
                                             }
+                                           else if (jsonObject.get("result").asJsonObject.has("message")) {
+                                                val result = jsonObject.get("result").asJsonObject
+                                                val message = result.get("message").asString
+                                                if (message == "logged in") {
+                                                    listener.onClientReady(jsonObject)
+                                                }
+                                            }
                                         }
                                         jsonObject.has("method") -> {
                                             Timber.tag("VERTO").d(

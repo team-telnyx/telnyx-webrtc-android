@@ -485,7 +485,7 @@ class TelnyxClient(
      */
     internal fun onLoginSuccessful(receivedLoginSessionId: String) {
         Timber.d(
-            "[%s] :: onLoginSuccessful [%s]",
+            "[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
             this@TelnyxClient.javaClass.simpleName,
             receivedLoginSessionId
         )
@@ -502,26 +502,41 @@ class TelnyxClient(
 
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
-        Timber.d(
-            "[%s] :: onClientReady :: retrieving gateway state",
-            this@TelnyxClient.javaClass.simpleName,
-        )
-        if (waitingForReg) {
-            requestGatewayStatus()
-            gatewayResponseTimer.schedule(timerTask {
-                if (retryCounter < 2) {
-                    if (waitingForReg) {
-                        onClientReady(jsonObject)
+        if (gatewayState != GatewayState.REGED.state) {
+            Timber.d(
+                "[%s] :: onClientReady :: retrieving gateway state",
+                this@TelnyxClient.javaClass.simpleName,
+            )
+            if (waitingForReg) {
+                requestGatewayStatus()
+                gatewayResponseTimer.schedule(timerTask {
+                    if (retryCounter < 2) {
+                        if (waitingForReg) {
+                            onClientReady(jsonObject)
+                        }
+                        retryCounter++
+                    } else {
+                        Timber.d(
+                            "[%s] :: Gateway registration has timed out",
+                            this@TelnyxClient.javaClass.simpleName,
+                        )
+                        socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
                     }
-                    retryCounter++
-                } else {
-                    Timber.d(
-                        "[%s] :: Gateway registration has timed out",
-                        this@TelnyxClient.javaClass.simpleName,
+                }, 3000)
+            }
+        } else {
+            Timber.d(
+                "[%s] :: onClientReady :: Ready to make calls",
+                this@TelnyxClient.javaClass.simpleName,
+            )
+            socketResponseLiveData.postValue(
+               SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.CLIENT_READY.methodName,
+                        null
                     )
-                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
-                }
-            }, 3000)
+                )
+            )
         }
     }
 
