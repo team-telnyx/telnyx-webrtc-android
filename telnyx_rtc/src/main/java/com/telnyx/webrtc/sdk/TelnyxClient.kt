@@ -27,6 +27,9 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.concurrent.timerTask
 
 /**
@@ -498,6 +501,17 @@ class TelnyxClient(
                 )
             )
         )
+
+        CoroutineScope(Dispatchers.Main).launch {
+            socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.CLIENT_READY.methodName,
+                        null
+                    )
+                )
+            )
+        }
     }
 
     // TxSocketListener Overrides
