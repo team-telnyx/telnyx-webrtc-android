@@ -10,7 +10,6 @@ import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.DialogInterface
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -148,6 +147,10 @@ class MainActivity : AppCompatActivity() {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     Timber.d("onMessageReceived from SDK [%s]", data?.method)
                     when (data?.method) {
+                        SocketMethod.CLIENT_READY.methodName -> {
+                            Timber.d("You are ready to make calls.")
+                        }
+
                         SocketMethod.LOGIN.methodName -> {
                             progress_indicator_id.visibility = View.INVISIBLE
                             val sessionId = (data.result as LoginResponse).sessid
