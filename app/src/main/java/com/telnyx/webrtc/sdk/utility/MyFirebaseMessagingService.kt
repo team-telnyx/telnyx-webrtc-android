@@ -31,7 +31,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        Timber.d("Message Received From Firebase: $remoteMessage")
+        Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         TelnyxFcm.processPushMessage(this, remoteMessage)
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

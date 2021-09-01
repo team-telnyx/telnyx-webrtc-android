@@ -171,7 +171,7 @@ class MainActivityTest : BaseUITest() {
         }
     }
 
-    @Test
+    /*@Test
     fun f_onSendInviteCanBeCancelled() {
         assertDoesNotThrow {
             Thread.sleep(7000)
@@ -197,7 +197,7 @@ class MainActivityTest : BaseUITest() {
                 .perform(click())
             Thread.sleep(2000)
         }
-    }
+    }*/
 
     @Test
     fun g_onSendInvite() {

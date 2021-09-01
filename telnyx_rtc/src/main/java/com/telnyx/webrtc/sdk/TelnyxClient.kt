@@ -13,7 +13,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -27,6 +26,7 @@ import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -304,6 +304,15 @@ class TelnyxClient(
             rawRingbackTone = it
         }
 
+        var firebaseToken = ""
+        if (fcmToken!=null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
         val loginMessage = SendingMessageBody(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
@@ -311,8 +320,7 @@ class TelnyxClient(
                 login_token = null,
                 login = user,
                 passwd = password,
-                push_device_token = fcmToken,
-                userVariables = arrayListOf(),
+                userVariables = notificationJsonObject,
                 loginParams = arrayListOf()
             )
         )
@@ -336,6 +344,15 @@ class TelnyxClient(
 
         setSDKLogLevel(logLevel)
 
+        var firebaseToken = ""
+        if (fcmToken!=null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
         val loginMessage = SendingMessageBody(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
@@ -343,8 +360,7 @@ class TelnyxClient(
                 login_token = token,
                 login = null,
                 passwd = null,
-                push_device_token = fcmToken,
-                userVariables = arrayListOf(),
+                userVariables = notificationJsonObject,
                 loginParams = arrayListOf()
             )
         )

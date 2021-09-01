@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk.verto.send
 
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 
@@ -11,9 +12,7 @@ sealed class ParamRequest
 
 data class LoginParam(val login_token: String?, val login: String?,
                       val passwd: String?,
-                      val push_device_token: String?,
-                      val push_notification_provider: String = "firebase",
-                      val userVariables: ArrayList<Any>?,
+                      val userVariables: JsonObject,
                       val loginParams: ArrayList<Any>?
                       ) : ParamRequest()
 
