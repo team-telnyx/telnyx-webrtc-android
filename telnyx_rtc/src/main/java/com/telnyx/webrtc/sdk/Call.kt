@@ -37,9 +37,9 @@ class Call(
     val client: TelnyxClient,
     var socket: TxSocket,
     val sessionId: String,
-    private val audioManager: AudioManager,
-    private val providedTurn: String = Config.DEFAULT_TURN,
-    private val providedStun: String = Config.DEFAULT_STUN
+    val audioManager: AudioManager,
+    val providedTurn: String = Config.DEFAULT_TURN,
+    val providedStun: String = Config.DEFAULT_STUN
 ) : TxSocketListener {
     private var peerConnection: Peer? = null
 
