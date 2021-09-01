@@ -311,7 +311,7 @@ class TelnyxClient(
 
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
-        notificationJsonObject.addProperty("push_notification_provider", "firebase")
+        notificationJsonObject.addProperty("push_notification_provider", "android")
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -351,7 +351,7 @@ class TelnyxClient(
 
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
-        notificationJsonObject.addProperty("push_notification_provider", "firebase")
+        notificationJsonObject.addProperty("push_notification_provider", "android")
 
         val loginMessage = SendingMessageBody(
             id = uuid,
