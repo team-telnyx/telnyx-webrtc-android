@@ -24,8 +24,13 @@ import kotlinx.coroutines.channels.ConflatedBroadcastChannel
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.features.*
+import io.ktor.client.request.*
 import io.ktor.http.cio.*
 import io.ktor.http.cio.websocket.*
+import okhttp3.*
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
 
@@ -51,12 +56,18 @@ class TxSocket(
 
     internal var ongoingCall = false
 
+    internal var webSocketSession: DefaultClientWebSocketSession? = null
+
+    private lateinit var client2: OkHttpClient
+    private lateinit var socket: WebSocket
+
+
     private val client = HttpClient(CIO) {
         engine {
             requestTimeout = 50000
             endpoint.connectTimeout = 100000
             endpoint.connectAttempts = 30
-            endpoint.keepAliveTime = 100000
+            //endpoint.keepAliveTime = 100000
         }
         install(WebSockets)
         install(JsonFeature) {
@@ -79,16 +90,17 @@ class TxSocket(
             providedPort?.let {
                 port = it
             }
-            client.wss(
+             client.wss(
                 host = host_address,
                 port = port
             ) {
                 outgoing.invokeOnClose {
                     val message = it?.message
                     Timber.tag("VERTO").d("The outgoing channel was closed $message")
-                    destroy()
+                    client.close()
                 }
                 Timber.tag("VERTO").d("Connection established")
+                 webSocketSession = this
                 val sendData = sendChannel.openSubscription()
                 listener.onConnectionEstablished()
                 isConnected = true
@@ -213,7 +225,135 @@ class TxSocket(
                     false
                 }
             }
+        } finally {
+            client.close()
         }
+    }
+
+
+    fun connect2(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
+        client2 = OkHttpClient.Builder()
+            .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+            .addInterceptor(Interceptor { chain ->
+                val builder = chain.request().newBuilder()
+                builder.addHeader("Sec-WebSocket-Protocol", "janus-protocol")
+                chain.proceed(builder.build())
+            }).build()
+
+        providedHostAddress?.let {
+            host_address = it
+        }
+        providedPort?.let {
+            port = it
+        }
+
+        val request: Request =
+            Request.Builder().url("wss://$host_address:$port/").build()
+        socket = client2.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Timber.tag("VERTO").d("Connection established")
+                listener.onConnectionEstablished()
+                isConnected = true
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                super.onMessage(webSocket, text)
+                Timber.tag("VERTO").d(
+                    "[%s] Receiving [%s]",
+                    this@TxSocket.javaClass.simpleName,
+                    text
+                )
+                val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    when {
+                        jsonObject.has("result") -> {
+                            if (jsonObject.get("result").asJsonObject.has("params")) {
+                                val result = jsonObject.get("result").asJsonObject
+                                val params = result.get("params").asJsonObject
+                                if (params.asJsonObject.has("state")) {
+                                    listener.onGatewayStateReceived(jsonObject)
+                                }
+                            }
+                            else if (jsonObject.get("result").asJsonObject.has("message")) {
+                                val result = jsonObject.get("result").asJsonObject
+                                val message = result.get("message").asString
+                                if (message == "logged in") {
+                                   // listener.onClientReady(jsonObject)
+                                }
+                            }
+                        }
+                        jsonObject.has("method") -> {
+                            Timber.tag("VERTO").d(
+                                "[%s] Received Method [%s]",
+                                this@TxSocket.javaClass.simpleName,
+                                jsonObject.get("method").asString
+                            )
+                            when (jsonObject.get("method").asString) {
+                                CLIENT_READY.methodName -> {
+                                    listener.onClientReady(jsonObject)
+                                }
+                                INVITE.methodName -> {
+                                    listener.onOfferReceived(jsonObject)
+                                }
+                                ANSWER.methodName -> {
+                                    listener.onAnswerReceived(jsonObject)
+                                }
+                                MEDIA.methodName -> {
+                                    listener.onMediaReceived(jsonObject)
+                                }
+                                BYE.methodName -> {
+                                    val params =
+                                        jsonObject.getAsJsonObject("params")
+                                    val callId =
+                                        UUID.fromString(params.get("callID").asString)
+                                    listener.onByeReceived(callId)
+                                }
+                                INVITE.methodName -> {
+                                    listener.onOfferReceived(jsonObject)
+                                }
+                                RINGING.methodName -> {
+                                    listener.onRingingReceived(jsonObject)
+                                }
+                            }
+                        }
+                        jsonObject.has("error") -> {
+                            if(jsonObject.get("error").asJsonObject.has("code")) {
+                                val errorCode =
+                                    jsonObject.get("error").asJsonObject.get("code").asInt
+                                Timber.tag("VERTO").d(
+                                    "[%s] Received Error From Telnyx [%s]",
+                                    this@TxSocket.javaClass.simpleName,
+                                    jsonObject.get("error").asJsonObject.get("message")
+                                        .toString()
+                                )
+                                when (errorCode) {
+                                    CREDENTIAL_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
+                                    }
+                                    TOKEN_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                super.onClosing(webSocket, code, reason)
+                Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                super.onClosed(webSocket, code, reason)
+                Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
+                destroy()
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Timber.tag("TxSocket").i("Socket is closed: ${response.toString()} $t")
+            }
+        })
     }
 
     /**
@@ -236,7 +376,10 @@ class TxSocket(
      */
     internal fun send(dataObject: Any?) = runBlocking {
         if(isConnected) {
-            sendChannel.send(gson.toJson(dataObject))
+            //sendChannel.send(gson.toJson(dataObject))
+            Timber.tag("VERTO")
+                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+            socket.send(gson.toJson(dataObject))
         } else {
             Timber.tag("VERTO").d("Message cannot be sent. There is no established WebSocket connection")
         }
@@ -247,7 +390,20 @@ class TxSocket(
      */
     internal fun destroy() {
         isConnected = false
-        client.close()
-        job.cancel()
+        /*runBlocking {
+            webSocketSession?.flush()
+            webSocketSession?.close()
+            webSocketSession?.incoming?.cancel()
+            Timber.tag("VERTO").d("Incoming is closed? ${webSocketSession?.incoming?.isClosedForReceive} ")
+            Timber.tag("VERTO").d("Outgoing is closed? ${webSocketSession?.outgoing?.isClosedForSend}")
+        }
+        Timber.tag("VERTO").d("Incoming is closed? ${webSocketSession?.incoming?.isClosedForReceive} ")
+        Timber.tag("VERTO").d("Outgoing is closed? ${webSocketSession?.outgoing?.isClosedForSend}")
+        job.cancel()*/
+        socket.cancel()
+        //socket.close(1000, "Websocket connection was asked to close")
+        client2.dispatcher.executorService.shutdown();
+        client2.connectionPool.evictAll();
+        client2.cache?.close();
     }
 }
