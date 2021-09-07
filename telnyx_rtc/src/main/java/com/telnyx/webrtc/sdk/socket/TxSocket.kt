@@ -253,7 +253,7 @@ class TxSocket(
         runBlocking {
           webSocketSession?.flush()
           webSocketSession?.close()
-          webSocketSession?.incoming?.cancel()
+         // webSocketSession?.incoming?.cancel()
         }
         isConnected = false
         isLoggedIn = false

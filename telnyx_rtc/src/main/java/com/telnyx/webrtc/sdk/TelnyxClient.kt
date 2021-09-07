@@ -518,6 +518,8 @@ class TelnyxClient(
             )
         )
 
+        socket.isLoggedIn = true
+
         CoroutineScope(Dispatchers.Main).launch {
             socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
