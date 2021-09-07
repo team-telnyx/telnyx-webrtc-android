@@ -131,8 +131,16 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `disconnect connection`() {
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
         client.disconnect()
         assertEquals(client.isNetworkCallbackRegistered, false)
+        assertEquals(client.socket.isConnected, false)
+        assertEquals(client.socket.isLoggedIn, false)
+        assertEquals(client.socket.ongoingCall, false)
     }
 
     @Test
