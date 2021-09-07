@@ -14,13 +14,18 @@ import android.media.RingtoneManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
-import com.google.firebase.messaging.RemoteMessage
 import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import com.google.gson.Gson
 import com.telnyx.webrtc.sdk.R
+import com.telnyx.webrtc.sdk.model.PushMetaData
+import com.telnyx.webrtc.sdk.model.TelnyxPushNotification
 import com.telnyx.webrtc.sdk.ui.MainActivity
 import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
+import org.json.JSONObject
 import timber.log.Timber
 import java.util.*
+
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -33,6 +38,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         TelnyxFcm.processPushMessage(this, remoteMessage)
+
+        /*val params = remoteMessage.data
+        val objects = JSONObject(params as Map<*, *>)
+        val metadata = objects.getString("metadata")
+        Timber.d("X PUSH: $metadata")
+
+        val metaDataObject = JSONObject(metadata)
+        metaDataObject.getString("caller_name")
+
+        val gson = Gson()
+        val telnyxPushMetadata = gson.fromJson(metadata, PushMetaData::class.java)
+        Timber.d("X PUSH: ${remoteMessage.data.toString()}")
+       // val telnyxPush = gson.fromJson(remoteMessage.data.toString(), TelnyxPushNotification::class.java)
+        Timber.d("X PUSH: ${telnyxPushMetadata}")*/
+
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notificationID = Random().nextInt(3000)

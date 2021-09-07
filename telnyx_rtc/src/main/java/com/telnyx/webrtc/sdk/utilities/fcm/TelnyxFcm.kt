@@ -10,6 +10,6 @@ import timber.log.Timber
 
 object TelnyxFcm {
     fun processPushMessage(context: Context, remoteMessage: RemoteMessage) {
-        Timber.d("Message received from FCM to be processed by Telnyx: $remoteMessage")
+        Timber.d("Message received from FCM to be processed by Telnyx: ${remoteMessage.data}")
     }
 }
