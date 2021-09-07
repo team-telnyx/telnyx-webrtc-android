@@ -52,7 +52,7 @@ class MainViewModel @Inject constructor(
             userManager.sipUsername = userName
             userManager.sipPass = password
             userManager.fcmToken = fcmToken
-            userManager.calledIdName = callerIdName
+            userManager.callerIdName = callerIdName
             userManager.callerIdNumber = callerIdNumber
         }
     }

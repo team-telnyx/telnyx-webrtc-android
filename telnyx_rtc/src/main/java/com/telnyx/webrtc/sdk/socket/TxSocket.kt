@@ -45,11 +45,12 @@ class TxSocket(
 
     private var job: Job = SupervisorJob()
     private val gson = Gson()
-    internal var isConnected = false
 
     override var coroutineContext = Dispatchers.IO + job
 
     internal var ongoingCall = false
+    internal var isLoggedIn = false
+    internal var isConnected = false
 
     private val client = HttpClient(CIO) {
         engine {
@@ -65,6 +66,7 @@ class TxSocket(
     }
 
     private val sendChannel = ConflatedBroadcastChannel<String>()
+    private var webSocketSession: DefaultClientWebSocketSession? = null
 
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
@@ -86,10 +88,11 @@ class TxSocket(
                 outgoing.invokeOnClose {
                     val message = it?.message
                     Timber.tag("VERTO").d("The outgoing channel was closed $message")
-                    destroy()
+                    client.close()
                 }
-                Timber.tag("VERTO").d("Connection established")
+                Timber.tag("VERTO").d("Connection established - $host_address")
                 val sendData = sendChannel.openSubscription()
+                webSocketSession = this
                 listener.onConnectionEstablished()
                 isConnected = true
                 try {
@@ -121,7 +124,7 @@ class TxSocket(
                                            else if (jsonObject.get("result").asJsonObject.has("message")) {
                                                 val result = jsonObject.get("result").asJsonObject
                                                 val message = result.get("message").asString
-                                                if (message == "logged in") {
+                                                if (message == "logged in" && isLoggedIn) {
                                                     listener.onClientReady(jsonObject)
                                                 }
                                             }
@@ -247,7 +250,14 @@ class TxSocket(
      */
     internal fun destroy() {
         isConnected = false
-        client.close()
+        runBlocking {
+          webSocketSession?.flush()
+          webSocketSession?.close()
+          webSocketSession?.incoming?.cancel()
+        }
+        isConnected = false
+        isLoggedIn = false
+        ongoingCall = false
         job.cancel()
     }
 }

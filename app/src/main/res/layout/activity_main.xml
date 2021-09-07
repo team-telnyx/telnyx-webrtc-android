@@ -152,4 +152,14 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_end="@dimen/guideline_bottom" />
 
+    <TextView
+        android:id="@+id/environment_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="-"
+        android:textSize="8sp"
+        app:layout_constraintBottom_toTopOf="@+id/guideline_bottom"
+        app:layout_constraintEnd_toStartOf="@+id/guideline_end"
+      />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

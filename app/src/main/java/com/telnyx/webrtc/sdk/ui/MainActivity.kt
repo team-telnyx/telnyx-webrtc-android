@@ -11,6 +11,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.os.Environment
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -197,10 +198,22 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
+    private fun updateEnvText(isDevEnvironment: Boolean) {
+        if (isDevEnvironment) {
+            environment_text.text = "Dev"
+        } else {
+            environment_text.text = "Prod"
+        }
+    }
+
     private fun initViews() {
         mockInputs()
         handleUserLoginState()
         getFCMToken()
+
+        // Add environment text
+        isDev = userManager.isDev
+        updateEnvText(isDev)
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -209,7 +222,7 @@ class MainActivity : AppCompatActivity() {
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
-                userManager.calledIdName,
+                userManager.callerIdName,
                 userManager.callerIdNumber,
                 call_input_id.text.toString(),
                 "Sample Client State"
@@ -244,12 +257,16 @@ class MainActivity : AppCompatActivity() {
                         0 -> {
                             // Switch to Dev
                             isDev = true
+                            userManager.isDev = true
+                            updateEnvText(isDev)
                             Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG)
                                 .show()
                         }
                         1 -> {
                             // Switch to Prod
                             isDev = false
+                            userManager.isDev = false
+                            updateEnvText(isDev)
                             Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG)
                                 .show()
                         }
