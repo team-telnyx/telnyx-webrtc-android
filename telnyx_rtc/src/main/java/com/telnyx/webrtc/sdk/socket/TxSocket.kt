@@ -4,15 +4,12 @@
 
 package com.telnyx.webrtc.sdk.socket
 
-import com.bugsnag.android.Bugsnag
-import com.bugsnag.android.Severity
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.*
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.features.json.*
@@ -20,7 +17,6 @@ import io.ktor.client.features.websocket.*
 import io.ktor.http.*
 import io.ktor.util.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.ConflatedBroadcastChannel
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.features.*
@@ -57,7 +53,7 @@ class TxSocket(
     internal var isLoggedIn = false
     internal var isConnected = false
 
-    private lateinit var client2: OkHttpClient
+    private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
 
     /**
@@ -65,8 +61,8 @@ class TxSocket(
      * @param listener, the [TelnyxClient] used to create an instance of TxSocket that contains our relevant listener methods via the [TxSocketListener] interface
      * @see [TxSocketListener]
      */
-    fun connect2(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
-        client2 = OkHttpClient.Builder()
+    fun connect(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
+        client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
             .addInterceptor(Interceptor { chain ->
                 val builder = chain.request().newBuilder()
@@ -82,7 +78,7 @@ class TxSocket(
 
         val request: Request =
             Request.Builder().url("wss://$host_address:$port/").build()
-        socket = client2.newWebSocket(request, object : WebSocketListener() {
+        socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Timber.tag("VERTO").d("Connection established")
                 listener.onConnectionEstablished()
@@ -226,8 +222,9 @@ class TxSocket(
         ongoingCall = false
         socket.cancel()
         //socket.close(1000, "Websocket connection was asked to close")
-        client2.dispatcher.executorService.shutdown();
-        client2.connectionPool.evictAll();
-        client2.cache?.close();
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
+        client.cache?.close()
+        job.cancel("Socket was destroyed, cancelling attached job")
     }
 }

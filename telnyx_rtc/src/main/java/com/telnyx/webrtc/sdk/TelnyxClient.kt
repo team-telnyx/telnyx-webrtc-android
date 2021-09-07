@@ -142,7 +142,7 @@ class TelnyxClient(
         //Socket is now the reconnectionSocket
         socket = socketReconnection!!
         //Connect to new socket
-        socket.connect2(this@TelnyxClient, providedHostAddress, providedPort)
+        socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
         //Login with stored configuration
         credentialSessionConfig?.let {
             credentialLogin(it)
@@ -212,7 +212,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect2(this, providedHostAddress, providedPort)
+            socket.connect(this, providedHostAddress, providedPort)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
