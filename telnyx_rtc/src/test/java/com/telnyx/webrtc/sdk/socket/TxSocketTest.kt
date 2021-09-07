@@ -141,9 +141,12 @@ class TxSocketTest : BaseTest() {
             host_address = "rtc.telnyx.com",
             port = 14938,
         ))
+        client.socket.connect(client)
+        //Sleep to give time to connect
+        Thread.sleep(1000)
 
         client.disconnect()
-        Thread.sleep(3000)
+        Thread.sleep(1000)
         verify(client.socket, atLeastOnce()).destroy()
     }
 
