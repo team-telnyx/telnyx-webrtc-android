@@ -122,7 +122,7 @@ class MainViewModel @Inject constructor(
         currentCall?.dtmf(callId, tone)
     }
 
-    fun disconnect() {
+     fun disconnect() {
         telnyxClient?.disconnect()
         userManager.isUserLogin = false
     }
