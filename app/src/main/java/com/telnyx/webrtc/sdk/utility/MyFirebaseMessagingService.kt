@@ -39,6 +39,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         TelnyxFcm.processPushMessage(this, remoteMessage)
 
+        /* NEED TO USE THESE ONCE METADATA IS OUT OF DEV */
+
        /* val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
@@ -52,6 +54,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("X PUSH: ${remoteMessage.data.toString()}")
        // val telnyxPush = gson.fromJson(remoteMessage.data.toString(), TelnyxPushNotification::class.java)
         Timber.d("X PUSH: ${telnyxPushMetadata}")*/
+
+        /* **************************************************************************** */
 
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
