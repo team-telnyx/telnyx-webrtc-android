@@ -39,12 +39,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         TelnyxFcm.processPushMessage(this, remoteMessage)
 
-        /*val params = remoteMessage.data
+       /* val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        Timber.d("X PUSH: $metadata")
+        Timber.d("X PUSH: $metadata")*/
 
-        val metaDataObject = JSONObject(metadata)
+       /* val metaDataObject = JSONObject(metadata)
         metaDataObject.getString("caller_name")
 
         val gson = Gson()
