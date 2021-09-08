@@ -65,17 +65,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             setupChannels(notificationManager)
         }
 
+        val rejectResultIntent = Intent(this, MainActivity::class.java)
+        rejectResultIntent.addCategory(Intent.CATEGORY_LAUNCHER)
+        rejectResultIntent.action = Intent.ACTION_VIEW
+        rejectResultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        rejectResultIntent.putExtra(EXT_KEY_DO_ACTION, ACT_REJECT_CALL)
+        val rejectPendingIntent = PendingIntent.getActivity(this, REJECT_REQUEST_CODE, rejectResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+
         val answerResultIntent = Intent(this, MainActivity::class.java)
+        answerResultIntent.addCategory(Intent.CATEGORY_LAUNCHER)
+        answerResultIntent.action = Intent.ACTION_VIEW
+        answerResultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        answerResultIntent.putExtra(EXT_KEY_DO_ACTION, ACT_ANSWER_CALL)
         val answerPendingIntent = PendingIntent.getActivity(this, ANSWER_REQUEST_CODE, answerResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
 
         val notificationSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notificationBuilder = NotificationCompat.Builder(this, TELNYX_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_contact_phone)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle(remoteMessage.data["title"])
             .setContentText(remoteMessage.data["message"])
             .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
-            .addAction(R.drawable.ic_call_black, ACT_ANSWER_CALL, answerPendingIntent)
+            .addAction(R.drawable.ic_call_white, ACT_ANSWER_CALL, answerPendingIntent)
+            .addAction(R.drawable.ic_call_end_white, ACT_REJECT_CALL, rejectPendingIntent)
             .setAutoCancel(true)
             .setSound(notificationSoundUri)
 
@@ -127,8 +139,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        private const val TAG = "MyFirebaseMsgService"
         private const val TELNYX_CHANNEL_ID = "telnyx_channel"
         private const val ANSWER_REQUEST_CODE = 0
-        const val ACT_ANSWER_CALL = "open"
+        private const val REJECT_REQUEST_CODE = 1
+
+        const val EXT_KEY_DO_ACTION = "ext_key_do_action"
+        const val EXT_CALL_ID = "ext_call_id"
+        const val EXT_DESTINATION_NUMBER = "ext_destination_number"
+        const val ACT_ANSWER_CALL = "answer"
+        const val ACT_REJECT_CALL = "reject"
     }
 }
