@@ -225,9 +225,11 @@ class TxSocket(
             //socket.close(1000, "Websocket connection was asked to close")
         }
         if (this::client.isInitialized) {
-            client.dispatcher.executorService.shutdown()
-            client.connectionPool.evictAll()
-            client.cache?.close()
+            launch(Dispatchers.IO) {
+                client.dispatcher.executorService.shutdown()
+                client.connectionPool.evictAll()
+                client.cache?.close()
+            }
         }
         job.cancel("Socket was destroyed, cancelling attached job")
     }
