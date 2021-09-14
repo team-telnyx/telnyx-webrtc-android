@@ -47,7 +47,7 @@ class TelnyxClient(
     private var reconnecting = false
 
     //Gateway registration variables
-    private val gatewayResponseTimer = Timer()
+    private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
     private var retryCounter = 0
     private var gatewayState = "idle"
@@ -518,6 +518,8 @@ class TelnyxClient(
             )
         )
 
+        socket.isLoggedIn = true
+
         CoroutineScope(Dispatchers.Main).launch {
             socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
@@ -539,7 +541,8 @@ class TelnyxClient(
             )
             if (waitingForReg) {
                 requestGatewayStatus()
-                gatewayResponseTimer.schedule(timerTask {
+                gatewayResponseTimer = Timer()
+                gatewayResponseTimer?.schedule(timerTask {
                     if (retryCounter < 2) {
                         if (waitingForReg) {
                             onClientReady(jsonObject)
@@ -576,11 +579,15 @@ class TelnyxClient(
         val sessionId = result.asJsonObject.get("sessid").asString
         gatewayState = params.asJsonObject.get("state").asString
         if (gatewayState == GatewayState.REGED.state) {
-            gatewayResponseTimer.cancel()
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
             waitingForReg = false
             onLoginSuccessful(sessionId)
         } else if (gatewayState == GatewayState.NOREG.state) {
-            gatewayResponseTimer.cancel()
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
             socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
         }
     }

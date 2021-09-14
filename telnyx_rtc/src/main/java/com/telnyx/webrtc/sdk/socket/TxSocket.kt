@@ -4,15 +4,12 @@
 
 package com.telnyx.webrtc.sdk.socket
 
-import com.bugsnag.android.Bugsnag
-import com.bugsnag.android.Severity
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.*
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.features.json.*
@@ -20,12 +17,16 @@ import io.ktor.client.features.websocket.*
 import io.ktor.http.*
 import io.ktor.util.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.ConflatedBroadcastChannel
 import io.ktor.client.engine.cio.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.features.*
+import io.ktor.client.request.*
 import io.ktor.http.cio.*
 import io.ktor.http.cio.websocket.*
+import okhttp3.*
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
 
@@ -45,26 +46,15 @@ class TxSocket(
 
     private var job: Job = SupervisorJob()
     private val gson = Gson()
-    internal var isConnected = false
 
     override var coroutineContext = Dispatchers.IO + job
 
     internal var ongoingCall = false
+    internal var isLoggedIn = false
+    internal var isConnected = false
 
-    private val client = HttpClient(CIO) {
-        engine {
-            requestTimeout = 50000
-            endpoint.connectTimeout = 100000
-            endpoint.connectAttempts = 30
-            endpoint.keepAliveTime = 100000
-        }
-        install(WebSockets)
-        install(JsonFeature) {
-            serializer = GsonSerializer()
-        }
-    }
-
-    private val sendChannel = ConflatedBroadcastChannel<String>()
+    private lateinit var client: OkHttpClient
+    private lateinit var socket: WebSocket
 
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
@@ -72,148 +62,127 @@ class TxSocket(
      * @see [TxSocketListener]
      */
     fun connect(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
-        try {
-            providedHostAddress?.let {
-                host_address = it
-            }
-            providedPort?.let {
-                port = it
-            }
-            client.wss(
-                host = host_address,
-                port = port
-            ) {
-                outgoing.invokeOnClose {
-                    val message = it?.message
-                    Timber.tag("VERTO").d("The outgoing channel was closed $message")
-                    destroy()
-                }
+        client = OkHttpClient.Builder()
+            .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+            .addInterceptor(Interceptor { chain ->
+                val builder = chain.request().newBuilder()
+                chain.proceed(builder.build())
+            }).build()
+
+        providedHostAddress?.let {
+            host_address = it
+        }
+        providedPort?.let {
+            port = it
+        }
+
+        val request: Request =
+            Request.Builder().url("wss://$host_address:$port/").build()
+        socket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 Timber.tag("VERTO").d("Connection established")
-                val sendData = sendChannel.openSubscription()
                 listener.onConnectionEstablished()
                 isConnected = true
-                try {
-                    while (true) {
-                        sendData.poll()?.let {
-                            Timber.tag("VERTO")
-                                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, it)
-                            outgoing.send(Frame.Text(it))
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                super.onMessage(webSocket, text)
+                Timber.tag("VERTO").d(
+                    "[%s] Receiving [%s]",
+                    this@TxSocket.javaClass.simpleName,
+                    text
+                )
+                val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    when {
+                        jsonObject.has("result") -> {
+                            if (jsonObject.get("result").asJsonObject.has("params")) {
+                                val result = jsonObject.get("result").asJsonObject
+                                val params = result.get("params").asJsonObject
+                                if (params.asJsonObject.has("state")) {
+                                    listener.onGatewayStateReceived(jsonObject)
+                                }
+                            }
+                            else if (jsonObject.get("result").asJsonObject.has("message")) {
+                                val result = jsonObject.get("result").asJsonObject
+                                val message = result.get("message").asString
+                                if (message == "logged in" && isLoggedIn) {
+                                    listener.onClientReady(jsonObject)
+                                }
+                            }
                         }
-                        incoming.poll()?.let { frame ->
-                            if (frame is Frame.Text) {
-                                val data = frame.readText()
+                        jsonObject.has("method") -> {
+                            Timber.tag("VERTO").d(
+                                "[%s] Received Method [%s]",
+                                this@TxSocket.javaClass.simpleName,
+                                jsonObject.get("method").asString
+                            )
+                            when (jsonObject.get("method").asString) {
+                                CLIENT_READY.methodName -> {
+                                    listener.onClientReady(jsonObject)
+                                }
+                                INVITE.methodName -> {
+                                    listener.onOfferReceived(jsonObject)
+                                }
+                                ANSWER.methodName -> {
+                                    listener.onAnswerReceived(jsonObject)
+                                }
+                                MEDIA.methodName -> {
+                                    listener.onMediaReceived(jsonObject)
+                                }
+                                BYE.methodName -> {
+                                    val params =
+                                        jsonObject.getAsJsonObject("params")
+                                    val callId =
+                                        UUID.fromString(params.get("callID").asString)
+                                    listener.onByeReceived(callId)
+                                }
+                                INVITE.methodName -> {
+                                    listener.onOfferReceived(jsonObject)
+                                }
+                                RINGING.methodName -> {
+                                    listener.onRingingReceived(jsonObject)
+                                }
+                            }
+                        }
+                        jsonObject.has("error") -> {
+                            if(jsonObject.get("error").asJsonObject.has("code")) {
+                                val errorCode =
+                                    jsonObject.get("error").asJsonObject.get("code").asInt
                                 Timber.tag("VERTO").d(
-                                    "[%s] Receiving [%s]",
+                                    "[%s] Received Error From Telnyx [%s]",
                                     this@TxSocket.javaClass.simpleName,
-                                    data
+                                    jsonObject.get("error").asJsonObject.get("message")
+                                        .toString()
                                 )
-                                val jsonObject = gson.fromJson(data, JsonObject::class.java)
-                                withContext(Dispatchers.Main) {
-                                    when {
-                                        jsonObject.has("result") -> {
-                                            if (jsonObject.get("result").asJsonObject.has("params")) {
-                                                val result = jsonObject.get("result").asJsonObject
-                                                val params = result.get("params").asJsonObject
-                                                if (params.asJsonObject.has("state")) {
-                                                    listener.onGatewayStateReceived(jsonObject)
-                                                }
-                                            }
-                                           else if (jsonObject.get("result").asJsonObject.has("message")) {
-                                                val result = jsonObject.get("result").asJsonObject
-                                                val message = result.get("message").asString
-                                                if (message == "logged in") {
-                                                    listener.onClientReady(jsonObject)
-                                                }
-                                            }
-                                        }
-                                        jsonObject.has("method") -> {
-                                            Timber.tag("VERTO").d(
-                                                "[%s] Received Method [%s]",
-                                                this@TxSocket.javaClass.simpleName,
-                                                jsonObject.get("method").asString
-                                            )
-                                            when (jsonObject.get("method").asString) {
-                                                CLIENT_READY.methodName -> {
-                                                    listener.onClientReady(jsonObject)
-                                                }
-                                                INVITE.methodName -> {
-                                                    listener.onOfferReceived(jsonObject)
-                                                }
-                                                ANSWER.methodName -> {
-                                                    listener.onAnswerReceived(jsonObject)
-                                                }
-                                                MEDIA.methodName -> {
-                                                    listener.onMediaReceived(jsonObject)
-                                                }
-                                                BYE.methodName -> {
-                                                    val params =
-                                                        jsonObject.getAsJsonObject("params")
-                                                    val callId =
-                                                        UUID.fromString(params.get("callID").asString)
-                                                    listener.onByeReceived(callId)
-                                                }
-                                                INVITE.methodName -> {
-                                                    listener.onOfferReceived(jsonObject)
-                                                }
-                                                RINGING.methodName -> {
-                                                    listener.onRingingReceived(jsonObject)
-                                                }
-                                            }
-                                        }
-                                        jsonObject.has("error") -> {
-                                          if(jsonObject.get("error").asJsonObject.has("code")) {
-                                              val errorCode =
-                                                  jsonObject.get("error").asJsonObject.get("code").asInt
-                                              Timber.tag("VERTO").d(
-                                                  "[%s] Received Error From Telnyx [%s]",
-                                                  this@TxSocket.javaClass.simpleName,
-                                                  jsonObject.get("error").asJsonObject.get("message")
-                                                      .toString()
-                                              )
-                                              when (errorCode) {
-                                                  CREDENTIAL_ERROR.errorCode -> {
-                                                      listener.onErrorReceived(jsonObject)
-                                                  }
-                                                  TOKEN_ERROR.errorCode -> {
-                                                      listener.onErrorReceived(jsonObject)
-                                                  }
-                                              }
-                                          }
-                                        }
+                                when (errorCode) {
+                                    CREDENTIAL_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
+                                    }
+                                    TOKEN_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
                                     }
                                 }
                             }
                         }
                     }
-                } catch (exception: Throwable) {
-                    Timber.d(exception)
-                    if(!BuildConfig.IS_TESTING.get()) {
-                        Bugsnag.notify(exception) { event ->
-                            // Add extra information
-                            event.addMetadata(
-                                "availableMemory",
-                                "",
-                                Runtime.getRuntime().freeMemory()
-                            )
-                            //This is not an issue, the coroutine has just been cancelled
-                            event.severity = Severity.INFO
-                            false
-                        }
-                    }
-                }
             }
-        } catch (cause: Throwable) {
-            Timber.d(cause)
-            if(!BuildConfig.IS_TESTING.get()) {
-                Bugsnag.notify(cause) { event ->
-                    // Add extra information
-                    event.addMetadata("availableMemory", "", Runtime.getRuntime().freeMemory())
-                    //This is not an issue, the coroutine has just been cancelled
-                    event.severity = Severity.INFO
-                    false
-                }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                super.onClosing(webSocket, code, reason)
+                Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+
             }
-        }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                super.onClosed(webSocket, code, reason)
+                Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
+                destroy()
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Timber.tag("TxSocket").i("Socket is closed: ${response.toString()} $t")
+            }
+        })
     }
 
     /**
@@ -231,12 +200,14 @@ class TxSocket(
     }
 
     /**
-     * Sends data to our [sendChannel], broadcasting the message to the subscription within our websocket connection which will then be sent to the Telnyx Socket connection
+     * Sends data to our open Telnyx Socket connection
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
         if(isConnected) {
-            sendChannel.send(gson.toJson(dataObject))
+            Timber.tag("VERTO")
+                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+            socket.send(gson.toJson(dataObject))
         } else {
             Timber.tag("VERTO").d("Message cannot be sent. There is no established WebSocket connection")
         }
@@ -247,7 +218,19 @@ class TxSocket(
      */
     internal fun destroy() {
         isConnected = false
-        client.close()
-        job.cancel()
+        isLoggedIn = false
+        ongoingCall = false
+        if (this::socket.isInitialized) {
+            socket.cancel()
+            //socket.close(1000, "Websocket connection was asked to close")
+        }
+        if (this::client.isInitialized) {
+            launch(Dispatchers.IO) {
+                client.dispatcher.executorService.shutdown()
+                client.connectionPool.evictAll()
+                client.cache?.close()
+            }
+        }
+        job.cancel("Socket was destroyed, cancelling attached job")
     }
 }

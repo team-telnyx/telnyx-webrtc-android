@@ -11,6 +11,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.os.Environment
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -30,6 +31,7 @@ import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
@@ -53,6 +55,9 @@ class MainActivity : AppCompatActivity() {
     private var fcmToken: String? = null
     private var isDev = false
     private var isAutomaticLogin = false
+
+    // Notification handling
+    private var notificationAcceptHandling: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -197,10 +202,22 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
+    private fun updateEnvText(isDevEnvironment: Boolean) {
+        if (isDevEnvironment) {
+            environment_text.text = "Dev"
+        } else {
+            environment_text.text = "Prod"
+        }
+    }
+
     private fun initViews() {
         mockInputs()
         handleUserLoginState()
         getFCMToken()
+
+        // Add environment text
+        isDev = userManager.isDev
+        updateEnvText(isDev)
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -209,7 +226,7 @@ class MainActivity : AppCompatActivity() {
         }
         call_button_id.setOnClickListener {
             mainViewModel.sendInvite(
-                userManager.calledIdName,
+                userManager.callerIdName,
                 userManager.callerIdNumber,
                 call_input_id.text.toString(),
                 "Sample Client State"
@@ -244,12 +261,16 @@ class MainActivity : AppCompatActivity() {
                         0 -> {
                             // Switch to Dev
                             isDev = true
+                            userManager.isDev = true
+                            updateEnvText(isDev)
                             Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG)
                                 .show()
                         }
                         1 -> {
                             // Switch to Prod
                             isDev = false
+                            userManager.isDev = false
+                            updateEnvText(isDev)
                             Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG)
                                 .show()
                         }
@@ -447,17 +468,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
-        call_control_section_id.visibility = View.GONE
-        incoming_call_section_id.visibility = View.VISIBLE
-        incoming_call_section_id.bringToFront()
+        when (notificationAcceptHandling) {
+            true -> {
+                onAcceptCall(callId, callerIdNumber)
+                notificationAcceptHandling = null
+            }
+            false -> {
+                onRejectCall(callId)
+                notificationAcceptHandling = null
+            }
+            else -> {
+                call_control_section_id.visibility = View.GONE
+                incoming_call_section_id.visibility = View.VISIBLE
+                incoming_call_section_id.bringToFront()
 
-        mainViewModel.setCurrentCall(callId)
+                mainViewModel.setCurrentCall(callId)
 
-        answer_call_id.setOnClickListener {
-            onAcceptCall(callId, callerIdNumber)
-        }
-        reject_call_id.setOnClickListener {
-            onRejectCall(callId)
+
+                answer_call_id.setOnClickListener {
+                    onAcceptCall(callId, callerIdNumber)
+                }
+                reject_call_id.setOnClickListener {
+                    onRejectCall(callId)
+                }
+            }
         }
     }
 
@@ -504,5 +538,25 @@ class MainActivity : AppCompatActivity() {
                     token?.continuePermissionRequest()
                 }
             }).check()
+    }
+
+    private fun handleCallNotification() {
+        val action = intent.extras?.get(MyFirebaseMessagingService.EXT_KEY_DO_ACTION) as String?
+
+        action?.let {
+            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
+                // Handle Answer
+                notificationAcceptHandling = true
+
+            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
+               // Handle Reject
+                notificationAcceptHandling = false
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        handleCallNotification()
     }
 }
