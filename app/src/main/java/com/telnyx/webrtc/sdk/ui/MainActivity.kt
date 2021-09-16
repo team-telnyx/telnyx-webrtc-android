@@ -64,6 +64,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.toolbar_id))
 
+        // Add environment text
+        isDev = userManager.isDev
+        updateEnvText(isDev)
+
         FirebaseApp.initializeApp(this)
 
         mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
@@ -214,10 +218,6 @@ class MainActivity : AppCompatActivity() {
         mockInputs()
         handleUserLoginState()
         getFCMToken()
-
-        // Add environment text
-        isDev = userManager.isDev
-        updateEnvText(isDev)
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -445,7 +445,8 @@ class MainActivity : AppCompatActivity() {
                 sip_password_id.text.toString(),
                 fcmToken,
                 caller_id_name_id.text.toString(),
-                caller_id_number_id.text.toString()
+                caller_id_number_id.text.toString(),
+                isDev
             )
         }
     }
@@ -468,6 +469,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
+        mainViewModel.setCurrentCall(callId)
         when (notificationAcceptHandling) {
             true -> {
                 onAcceptCall(callId, callerIdNumber)

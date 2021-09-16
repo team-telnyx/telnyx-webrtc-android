@@ -143,7 +143,7 @@ internal class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+          //  mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -181,7 +181,7 @@ internal class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+       //     mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 

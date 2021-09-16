@@ -573,6 +573,12 @@ class TelnyxClient(
         }
     }
 
+    override fun onSessionIdReceived(jsonObject: JsonObject) {
+        val result = jsonObject.get("result")
+        val sessId = result.asJsonObject.get("sessid").asString
+        sessionId = sessId
+    }
+
     override fun onGatewayStateReceived(jsonObject: JsonObject) {
         val result = jsonObject.get("result")
         val params = result.asJsonObject.get("params")

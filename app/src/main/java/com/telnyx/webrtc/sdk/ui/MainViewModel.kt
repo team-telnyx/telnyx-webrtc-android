@@ -45,7 +45,8 @@ class MainViewModel @Inject constructor(
         password: String,
         fcmToken: String?,
         callerIdName: String,
-        callerIdNumber: String
+        callerIdNumber: String,
+        isDev: Boolean
     ) {
         if (!userManager.isUserLogin) {
             userManager.isUserLogin = true
@@ -54,6 +55,7 @@ class MainViewModel @Inject constructor(
             userManager.fcmToken = fcmToken
             userManager.callerIdName = callerIdName
             userManager.callerIdNumber = callerIdNumber
+            userManager.isDev = isDev
         }
     }
 
