@@ -472,6 +472,7 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.setCurrentCall(callId)
         when (notificationAcceptHandling) {
             true -> {
+                Thread.sleep(1000)
                 onAcceptCall(callId, callerIdNumber)
                 notificationAcceptHandling = null
             }
@@ -483,9 +484,6 @@ class MainActivity : AppCompatActivity() {
                 call_control_section_id.visibility = View.GONE
                 incoming_call_section_id.visibility = View.VISIBLE
                 incoming_call_section_id.bringToFront()
-
-                mainViewModel.setCurrentCall(callId)
-
 
                 answer_call_id.setOnClickListener {
                     onAcceptCall(callId, callerIdNumber)

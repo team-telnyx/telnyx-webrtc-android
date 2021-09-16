@@ -19,9 +19,11 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import org.webrtc.IceCandidate
+import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+import kotlin.concurrent.timerTask
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
@@ -88,38 +90,36 @@ class Call(
         //set global call CallID
         callId = inviteCallId
 
-        var sentFlag = false
-
         //Create new peer
         peerConnection = Peer(context, client, providedTurn, providedStun,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
                     peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callerIdName = callerName,
-                                callerIdNumber = callerNumber,
-                                clientState = clientState.encodeBase64(),
-                                callId = inviteCallId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.send(inviteMessageBody)
-                    }
                 }
             })
+
+        val iceCandidateTimer = Timer()
+        iceCandidateTimer.schedule(timerTask {
+            //set localInfo and ice candidate and able to create correct offer
+            val inviteMessageBody = SendingMessageBody(
+                id = uuid,
+                method = SocketMethod.INVITE.methodName,
+                params = CallParams(
+                    sessionId = sessionId,
+                    sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                    dialogParams = CallDialogParams(
+                        callerIdName = callerName,
+                        callerIdNumber = callerNumber,
+                        clientState = clientState.encodeBase64(),
+                        callId = inviteCallId,
+                        destinationNumber = destinationNumber,
+                    )
+                )
+            )
+            socket.send(inviteMessageBody)
+        }, 300)
+
         client.callOngoing()
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
