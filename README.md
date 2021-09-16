@@ -1,5 +1,6 @@
 # Telnyx Android WebRTC SDK
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
+[![Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/scheduled_unit_test.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/scheduled_unit_test.yml)
 
 Enable Telnyx real-time communication services on Android :telephone_receiver: :fire:
 
