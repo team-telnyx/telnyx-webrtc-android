@@ -29,6 +29,8 @@ import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.HostnameVerifier
 
 /**
  * The socket connection that will send and receive messages related to calls.
@@ -64,6 +66,10 @@ class TxSocket(
     fun connect(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+            .connectTimeout(25, TimeUnit.SECONDS)
+            .readTimeout(25, TimeUnit.SECONDS)
+            .writeTimeout(25, TimeUnit.SECONDS)
+            .hostnameVerifier ( hostnameVerifier = { _, _ -> true })
             .addInterceptor(Interceptor { chain ->
                 val builder = chain.request().newBuilder()
                 chain.proceed(builder.build())
@@ -80,7 +86,7 @@ class TxSocket(
             Request.Builder().url("wss://$host_address:$port/").build()
         socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Timber.tag("VERTO").d("Connection established")
+                Timber.tag("VERTO").d("[%s] Connection established :: $host_address", this@TxSocket.javaClass.simpleName)
                 listener.onConnectionEstablished()
                 isConnected = true
             }
@@ -107,6 +113,9 @@ class TxSocket(
                                 val message = result.get("message").asString
                                 if (message == "logged in" && isLoggedIn) {
                                     listener.onClientReady(jsonObject)
+                                }
+                                else {
+                                    listener.onSessionIdReceived(jsonObject)
                                 }
                             }
                         }

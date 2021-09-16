@@ -22,6 +22,7 @@ import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+import kotlin.concurrent.timerTask
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
@@ -88,38 +89,36 @@ class Call(
         //set global call CallID
         callId = inviteCallId
 
-        var sentFlag = false
-
         //Create new peer
         peerConnection = Peer(context, client, providedTurn, providedStun,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
                     peerConnection?.addIceCandidate(p0)
-
-                    //set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessionId = sessionId,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callerIdName = callerName,
-                                callerIdNumber = callerNumber,
-                                clientState = clientState.encodeBase64(),
-                                callId = inviteCallId,
-                                destinationNumber = destinationNumber,
-                            )
-                        )
-                    )
-
-                    if (!sentFlag) {
-                        sentFlag = true
-                        socket.send(inviteMessageBody)
-                    }
                 }
             })
+
+        val iceCandidateTimer = Timer()
+        iceCandidateTimer.schedule(timerTask {
+            //set localInfo and ice candidate and able to create correct offer
+            val inviteMessageBody = SendingMessageBody(
+                id = uuid,
+                method = SocketMethod.INVITE.methodName,
+                params = CallParams(
+                    sessionId = sessionId,
+                    sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                    dialogParams = CallDialogParams(
+                        callerIdName = callerName,
+                        callerIdNumber = callerNumber,
+                        clientState = clientState.encodeBase64(),
+                        callId = inviteCallId,
+                        destinationNumber = destinationNumber,
+                    )
+                )
+            )
+            socket.send(inviteMessageBody)
+        }, 300)
+
         client.callOngoing()
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
@@ -423,6 +422,8 @@ class Call(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onOfferReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
+
         /* In case of receiving an invite
           local user should create an answer with both local and remote information :
           1. create a connection peer
@@ -475,6 +476,8 @@ class Call(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onRingingReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
+
         val params = jsonObject.getAsJsonObject("params")
         telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
         telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
@@ -490,6 +493,10 @@ class Call(
     }
 
     override fun onClientReady(jsonObject: JsonObject) {
+        //NOOP
+    }
+
+    override fun onSessionIdReceived(jsonObject: JsonObject) {
         //NOOP
     }
 
