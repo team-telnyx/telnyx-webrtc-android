@@ -19,7 +19,6 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.util.*
 import org.webrtc.IceCandidate
-import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
