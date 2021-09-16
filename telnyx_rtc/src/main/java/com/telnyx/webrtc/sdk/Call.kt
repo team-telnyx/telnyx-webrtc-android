@@ -423,6 +423,8 @@ class Call(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onOfferReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
+
         /* In case of receiving an invite
           local user should create an answer with both local and remote information :
           1. create a connection peer
@@ -475,6 +477,8 @@ class Call(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onRingingReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
+
         val params = jsonObject.getAsJsonObject("params")
         telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
         telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
