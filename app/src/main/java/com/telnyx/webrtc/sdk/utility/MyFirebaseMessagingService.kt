@@ -39,32 +39,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         TelnyxFcm.processPushMessage(this, remoteMessage)
 
-        /* NEED TO USE THESE ONCE METADATA IS OUT OF DEV */
-
-       /* val params = remoteMessage.data
+        val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        Timber.d("X PUSH: $metadata")*/
-
-       /* val metaDataObject = JSONObject(metadata)
-        metaDataObject.getString("caller_name")
-
         val gson = Gson()
         val telnyxPushMetadata = gson.fromJson(metadata, PushMetaData::class.java)
-        Timber.d("X PUSH: ${remoteMessage.data.toString()}")
-       // val telnyxPush = gson.fromJson(remoteMessage.data.toString(), TelnyxPushNotification::class.java)
-        Timber.d("X PUSH: ${telnyxPushMetadata}")*/
-
-        /* **************************************************************************** */
-
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notificationID = Random().nextInt(3000)
 
         /*
-        Apps targeting SDK 26 or above (Android O) must implement notification channels and add its notifications
-        to at least one of them.
-      */
+            Apps targeting SDK 26 or above (Android O) must implement notification channels and add its notifications
+            to at least one of them.
+         */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setupChannels(notificationManager)
         }
@@ -88,7 +75,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle(remoteMessage.data["title"])
-            .setContentText(remoteMessage.data["message"])
+            .setContentText(telnyxPushMetadata.caller_name+" - "+telnyxPushMetadata.caller_number)
             .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
             .addAction(R.drawable.ic_call_white, ACT_ANSWER_CALL, answerPendingIntent)
             .addAction(R.drawable.ic_call_end_white, ACT_REJECT_CALL, rejectPendingIntent)
