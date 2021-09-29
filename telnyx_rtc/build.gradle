@@ -6,7 +6,6 @@ plugins {
     id 'org.jetbrains.dokka'
     id 'maven-publish'
     id 'kotlin-android-extensions'
-    id 'jacoco'
 }
 
 apply plugin: 'maven-publish'
