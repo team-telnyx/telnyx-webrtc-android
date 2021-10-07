@@ -6,31 +6,10 @@ plugins {
     id 'org.jetbrains.dokka'
     id 'maven-publish'
     id 'kotlin-android-extensions'
-    id 'jacoco'
 }
 
 apply plugin: 'maven-publish'
 apply plugin: "com.bugsnag.android.gradle"
-
-
-task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest', 'createDebugCoverageReport']) {
-
-    reports {
-        xml.enabled = true
-        html.enabled = true
-    }
-
-    def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
-    def kotlinDebugTree = fileTree(dir: "${buildDir}/tmp/kotlin-classes/debug", excludes: fileFilter)
-    def mainSrc = "${project.projectDir}/src/main/java"
-
-    sourceDirectories.setFrom(files([mainSrc]))
-    classDirectories.setFrom(files([kotlinDebugTree]))
-    executionData.setFrom(fileTree(dir: "$buildDir", includes: [
-            "jacoco/testDebugUnitTest.exec",
-            "outputs/code-coverage/debugAndroidTest/connected/*coverage.ec"
-    ]))
-}
 
 def getVersionName = { ->
     return "0.0.25"
