@@ -383,7 +383,6 @@ class TelnyxClient(
      * Returns a MutableList of available audio devices
      * Audio devices are represented by their Int reference ids
      *
-     * @param logLevel, the LogLevel specified for the SDK
      * @return [MutableList] of [Int]
      */
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
@@ -405,7 +404,7 @@ class TelnyxClient(
         when (audioDevice) {
             AudioDevice.BLUETOOTH -> {
                 if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
-                    audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
+                    audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION
                     audioManager.startBluetoothSco()
                     audioManager.isBluetoothScoOn = true
                 } else {
@@ -417,17 +416,17 @@ class TelnyxClient(
             }
             AudioDevice.PHONE_EARPIECE -> {
                 //For phone ear piece
-                audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
-                audioManager.stopBluetoothSco();
+                audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION
+                audioManager.stopBluetoothSco()
                 audioManager.isBluetoothScoOn = false
                 audioManager.isSpeakerphoneOn = false
             }
             AudioDevice.LOUDSPEAKER -> {
                 //For phone speaker(loudspeaker)
-                audioManager!!.mode = AudioManager.MODE_NORMAL;
-                audioManager.stopBluetoothSco();
-                audioManager.isBluetoothScoOn = false;
-                audioManager.isSpeakerphoneOn = true;
+                audioManager!!.mode = AudioManager.MODE_NORMAL
+                audioManager.stopBluetoothSco()
+                audioManager.isBluetoothScoOn = false
+                audioManager.isSpeakerphoneOn = true
             }
         }
     }
@@ -500,7 +499,7 @@ class TelnyxClient(
 
     /**
      * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
-     * @param sessionId, the session ID of the successfully registered session.
+     * @param receivedLoginSessionId, the session ID of the successfully registered session.
      */
     internal fun onLoginSuccessful(receivedLoginSessionId: String) {
         Timber.d(
