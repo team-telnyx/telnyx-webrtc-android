@@ -30,7 +30,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.HostnameVerifier
 
 /**
  * The socket connection that will send and receive messages related to calls.
