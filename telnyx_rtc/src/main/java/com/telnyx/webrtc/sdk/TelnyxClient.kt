@@ -616,16 +616,16 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
             }
             GatewayState.UNREGED.state -> {
-               //NOOP
+               //NOOP - logged within TxSocket
             }
             GatewayState.TRYING.state -> {
-                //NOOP
+                //NOOP - logged within TxSocket
             }
             GatewayState.REGISTER.state -> {
-                //NOOP
+                //NOOP - logged within TxSocket
             }
             GatewayState.UNREGISTER.state -> {
-                //NOOP
+                //NOOP - logged within TxSocket
             }
             else -> {
                 gatewayResponseTimer?.cancel()
