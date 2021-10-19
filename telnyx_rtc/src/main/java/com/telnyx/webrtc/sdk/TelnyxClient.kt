@@ -596,6 +596,30 @@ class TelnyxClient(
             gatewayResponseTimer = null
             socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
         }
+        else if (gatewayState == GatewayState.FAILED.state) {
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
+        }
+        else if (gatewayState == GatewayState.FAIL_WAIT.state) {
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+        }
+        else if (gatewayState == GatewayState.EXPIRED.state) {
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+        }
+        else {
+            gatewayResponseTimer?.cancel()
+            gatewayResponseTimer?.purge()
+            gatewayResponseTimer = null
+            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+        }
     }
 
     override fun onConnectionEstablished() {
