@@ -615,6 +615,18 @@ class TelnyxClient(
                 gatewayResponseTimer = null
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
             }
+            GatewayState.UNREGED.state -> {
+               //NOOP
+            }
+            GatewayState.TRYING.state -> {
+                //NOOP
+            }
+            GatewayState.REGISTER.state -> {
+                //NOOP
+            }
+            GatewayState.UNREGISTER.state -> {
+                //NOOP
+            }
             else -> {
                 gatewayResponseTimer?.cancel()
                 gatewayResponseTimer?.purge()
