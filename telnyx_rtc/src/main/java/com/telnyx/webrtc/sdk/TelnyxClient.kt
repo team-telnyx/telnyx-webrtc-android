@@ -584,41 +584,44 @@ class TelnyxClient(
         val params = result.asJsonObject.get("params")
         val sessionId = result.asJsonObject.get("sessid").asString
         gatewayState = params.asJsonObject.get("state").asString
-        if (gatewayState == GatewayState.REGED.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            waitingForReg = false
-            onLoginSuccessful(sessionId)
-        } else if (gatewayState == GatewayState.NOREG.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
-        }
-        else if (gatewayState == GatewayState.FAILED.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
-        }
-        else if (gatewayState == GatewayState.FAIL_WAIT.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
-        }
-        else if (gatewayState == GatewayState.EXPIRED.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
-        }
-        else {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+        when (gatewayState) {
+            GatewayState.REGED.state -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                waitingForReg = false
+                onLoginSuccessful(sessionId)
+            }
+            GatewayState.NOREG.state -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+            }
+            GatewayState.FAILED.state -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
+            }
+            GatewayState.FAIL_WAIT.state -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+            }
+            GatewayState.EXPIRED.state -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+            }
+            else -> {
+                gatewayResponseTimer?.cancel()
+                gatewayResponseTimer?.purge()
+                gatewayResponseTimer = null
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+            }
         }
     }
 
