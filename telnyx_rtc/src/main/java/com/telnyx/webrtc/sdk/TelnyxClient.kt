@@ -383,7 +383,6 @@ class TelnyxClient(
      * Returns a MutableList of available audio devices
      * Audio devices are represented by their Int reference ids
      *
-     * @param logLevel, the LogLevel specified for the SDK
      * @return [MutableList] of [Int]
      */
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
@@ -405,9 +404,9 @@ class TelnyxClient(
         when (audioDevice) {
             AudioDevice.BLUETOOTH -> {
                 if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
-                    audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
-                    audioManager.startBluetoothSco()
-                    audioManager.isBluetoothScoOn = true
+                    audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+                    audioManager?.startBluetoothSco()
+                    audioManager?.isBluetoothScoOn = true
                 } else {
                     Timber.d(
                         "[%s] :: No Bluetooth device detected",
@@ -417,17 +416,17 @@ class TelnyxClient(
             }
             AudioDevice.PHONE_EARPIECE -> {
                 //For phone ear piece
-                audioManager!!.mode = AudioManager.MODE_IN_COMMUNICATION;
-                audioManager.stopBluetoothSco();
-                audioManager.isBluetoothScoOn = false
-                audioManager.isSpeakerphoneOn = false
+                audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+                audioManager?.stopBluetoothSco()
+                audioManager?.isBluetoothScoOn = false
+                audioManager?.isSpeakerphoneOn = false
             }
             AudioDevice.LOUDSPEAKER -> {
                 //For phone speaker(loudspeaker)
-                audioManager!!.mode = AudioManager.MODE_NORMAL;
-                audioManager.stopBluetoothSco();
-                audioManager.isBluetoothScoOn = false;
-                audioManager.isSpeakerphoneOn = true;
+                audioManager?.mode = AudioManager.MODE_NORMAL
+                audioManager?.stopBluetoothSco()
+                audioManager?.isBluetoothScoOn = false
+                audioManager?.isSpeakerphoneOn = true
             }
         }
     }
@@ -500,7 +499,7 @@ class TelnyxClient(
 
     /**
      * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
-     * @param sessionId, the session ID of the successfully registered session.
+     * @param receivedLoginSessionId, the session ID of the successfully registered session.
      */
     internal fun onLoginSuccessful(receivedLoginSessionId: String) {
         Timber.d(
@@ -584,18 +583,51 @@ class TelnyxClient(
         val params = result.asJsonObject.get("params")
         val sessionId = result.asJsonObject.get("sessid").asString
         gatewayState = params.asJsonObject.get("state").asString
-        if (gatewayState == GatewayState.REGED.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            waitingForReg = false
-            onLoginSuccessful(sessionId)
-        } else if (gatewayState == GatewayState.NOREG.state) {
-            gatewayResponseTimer?.cancel()
-            gatewayResponseTimer?.purge()
-            gatewayResponseTimer = null
-            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+        when (gatewayState) {
+            GatewayState.REGED.state -> {
+                invalidateGatewayResponseTimer()
+                waitingForReg = false
+                onLoginSuccessful(sessionId)
+            }
+            GatewayState.NOREG.state -> {
+                invalidateGatewayResponseTimer()
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+            }
+            GatewayState.FAILED.state -> {
+                invalidateGatewayResponseTimer()
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
+            }
+            GatewayState.FAIL_WAIT.state -> {
+                invalidateGatewayResponseTimer()
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+            }
+            GatewayState.EXPIRED.state -> {
+                invalidateGatewayResponseTimer()
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+            }
+            GatewayState.UNREGED.state -> {
+               //NOOP - logged within TxSocket
+            }
+            GatewayState.TRYING.state -> {
+                //NOOP - logged within TxSocket
+            }
+            GatewayState.REGISTER.state -> {
+                //NOOP - logged within TxSocket
+            }
+            GatewayState.UNREGISTER.state -> {
+                //NOOP - logged within TxSocket
+            }
+            else -> {
+                invalidateGatewayResponseTimer()
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+            }
         }
+    }
+
+    private fun invalidateGatewayResponseTimer() {
+        gatewayResponseTimer?.cancel()
+        gatewayResponseTimer?.purge()
+        gatewayResponseTimer = null
     }
 
     override fun onConnectionEstablished() {
