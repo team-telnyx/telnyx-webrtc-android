@@ -500,7 +500,7 @@ class Call(
         //NOOP
     }
 
-    override fun onGatewayStateReceived(jsonObject: JsonObject) {
+    override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
         //NOOP
     }
 

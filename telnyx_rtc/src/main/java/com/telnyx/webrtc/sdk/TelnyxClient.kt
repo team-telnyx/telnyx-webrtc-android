@@ -587,16 +587,16 @@ class TelnyxClient(
         sessionId = sessId
     }
 
-    override fun onGatewayStateReceived(jsonObject: JsonObject) {
-        val result = jsonObject.get("result")
-        val params = result.asJsonObject.get("params")
-        val sessionId = result.asJsonObject.get("sessid").asString
-        gatewayState = params.asJsonObject.get("state").asString
+    override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                onLoginSuccessful(sessionId)
+                sessionId?.let { it
+                    onLoginSuccessful(it)
+                } ?: kotlin.run {
+                    socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
+                }
             }
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
@@ -607,7 +607,7 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
             GatewayState.FAIL_WAIT.state -> {
-                if (autoRetryLogin && connectRetryCounter <= RETRY_CONNECT_TIME) {
+                if (autoRetryLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
                     reconnectToSocket()
