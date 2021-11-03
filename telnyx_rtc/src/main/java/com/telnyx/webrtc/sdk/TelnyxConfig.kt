@@ -29,8 +29,8 @@ sealed class TelnyxConfig
  * @property fcmToken The user's Firebase Cloud Messaging device ID
  * @property ringtone The integer raw value of the audio file to use as a ringtone
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
- * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -40,8 +40,8 @@ data class CredentialConfig(
     val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
-    val autoRetry : Boolean = true,
-    val logLevel: LogLevel = LogLevel.NONE
+    val logLevel: LogLevel = LogLevel.NONE,
+    val autoRetry : Boolean = true
     ) : TelnyxConfig()
 
 /**
@@ -53,8 +53,8 @@ data class CredentialConfig(
  * @property fcmToken The user's Firebase Cloud Messaging device ID
  * @property ringtone The integer raw value of the audio file to use as a ringtone
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
- * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  */
 data class TokenConfig(
     val sipToken: String,
@@ -63,7 +63,7 @@ data class TokenConfig(
     val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE,
     val autoRetry : Boolean = true,
-    val logLevel: LogLevel = LogLevel.NONE
     ) : TelnyxConfig()
 
