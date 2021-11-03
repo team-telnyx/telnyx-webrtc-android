@@ -41,15 +41,22 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener, LifecycleObserver {
 
+    companion object {
+        const val RETRY_REGISTER_TIME = 3
+        const val RETRY_CONNECT_TIME = 3
+    }
+
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
     private var reconnecting = false
 
     //Gateway registration variables
+    private var autoRetryLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
-    private var retryCounter = 0
+    private var registrationRetryCounter = 0
+    private var connectRetryCounter = 0
     private var gatewayState = "idle"
 
     internal var socket: TxSocket
@@ -289,6 +296,7 @@ class TelnyxClient(
         val password = config.sipPassword
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        autoRetryLogin = config.autoRetry
 
         Config.USERNAME = config.sipUser
         Config.PASSWORD = config.sipPassword
@@ -339,6 +347,7 @@ class TelnyxClient(
         val token = config.sipToken
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        autoRetryLogin = config.autoRetry
 
         tokenSessionConfig = config
 
@@ -542,11 +551,11 @@ class TelnyxClient(
                 requestGatewayStatus()
                 gatewayResponseTimer = Timer()
                 gatewayResponseTimer?.schedule(timerTask {
-                    if (retryCounter < 2) {
+                    if (registrationRetryCounter < RETRY_REGISTER_TIME) {
                         if (waitingForReg) {
                             onClientReady(jsonObject)
                         }
-                        retryCounter++
+                        registrationRetryCounter++
                     } else {
                         Timber.d(
                             "[%s] :: Gateway registration has timed out",
@@ -598,8 +607,13 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
             GatewayState.FAIL_WAIT.state -> {
-                invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                if (autoRetryLogin && connectRetryCounter < RETRY_CONNECT_TIME){
+                    connectRetryCounter++
+                    reconnectToSocket()
+                } else {
+                    invalidateGatewayResponseTimer()
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                }
             }
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()

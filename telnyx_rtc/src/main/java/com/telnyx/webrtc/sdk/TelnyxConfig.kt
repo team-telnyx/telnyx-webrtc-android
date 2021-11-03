@@ -29,7 +29,7 @@ sealed class TelnyxConfig
  * @property fcmToken The user's Firebase Cloud Messaging device ID
  * @property ringtone The integer raw value of the audio file to use as a ringtone
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
- * @property autoRetry whether or not to reattempt the login in the instance of a failure to connect and register to the gateway with valid credentials
+ * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property logLevel The log level that the SDK should use - default value is none.
  */
 data class CredentialConfig(
@@ -40,7 +40,7 @@ data class CredentialConfig(
     val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
-    val autoRetry : Boolean?,
+    val autoRetry : Boolean = true,
     val logLevel: LogLevel = LogLevel.NONE
     ) : TelnyxConfig()
 
@@ -53,7 +53,7 @@ data class CredentialConfig(
  * @property fcmToken The user's Firebase Cloud Messaging device ID
  * @property ringtone The integer raw value of the audio file to use as a ringtone
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
- * @property autoRetry whether or not to reattempt the login in the instance of a failure to connect and register to the gateway with a valid token
+ * @property autoRetry whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  * @property logLevel The log level that the SDK should use - default value is none.
  */
 data class TokenConfig(
@@ -63,7 +63,7 @@ data class TokenConfig(
     val fcmToken: String?,
     val ringtone: Int?,
     val ringBackTone: Int?,
-    val autoRetry : Boolean?,
+    val autoRetry : Boolean = true,
     val logLevel: LogLevel = LogLevel.NONE
     ) : TelnyxConfig()
 
