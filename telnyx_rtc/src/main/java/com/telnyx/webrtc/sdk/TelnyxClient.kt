@@ -607,8 +607,9 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
             GatewayState.FAIL_WAIT.state -> {
-                if (autoRetryLogin && connectRetryCounter < RETRY_CONNECT_TIME){
+                if (autoRetryLogin && connectRetryCounter <= RETRY_CONNECT_TIME) {
                     connectRetryCounter++
+                    Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
                     reconnectToSocket()
                 } else {
                     invalidateGatewayResponseTimer()
