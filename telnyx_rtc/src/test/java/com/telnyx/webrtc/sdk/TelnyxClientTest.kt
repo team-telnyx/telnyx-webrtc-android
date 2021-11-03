@@ -61,7 +61,6 @@ class TelnyxClientTest : BaseTest() {
 
     @MockK lateinit var capabilities: NetworkCapabilities
 
-
     @Spy
     private lateinit var socket: TxSocket
 
@@ -358,7 +357,6 @@ class TelnyxClientTest : BaseTest() {
         val params = StateParams(state = GatewayState.NOREG.state)
 
         val stateResult = StateResponse(sessid = sessid, params = params)
-
         val stateMessageBody = ReceivedMessageBody(
             method = SocketMethod.GATEWAY_STATE.methodName,
             result = stateResult
