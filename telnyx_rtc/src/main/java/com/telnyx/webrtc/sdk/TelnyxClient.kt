@@ -21,15 +21,12 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
 import io.ktor.util.*
-import kotlinx.coroutines.cancel
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlin.concurrent.timerTask
 
 /**
@@ -148,12 +145,16 @@ class TelnyxClient(
         socket.destroy()
         //Socket is now the reconnectionSocket
         socket = socketReconnection!!
-        //Connect to new socket
-        socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
-        //Login with stored configuration
-        credentialSessionConfig?.let {
-            credentialLogin(it)
-        } ?: tokenLogin(tokenSessionConfig!!)
+
+        GlobalScope.launch {
+            //Connect to new socket
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
+            delay(1000)
+            //Login with stored configuration
+            credentialSessionConfig?.let {
+                credentialLogin(it)
+            } ?: tokenLogin(tokenSessionConfig!!)
+        }
 
         //Change an ongoing call's socket to the new socket.
         call?.let { call?.socket = socket }
