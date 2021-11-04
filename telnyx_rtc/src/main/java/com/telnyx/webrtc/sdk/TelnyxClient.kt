@@ -133,7 +133,7 @@ class TelnyxClient(
      * @see [TxSocket]
      * @see [TelnyxConfig]
      */
-    suspend private fun reconnectToSocket() = withContext(Dispatchers.Default) {
+    private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         //Create new socket connection
         socketReconnection = TxSocket(
             socket.host_address,
