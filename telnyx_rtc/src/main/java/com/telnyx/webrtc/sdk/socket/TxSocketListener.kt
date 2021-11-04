@@ -33,7 +33,7 @@ interface TxSocketListener {
      * @param sessionId, the string representation of the session ID received from the socket connection
      * @see [TxSocket]
      */
-    fun onGatewayStateReceived(gatewayState: String, sessionId: String?)
+    fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)
 
     /**
      * Fires when a socket connection is established
