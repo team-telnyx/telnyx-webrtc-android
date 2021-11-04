@@ -113,7 +113,7 @@ class TelnyxClient(
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             //User has been logged in
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                reconnectToSocket()
+                runBlocking{reconnectToSocket()}
                 reconnecting = false
             }
         }
@@ -133,7 +133,7 @@ class TelnyxClient(
      * @see [TxSocket]
      * @see [TelnyxConfig]
      */
-    private fun reconnectToSocket() {
+    suspend private fun reconnectToSocket() = withContext(Dispatchers.Default) {
         //Create new socket connection
         socketReconnection = TxSocket(
             socket.host_address,
@@ -146,7 +146,7 @@ class TelnyxClient(
         //Socket is now the reconnectionSocket
         socket = socketReconnection!!
 
-        GlobalScope.launch {
+        launch {
             //Connect to new socket
             socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
             delay(1000)
@@ -615,7 +615,7 @@ class TelnyxClient(
                 if (autoRetryLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
-                    reconnectToSocket()
+                    runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
                     socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
