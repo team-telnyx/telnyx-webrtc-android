@@ -587,15 +587,19 @@ class TelnyxClient(
         sessionId = sessId
     }
 
-    override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
+    override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                sessionId?.let { it
+                receivedSessionId?.let { it
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
-                    socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
+                    if (sessionId != null) {
+                        onLoginSuccessful(sessionId!!)
+                    } else {
+                        socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
+                    }
                 }
             }
             GatewayState.NOREG.state -> {
