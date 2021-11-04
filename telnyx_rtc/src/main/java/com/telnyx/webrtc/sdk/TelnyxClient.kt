@@ -56,7 +56,7 @@ class TelnyxClient(
     private var connectRetryCounter = 0
     private var gatewayState = "idle"
 
-    internal lateinit var socket: TxSocket
+    internal var socket: TxSocket
     private var providedHostAddress: String? = null
     private var providedPort: Int? = null
     private var providedTurn: String? = null
