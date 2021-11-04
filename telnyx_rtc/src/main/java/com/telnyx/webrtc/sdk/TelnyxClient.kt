@@ -49,7 +49,7 @@ class TelnyxClient(
     private var reconnecting = false
 
     //Gateway registration variables
-    private var autoRetryLogin: Boolean = true
+    private var autoReconnectLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
     private var registrationRetryCounter = 0
@@ -298,7 +298,7 @@ class TelnyxClient(
         val password = config.sipPassword
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
-        autoRetryLogin = config.autoRetry
+        autoReconnectLogin = config.autoReconnect
 
         Config.USERNAME = config.sipUser
         Config.PASSWORD = config.sipPassword
@@ -349,7 +349,7 @@ class TelnyxClient(
         val token = config.sipToken
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
-        autoRetryLogin = config.autoRetry
+        autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
 
@@ -615,7 +615,7 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
             GatewayState.FAIL_WAIT.state -> {
-                if (autoRetryLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
+                if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
                     runBlocking { reconnectToSocket() }
