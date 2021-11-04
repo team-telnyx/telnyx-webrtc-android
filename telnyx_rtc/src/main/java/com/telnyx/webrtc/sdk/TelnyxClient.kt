@@ -56,7 +56,7 @@ class TelnyxClient(
     private var connectRetryCounter = 0
     private var gatewayState = "idle"
 
-    internal var socket: TxSocket
+    internal lateinit var socket: TxSocket
     private var providedHostAddress: String? = null
     private var providedPort: Int? = null
     private var providedTurn: String? = null
@@ -143,10 +143,9 @@ class TelnyxClient(
         socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
-        //Socket is now the reconnectionSocket
-        socket = socketReconnection!!
-
         launch {
+            //Socket is now the reconnectionSocket
+            socket = socketReconnection!!
             //Connect to new socket
             socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
             delay(1000)
@@ -215,6 +214,8 @@ class TelnyxClient(
      * @see [TxSocket]
      */
     fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration()) {
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
         providedHostAddress = providedServerConfig.host
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -594,9 +595,11 @@ class TelnyxClient(
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
                 receivedSessionId?.let { it
+                    resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
                     if (sessionId != null) {
+                        resetGatewayCounters()
                         onLoginSuccessful(sessionId!!)
                     } else {
                         socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
@@ -650,6 +653,11 @@ class TelnyxClient(
         gatewayResponseTimer = null
     }
 
+    private fun resetGatewayCounters() {
+        registrationRetryCounter = 0
+        connectRetryCounter = 0
+    }
+
     override fun onConnectionEstablished() {
         Timber.d("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName)
         socketResponseLiveData.postValue(SocketResponse.established())
@@ -698,6 +706,8 @@ class TelnyxClient(
      * @see [TxSocket]
      */
     fun disconnect() {
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
     }
