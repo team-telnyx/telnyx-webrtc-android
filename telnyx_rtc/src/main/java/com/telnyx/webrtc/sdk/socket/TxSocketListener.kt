@@ -29,10 +29,11 @@ interface TxSocketListener {
 
     /**
      * Fires once a Gateway state has been received. These are used to find a verified registration
-     * @param jsonObject, the socket response in a jsonObject format
+     * @param gatewayState, the string representation of the gateway state received from the socket connection
+     * @param sessionId, the string representation of the session ID received from the socket connection
      * @see [TxSocket]
      */
-    fun onGatewayStateReceived(jsonObject: JsonObject)
+    fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)
 
     /**
      * Fires when a socket connection is established

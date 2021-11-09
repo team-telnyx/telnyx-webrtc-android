@@ -98,13 +98,19 @@ class TxSocket(
                     text
                 )
                 val jsonObject = gson.fromJson(text, JsonObject::class.java)
-                    when {
+                var params: JsonObject? = null
+                if (jsonObject.has("params")) {
+                     params = jsonObject.get("params").asJsonObject
+                }
+                when {
                         jsonObject.has("result") -> {
                             if (jsonObject.get("result").asJsonObject.has("params")) {
                                 val result = jsonObject.get("result").asJsonObject
-                                val params = result.get("params").asJsonObject
+                                val sessionId = result.asJsonObject.get("sessid").asString
+                                params = result.get("params").asJsonObject
                                 if (params.asJsonObject.has("state")) {
-                                    listener.onGatewayStateReceived(jsonObject)
+                                    val gatewayState = params.get("state").asString
+                                    listener.onGatewayStateReceived(gatewayState, sessionId)
                                 }
                             }
                             else if (jsonObject.get("result").asJsonObject.has("message")) {
@@ -116,6 +122,13 @@ class TxSocket(
                                 else {
                                     listener.onSessionIdReceived(jsonObject)
                                 }
+                            }
+                        }
+                        params!==null && params.asJsonObject.has("state")  -> {
+                             params = jsonObject.get("params").asJsonObject
+                            if (params.asJsonObject.has("state")) {
+                                val gatewayState = params.get("state").asString
+                                listener.onGatewayStateReceived(gatewayState, null)
                             }
                         }
                         jsonObject.has("method") -> {

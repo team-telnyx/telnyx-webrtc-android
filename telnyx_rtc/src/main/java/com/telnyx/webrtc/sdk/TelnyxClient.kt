@@ -21,15 +21,12 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import io.ktor.server.cio.backend.*
 import io.ktor.util.*
-import kotlinx.coroutines.cancel
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
 import com.bugsnag.android.Bugsnag
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlin.concurrent.timerTask
 
 /**
@@ -41,15 +38,22 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener, LifecycleObserver {
 
+    companion object {
+        const val RETRY_REGISTER_TIME = 3
+        const val RETRY_CONNECT_TIME = 3
+    }
+
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
 
     private var reconnecting = false
 
     //Gateway registration variables
+    private var autoReconnectLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
-    private var retryCounter = 0
+    private var registrationRetryCounter = 0
+    private var connectRetryCounter = 0
     private var gatewayState = "idle"
 
     internal var socket: TxSocket
@@ -109,7 +113,7 @@ class TelnyxClient(
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             //User has been logged in
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                reconnectToSocket()
+                runBlocking{reconnectToSocket()}
                 reconnecting = false
             }
         }
@@ -129,7 +133,7 @@ class TelnyxClient(
      * @see [TxSocket]
      * @see [TelnyxConfig]
      */
-    private fun reconnectToSocket() {
+    private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         //Create new socket connection
         socketReconnection = TxSocket(
             socket.host_address,
@@ -139,14 +143,17 @@ class TelnyxClient(
         socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
-        //Socket is now the reconnectionSocket
-        socket = socketReconnection!!
-        //Connect to new socket
-        socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
-        //Login with stored configuration
-        credentialSessionConfig?.let {
-            credentialLogin(it)
-        } ?: tokenLogin(tokenSessionConfig!!)
+        launch {
+            //Socket is now the reconnectionSocket
+            socket = socketReconnection!!
+            //Connect to new socket
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
+            delay(1000)
+            //Login with stored configuration
+            credentialSessionConfig?.let {
+                credentialLogin(it)
+            } ?: tokenLogin(tokenSessionConfig!!)
+        }
 
         //Change an ongoing call's socket to the new socket.
         call?.let { call?.socket = socket }
@@ -207,6 +214,8 @@ class TelnyxClient(
      * @see [TxSocket]
      */
     fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration()) {
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
         providedHostAddress = providedServerConfig.host
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -289,6 +298,7 @@ class TelnyxClient(
         val password = config.sipPassword
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        autoReconnectLogin = config.autoReconnect
 
         Config.USERNAME = config.sipUser
         Config.PASSWORD = config.sipPassword
@@ -339,6 +349,7 @@ class TelnyxClient(
         val token = config.sipToken
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
 
@@ -542,11 +553,11 @@ class TelnyxClient(
                 requestGatewayStatus()
                 gatewayResponseTimer = Timer()
                 gatewayResponseTimer?.schedule(timerTask {
-                    if (retryCounter < 2) {
+                    if (registrationRetryCounter < RETRY_REGISTER_TIME) {
                         if (waitingForReg) {
                             onClientReady(jsonObject)
                         }
-                        retryCounter++
+                        registrationRetryCounter++
                     } else {
                         Timber.d(
                             "[%s] :: Gateway registration has timed out",
@@ -578,16 +589,22 @@ class TelnyxClient(
         sessionId = sessId
     }
 
-    override fun onGatewayStateReceived(jsonObject: JsonObject) {
-        val result = jsonObject.get("result")
-        val params = result.asJsonObject.get("params")
-        val sessionId = result.asJsonObject.get("sessid").asString
-        gatewayState = params.asJsonObject.get("state").asString
+    override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                onLoginSuccessful(sessionId)
+                receivedSessionId?.let { it
+                    resetGatewayCounters()
+                    onLoginSuccessful(it)
+                } ?: kotlin.run {
+                    if (sessionId != null) {
+                        resetGatewayCounters()
+                        onLoginSuccessful(sessionId!!)
+                    } else {
+                        socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
+                    }
+                }
             }
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
@@ -598,8 +615,14 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
             GatewayState.FAIL_WAIT.state -> {
-                invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
+                    connectRetryCounter++
+                    Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
+                    runBlocking { reconnectToSocket() }
+                } else {
+                    invalidateGatewayResponseTimer()
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                }
             }
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
@@ -628,6 +651,11 @@ class TelnyxClient(
         gatewayResponseTimer?.cancel()
         gatewayResponseTimer?.purge()
         gatewayResponseTimer = null
+    }
+
+    private fun resetGatewayCounters() {
+        registrationRetryCounter = 0
+        connectRetryCounter = 0
     }
 
     override fun onConnectionEstablished() {
@@ -678,6 +706,8 @@ class TelnyxClient(
      * @see [TxSocket]
      */
     fun disconnect() {
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
     }

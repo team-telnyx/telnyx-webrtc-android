@@ -61,7 +61,6 @@ class TelnyxClientTest : BaseTest() {
 
     @MockK lateinit var capabilities: NetworkCapabilities
 
-
     @Spy
     private lateinit var socket: TxSocket
 
@@ -334,39 +333,42 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Check login successful fires once REGED received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-
         val sessid = UUID.randomUUID().toString()
-        val params = StateParams(state = GatewayState.REGED.state)
-
-        val stateResult = StateResponse(sessid = sessid, params = params)
-
-        val stateMessageBody = ReceivedMessageBody(
-            method = SocketMethod.GATEWAY_STATE.methodName,
-            result = stateResult
-        )
-        val gatewayJson = Gson().toJson(stateMessageBody)
-        val jsonObject: JsonObject = JsonParser().parse(gatewayJson).asJsonObject
-        client.onGatewayStateReceived(jsonObject)
+        client.onGatewayStateReceived(GatewayState.REGED.state ,sessid)
         Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(sessid)
     }
 
     @Test
     fun `Check gateway times out once NOREG is received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-
         val sessid = UUID.randomUUID().toString()
-        val params = StateParams(state = GatewayState.NOREG.state)
-
-        val stateResult = StateResponse(sessid = sessid, params = params)
-
-        val stateMessageBody = ReceivedMessageBody(
-            method = SocketMethod.GATEWAY_STATE.methodName,
-            result = stateResult
-        )
-        val gatewayJson = Gson().toJson(stateMessageBody)
-        val jsonObject: JsonObject = JsonParser().parse(gatewayJson).asJsonObject
-        client.onGatewayStateReceived(jsonObject)
+        client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
         assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("Gateway registration has timed out"))
+    }
+
+    @Test
+    fun `Check login reattempt if autoRetry set to true`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        client.connect()
+        val config = CredentialConfig(
+            "asdfasass",
+            "asdlkfhjalsd",
+            "test",
+            "000000000",
+            null,
+            null,
+            null,
+            LogLevel.ALL,
+            true
+        )
+        client.credentialLogin(config)
+        client.onGatewayStateReceived(GatewayState.FAIL_WAIT.state, null)
+        Thread.sleep(5000)
+        Mockito.verify(client, Mockito.atLeast(2)).onGatewayStateReceived(anyString(), anyString())
     }
 
 
