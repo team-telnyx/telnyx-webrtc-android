@@ -72,9 +72,9 @@ android {
                 includeNoLocationClasses = true
                 jacoco.excludes = ['jdk.internal.*']
             }
-        }
+        }*/
         unitTests.includeAndroidResources = true
-        unitTests.returnDefaultValues = true*/
+        unitTests.returnDefaultValues = true
     }
 
     packagingOptions {

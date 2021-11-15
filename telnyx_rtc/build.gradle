@@ -124,9 +124,9 @@ android {
                 includeNoLocationClasses = true
                 jacoco.excludes = ['jdk.internal.*']
             }
-        }
+        }*/
         unitTests.includeAndroidResources = true
-        unitTests.returnDefaultValues = true */
+        unitTests.returnDefaultValues = true
     }
     sourceSets {
         test.manifest.srcFile "src/main/AndroidManifest.xml"
