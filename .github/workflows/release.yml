@@ -46,6 +46,9 @@ jobs:
           path: ./local.properties
       - name: Echo local.properties
         run: echo "${{ steps.package.outputs.content }}"
+        
+      - name: Assemble SDK aar files for upload
+        run: bash ./gradlew assemble --stacktrace
 
       - name: "✏️ Generate release changelog"
         id: generate-release-changelog
@@ -75,3 +78,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: telnyx_rtc/build/outputs/aar/telnyx_rtc-release.aar
           asset_name: telnyx_rtc-release
+          asset_content_type: application/java-archive
