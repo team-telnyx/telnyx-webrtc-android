@@ -22,6 +22,14 @@ jobs:
           java-version: 1.8
       - name: Make gradlew executable
         run: chmod +x ./gradlew
+        
+      - name: Read local.properties
+        id: properties
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: ./local.properties
+      - name: Echo local.properties
+        run: echo "${{ steps.package.outputs.content }}"
 
       - name: Assemble SDK aar
         run: bash ./gradlew assemble
