@@ -82,9 +82,6 @@ jobs:
 
       - name: Slackify the release body
         id: release_body
-        uses: LoveToKnow/slackify-markdown-action@v1.0.0
-        with:
-          text: ${{ github.event.release.body }}
       - uses: homeday-de/slack-release-bot-action@main
         with:
           webhook_url: ${{ secrets.SLACK_RELEASE_BOT_WEBHOOK_URL }}
