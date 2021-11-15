@@ -128,7 +128,7 @@ class TxSocketTest : BaseTest() {
         socket.connect(client)
 
         //Sleep to give time to connect
-        Thread.sleep(3000)
+        Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
     }
 
@@ -163,7 +163,7 @@ class TxSocketTest : BaseTest() {
         socket.connect(client)
 
         //Sleep to give time to connect
-        Thread.sleep(3000)
+        Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
 
     }
@@ -199,7 +199,7 @@ class TxSocketTest : BaseTest() {
         ))
         client = spy(TelnyxClient(mockContext))
         socket.connect(client)
-        Thread.sleep(2000)
+        Thread.sleep(6000)
         assertEquals(socket.isConnected, true)
     }
 
