@@ -67,14 +67,14 @@ android {
         jvmTarget = '1.8'
     }
     testOptions {
-        unitTests.all {
+        /*unitTests.all {
             jacoco {
                 includeNoLocationClasses = true
                 jacoco.excludes = ['jdk.internal.*']
             }
         }
         unitTests.includeAndroidResources = true
-        unitTests.returnDefaultValues = true
+        unitTests.returnDefaultValues = true*/
     }
 
     packagingOptions {
