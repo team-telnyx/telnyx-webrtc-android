@@ -89,5 +89,5 @@ jobs:
         with:
           webhook_url: ${{ secrets.SLACK_RELEASE_BOT_WEBHOOK_URL }}
           title: ${{ github.event.release.name }}
-          body: ${{ steps.release_body.outputs.text }}
+          body: ${{ steps.generate-release-changelog.outputs.changelog }}
           context: Android WebRTC SDK
