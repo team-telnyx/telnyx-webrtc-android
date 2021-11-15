@@ -81,8 +81,7 @@ jobs:
           asset_content_type: application/java-archive
 
       - name: Slackify the release body
-        id: release_body
-      - uses: homeday-de/slack-release-bot-action@main
+        uses: homeday-de/slack-release-bot-action@main
         with:
           webhook_url: ${{ secrets.SLACK_RELEASE_BOT_WEBHOOK_URL }}
           title: ${{ github.event.release.name }}
