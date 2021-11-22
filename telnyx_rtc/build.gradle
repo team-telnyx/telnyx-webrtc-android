@@ -11,6 +11,7 @@ plugins {
 
 apply plugin: 'maven-publish'
 apply plugin: "com.bugsnag.android.gradle"
+apply plugin: 'io.gitlab.arturbosch.detekt'
 
 def getVersionName = { ->
     return "0.0.25"
@@ -149,8 +150,6 @@ detekt {
 }
 
 dependencies {
-
-    apply plugin: 'io.gitlab.arturbosch.detekt'
 
     implementation deps.kotlin.stdlib
     implementation deps.androidx_core
