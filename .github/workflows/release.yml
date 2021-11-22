@@ -56,8 +56,15 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           onlyLastTag: "false"
-          stripHeaders: "true"
+          stripHeaders: "false"
           stripGeneratorNotice: "true"
+          
+      - name: Slackify the release body
+        id: release_body
+        uses: LoveToKnow/slackify-markdown-action@v1.0.0
+        with:
+          text: ${{ steps.generate-release-changelog.outputs.changelog }}
+          
       - name: "🚀 Create GitHub release"
         id: create_release
         uses: actions/create-release@v1
@@ -79,3 +86,11 @@ jobs:
           asset_path: telnyx_rtc/build/outputs/aar/telnyx_rtc-release.aar
           asset_name: telnyx_rtc-release
           asset_content_type: application/java-archive
+
+      - name: Post to Slack
+        uses: homeday-de/slack-release-bot-action@main
+        with:
+          webhook_url: ${{ secrets.SLACK_RELEASE_BOT_WEBHOOK_URL }}
+          title: ${{ github.event.inputs.version }}
+          body: ${{ steps.release_body.outputs.text }}
+          context: Android WebRTC SDK
