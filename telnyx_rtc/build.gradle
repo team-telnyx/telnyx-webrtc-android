@@ -149,6 +149,16 @@ detekt {
     }
 }
 
+tasks.koverHtmlReport {
+    enabled = true                          // false to disable report generation
+    htmlReportDir.set(layout.buildDirectory.dir("my-reports/html-result"))
+}
+
+tasks.koverXmlReport {
+    enabled = true                          // false to disable report generation
+    xmlReportFile.set(layout.buildDirectory.file("my-reports/result.xml"))
+}
+
 dependencies {
 
     implementation deps.kotlin.stdlib
