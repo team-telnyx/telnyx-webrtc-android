@@ -19,9 +19,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.google.gson.Gson
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.model.PushMetaData
-import com.telnyx.webrtc.sdk.model.TelnyxPushNotification
 import com.telnyx.webrtc.sdk.ui.MainActivity
-import com.telnyx.webrtc.sdk.utilities.fcm.TelnyxFcm
 import org.json.JSONObject
 import timber.log.Timber
 import java.util.*
@@ -37,7 +35,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
-        TelnyxFcm.processPushMessage(this, remoteMessage)
 
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
