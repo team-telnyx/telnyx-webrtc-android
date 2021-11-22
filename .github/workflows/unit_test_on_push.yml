@@ -44,8 +44,5 @@ jobs:
       - name: Echo local.properties
         run: echo "${{ steps.package.outputs.content }}"
 
-      - name: Assemble app debug APK
-        run: bash ./gradlew assembleDebug --stacktrace
-
       - name: Unit tests
         run: ./gradlew test
