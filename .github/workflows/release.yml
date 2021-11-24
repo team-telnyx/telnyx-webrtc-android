@@ -52,7 +52,7 @@ jobs:
 
       - name: "✏️ Generate release changelog"
         id: generate-release-changelog
-        uses: heinrichreimer/github-changelog-generator-action@v2.1.1
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           onlyLastTag: "false"
