@@ -398,7 +398,7 @@ class TelnyxClient(
      */
     private fun getAvailableAudioOutputTypes(): MutableList<Int> {
         val availableTypes: MutableList<Int> = mutableListOf()
-        audioManager!!.getDevices(AudioManager.GET_DEVICES_OUTPUTS).forEach {
+        audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)?.forEach {
             availableTypes.add(it.type)
         }
         return availableTypes

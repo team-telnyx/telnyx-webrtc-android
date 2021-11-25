@@ -431,48 +431,52 @@ class Call(
           3. connection is ready to be used for answer the call
           */
 
-        val params = jsonObject.getAsJsonObject("params")
-        val offerCallId = UUID.fromString(params.get("callID").asString)
-        val remoteSdp = params.get("sdp").asString
-        val callerName = params.get("caller_id_name").asString
-        val callerNumber = params.get("caller_id_number").asString
-        telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
-        telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
+        if (jsonObject.has("params")) {
+            val params = jsonObject.getAsJsonObject("params")
+            val offerCallId = UUID.fromString(params.get("callID").asString)
+            val remoteSdp = params.get("sdp").asString
+            val callerName = params.get("caller_id_name").asString
+            val callerNumber = params.get("caller_id_number").asString
+            telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
+            telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-        //Set global callID
-        callId = offerCallId
+            //Set global callID
+            callId = offerCallId
 
-        peerConnection = Peer(
-            context, client, providedTurn, providedStun,
-            object : PeerConnectionObserver() {
-                override fun onIceCandidate(p0: IceCandidate?) {
-                    super.onIceCandidate(p0)
-                    peerConnection?.addIceCandidate(p0)
+            peerConnection = Peer(
+                context, client, providedTurn, providedStun,
+                object : PeerConnectionObserver() {
+                    override fun onIceCandidate(p0: IceCandidate?) {
+                        super.onIceCandidate(p0)
+                        peerConnection?.addIceCandidate(p0)
+                    }
                 }
-            }
-        )
-
-        peerConnection?.startLocalAudioCapture()
-
-        peerConnection?.onRemoteSessionReceived(
-            SessionDescription(
-                SessionDescription.Type.OFFER,
-                remoteSdp
             )
-        )
 
-        peerConnection?.answer(AppSdpObserver())
+            peerConnection?.startLocalAudioCapture()
 
-        client.socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId)
+            peerConnection?.onRemoteSessionReceived(
+                SessionDescription(
+                    SessionDescription.Type.OFFER,
+                    remoteSdp
                 )
             )
-        )
-        client.playRingtone()
-        client.addToCalls(this)
+
+            peerConnection?.answer(AppSdpObserver())
+
+            client.socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.INVITE.methodName,
+                        InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId)
+                    )
+                )
+            )
+            client.playRingtone()
+            client.addToCalls(this)
+        } else {
+            Timber.d("[%s] :: Invalid offer received, missing required parameters [%s]", this@Call.javaClass.simpleName, jsonObject)
+        }
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
