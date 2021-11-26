@@ -68,7 +68,7 @@ class ConnectivityHelperTest : BaseTest() {
         every { connectivityHelper.registerNetworkStatusCallback(context, callback) } just Runs
 
         every { context.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
-        every {connectivityManager.activeNetwork } returns activeNetwork
+        every { connectivityManager.activeNetwork } returns activeNetwork
         every { connectivityHelper.isNetworkEnabled(context) } returns false
         every { connectivityManager.getNetworkCapabilities(activeNetwork) } returns capabilities
         every { capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false

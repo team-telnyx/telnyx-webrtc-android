@@ -442,7 +442,7 @@ class Call(
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-            //Set global callID
+            // Set global callID
             callId = offerCallId
 
             peerConnection = Peer(
@@ -477,7 +477,8 @@ class Call(
             client.playRingtone()
             client.addToCalls(this)
         } else {
-            Timber.d("[%s] :: Invalid offer received, missing required parameters [%s]", this@Call.javaClass.simpleName, jsonObject)
+            Timber.d("[%s] :: Invalid offer received, missing required parameters [%s]",
+                this@Call.javaClass.simpleName, jsonObject)
         }
     }
 

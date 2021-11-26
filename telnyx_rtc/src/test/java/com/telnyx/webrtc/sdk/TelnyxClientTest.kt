@@ -370,9 +370,11 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Check error socket Error response live data is sent if a sessionID is not sent`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        // Lazily call buildCall() by calling arbitrary Call function -- call being created before connect will result in the desired socket response
+        // Lazily call buildCall() by calling arbitrary Call function
+        // -- call being created before connect will result in the desired socket response
         client.call?.getTelnyxSessionId()
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("Session ID is not set, failed to build call"))
+        assertEquals(client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("Session ID is not set, failed to build call"))
     }
 
     @Test
