@@ -2,13 +2,14 @@
  * Copyright © 2021 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.sdk
+package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.*
 import timber.log.Timber

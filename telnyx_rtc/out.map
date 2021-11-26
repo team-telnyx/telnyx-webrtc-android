@@ -24,7 +24,7 @@ com.telnyx.webrtc.sdk.Call -> com.telnyx.webrtc.sdk.Call:
     com.telnyx.webrtc.sdk.TelnyxClient client -> h
     boolean earlySDP -> b
     androidx.lifecycle.MutableLiveData holdLiveData -> e
-    com.telnyx.webrtc.sdk.Peer peerConnection -> a
+    com.telnyx.webrtc.sdk.peer.Peer peerConnection -> a
     androidx.lifecycle.MutableLiveData loudSpeakerLiveData -> f
     android.content.Context context -> g
     1:29:void <init>(android.content.Context,com.telnyx.webrtc.sdk.TelnyxClient,com.telnyx.webrtc.sdk.socket.TxSocket,java.lang.String,android.media.AudioManager):35:63 -> <init>
@@ -35,8 +35,8 @@ com.telnyx.webrtc.sdk.Call -> com.telnyx.webrtc.sdk.Call:
     1:8:void acceptCall(java.util.UUID,java.lang.String):134:141 -> acceptCall
     9:9:void acceptCall(java.util.UUID,java.lang.String):139:139 -> acceptCall
     10:23:void acceptCall(java.util.UUID,java.lang.String):137:150 -> acceptCall
-    1:1:com.telnyx.webrtc.sdk.Peer access$getPeerConnection$p(com.telnyx.webrtc.sdk.Call):35:35 -> access$getPeerConnection$p
-    1:1:void access$setPeerConnection$p(com.telnyx.webrtc.sdk.Call,com.telnyx.webrtc.sdk.Peer):35:35 -> access$setPeerConnection$p
+    1:1:com.telnyx.webrtc.sdk.peer.Peer access$getPeerConnection$p(com.telnyx.webrtc.sdk.Call):35:35 -> access$getPeerConnection$p
+    1:1:void access$setPeerConnection$p(com.telnyx.webrtc.sdk.Call,com.telnyx.webrtc.sdk.peer.Peer):35:35 -> access$setPeerConnection$p
     1:8:void endCall(java.util.UUID):159:166 -> endCall
     9:9:void endCall(java.util.UUID):162:162 -> endCall
     10:26:void endCall(java.util.UUID):160:176 -> endCall
@@ -136,7 +136,7 @@ com.telnyx.webrtc.sdk.CredentialConfig -> com.telnyx.webrtc.sdk.CredentialConfig
     1:1:java.lang.String getSipCallerIDNumber():38:38 -> getSipCallerIDNumber
     1:1:java.lang.String getSipPassword():36:36 -> getSipPassword
     1:1:java.lang.String getSipUser():35:35 -> getSipUser
-com.telnyx.webrtc.sdk.Peer -> com.telnyx.webrtc.sdk.Peer:
+com.telnyx.webrtc.sdk.peer.Peer -> com.telnyx.webrtc.sdk.peer.Peer:
     java.util.List iceServer -> b
     kotlin.Lazy peerConnectionFactory$delegate -> c
     kotlin.Lazy peerConnection$delegate -> d
@@ -150,8 +150,8 @@ com.telnyx.webrtc.sdk.Peer -> com.telnyx.webrtc.sdk.Peer:
     23:27:org.webrtc.PeerConnectionFactory buildPeerConnectionFactory():98:102 -> a
     28:30:org.webrtc.PeerConnection buildPeerConnection(org.webrtc.PeerConnection$Observer):111:111 -> a
     31:37:void answer(org.webrtc.PeerConnection,org.webrtc.SdpObserver):179:185 -> a
-    1:1:org.webrtc.PeerConnection access$buildPeerConnection(com.telnyx.webrtc.sdk.Peer,org.webrtc.PeerConnection$Observer):24:24 -> access$buildPeerConnection
-    1:1:org.webrtc.PeerConnectionFactory access$buildPeerConnectionFactory(com.telnyx.webrtc.sdk.Peer):24:24 -> access$buildPeerConnectionFactory
+    1:1:org.webrtc.PeerConnection access$buildPeerConnection(com.telnyx.webrtc.sdk.peer.Peer,org.webrtc.PeerConnection$Observer):24:24 -> access$buildPeerConnection
+    1:1:org.webrtc.PeerConnectionFactory access$buildPeerConnectionFactory(com.telnyx.webrtc.sdk.peer.Peer):24:24 -> access$buildPeerConnectionFactory
     1:1:void addIceCandidate(org.webrtc.IceCandidate):256:256 -> addIceCandidate
     1:1:kotlin.Unit answer(org.webrtc.SdpObserver):221:221 -> answer
     1:4:java.util.List getIceServers():52:55 -> b
@@ -168,50 +168,50 @@ com.telnyx.webrtc.sdk.Peer -> com.telnyx.webrtc.sdk.Peer:
     1:1:org.webrtc.SessionDescription getLocalDescription():264:264 -> getLocalDescription
     1:1:void onRemoteSessionReceived(org.webrtc.SessionDescription):229:229 -> onRemoteSessionReceived
     1:10:void startLocalAudioCapture():122:131 -> startLocalAudioCapture
-com.telnyx.webrtc.sdk.Peer$Companion -> com.telnyx.webrtc.sdk.Peer$Companion:
+com.telnyx.webrtc.sdk.peer.Peer$Companion -> com.telnyx.webrtc.sdk.peer.Peer$Companion:
     1:1:void <init>():30:30 -> <init>
     2:2:void <init>(kotlin.jvm.internal.DefaultConstructorMarker):30:30 -> <init>
-com.telnyx.webrtc.sdk.Peer$answer$1 -> com.telnyx.webrtc.sdk.Peer$answer$1:
+com.telnyx.webrtc.sdk.peer.Peer$answer$1 -> com.telnyx.webrtc.sdk.peer.Peer$answer$1:
     org.webrtc.PeerConnection $this_answer -> b
     org.webrtc.SdpObserver $$delegate_0 -> a
     org.webrtc.SdpObserver $sdpObserver -> c
     1:1:void <init>(org.webrtc.PeerConnection,org.webrtc.SdpObserver):185:185 -> <init>
     1:18:void onCreateSuccess(org.webrtc.SessionDescription):187:204 -> onCreateSuccess
-com.telnyx.webrtc.sdk.Peer$answer$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.Peer$answer$1$onCreateSuccess$1:
+com.telnyx.webrtc.sdk.peer.Peer$answer$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.peer.Peer$answer$1$onCreateSuccess$1:
     1:1:void <init>():187:187 -> <init>
     1:1:void onCreateFailure(java.lang.String):201:201 -> onCreateFailure
     1:1:void onCreateSuccess(org.webrtc.SessionDescription):197:197 -> onCreateSuccess
     1:1:void onSetFailure(java.lang.String):189:189 -> onSetFailure
     1:1:void onSetSuccess():193:193 -> onSetSuccess
-com.telnyx.webrtc.sdk.Peer$call$1 -> com.telnyx.webrtc.sdk.Peer$call$1:
+com.telnyx.webrtc.sdk.peer.Peer$call$1 -> com.telnyx.webrtc.sdk.peer.Peer$call$1:
     org.webrtc.PeerConnection $this_call -> b
     org.webrtc.SdpObserver $$delegate_0 -> a
     org.webrtc.SdpObserver $sdpObserver -> c
     1:1:void <init>(org.webrtc.PeerConnection,org.webrtc.SdpObserver):147:147 -> <init>
     1:19:void onCreateSuccess(org.webrtc.SessionDescription):149:167 -> onCreateSuccess
-com.telnyx.webrtc.sdk.Peer$call$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.Peer$call$1$onCreateSuccess$1:
+com.telnyx.webrtc.sdk.peer.Peer$call$1$onCreateSuccess$1 -> com.telnyx.webrtc.sdk.peer.Peer$call$1$onCreateSuccess$1:
     1:1:void <init>():149:149 -> <init>
     1:1:void onCreateFailure(java.lang.String):163:163 -> onCreateFailure
     1:1:void onCreateSuccess(org.webrtc.SessionDescription):159:159 -> onCreateSuccess
     1:1:void onSetFailure(java.lang.String):151:151 -> onSetFailure
     1:1:void onSetSuccess():155:155 -> onSetSuccess
-com.telnyx.webrtc.sdk.Peer$onRemoteSessionReceived$1 -> com.telnyx.webrtc.sdk.Peer$onRemoteSessionReceived$1:
-    com.telnyx.webrtc.sdk.Peer this$0 -> a
-    1:1:void <init>(com.telnyx.webrtc.sdk.Peer):229:229 -> <init>
+com.telnyx.webrtc.sdk.peer.Peer$onRemoteSessionReceived$1 -> com.telnyx.webrtc.sdk.peer.Peer$onRemoteSessionReceived$1:
+    com.telnyx.webrtc.sdk.peer.Peer this$0 -> a
+    1:1:void <init>(com.telnyx.webrtc.sdk.peer.Peer):229:229 -> <init>
     1:2:void onCreateFailure(java.lang.String):244:245 -> onCreateFailure
     1:1:void onCreateSuccess(org.webrtc.SessionDescription):240:240 -> onCreateSuccess
     1:2:void onSetFailure(java.lang.String):231:232 -> onSetFailure
     1:1:void onSetSuccess():236:236 -> onSetSuccess
-com.telnyx.webrtc.sdk.Peer$peerConnection$2 -> com.telnyx.webrtc.sdk.Peer$a:
+com.telnyx.webrtc.sdk.peer.Peer$peerConnection$2 -> com.telnyx.webrtc.sdk.peer.Peer$a:
     org.webrtc.PeerConnection$Observer $observer -> b
-    com.telnyx.webrtc.sdk.Peer this$0 -> a
+    com.telnyx.webrtc.sdk.peer.Peer this$0 -> a
     1:1:org.webrtc.PeerConnection invoke():67:67 -> a
     1:1:java.lang.Object invoke():24:24 -> invoke
-com.telnyx.webrtc.sdk.Peer$peerConnectionFactory$2 -> com.telnyx.webrtc.sdk.Peer$b:
-    com.telnyx.webrtc.sdk.Peer this$0 -> a
+com.telnyx.webrtc.sdk.peer.Peer$peerConnectionFactory$2 -> com.telnyx.webrtc.sdk.peer.Peer$b:
+    com.telnyx.webrtc.sdk.peer.Peer this$0 -> a
     1:1:org.webrtc.PeerConnectionFactory invoke():66:66 -> a
     1:1:java.lang.Object invoke():24:24 -> invoke
-com.telnyx.webrtc.sdk.PeerConnectionObserver -> com.telnyx.webrtc.sdk.PeerConnectionObserver:
+com.telnyx.webrtc.sdk.peer.PeerConnectionObserver -> com.telnyx.webrtc.sdk.peer.PeerConnectionObserver:
     1:1:void <init>():17:17 -> <init>
     1:1:void onAddStream(org.webrtc.MediaStream):43:43 -> onAddStream
     1:1:void onAddTrack(org.webrtc.RtpReceiver,org.webrtc.MediaStream[]):59:59 -> onAddTrack

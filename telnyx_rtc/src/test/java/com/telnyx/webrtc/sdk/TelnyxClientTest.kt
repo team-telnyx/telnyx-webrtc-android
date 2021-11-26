@@ -34,8 +34,6 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 import org.mockito.Spy
-import org.webrtc.IceCandidate
-import org.webrtc.PeerConnection
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -539,7 +537,7 @@ class TelnyxClientTest : BaseTest() {
         client.onRemoteSessionErrorReceived("error")
         assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("error"))
     }
-    
+
     //Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,

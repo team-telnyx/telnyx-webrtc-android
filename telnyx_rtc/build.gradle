@@ -123,6 +123,15 @@ android {
     testOptions {
         unitTests.includeAndroidResources = true
         unitTests.returnDefaultValues = true
+        testOptions {
+            unitTests.all {
+                if (name == "testDebugUnitTest" || name == "testReleaseUnitTest") {
+                    kover {
+                        excludes = ["com\\.telnyx\\.webrtc\\.sdk\\.peer\\..*"] //Can't mock native code, these methods will be tested via instrumentation instead.
+                    }
+                }
+            }
+        }
     }
     sourceSets {
         test.manifest.srcFile "src/main/AndroidManifest.xml"

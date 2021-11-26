@@ -12,6 +12,8 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.peer.Peer
+import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
