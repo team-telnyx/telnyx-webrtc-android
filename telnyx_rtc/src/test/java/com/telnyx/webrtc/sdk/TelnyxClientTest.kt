@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
@@ -20,6 +21,8 @@ import com.telnyx.webrtc.sdk.testhelpers.*
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
+import com.telnyx.webrtc.sdk.utilities.decodeBase64
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
