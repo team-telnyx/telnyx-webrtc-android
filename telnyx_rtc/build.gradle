@@ -123,7 +123,6 @@ android {
     testOptions {
         unitTests.includeAndroidResources = true
         unitTests.returnDefaultValues = true
-        testOptions {
             unitTests.all {
                 if (name == "testDebugUnitTest" || name == "testReleaseUnitTest") {
                     kover {
@@ -131,7 +130,6 @@ android {
                     }
                 }
             }
-        }
     }
     sourceSets {
         test.manifest.srcFile "src/main/AndroidManifest.xml"

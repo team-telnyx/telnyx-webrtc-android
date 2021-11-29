@@ -139,22 +139,26 @@ class Call(
     fun acceptCall(callId: UUID, destinationNumber: String) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
-            peerConnection?.getLocalDescription()!!.description
-        val answerBodyMessage = SendingMessageBody(
-            uuid, SocketMethod.ANSWER.methodName,
-            CallParams(
-                sessionId = sessionId,
-                sdp = sessionDescriptionString,
-                dialogParams = CallDialogParams(
-                    callId = callId,
-                    destinationNumber = destinationNumber
+            peerConnection?.getLocalDescription()?.description
+        if (sessionDescriptionString == null) {
+            callStateLiveData.postValue(CallState.ERROR)
+        } else {
+            val answerBodyMessage = SendingMessageBody(
+                uuid, SocketMethod.ANSWER.methodName,
+                CallParams(
+                    sessionId = sessionId,
+                    sdp = sessionDescriptionString,
+                    dialogParams = CallDialogParams(
+                        callId = callId,
+                        destinationNumber = destinationNumber
+                    )
                 )
             )
-        )
-        socket.send(answerBodyMessage)
-        client.stopMediaPlayer()
-        callStateLiveData.postValue(CallState.ACTIVE)
-        client.callOngoing()
+            socket.send(answerBodyMessage)
+            client.stopMediaPlayer()
+            callStateLiveData.postValue(CallState.ACTIVE)
+            client.callOngoing()
+        }
     }
 
     /**

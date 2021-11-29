@@ -553,6 +553,12 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("error"))
     }
 
+    @Test
+    fun `Test getting active calls returns empty mutable map`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        assertEquals(client.getActiveCalls(), mutableMapOf())
+    }
+
     //Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,
