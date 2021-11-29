@@ -63,16 +63,3 @@ data class InviteResponse(
     val sessionId: String
 ) : ReceivedResult(), Parcelable
 
-/**
- * A Gateway response as a result of a login request
- *
- * @param params the gateway response parameters
- * @param sessid the session ID provided during the login process
- */
-data class StateResponse(
-    @SerializedName("params")
-    val params: StateParams?,
-    @SerializedName("sessid")
-    val sessid: String
-) : ReceivedResult()
-
