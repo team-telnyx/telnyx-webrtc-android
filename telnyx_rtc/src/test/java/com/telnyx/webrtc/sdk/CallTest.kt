@@ -5,12 +5,16 @@ import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
+import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.ktor.client.features.websocket.*
 import io.mockk.MockKAnnotations
@@ -151,7 +155,16 @@ class CallTest: BaseTest() {
 
     @Test
     fun `Test call state returns callStateLiveData`() {
-       //ToDO
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
+        call = Mockito.spy(
+            Call(mockContext, client, client.socket, "123", audioManager)
+        )
+        assertEquals(call.getCallState().value, CallState.RINGING)
     }
 }
 
