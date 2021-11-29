@@ -36,7 +36,7 @@ import kotlin.concurrent.timerTask
  */
 class TelnyxClient(
     var context: Context,
-) : TxSocketListener, LifecycleObserver {
+) : TxSocketListener {
 
     companion object {
         const val RETRY_REGISTER_TIME = 3
@@ -170,22 +170,6 @@ class TelnyxClient(
         )
 
         registerNetworkCallback()
-    }
-
-    /**
-     * Observes the ON_DESTROY application lifecycle event
-     * If the application is being destroyed, we end the call.
-     * NOTE - there is no guarantee that onDestroyed will be called, like in the case of onStop being called when going to background first.
-     *
-     * @see LifecycleObserver
-     */
-    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    private fun onAppDestroyed() {
-        Timber.d("Application is being destroyed")
-        calls.onEach {
-            it.value.endCall(it.value.callId)
-        }
-
     }
 
     private var rawRingtone: Int? = null
