@@ -149,6 +149,10 @@ class CallTest: BaseTest() {
         Mockito.verify(client.socket, Mockito.times(1)).send(ArgumentMatchers.any(SendingMessageBody::class.java))
     }
 
+    @Test
+    fun `Test call state returns callStateLiveData`() {
+       //ToDO
+    }
 }
 
 //Extension function for getOrAwaitValue for unit tests

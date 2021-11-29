@@ -524,6 +524,29 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `Test onRingingReceived sets telnyx Session ID and leg ID within call`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        params.addProperty("telnyx_session_id", callID.toString())
+        params.addProperty("telnyx_leg_id", callID.toString())
+        callMessage.add("params", params)
+        client.onRingingReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        assertEquals(client.call?.getTelnyxSessionId(), callID)
+        assertEquals(client.call?.getTelnyxLegId(), callID)
+    }
+
+
+    @Test
     fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.onRemoteSessionErrorReceived("error")
