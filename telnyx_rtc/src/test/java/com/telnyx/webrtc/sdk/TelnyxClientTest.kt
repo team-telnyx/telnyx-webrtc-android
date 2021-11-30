@@ -545,7 +545,6 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.call?.getTelnyxLegId(), callID)
     }
 
-
     @Test
     fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
