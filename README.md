@@ -32,7 +32,15 @@ Enable Telnyx real-time communication services on Android :telephone_receiver: :
             </p>
             
 
-_Don't have SIP credentials? [Follow our guide](https://developers.telnyx.com/docs/v2/sip-trunking/quickstarts/portal-setup) to get set up on our portal and generate them._
+## SIP Credentials
+In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
+
+1. Access to https://portal.telnyx.com/
+2. Sign up for a Telnyx Account.
+3. Create a Credential Connection to configure how you connect your calls.
+4. Create an Outbound Voice Profile to configure your outbound call settings and assign it to your Credential Connection.
+
+For more information on how to generate SIP credentials check the [Telnyx WebRTC quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart). 
             
  ## Usage
 
@@ -65,23 +73,52 @@ To initialize the TelnyxClient you will have to provide the application context.
 ```kotlin
 sealed class TelnyxConfig
 
+/**
+ * Represents a SIP user for login - Credential based
+ *
+ * @property sipUser The SIP username of the user logging in
+ * @property sipPassword The SIP password of the user logging in
+ * @property sipCallerIDName The user's chosen Caller ID Name
+ * @property sipCallerIDNumber The user's Caller ID Number
+ * @property fcmToken The user's Firebase Cloud Messaging device ID
+ * @property ringtone The integer raw value of the audio file to use as a ringtone
+ * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
+ * @property logLevel The log level that the SDK should use - default value is none.
+ * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
+ */
 data class CredentialConfig(
     val sipUser: String,
-    val sipPassword: String, 
-    val sipCallerIDName: String?, // Your caller ID Name
-    val sipCallerIDNumber: String?, //Your caller ID Number
-    val ringtone: Int?, // Desired ringtone int resource ID
-    val ringBackTone: Int?, // Desired ringback tone int resource ID
-    val logLevel: LogLevel = LogLevel.NONE // SDK log level
+    val sipPassword: String,
+    val sipCallerIDName: String?,
+    val sipCallerIDNumber: String?,
+    val fcmToken: String?,
+    val ringtone: Int?,
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE,
+    val autoReconnect : Boolean = true
     ) : TelnyxConfig()
 
+/**
+ * Represents a SIP user for login - Token based
+ *
+ * @property sipToken The JWT token for the SIP user.
+ * @property sipCallerIDName The user's chosen Caller ID Name
+ * @property sipCallerIDNumber The user's Caller ID Number
+ * @property fcmToken The user's Firebase Cloud Messaging device ID
+ * @property ringtone The integer raw value of the audio file to use as a ringtone
+ * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
+ * @property logLevel The log level that the SDK should use - default value is none.
+ * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
+ */
 data class TokenConfig(
-    val sipToken: String, // JWT login token
-    val sipCallerIDName: String?, // Your caller ID Name
-    val sipCallerIDNumber: String?, //Your caller ID Number
-    val ringtone: Int?, // Desired ringtone int resource ID
-    val ringBackTone: Int?, // Desired ringback tone int resource ID
-    val logLevel: LogLevel = LogLevel.NONE // SDK log level
+    val sipToken: String,
+    val sipCallerIDName: String?,
+    val sipCallerIDNumber: String?,
+    val fcmToken: String?,
+    val ringtone: Int?,
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE,
+    val autoReconnect : Boolean = true,
     ) : TelnyxConfig()
 
 ```
@@ -112,8 +149,12 @@ We can then use this method to create a listener that listens for an invitation 
                 
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     when (data?.method) {
+                        SocketMethod.CLIENT_READY.methodName -> {
+                            // Fires once client has correctly been setup and logged into, you can now make calls. 
+                        }
+
                         SocketMethod.LOGIN.methodName -> {
-                           // Handle a successfull login - Update UI or Navigate to new screen, etc.
+                           // Handle a successful login - Update UI or Navigate to new screen, etc.
                         }
 
                         SocketMethod.INVITE.methodName -> {
@@ -149,6 +190,21 @@ When we receive a call we will receive an InviteResponse data class that contain
 ```kotlin
  telnyxClient.call.acceptCall(callId, destinationNumber)
 ```
+
+ ## Adding push notifications
+The Telnyx Android Client WebRTC SDK makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
+
+In order to do this you need to:
+
+       1. Set up a Firebase console account
+       2. Create a Firebase project
+       3. Add Firebase to your Android Application
+       4. Setup a Push Credential within the Telnyx Portal
+       5. Generate a Firebase Cloud Messaging instance token
+       6. Send the token with your login message
+       
+ For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
+
 
  ## ProGuard changes
  NOTE:
