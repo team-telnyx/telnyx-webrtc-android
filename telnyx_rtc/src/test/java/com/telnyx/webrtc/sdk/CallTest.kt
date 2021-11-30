@@ -6,6 +6,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
@@ -149,6 +151,124 @@ class CallTest: BaseTest() {
         Mockito.verify(client.socket, Mockito.times(1)).send(ArgumentMatchers.any(SendingMessageBody::class.java))
     }
 
+    @Test
+    fun `test new acceptCall from call where no SDP is contained`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
+        call = Mockito.spy(
+            Call(mockContext, client, client.socket, "123", audioManager)
+        )
+        call.acceptCall(UUID.randomUUID(), "00000")
+        assertEquals(call.getCallState().value, CallState.ERROR)
+    }
+
+    @Test
+    fun `Test call state returns callStateLiveData`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+
+        call = Mockito.spy(
+            Call(mockContext, client, client.socket, "123", audioManager)
+        )
+        assertEquals(call.getCallState().value, CallState.RINGING)
+    }
+
+    // NOOP tests, methods that should literally do nothing -- included for test coverage
+    @Test
+    fun `NOOP onClientReady test`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.socket = Mockito.spy(
+                TxSocket(
+                    host_address = "rtc.telnyx.com",
+                    port = 14938,
+                )
+            )
+
+            call = Mockito.spy(
+                Call(mockContext, client, client.socket, "123", audioManager)
+            )
+            call.onClientReady(JsonObject())
+        }
+    }
+
+    @Test
+    fun `NOOP onSessionIdReceived test`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.socket = Mockito.spy(
+                TxSocket(
+                    host_address = "rtc.telnyx.com",
+                    port = 14938,
+                )
+            )
+
+            call = Mockito.spy(
+                Call(mockContext, client, client.socket, "123", audioManager)
+            )
+            call.onSessionIdReceived(JsonObject())
+        }
+    }
+
+    @Test
+    fun `NOOP onGatewayStateReceived test`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.socket = Mockito.spy(
+                TxSocket(
+                    host_address = "rtc.telnyx.com",
+                    port = 14938,
+                )
+            )
+
+            call = Mockito.spy(
+                Call(mockContext, client, client.socket, "123", audioManager)
+            )
+            call.onGatewayStateReceived("", "")
+        }
+    }
+
+    @Test
+    fun `NOOP onConnectionEstablished test`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.socket = Mockito.spy(
+                TxSocket(
+                    host_address = "rtc.telnyx.com",
+                    port = 14938,
+                )
+            )
+
+            call = Mockito.spy(
+                Call(mockContext, client, client.socket, "123", audioManager)
+            )
+            call.onConnectionEstablished()
+        }
+    }
+
+    @Test
+    fun `NOOP onErrorReceived test`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.socket = Mockito.spy(
+                TxSocket(
+                    host_address = "rtc.telnyx.com",
+                    port = 14938,
+                )
+            )
+            call = Mockito.spy(
+                Call(mockContext, client, client.socket, "123", audioManager)
+            )
+            call.onErrorReceived(JsonObject())
+        }
+    }
 }
 
 //Extension function for getOrAwaitValue for unit tests

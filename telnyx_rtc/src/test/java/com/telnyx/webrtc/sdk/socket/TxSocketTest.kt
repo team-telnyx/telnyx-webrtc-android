@@ -214,6 +214,5 @@ class TxSocketTest : BaseTest() {
             )
         )
         assertEquals(client.socket.isConnected, false)
-
     }
 }

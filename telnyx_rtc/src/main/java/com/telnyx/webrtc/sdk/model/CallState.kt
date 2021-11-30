@@ -14,6 +14,7 @@ package com.telnyx.webrtc.sdk.model
  * @property ACTIVE the call is active and the two clients are fully connected.
  * @property HELD the user has put the call on hold.
  * @property DONE the call is finished - either party has ended the call.
+ * @property ERROR there was an issue creating the call.
  */
 enum class CallState {
     NEW,
@@ -22,4 +23,5 @@ enum class CallState {
     ACTIVE,
     HELD,
     DONE,
+    ERROR
 }

@@ -10,23 +10,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
-import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
-import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
-import com.telnyx.webrtc.sdk.verto.receive.StateResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
-import com.telnyx.webrtc.sdk.verto.send.StateParams
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import org.junit.Before
@@ -67,7 +62,7 @@ class TelnyxClientTest : BaseTest() {
     @Spy
     lateinit var client: TelnyxClient
 
-    @MockK
+    @Spy
     lateinit var audioManager: AudioManager
 
     @get:Rule
@@ -79,6 +74,7 @@ class TelnyxClientTest : BaseTest() {
         networkCallbackSetup()
 
         BuildConfig.IS_TESTING.set(true);
+        audioManager = Mockito.spy(AudioManager::class.java)
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
@@ -346,7 +342,7 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("Gateway registration has timed out"))
     }
 
-    /*@Test
+    @Test
     fun `Check login reattempt if autoRetry set to true`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.socket = Mockito.spy(TxSocket(
@@ -369,8 +365,198 @@ class TelnyxClientTest : BaseTest() {
         client.onGatewayStateReceived(GatewayState.FAIL_WAIT.state, null)
         Thread.sleep(9000)
         Mockito.verify(client, Mockito.atLeast(2)).onGatewayStateReceived(anyString(), anyString())
-    }*/
+    }
 
+    @Test
+    fun `Check error socket Error response live data is sent if a sessionID is not sent`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        // Lazily call buildCall() by calling arbitrary Call function
+        // -- call being created before connect will result in the desired socket response
+        client.call?.getTelnyxSessionId()
+        assertEquals(client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("Session ID is not set, failed to build call"))
+    }
+
+    @Test
+    fun `Test getSocketResponse returns appropriate LiveData`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        val socketResponse = client.getSocketResponse()
+        assertEquals(socketResponse, client.socketResponseLiveData)
+    }
+
+    @Test
+    fun `Test setting audio device to LOUDSPEAKER`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.setAudioOutputDevice(AudioDevice.LOUDSPEAKER)
+        }
+    }
+
+    @Test
+    fun `Test setting audio device to BLUETOOTH`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.setAudioOutputDevice(AudioDevice.BLUETOOTH)
+        }
+    }
+
+    @Test
+    fun `Test setting audio device to PHONE_EARPIECE`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.setAudioOutputDevice(AudioDevice.PHONE_EARPIECE)
+        }
+    }
+
+    @Test
+    fun `Test playing ringtone when one hasn't been set logs error and does not throw exception`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.playRingtone()
+        }
+    }
+
+    @Test
+    fun `Test playing ringBacktone when one hasn't been set logs error and does not throw exception`() {
+        assertDoesNotThrow {
+            client = Mockito.spy(TelnyxClient(mockContext))
+            client.playRingtone()
+        }
+    }
+
+    @Test
+    fun `Test onErrorReceived posts LiveData to socketResponseLiveData`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        val errorJson = JsonObject()
+        val errorMessageBody = JsonObject()
+        errorMessageBody.addProperty("message", "my error message")
+        errorJson.add("error", errorMessageBody)
+        client.onErrorReceived(errorJson)
+        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("my error message"))
+    }
+
+    @Test
+    fun `Test onByeReceived calls call related method`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callId = UUID.randomUUID()
+        client.onByeReceived(callId)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onByeReceived(callId)
+    }
+
+    @Test
+    fun `Test onAnswerReceived calls call related method`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        callMessage.add("params", params)
+        client.onAnswerReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+    }
+
+    @Test
+    fun `Test onMediaReceived calls call related method`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        callMessage.add("params", params)
+        client.onMediaReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onMediaReceived(callMessage)
+    }
+
+    @Test
+    fun `Test onOfferReceived calls call related method`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        callMessage.add("incorrect_params", params)
+        client.onOfferReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onOfferReceived(callMessage)
+    }
+
+    @Test
+    fun `Test onRingingReceived calls call related method`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        params.addProperty("telnyx_session_id", callID.toString())
+        params.addProperty("telnyx_leg_id", callID.toString())
+        callMessage.add("params", params)
+        client.onRingingReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+    }
+
+    @Test
+    fun `Test onRingingReceived sets telnyx Session ID and leg ID within call`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        ))
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        params.addProperty("telnyx_session_id", callID.toString())
+        params.addProperty("telnyx_leg_id", callID.toString())
+        callMessage.add("params", params)
+        client.onRingingReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        assertEquals(client.call?.getTelnyxSessionId(), callID)
+        assertEquals(client.call?.getTelnyxLegId(), callID)
+    }
+
+    @Test
+    fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.onRemoteSessionErrorReceived("error")
+        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("error"))
+    }
+
+    @Test
+    fun `Test getting active calls returns empty mutable map`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        assertEquals(client.getActiveCalls(), mutableMapOf())
+    }
 
     //Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(

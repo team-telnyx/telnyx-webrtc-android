@@ -2,7 +2,7 @@
  * Copyright © 2021 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.sdk
+package com.telnyx.webrtc.sdk.peer
 
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
