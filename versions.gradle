@@ -48,7 +48,7 @@ deps.dexter = "com.karumi:dexter:$versions.dexter"
 deps.firebasebom = "com.google.firebase:firebase-bom:$versions.firebasebom"
 deps.firebase_analytics = "com.google.firebase:firebase-analytics-ktx"
 deps.firebase_messaging = "com.google.firebase:firebase-messaging-ktx"
-deps.bugsnag = "com.bugsnag:bugsnag-android:$versions.bugsnag"
+deps.bugsnag = "com.bugsnag:bugsnag-android-gradle-plugin:$versions.bugsnag"
 
 def kotlin = [:]
 kotlin.plugin = "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"

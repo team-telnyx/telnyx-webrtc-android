@@ -24,7 +24,8 @@
         <activity android:name=".ui.MainActivity"/>
 
         <activity android:name=".ui.SplashScreenActivity"
-            android:theme="@style/SplashScreenTheme">
+            android:theme="@style/SplashScreenTheme"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -33,7 +34,8 @@
 
         <service
             android:name=".utility.MyFirebaseMessagingService"
-            android:priority="10000">
+            android:priority="10000"
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>

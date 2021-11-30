@@ -195,7 +195,7 @@ dependencies {
 
 
     //BugSnag:
-    implementation deps.bugsnag
+    implementation "com.bugsnag:bugsnag-android:5.+"
 
     // Volley
     implementation deps.volley
