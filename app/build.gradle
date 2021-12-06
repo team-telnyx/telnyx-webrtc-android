@@ -136,14 +136,14 @@ dependencies {
     //Testing:
     testImplementation "androidx.arch.core:core-testing:2.1.0"
     androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.0'
-    testImplementation('org.robolectric:robolectric:4.7.2') {
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2'
+    testImplementation('org.robolectric:robolectric:4.7.3') {
         exclude group: 'com.google.protobuf'
     }
     testImplementation "io.mockk:mockk:1.12.1"
     testImplementation "com.squareup.okhttp3:mockwebserver:4.9.3"
     testImplementation 'org.hamcrest:hamcrest-library:2.2'
-    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.0"
+    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2"
 
     // jUnit 4
     testImplementation 'junit:junit:4.13.2'
