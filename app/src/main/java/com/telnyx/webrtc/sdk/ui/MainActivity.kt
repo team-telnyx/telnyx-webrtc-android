@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onLoading() {
-                    // todo: Show loading in case problem for connecting
+                    Timber.i("Loading...")
                 }
 
                 override fun onError(message: String?) {
