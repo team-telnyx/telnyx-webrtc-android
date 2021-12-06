@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
             val builder = AlertDialog.Builder(this)
-            //Set default to phone
+             // Set default to phone
             mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
             builder.setTitle("Select Audio Output")
             builder.setSingleChoiceItems(
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onLoading() {
-                    //todo: Show loading in case problem for connecting
+                    // todo: Show loading in case problem for connecting
                 }
 
                 override fun onError(message: String?) {
@@ -346,7 +346,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doLogin(isAuto: Boolean) {
-        //path to ringtone and ringBackTone
+         // path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
@@ -437,9 +437,9 @@ class MainActivity : AppCompatActivity() {
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
-        //Don't store login details if logged in via a token
+        // Don't store login details if logged in via a token
         if (!token_login_switch.isChecked) {
-            //Set Shared Preferences now that user has logged in - storing the session:
+            // Set Shared Preferences now that user has logged in - storing the session:
             mainViewModel.saveUserData(
                 sip_username_id.text.toString(),
                 sip_password_id.text.toString(),
@@ -497,7 +497,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onAcceptCall(callId: UUID, destinationNumber: String) {
         incoming_call_section_id.visibility = View.GONE
-        //Visible but underneath fragment
+        // Visible but underneath fragment
         call_control_section_id.visibility = View.VISIBLE
 
         mainViewModel.acceptCall(callId, destinationNumber)
@@ -505,7 +505,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onRejectCall(callId: UUID) {
-        //Reject call and make call control section visible
+        // Reject call and make call control section visible
         incoming_call_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
