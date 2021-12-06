@@ -437,7 +437,7 @@ class MainActivity : AppCompatActivity() {
         login_section_id.visibility = View.GONE
         call_control_section_id.visibility = View.VISIBLE
 
-        //Dont store login details if logged in via a token
+        //Don't store login details if logged in via a token
         if (!token_login_switch.isChecked) {
             //Set Shared Preferences now that user has logged in - storing the session:
             mainViewModel.saveUserData(
