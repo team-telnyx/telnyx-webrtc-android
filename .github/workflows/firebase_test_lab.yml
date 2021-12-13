@@ -46,16 +46,17 @@ jobs:
         run: bash ./gradlew assembleDebug --stacktrace
 
       - name: Upload app APK
-        uses: actions/upload-artifact@v2.2.4
+        uses: actions/upload-artifact@v2.3.0
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
 
       - name: Assemble Android Instrumentation Tests
         run: bash ./gradlew assembleDebugAndroidTest
 
       - name: Upload Android Test APK
-        uses: actions/upload-artifact@v2.2.4
+        uses: actions/upload-artifact@v2.3.0
         with:
           name: app-debug-androidTest
           path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
@@ -67,12 +68,12 @@ jobs:
 
     steps:
       - name: Download app APK
-        uses: actions/download-artifact@v2.0.10
+        uses: actions/download-artifact@v2.1.0
         with:
           name: app-debug
 
       - name: Download Android test APK
-        uses: actions/download-artifact@v2.0.10
+        uses: actions/download-artifact@v2.1.0
         with:
           name: app-debug-androidTest
 
