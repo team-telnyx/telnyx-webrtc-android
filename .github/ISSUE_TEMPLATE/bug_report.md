@@ -8,6 +8,16 @@ assignees: Oliver-Zimmerman
 ---
 
 **Bug Category**
+- [x] Credential Login
+- [ ] Token Login
+- [ ] Local Audio Issue
+- [ ] Remote Audio Issue
+- [ ] Audio Device Switching
+- [ ] Mute / Unmute
+- [ ] Hold / Unhold
+- [ ] Performance issues
+- [ ] Other
+
 Credential login - [ ]
 Socket Login  - [ ]
 Local audio issue - [ ]
