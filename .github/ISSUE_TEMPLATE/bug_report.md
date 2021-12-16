@@ -18,17 +18,6 @@ assignees: Oliver-Zimmerman
 - [ ] Performance issues
 - [ ] Other
 
-Credential login - [ ]
-Socket Login  - [ ]
-Local audio issue - [ ]
-remote audio issue - [ ]
-DTMF - [ ]
-Hold - [ ]
-Mute/Unmute - [ ]
-Performance issue - [ ]
-Audio device switching - [ ]
-Other - [x]
-
 **Describe the bug**
 A clear and concise description of what the bug is.
 
