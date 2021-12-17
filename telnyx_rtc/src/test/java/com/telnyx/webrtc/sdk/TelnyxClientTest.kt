@@ -363,8 +363,8 @@ class TelnyxClientTest : BaseTest() {
         )
         client.credentialLogin(config)
         client.onGatewayStateReceived(GatewayState.FAIL_WAIT.state, null)
-        Thread.sleep(9000)
-        Mockito.verify(client, Mockito.atLeast(2)).onGatewayStateReceived(anyString(), anyString())
+        Thread.sleep(6000)
+        Mockito.verify(client, Mockito.atLeast(1)).onGatewayStateReceived(anyString(), anyString())
     }
 
     @Test
