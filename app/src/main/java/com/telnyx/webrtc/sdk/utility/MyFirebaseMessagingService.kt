@@ -58,14 +58,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         rejectResultIntent.action = Intent.ACTION_VIEW
         rejectResultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         rejectResultIntent.putExtra(EXT_KEY_DO_ACTION, ACT_REJECT_CALL)
-        val rejectPendingIntent = PendingIntent.getActivity(this, REJECT_REQUEST_CODE, rejectResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val rejectPendingIntent = PendingIntent.getActivity(this, REJECT_REQUEST_CODE, rejectResultIntent, PendingIntent.FLAG_IMMUTABLE)
 
         val answerResultIntent = Intent(this, MainActivity::class.java)
         answerResultIntent.addCategory(Intent.CATEGORY_LAUNCHER)
         answerResultIntent.action = Intent.ACTION_VIEW
         answerResultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         answerResultIntent.putExtra(EXT_KEY_DO_ACTION, ACT_ANSWER_CALL)
-        val answerPendingIntent = PendingIntent.getActivity(this, ANSWER_REQUEST_CODE, answerResultIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val answerPendingIntent = PendingIntent.getActivity(this, ANSWER_REQUEST_CODE, answerResultIntent, PendingIntent.FLAG_IMMUTABLE)
 
         val notificationSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notificationBuilder = NotificationCompat.Builder(this, TELNYX_CHANNEL_ID)
