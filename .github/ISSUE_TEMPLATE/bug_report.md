@@ -18,6 +18,11 @@ assignees: Oliver-Zimmerman
 - [ ] Performance issues
 - [ ] Other
 
+**SDK Version**
+Which version of the SDK have you added from Jitpack? Feel free to add the whole dependency implementation:
+eg. implementation 'com.github.team-telnyx:telnyx-webrtc-android:v1.2.12-alpha'
+
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
