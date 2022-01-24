@@ -44,6 +44,11 @@ class Call(
     val providedTurn: String = Config.DEFAULT_TURN,
     val providedStun: String = Config.DEFAULT_STUN
 ) : TxSocketListener {
+
+    companion object {
+        const val ICE_CANDIDATE_DELAY = 400
+    }
+
     private var peerConnection: Peer? = null
 
     private var earlySDP = false
@@ -124,7 +129,7 @@ class Call(
                 )
             )
             socket.send(inviteMessageBody)
-        }, 400)
+        }, ICE_CANDIDATE_DELAY)
 
         client.callOngoing()
         client.playRingBackTone()
@@ -263,7 +268,7 @@ class Call(
      *              through 9, A through D, #, and * generate the associated DTMF tones. Unrecognized characters are ignored.
      */
 
-    fun dtmf(callId: UUID, tone: String){
+    fun dtmf(callId: UUID, tone: String) {
         val uuid: String = UUID.randomUUID().toString()
         val infoMessageBody = SendingMessageBody(
             id = uuid,
@@ -485,8 +490,10 @@ class Call(
             client.playRingtone()
             client.addToCalls(this)
         } else {
-            Timber.d("[%s] :: Invalid offer received, missing required parameters [%s]",
-                this@Call.javaClass.simpleName, jsonObject)
+            Timber.d(
+                "[%s] :: Invalid offer received, missing required parameters [%s]",
+                this@Call.javaClass.simpleName, jsonObject
+            )
         }
     }
 
