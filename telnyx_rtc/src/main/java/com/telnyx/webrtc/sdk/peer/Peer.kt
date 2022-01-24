@@ -273,4 +273,9 @@ internal class Peer(
         peerConnection?.close()
         peerConnection?.dispose()
     }
+
+    fun release() {
+        disconnect()
+        peerConnectionFactory.dispose()
+    }
 }

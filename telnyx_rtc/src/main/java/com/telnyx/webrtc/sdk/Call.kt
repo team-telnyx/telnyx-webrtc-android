@@ -66,6 +66,8 @@ class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+
         callStateLiveData.postValue(CallState.RINGING)
         //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
@@ -100,6 +102,9 @@ class Call(
                 }
             })
 
+        peerConnection?.startLocalAudioCapture()
+        peerConnection?.createOfferForSdp(AppSdpObserver())
+
         val iceCandidateTimer = Timer()
         iceCandidateTimer.schedule(timerTask {
             //set localInfo and ice candidate and able to create correct offer
@@ -119,12 +124,9 @@ class Call(
                 )
             )
             socket.send(inviteMessageBody)
-        }, 300)
+        }, 400)
 
         client.callOngoing()
-        peerConnection?.startLocalAudioCapture()
-        peerConnection?.createOfferForSdp(AppSdpObserver())
-
         client.playRingBackTone()
         client.addToCalls(this)
     }
@@ -185,6 +187,7 @@ class Call(
         socket.send(byeMessageBody)
         resetCallOptions()
         client.stopMediaPlayer()
+        peerConnection?.release()
     }
 
     /**
@@ -346,6 +349,7 @@ class Call(
         client.callNotOngoing()
         resetCallOptions()
         client.stopMediaPlayer()
+        peerConnection?.release()
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
@@ -406,7 +410,7 @@ class Call(
         Timber.d("[%s] :: onMediaReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
 
         /* In case of remote user answer the invite
-          local user haas to set remote data in order to have information of both peers of a call
+          local user has to set remote data in order to have information of both peers of a call
           */
         //set remote description
         val params = jsonObject.getAsJsonObject("params")
