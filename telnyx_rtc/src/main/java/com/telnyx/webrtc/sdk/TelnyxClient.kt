@@ -15,17 +15,17 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import com.bugsnag.android.Bugsnag
 import io.ktor.server.cio.backend.*
 import io.ktor.util.*
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
-import com.bugsnag.android.Bugsnag
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import kotlinx.coroutines.*
 import kotlin.concurrent.timerTask
 
@@ -653,6 +653,7 @@ class TelnyxClient(
     }
 
     override fun onByeReceived(callId: UUID) {
+        Timber.d("[%s] :: onByeReceived", this@TelnyxClient.javaClass.simpleName)
         call?.onByeReceived(callId)
     }
 

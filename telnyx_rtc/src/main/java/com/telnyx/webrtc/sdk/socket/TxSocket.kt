@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -46,7 +47,7 @@ class TxSocket(
 ) : CoroutineScope {
 
     private var job: Job = SupervisorJob()
-    private val gson = Gson()
+    private val gson = GsonBuilder().setPrettyPrinting().create()
 
     override var coroutineContext = Dispatchers.IO + job
 
