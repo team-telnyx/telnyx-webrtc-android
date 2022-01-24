@@ -46,7 +46,7 @@ class Call(
 ) : TxSocketListener {
 
     companion object {
-        const val ICE_CANDIDATE_DELAY = 400
+        const val ICE_CANDIDATE_DELAY: Long  = 400
     }
 
     private var peerConnection: Peer? = null
