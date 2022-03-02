@@ -12,4 +12,4 @@ package com.telnyx.webrtc.sdk.verto.receive
  *
  * @see ReceivedResult
  */
-data class ReceivedMessageBody(val method : String, val result : ReceivedResult?)
+data class ReceivedMessageBody(val method: String, val result: ReceivedResult?)

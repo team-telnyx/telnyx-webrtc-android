@@ -4,9 +4,9 @@
 
 package com.telnyx.webrtc.sdk.utilities
 
+import com.telnyx.webrtc.sdk.TelnyxConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 import timber.log.Timber
-import  com.telnyx.webrtc.sdk.TelnyxConfig
 
 /**
  * Class that provides log levels throughout the SDK. The log level is declared during login
@@ -20,7 +20,7 @@ internal class TelnyxLoggingTree(logLevel: LogLevel) : Timber.DebugTree() {
     override fun log(priority: Int, tag: String?, message: String, throwable: Throwable?) {
         when (projectLogLevel) {
             LogLevel.NONE -> {
-                //NOOP
+                // NOOP
             }
             LogLevel.ERROR -> {
                 if (priority == LogLevel.ERROR.priority) {
@@ -53,4 +53,3 @@ internal class TelnyxLoggingTree(logLevel: LogLevel) : Timber.DebugTree() {
         }
     }
 }
-

@@ -349,7 +349,7 @@ formatting:
     active: true
     autoCorrect: true
   NoWildcardImports:
-    active: true
+    active: false
   PackageName:
     active: true
     autoCorrect: true
@@ -357,7 +357,7 @@ formatting:
     active: true
     autoCorrect: true
     indentSize: 4
-    maxLineLength: 120
+    maxLineLength: 300
   SpacingAroundAngleBrackets:
     active: false
     autoCorrect: true

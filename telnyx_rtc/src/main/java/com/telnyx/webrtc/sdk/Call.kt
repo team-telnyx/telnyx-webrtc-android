@@ -46,7 +46,7 @@ class Call(
 ) : TxSocketListener {
 
     companion object {
-        const val ICE_CANDIDATE_DELAY: Long  = 400
+        const val ICE_CANDIDATE_DELAY: Long = 400
     }
 
     private var peerConnection: Peer? = null
@@ -74,7 +74,7 @@ class Call(
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
 
         callStateLiveData.postValue(CallState.RINGING)
-        //Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
+        // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
@@ -95,41 +95,46 @@ class Call(
         val uuid: String = UUID.randomUUID().toString()
         val inviteCallId: UUID = UUID.randomUUID()
 
-        //set global call CallID
+        // set global call CallID
         callId = inviteCallId
 
-        //Create new peer
-        peerConnection = Peer(context, client, providedTurn, providedStun,
+        // Create new peer
+        peerConnection = Peer(
+            context, client, providedTurn, providedStun,
             object : PeerConnectionObserver() {
                 override fun onIceCandidate(p0: IceCandidate?) {
                     super.onIceCandidate(p0)
                     peerConnection?.addIceCandidate(p0)
                 }
-            })
+            }
+        )
 
         peerConnection?.startLocalAudioCapture()
         peerConnection?.createOfferForSdp(AppSdpObserver())
 
         val iceCandidateTimer = Timer()
-        iceCandidateTimer.schedule(timerTask {
-            //set localInfo and ice candidate and able to create correct offer
-            val inviteMessageBody = SendingMessageBody(
-                id = uuid,
-                method = SocketMethod.INVITE.methodName,
-                params = CallParams(
-                    sessionId = sessionId,
-                    sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                    dialogParams = CallDialogParams(
-                        callerIdName = callerName,
-                        callerIdNumber = callerNumber,
-                        clientState = clientState.encodeBase64(),
-                        callId = inviteCallId,
-                        destinationNumber = destinationNumber,
+        iceCandidateTimer.schedule(
+            timerTask {
+                // set localInfo and ice candidate and able to create correct offer
+                val inviteMessageBody = SendingMessageBody(
+                    id = uuid,
+                    method = SocketMethod.INVITE.methodName,
+                    params = CallParams(
+                        sessionId = sessionId,
+                        sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                        dialogParams = CallDialogParams(
+                            callerIdName = callerName,
+                            callerIdNumber = callerNumber,
+                            clientState = clientState.encodeBase64(),
+                            callId = inviteCallId,
+                            destinationNumber = destinationNumber,
+                        )
                     )
                 )
-            )
-            socket.send(inviteMessageBody)
-        }, ICE_CANDIDATE_DELAY)
+                socket.send(inviteMessageBody)
+            },
+            ICE_CANDIDATE_DELAY
+        )
 
         client.callOngoing()
         client.playRingBackTone()
@@ -367,7 +372,7 @@ class Call(
         /* In case of remote user answer the invite
           local user haas to set remote data in order to have information of both peers of a call
           */
-        //set remote description
+        // set remote description
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
 
@@ -402,7 +407,7 @@ class Call(
                 )
             }
             else -> {
-                //There was no SDP in the response, there was an error.
+                // There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
                 client.removeFromCalls(UUID.fromString(callId))
             }
@@ -417,7 +422,7 @@ class Call(
         /* In case of remote user answer the invite
           local user has to set remote data in order to have information of both peers of a call
           */
-        //set remote description
+        // set remote description
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
 
@@ -427,10 +432,10 @@ class Call(
 
             peerConnection?.onRemoteSessionReceived(sdp)
 
-            //Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
+            // Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
             earlySDP = true
         } else {
-            //There was no SDP in the response, there was an error.
+            // There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)
             client.removeFromCalls(UUID.fromString(callId))
         }
@@ -515,23 +520,22 @@ class Call(
     }
 
     override fun onClientReady(jsonObject: JsonObject) {
-        //NOOP
+        // NOOP
     }
 
     override fun onSessionIdReceived(jsonObject: JsonObject) {
-        //NOOP
+        // NOOP
     }
 
     override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
-        //NOOP
+        // NOOP
     }
 
     override fun onConnectionEstablished() {
-        //NOOP
+        // NOOP
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {
-        //NOOP
+        // NOOP
     }
-
 }

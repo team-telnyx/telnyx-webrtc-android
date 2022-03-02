@@ -1,7 +1,6 @@
 package com.telnyx.webrtc.sdk.testhelpers
 
 import android.util.Log
-
 import timber.log.Timber
 
 class JUnitTree(private val minLogLevel: Int = Log.VERBOSE) : Timber.DebugTree() {

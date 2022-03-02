@@ -6,7 +6,6 @@ package com.telnyx.webrtc.sdk.verto.receive
 
 import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
-import com.telnyx.webrtc.sdk.verto.send.StateParams
 import kotlinx.android.parcel.Parcelize
 import java.util.*
 
@@ -24,7 +23,7 @@ sealed class ReceivedResult
 data class LoginResponse(
     @SerializedName("sessid")
     val sessid: String
-    ) : ReceivedResult(), Parcelable
+) : ReceivedResult(), Parcelable
 
 /**
  * A response to an invitation that the user created. Someone has answered your call.
@@ -62,4 +61,3 @@ data class InviteResponse(
     @SerializedName("sessionId")
     val sessionId: String
 ) : ReceivedResult(), Parcelable
-

@@ -77,7 +77,6 @@ class TxSocketTest : BaseTest() {
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
         networkCallbackSetup()
-
     }
 
     private fun networkCallbackSetup() {
@@ -107,7 +106,7 @@ class TxSocketTest : BaseTest() {
         every { connectivityHelper.registerNetworkStatusCallback(mockContext, callback) } just Runs
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
-        every {connectivityManager.activeNetwork } returns activeNetwork
+        every { connectivityManager.activeNetwork } returns activeNetwork
         every { connectivityHelper.isNetworkEnabled(mockContext) } returns false
         every { connectivityManager.getNetworkCapabilities(activeNetwork) } returns capabilities
         every { capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
@@ -118,16 +117,18 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `connect with valid host and port`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         client = spy(TelnyxClient(mockContext))
 
         socket.connect(client)
 
-        //Sleep to give time to connect
+        // Sleep to give time to connect
         Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
     }
@@ -137,12 +138,14 @@ class TxSocketTest : BaseTest() {
         BuildConfig.IS_TESTING.set(true)
         client = spy(TelnyxClient(mockContext))
 
-        client.socket = spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         client.socket.connect(client)
-        //Sleep to give time to connect
+        // Sleep to give time to connect
         Thread.sleep(1000)
 
         client.disconnect()
@@ -150,31 +153,33 @@ class TxSocketTest : BaseTest() {
         verify(client.socket, atLeastOnce()).destroy()
     }
 
-
     @Test
     fun `connect with empty host or port - still connects with default`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(TxSocket(
-            host_address = "",
-            port = 0,
-        ))
+        socket = spy(
+            TxSocket(
+                host_address = "",
+                port = 0,
+            )
+        )
 
         client = spy(TelnyxClient(mockContext))
         socket.connect(client)
 
-        //Sleep to give time to connect
+        // Sleep to give time to connect
         Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
-
     }
 
     @Test
     fun `set call to ongoing`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         socket.callOngoing()
         socket.ongoingCall shouldBe true
     }
@@ -182,10 +187,12 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `set call to not ongoing`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         socket.callNotOngoing()
         socket.ongoingCall shouldBe false
     }
@@ -193,10 +200,12 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `ensure connect changes isConnected appropriately`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        socket = spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         client = spy(TelnyxClient(mockContext))
         socket.connect(client)
         Thread.sleep(6000)

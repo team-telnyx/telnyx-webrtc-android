@@ -36,7 +36,7 @@ import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
-class CallTest: BaseTest() {
+class CallTest : BaseTest() {
 
     @MockK
     private lateinit var mockContext: Context
@@ -60,13 +60,14 @@ class CallTest: BaseTest() {
             port = 14938,
         )
 
-        BuildConfig.IS_TESTING.set(true);
+        BuildConfig.IS_TESTING.set(true)
 
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
         every { audioManager.isMicrophoneMute = true } just Runs
         every { audioManager.isSpeakerphoneOn = true } just Runs
-        every { audioManager.isSpeakerphoneOn} returns false
-        every { audioManager.isMicrophoneMute} returns false
+        every { audioManager.isSpeakerphoneOn } returns false
+        every { audioManager.isMicrophoneMute } returns false
+        every { audioManager.mode = AudioManager.MODE_IN_COMMUNICATION } just Runs
 
         client = Mockito.spy(
             TelnyxClient(
@@ -77,13 +78,15 @@ class CallTest: BaseTest() {
 
     @Test
     fun `test call listen doesn't throw exception`() {
-        assertDoesNotThrow { val newCall = Call(
-            mockContext,
-            client,
-            socket,
-            "123",
-            audioManager
-        ) }
+        assertDoesNotThrow {
+            val newCall = Call(
+                mockContext,
+                client,
+                socket,
+                "123",
+                audioManager
+            )
+        }
     }
 
     @Test
@@ -138,10 +141,12 @@ class CallTest: BaseTest() {
     @Test
     fun `test dtmf pressed during call with value 2`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
@@ -154,10 +159,12 @@ class CallTest: BaseTest() {
     @Test
     fun `test new acceptCall from call where no SDP is contained`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
@@ -169,10 +176,12 @@ class CallTest: BaseTest() {
     @Test
     fun `Test call state returns callStateLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
@@ -271,7 +280,7 @@ class CallTest: BaseTest() {
     }
 }
 
-//Extension function for getOrAwaitValue for unit tests
+// Extension function for getOrAwaitValue for unit tests
 fun <T> LiveData<T>.getOrAwaitValue(
     time: Long = 10,
     timeUnit: TimeUnit = TimeUnit.SECONDS

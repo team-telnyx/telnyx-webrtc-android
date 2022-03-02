@@ -73,7 +73,7 @@ class TelnyxClientTest : BaseTest() {
         MockKAnnotations.init(this, true, true, true)
         networkCallbackSetup()
 
-        BuildConfig.IS_TESTING.set(true);
+        BuildConfig.IS_TESTING.set(true)
         audioManager = Mockito.spy(AudioManager::class.java)
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
@@ -110,7 +110,7 @@ class TelnyxClientTest : BaseTest() {
         every { connectivityHelper.registerNetworkStatusCallback(mockContext, callback) } just Runs
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
-        every {connectivityManager.activeNetwork } returns activeNetwork
+        every { connectivityManager.activeNetwork } returns activeNetwork
         every { connectivityHelper.isNetworkEnabled(mockContext) } returns false
         every { connectivityManager.getNetworkCapabilities(activeNetwork) } returns capabilities
         every { capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
@@ -126,10 +126,12 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `disconnect connection`() {
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         client.disconnect()
         assertEquals(client.isNetworkCallbackRegistered, false)
@@ -157,10 +159,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         client.connect()
 
         val config = CredentialConfig(
@@ -182,10 +186,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         client.connect()
 
         val config = CredentialConfig(
@@ -210,10 +216,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         client.connect()
 
@@ -235,10 +243,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         client.connect()
 
@@ -277,10 +287,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `try and send message when isConnected is false - do not connect before doing login`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         val config = CredentialConfig(
             "asdfasass",
@@ -304,10 +316,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with credentials - No network available error thrown`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         client.connect()
 
         val config = CredentialConfig(
@@ -330,7 +344,7 @@ class TelnyxClientTest : BaseTest() {
     fun `Check login successful fires once REGED received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         val sessid = UUID.randomUUID().toString()
-        client.onGatewayStateReceived(GatewayState.REGED.state ,sessid)
+        client.onGatewayStateReceived(GatewayState.REGED.state, sessid)
         Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(sessid)
     }
 
@@ -373,8 +387,10 @@ class TelnyxClientTest : BaseTest() {
         // Lazily call buildCall() by calling arbitrary Call function
         // -- call being created before connect will result in the desired socket response
         client.call?.getTelnyxSessionId()
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Session ID is not set, failed to build call"))
+        assertEquals(
+            client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("Session ID is not set, failed to build call")
+        )
     }
 
     @Test
@@ -438,10 +454,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onByeReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callId = UUID.randomUUID()
@@ -452,10 +470,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onAnswerReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callMessage = JsonObject()
@@ -470,10 +490,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onMediaReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callMessage = JsonObject()
@@ -488,10 +510,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onOfferReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callMessage = JsonObject()
@@ -506,10 +530,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onRingingReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callMessage = JsonObject()
@@ -526,10 +552,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Test onRingingReceived sets telnyx Session ID and leg ID within call`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(TxSocket(
-            host_address = "rtc.telnyx.com",
-            port = 14938,
-        ))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
         val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callMessage = JsonObject()
@@ -558,7 +586,7 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.getActiveCalls(), mutableMapOf())
     }
 
-    //Extension function for getOrAwaitValue for unit tests
+    // Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,
         timeUnit: TimeUnit = TimeUnit.SECONDS,
@@ -584,8 +612,3 @@ class TelnyxClientTest : BaseTest() {
         return data as T
     }
 }
-
-
-
-
-
