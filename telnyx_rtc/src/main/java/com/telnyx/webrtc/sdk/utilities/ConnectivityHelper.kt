@@ -32,8 +32,8 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.unregisterNetworkCallback(callback)
         } catch (e: Exception) {
-            Timber.e(e,"unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
-            if(!BuildConfig.IS_TESTING.get()) {
+            Timber.e(e, "unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
+            if (!BuildConfig.IS_TESTING.get()) {
                 Bugsnag.notify(e)
             }
         }
@@ -59,8 +59,8 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.registerNetworkCallback(request, callback)
         } catch (e: Exception) {
-            Timber.e(e,"registerNetworkStatusCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
-            if(!BuildConfig.IS_TESTING.get()) {
+            Timber.e(e, "registerNetworkStatusCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
+            if (!BuildConfig.IS_TESTING.get()) {
                 Bugsnag.notify(e)
             }
         }

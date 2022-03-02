@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk
 
-
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import io.mockk.*
@@ -11,7 +10,6 @@ import org.mockito.MockitoAnnotations
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 
-
 class PeerTest : BaseTest() {
 
     @MockK
@@ -19,12 +17,11 @@ class PeerTest : BaseTest() {
 
     @BeforeEach
     fun setup() {
-        BuildConfig.IS_TESTING.set(true);
+        BuildConfig.IS_TESTING.set(true)
 
         MockitoAnnotations.openMocks(this)
         mockkStatic(PeerConnectionFactory::class)
         mockkStatic(PeerConnection::class)
-        every {PeerConnectionFactory.initialize(options)} just runs
+        every { PeerConnectionFactory.initialize(options) } just runs
     }
-
 }

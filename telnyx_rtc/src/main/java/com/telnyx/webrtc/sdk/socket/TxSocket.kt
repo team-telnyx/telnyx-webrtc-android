@@ -56,11 +56,13 @@ class TxSocket(
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(25, TimeUnit.SECONDS)
-            .hostnameVerifier ( hostnameVerifier = { _, _ -> true })
-            .addInterceptor(Interceptor { chain ->
-                val builder = chain.request().newBuilder()
-                chain.proceed(builder.build())
-            }).build()
+            .hostnameVerifier(hostnameVerifier = { _, _ -> true })
+            .addInterceptor(
+                Interceptor { chain ->
+                    val builder = chain.request().newBuilder()
+                    chain.proceed(builder.build())
+                }
+            ).build()
 
         providedHostAddress?.let {
             host_address = it
@@ -71,26 +73,28 @@ class TxSocket(
 
         val request: Request =
             Request.Builder().url("wss://$host_address:$port/").build()
-        socket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Timber.tag("VERTO").d("[%s] Connection established :: $host_address", this@TxSocket.javaClass.simpleName)
-                listener.onConnectionEstablished()
-                isConnected = true
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                super.onMessage(webSocket, text)
-                Timber.tag("VERTO").d(
-                    "[%s] Receiving [%s]",
-                    this@TxSocket.javaClass.simpleName,
-                    text
-                )
-                val jsonObject = gson.fromJson(text, JsonObject::class.java)
-                var params: JsonObject? = null
-                if (jsonObject.has("params")) {
-                     params = jsonObject.get("params").asJsonObject
+        socket = client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    Timber.tag("VERTO").d("[%s] Connection established :: $host_address", this@TxSocket.javaClass.simpleName)
+                    listener.onConnectionEstablished()
+                    isConnected = true
                 }
-                when {
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    super.onMessage(webSocket, text)
+                    Timber.tag("VERTO").d(
+                        "[%s] Receiving [%s]",
+                        this@TxSocket.javaClass.simpleName,
+                        text
+                    )
+                    val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    var params: JsonObject? = null
+                    if (jsonObject.has("params")) {
+                        params = jsonObject.get("params").asJsonObject
+                    }
+                    when {
                         jsonObject.has("result") -> {
                             if (jsonObject.get("result").asJsonObject.has("params")) {
                                 val result = jsonObject.get("result").asJsonObject
@@ -100,20 +104,18 @@ class TxSocket(
                                     val gatewayState = params.get("state").asString
                                     listener.onGatewayStateReceived(gatewayState, sessionId)
                                 }
-                            }
-                            else if (jsonObject.get("result").asJsonObject.has("message")) {
+                            } else if (jsonObject.get("result").asJsonObject.has("message")) {
                                 val result = jsonObject.get("result").asJsonObject
                                 val message = result.get("message").asString
                                 if (message == "logged in" && isLoggedIn) {
                                     listener.onClientReady(jsonObject)
-                                }
-                                else {
+                                } else {
                                     listener.onSessionIdReceived(jsonObject)
                                 }
                             }
                         }
-                        params!==null && params.asJsonObject.has("state")  -> {
-                             params = jsonObject.get("params").asJsonObject
+                        params !== null && params.asJsonObject.has("state") -> {
+                            params = jsonObject.get("params").asJsonObject
                             if (params.asJsonObject.has("state")) {
                                 val gatewayState = params.get("state").asString
                                 listener.onGatewayStateReceived(gatewayState, null)
@@ -154,7 +156,7 @@ class TxSocket(
                             }
                         }
                         jsonObject.has("error") -> {
-                            if(jsonObject.get("error").asJsonObject.has("code")) {
+                            if (jsonObject.get("error").asJsonObject.has("code")) {
                                 val errorCode =
                                     jsonObject.get("error").asJsonObject.get("code").asInt
                                 Timber.tag("VERTO").d(
@@ -174,24 +176,24 @@ class TxSocket(
                             }
                         }
                     }
-            }
+                }
 
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                super.onClosing(webSocket, code, reason)
-                Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    super.onClosing(webSocket, code, reason)
+                    Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+                }
 
-            }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    super.onClosed(webSocket, code, reason)
+                    Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
+                    destroy()
+                }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                super.onClosed(webSocket, code, reason)
-                Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
-                destroy()
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Timber.tag("TxSocket").i("Socket is closed: $response $t")
+                }
             }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Timber.tag("TxSocket").i("Socket is closed: ${response.toString()} $t")
-            }
-        })
+        )
     }
 
     /**
@@ -213,7 +215,7 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
-        if(isConnected) {
+        if (isConnected) {
             Timber.tag("VERTO")
                 .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
             socket.send(gson.toJson(dataObject))
@@ -231,7 +233,7 @@ class TxSocket(
         ongoingCall = false
         if (this::socket.isInitialized) {
             socket.cancel()
-            //socket.close(1000, "Websocket connection was asked to close")
+            // socket.close(1000, "Websocket connection was asked to close")
         }
         if (this::client.isInitialized) {
             launch(Dispatchers.IO) {

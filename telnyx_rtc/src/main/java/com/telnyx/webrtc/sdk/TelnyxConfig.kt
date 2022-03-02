@@ -41,8 +41,8 @@ data class CredentialConfig(
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect : Boolean = true
-    ) : TelnyxConfig()
+    val autoReconnect: Boolean = true
+) : TelnyxConfig()
 
 /**
  * Represents a SIP user for login - Token based
@@ -64,6 +64,5 @@ data class TokenConfig(
     val ringtone: Int?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect : Boolean = true,
-    ) : TelnyxConfig()
-
+    val autoReconnect: Boolean = true,
+) : TelnyxConfig()

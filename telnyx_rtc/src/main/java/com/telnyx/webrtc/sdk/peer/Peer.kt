@@ -15,7 +15,6 @@ import org.webrtc.*
 import timber.log.Timber
 import java.util.*
 
-
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
  *
@@ -78,7 +77,7 @@ internal class Peer(
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
             .setEnableInternalTracer(true)
             .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-            //.setFieldTrials("WebRTC-IntelVP8/Enabled/")
+            // .setFieldTrials("WebRTC-IntelVP8/Enabled/")
             .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
     }
@@ -99,10 +98,12 @@ internal class Peer(
                     true
                 )
             )
-            .setOptions(PeerConnectionFactory.Options().apply {
-                disableEncryption = false
-                disableNetworkMonitor = true
-            })
+            .setOptions(
+                PeerConnectionFactory.Options().apply {
+                    disableEncryption = false
+                    disableNetworkMonitor = true
+                }
+            )
             .createPeerConnectionFactory()
     }
 
@@ -147,29 +148,34 @@ internal class Peer(
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
-        createOffer(object : SdpObserver by sdpObserver {
-            override fun onCreateSuccess(desc: SessionDescription?) {
-                setLocalDescription(object : SdpObserver {
-                    override fun onSetFailure(p0: String?) {
-                        Timber.tag("Call").d("onSetFailure [%s]", "$p0")
-                    }
+        createOffer(
+            object : SdpObserver by sdpObserver {
+                override fun onCreateSuccess(desc: SessionDescription?) {
+                    setLocalDescription(
+                        object : SdpObserver {
+                            override fun onSetFailure(p0: String?) {
+                                Timber.tag("Call").d("onSetFailure [%s]", "$p0")
+                            }
 
-                    override fun onSetSuccess() {
-                        Timber.tag("Call").d("onSetSuccess")
-                    }
+                            override fun onSetSuccess() {
+                                Timber.tag("Call").d("onSetSuccess")
+                            }
 
-                    override fun onCreateSuccess(p0: SessionDescription?) {
-                        Timber.tag("Call").d("onCreateSuccess")
-                    }
+                            override fun onCreateSuccess(p0: SessionDescription?) {
+                                Timber.tag("Call").d("onCreateSuccess")
+                            }
 
-                    override fun onCreateFailure(p0: String?) {
-                        Timber.tag("Call").d("onCreateFailure [%s]", "$p0")
-
-                    }
-                }, desc)
-                sdpObserver.onCreateSuccess(desc)
-            }
-        }, constraints)
+                            override fun onCreateFailure(p0: String?) {
+                                Timber.tag("Call").d("onCreateFailure [%s]", "$p0")
+                            }
+                        },
+                        desc
+                    )
+                    sdpObserver.onCreateSuccess(desc)
+                }
+            },
+            constraints
+        )
     }
 
     /**
@@ -184,28 +190,34 @@ internal class Peer(
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
-        createAnswer(object : SdpObserver by sdpObserver {
-            override fun onCreateSuccess(desc: SessionDescription?) {
-                setLocalDescription(object : SdpObserver {
-                    override fun onSetFailure(p0: String?) {
-                        Timber.tag("Answer").d("onSetFailure [%s]", "$p0")
-                    }
+        createAnswer(
+            object : SdpObserver by sdpObserver {
+                override fun onCreateSuccess(desc: SessionDescription?) {
+                    setLocalDescription(
+                        object : SdpObserver {
+                            override fun onSetFailure(p0: String?) {
+                                Timber.tag("Answer").d("onSetFailure [%s]", "$p0")
+                            }
 
-                    override fun onSetSuccess() {
-                        Timber.tag("Answer").d("onSetSuccess")
-                    }
+                            override fun onSetSuccess() {
+                                Timber.tag("Answer").d("onSetSuccess")
+                            }
 
-                    override fun onCreateSuccess(p0: SessionDescription?) {
-                        Timber.tag("Answer").d("onCreateSuccess")
-                    }
+                            override fun onCreateSuccess(p0: SessionDescription?) {
+                                Timber.tag("Answer").d("onCreateSuccess")
+                            }
 
-                    override fun onCreateFailure(p0: String?) {
-                        Timber.tag("Answer").d("onCreateFailure [%s]", "$p0")
-                    }
-                }, desc)
-                sdpObserver.onCreateSuccess(desc)
-            }
-        }, constraints)
+                            override fun onCreateFailure(p0: String?) {
+                                Timber.tag("Answer").d("onCreateFailure [%s]", "$p0")
+                            }
+                        },
+                        desc
+                    )
+                    sdpObserver.onCreateSuccess(desc)
+                }
+            },
+            constraints
+        )
     }
 
     /**
@@ -228,25 +240,28 @@ internal class Peer(
      * @see [SessionDescription]
      */
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
-        peerConnection?.setRemoteDescription(object : SdpObserver {
-            override fun onSetFailure(p0: String?) {
-                client.onRemoteSessionErrorReceived(p0)
-                Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
-            }
+        peerConnection?.setRemoteDescription(
+            object : SdpObserver {
+                override fun onSetFailure(p0: String?) {
+                    client.onRemoteSessionErrorReceived(p0)
+                    Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
+                }
 
-            override fun onSetSuccess() {
-                Timber.tag("RemoteSessionReceived").d("Set Success")
-            }
+                override fun onSetSuccess() {
+                    Timber.tag("RemoteSessionReceived").d("Set Success")
+                }
 
-            override fun onCreateSuccess(p0: SessionDescription?) {
-                Timber.tag("RemoteSessionReceived").d("Create Success")
-            }
+                override fun onCreateSuccess(p0: SessionDescription?) {
+                    Timber.tag("RemoteSessionReceived").d("Create Success")
+                }
 
-            override fun onCreateFailure(p0: String?) {
-                client.onRemoteSessionErrorReceived(p0)
-                Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
-            }
-        }, sessionDescription)
+                override fun onCreateFailure(p0: String?) {
+                    client.onRemoteSessionErrorReceived(p0)
+                    Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
+                }
+            },
+            sessionDescription
+        )
     }
 
     /**

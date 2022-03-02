@@ -12,13 +12,13 @@ package com.telnyx.webrtc.sdk.model
  * @param state is the string value representation of the state.
  */
 enum class GatewayState(var state: String) {
-     UNREGED("UNREGED"),
-     TRYING("TRYING"),
-     REGISTER("REGISTER"),
-     REGED("REGED"),
-     UNREGISTER("UNREGISTER"),
-     FAILED("FAILED"),
-     FAIL_WAIT("FAIL_WAIT"),
-     EXPIRED("EXPIRED"),
-     NOREG("NOREG")
+    UNREGED("UNREGED"),
+    TRYING("TRYING"),
+    REGISTER("REGISTER"),
+    REGED("REGED"),
+    UNREGISTER("UNREGISTER"),
+    FAILED("FAILED"),
+    FAIL_WAIT("FAIL_WAIT"),
+    EXPIRED("EXPIRED"),
+    NOREG("NOREG")
 }

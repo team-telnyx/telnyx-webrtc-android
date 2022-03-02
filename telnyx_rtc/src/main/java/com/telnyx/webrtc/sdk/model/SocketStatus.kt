@@ -4,7 +4,6 @@
 
 package com.telnyx.webrtc.sdk.model
 
-
 /**
  *
  * Enum class to detail Socket Status messages

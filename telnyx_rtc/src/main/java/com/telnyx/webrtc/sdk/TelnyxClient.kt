@@ -11,6 +11,7 @@ import android.net.ConnectivityManager
 import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
+import com.bugsnag.android.Bugsnag
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -20,13 +21,12 @@ import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
-import com.bugsnag.android.Bugsnag
 import io.ktor.server.cio.backend.*
 import io.ktor.util.*
+import kotlinx.coroutines.*
 import org.webrtc.IceCandidate
 import timber.log.Timber
 import java.util.*
-import kotlinx.coroutines.*
 import kotlin.concurrent.timerTask
 
 /**
@@ -48,7 +48,7 @@ class TelnyxClient(
 
     private var reconnecting = false
 
-    //Gateway registration variables
+    // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
@@ -62,7 +62,7 @@ class TelnyxClient(
     private var providedTurn: String? = null
     private var providedStun: String? = null
 
-    //MediaPlayer for ringtone / ringbacktone
+    // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
     private var sessionId: String? = null
@@ -111,9 +111,9 @@ class TelnyxClient(
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
-            //User has been logged in
+            // User has been logged in
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                runBlocking{reconnectToSocket()}
+                runBlocking { reconnectToSocket() }
                 reconnecting = false
             }
         }
@@ -134,7 +134,7 @@ class TelnyxClient(
      * @see [TelnyxConfig]
      */
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
-        //Create new socket connection
+        // Create new socket connection
         socketReconnection = TxSocket(
             socket.host_address,
             socket.port
@@ -144,23 +144,23 @@ class TelnyxClient(
         // Destroy old socket
         socket.destroy()
         launch {
-            //Socket is now the reconnectionSocket
+            // Socket is now the reconnectionSocket
             socket = socketReconnection!!
-            //Connect to new socket
+            // Connect to new socket
             socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
             delay(1000)
-            //Login with stored configuration
+            // Login with stored configuration
             credentialSessionConfig?.let {
                 credentialLogin(it)
             } ?: tokenLogin(tokenSessionConfig!!)
         }
 
-        //Change an ongoing call's socket to the new socket.
+        // Change an ongoing call's socket to the new socket.
         call?.let { call?.socket = socket }
     }
 
     init {
-        if(!BuildConfig.IS_TESTING.get()) {
+        if (!BuildConfig.IS_TESTING.get()) {
             Bugsnag.start(context)
         }
 
@@ -182,7 +182,6 @@ class TelnyxClient(
     fun getRawRingtone(): Int? {
         return rawRingtone
     }
-
 
     /**
      * Return the saved ringback tone reference
@@ -299,7 +298,7 @@ class TelnyxClient(
         }
 
         var firebaseToken = ""
-        if (fcmToken!=null) {
+        if (fcmToken != null) {
             firebaseToken = fcmToken
         }
 
@@ -340,7 +339,7 @@ class TelnyxClient(
         setSDKLogLevel(logLevel)
 
         var firebaseToken = ""
-        if (fcmToken!=null) {
+        if (fcmToken != null) {
             firebaseToken = fcmToken
         }
 
@@ -410,14 +409,14 @@ class TelnyxClient(
                 }
             }
             AudioDevice.PHONE_EARPIECE -> {
-                //For phone ear piece
+                // For phone ear piece
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
                 audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = false
             }
             AudioDevice.LOUDSPEAKER -> {
-                //For phone speaker(loudspeaker)
+                // For phone speaker(loudspeaker)
                 audioManager?.mode = AudioManager.MODE_NORMAL
                 audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
@@ -536,20 +535,23 @@ class TelnyxClient(
             if (waitingForReg) {
                 requestGatewayStatus()
                 gatewayResponseTimer = Timer()
-                gatewayResponseTimer?.schedule(timerTask {
-                    if (registrationRetryCounter < RETRY_REGISTER_TIME) {
-                        if (waitingForReg) {
-                            onClientReady(jsonObject)
+                gatewayResponseTimer?.schedule(
+                    timerTask {
+                        if (registrationRetryCounter < RETRY_REGISTER_TIME) {
+                            if (waitingForReg) {
+                                onClientReady(jsonObject)
+                            }
+                            registrationRetryCounter++
+                        } else {
+                            Timber.d(
+                                "[%s] :: Gateway registration has timed out",
+                                this@TelnyxClient.javaClass.simpleName,
+                            )
+                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
                         }
-                        registrationRetryCounter++
-                    } else {
-                        Timber.d(
-                            "[%s] :: Gateway registration has timed out",
-                            this@TelnyxClient.javaClass.simpleName,
-                        )
-                        socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
-                    }
-                }, 3000)
+                    },
+                    3000
+                )
             }
         } else {
             Timber.d(
@@ -557,7 +559,7 @@ class TelnyxClient(
                 this@TelnyxClient.javaClass.simpleName,
             )
             socketResponseLiveData.postValue(
-               SocketResponse.messageReceived(
+                SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.CLIENT_READY.methodName,
                         null
@@ -578,7 +580,8 @@ class TelnyxClient(
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                receivedSessionId?.let { it
+                receivedSessionId?.let {
+                    it
                     resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
@@ -613,16 +616,16 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
             }
             GatewayState.UNREGED.state -> {
-               //NOOP - logged within TxSocket
+                // NOOP - logged within TxSocket
             }
             GatewayState.TRYING.state -> {
-                //NOOP - logged within TxSocket
+                // NOOP - logged within TxSocket
             }
             GatewayState.REGISTER.state -> {
-                //NOOP - logged within TxSocket
+                // NOOP - logged within TxSocket
             }
             GatewayState.UNREGISTER.state -> {
-                //NOOP - logged within TxSocket
+                // NOOP - logged within TxSocket
             }
             else -> {
                 invalidateGatewayResponseTimer()
