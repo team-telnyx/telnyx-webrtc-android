@@ -21,8 +21,6 @@ import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
-import io.ktor.server.cio.backend.*
-import io.ktor.util.*
 import kotlinx.coroutines.*
 import org.webrtc.IceCandidate
 import timber.log.Timber
@@ -41,6 +39,7 @@ class TelnyxClient(
     companion object {
         const val RETRY_REGISTER_TIME = 3
         const val RETRY_CONNECT_TIME = 3
+        const val GATEWAY_RESPONSE_DELAY: Long = 3000
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -310,7 +309,7 @@ class TelnyxClient(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
-                login_token = null,
+                loginToken = null,
                 login = user,
                 passwd = password,
                 userVariables = notificationJsonObject,
@@ -351,7 +350,7 @@ class TelnyxClient(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
-                login_token = token,
+                loginToken = token,
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
@@ -550,7 +549,7 @@ class TelnyxClient(
                             socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
                         }
                     },
-                    3000
+                    GATEWAY_RESPONSE_DELAY
                 )
             }
         } else {
@@ -581,7 +580,6 @@ class TelnyxClient(
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
                 receivedSessionId?.let {
-                    it
                     resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {

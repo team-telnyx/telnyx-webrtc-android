@@ -10,7 +10,8 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 sealed class ParamRequest
 
 data class LoginParam(
-    val login_token: String?,
+    @SerializedName("login_token")
+    val loginToken: String?,
     val login: String?,
     val passwd: String?,
     val userVariables: JsonObject,
