@@ -4,26 +4,13 @@
 
 package com.telnyx.webrtc.sdk.socket
 
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.*
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
-import io.ktor.client.*
-import io.ktor.client.engine.android.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.websocket.*
-import io.ktor.http.*
-import io.ktor.util.*
 import kotlinx.coroutines.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.features.*
-import io.ktor.client.request.*
-import io.ktor.http.cio.*
-import io.ktor.http.cio.websocket.*
 import okhttp3.*
 import okhttp3.Request
 import okhttp3.Response

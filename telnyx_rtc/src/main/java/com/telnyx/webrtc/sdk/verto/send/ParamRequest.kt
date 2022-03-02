@@ -7,7 +7,6 @@ package com.telnyx.webrtc.sdk.verto.send
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-
 sealed class ParamRequest
 
 data class LoginParam(val login_token: String?, val login: String?,

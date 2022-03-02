@@ -67,6 +67,7 @@ class CallTest: BaseTest() {
         every { audioManager.isSpeakerphoneOn = true } just Runs
         every { audioManager.isSpeakerphoneOn} returns false
         every { audioManager.isMicrophoneMute} returns false
+        every { audioManager.mode = AudioManager.MODE_IN_COMMUNICATION } just Runs
 
         client = Mockito.spy(
             TelnyxClient(
