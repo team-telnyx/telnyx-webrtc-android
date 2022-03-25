@@ -504,10 +504,17 @@ class Call(
 
     override fun onRingingReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onRingingReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
-
         val params = jsonObject.getAsJsonObject("params")
-        telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
-        telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
+        telnyxSessionId = if (params.has("telnyx_session_id")) {
+            UUID.fromString(params.get("telnyx_session_id").asString)
+        } else {
+            UUID.randomUUID()
+        }
+        telnyxLegId = if (params.has("telnyx_leg_id")) {
+            UUID.fromString(params.get("telnyx_leg_id").asString)
+        } else {
+            UUID.randomUUID()
+        }
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
