@@ -68,12 +68,12 @@ jobs:
 
     steps:
       - name: Download app APK
-        uses: actions/download-artifact@v2.1.0
+        uses: actions/download-artifact@v3.0.0
         with:
           name: app-debug
 
       - name: Download Android test APK
-        uses: actions/download-artifact@v2.1.0
+        uses: actions/download-artifact@v3.0.0
         with:
           name: app-debug-androidTest
 
