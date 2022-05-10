@@ -9,4 +9,8 @@
         android:title="@string/audio_settings"
         android:panelBackground ="@color/white"
         app:showAsAction="never"/>
+    <item android:id="@+id/action_wsmessages"
+        android:title="@string/show_wsmessages"
+        android:panelBackground ="@color/white"
+        app:showAsAction="never"/>
 </menu>

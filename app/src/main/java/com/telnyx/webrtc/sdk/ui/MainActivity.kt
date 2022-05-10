@@ -4,7 +4,8 @@
 
 package com.telnyx.webrtc.sdk.ui
 
-import android.Manifest.permission.*
+import android.Manifest.permission.INTERNET
+import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.ClipData
@@ -26,10 +27,8 @@ import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
-import com.telnyx.webrtc.sdk.model.AudioDevice
-import com.telnyx.webrtc.sdk.model.LogLevel
-import com.telnyx.webrtc.sdk.model.SocketMethod
-import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -54,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private var fcmToken: String? = null
     private var isDev = false
     private var isAutomaticLogin = false
+    private var wsMessageList: ArrayList<String>? = null
 
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
@@ -95,6 +95,17 @@ class MainActivity : AppCompatActivity() {
             dialog.show()
             true
         }
+        R.id.action_wsmessages -> {
+            if (wsMessageList == null) {
+                wsMessageList = ArrayList()
+            }
+            val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
+            supportFragmentManager.beginTransaction()
+                .replace(android.R.id.content, instanceFragment)
+                .addToBackStack(null)
+                .commitAllowingStateLoss()
+            true
+        }
         else -> {
             super.onOptionsItemSelected(item)
         }
@@ -105,7 +116,7 @@ class MainActivity : AppCompatActivity() {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
             val builder = AlertDialog.Builder(this)
-             // Set default to phone
+            // Set default to phone
             mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
             builder.setTitle("Select Audio Output")
             builder.setSingleChoiceItems(
@@ -143,6 +154,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         observeSocketResponses()
+
     }
 
     private fun observeSocketResponses() {
@@ -205,6 +217,34 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
+    private fun observeWsMessage() {
+        mainViewModel.getWsMessageResponse()?.observe(
+            this, object : SocketObserver<WsMessageData>() {
+                override fun onConnectionEstablished() {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onMessageReceived(data: WsMessageData?) {
+                    data?.let {
+                        wsMessageList?.add(data.wsMessageJsonObject.toString())
+                    } ?: run {
+                        wsMessageList = ArrayList()
+                    }
+
+                }
+
+                override fun onLoading() {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onError(message: String?) {
+                    TODO("Not yet implemented")
+                }
+
+            }
+        )
+    }
+
     private fun updateEnvText(isDevEnvironment: Boolean) {
         if (isDevEnvironment) {
             environment_text.text = "Dev"
@@ -217,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         mockInputs()
         handleUserLoginState()
         getFCMToken()
+        observeWsMessage()
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -345,7 +386,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doLogin(isAuto: Boolean) {
-         // path to ringtone and ringBackTone
+        // path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
@@ -361,8 +402,7 @@ class MainActivity : AppCompatActivity() {
                 LogLevel.ALL
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
-        }
-        else {
+        } else {
             if (token_login_switch.isChecked) {
                 val sipToken = sip_token_id.text.toString()
                 val sipCallerName = token_caller_id_name_id.text.toString()
@@ -405,8 +445,7 @@ class MainActivity : AppCompatActivity() {
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
                 fcmToken = null
-            }
-            else if (task.isSuccessful){
+            } else if (task.isSuccessful) {
                 // Get new FCM registration token
                 try {
                     token = task.result
@@ -548,7 +587,7 @@ class MainActivity : AppCompatActivity() {
                 notificationAcceptHandling = true
 
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
-               // Handle Reject
+                // Handle Reject
                 notificationAcceptHandling = false
             }
         }

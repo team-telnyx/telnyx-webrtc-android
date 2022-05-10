@@ -12,6 +12,7 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.model.WsMessageData
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,6 +62,8 @@ class MainViewModel @Inject constructor(
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
+
+    fun getWsMessageResponse(): LiveData<SocketResponse<WsMessageData>>? = telnyxClient?.getWsMessageResponse()
 
     fun setCurrentCall(callId: UUID) {
         calls = telnyxClient?.getActiveCalls()!!
