@@ -8,12 +8,13 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
-import com.telnyx.webrtc.sdk.model.SocketError.*
+import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
+import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
+import com.telnyx.webrtc.sdk.model.WsMessageData
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.*
 import okhttp3.*
-import okhttp3.Request
-import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
@@ -50,7 +51,11 @@ class TxSocket(
      * @param listener, the [TelnyxClient] used to create an instance of TxSocket that contains our relevant listener methods via the [TxSocketListener] interface
      * @see [TxSocketListener]
      */
-    fun connect(listener: TelnyxClient, providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS, providedPort: Int? = Config.TELNYX_PORT) = launch {
+    fun connect(
+        listener: TelnyxClient,
+        providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
+        providedPort: Int? = Config.TELNYX_PORT
+    ) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
             .connectTimeout(25, TimeUnit.SECONDS)
@@ -77,7 +82,10 @@ class TxSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    Timber.tag("VERTO").d("[%s] Connection established :: $host_address", this@TxSocket.javaClass.simpleName)
+                    Timber.tag("VERTO").d(
+                        "[%s] Connection established :: $host_address",
+                        this@TxSocket.javaClass.simpleName
+                    )
                     listener.onConnectionEstablished()
                     isConnected = true
                 }
@@ -90,6 +98,11 @@ class TxSocket(
                         text
                     )
                     val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    listener.wsMessagesResponseLiveDate.postValue(
+                        SocketResponse.messageReceived(
+                            WsMessageData(jsonObject)
+                        )
+                    )
                     var params: JsonObject? = null
                     if (jsonObject.has("params")) {
                         params = jsonObject.get("params").asJsonObject
@@ -220,7 +233,8 @@ class TxSocket(
                 .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
             socket.send(gson.toJson(dataObject))
         } else {
-            Timber.tag("VERTO").d("Message cannot be sent. There is no established WebSocket connection")
+            Timber.tag("VERTO")
+                .d("Message cannot be sent. There is no established WebSocket connection")
         }
     }
 
