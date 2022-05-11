@@ -4,7 +4,8 @@
 
 package com.telnyx.webrtc.sdk.ui
 
-import android.Manifest.permission.*
+import android.Manifest.permission.INTERNET
+import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.ClipData
@@ -30,6 +31,7 @@ import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -54,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var fcmToken: String? = null
     private var isDev = false
     private var isAutomaticLogin = false
+    private var wsMessageList: ArrayList<String>? = null
 
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
@@ -95,17 +98,27 @@ class MainActivity : AppCompatActivity() {
             dialog.show()
             true
         }
+        R.id.action_wsmessages -> {
+            if (wsMessageList == null) {
+                wsMessageList = ArrayList()
+            }
+            val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
+            supportFragmentManager.beginTransaction()
+                .replace(android.R.id.content, instanceFragment)
+                .addToBackStack(null)
+                .commitAllowingStateLoss()
+            true
+        }
         else -> {
             super.onOptionsItemSelected(item)
         }
     }
 
-
     private fun createAudioOutputSelectionDialog(): Dialog {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
             val builder = AlertDialog.Builder(this)
-             // Set default to phone
+            // Set default to phone
             mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
             builder.setTitle("Select Audio Output")
             builder.setSingleChoiceItems(
@@ -147,62 +160,72 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeSocketResponses() {
         mainViewModel.getSocketResponse()
-            ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
-                override fun onConnectionEstablished() {
-                    doLogin(isAutomaticLogin)
-                }
+            ?.observe(
+                this,
+                object : SocketObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        doLogin(isAutomaticLogin)
+                    }
 
-                override fun onMessageReceived(data: ReceivedMessageBody?) {
-                    Timber.d("onMessageReceived from SDK [%s]", data?.method)
-                    when (data?.method) {
-                        SocketMethod.CLIENT_READY.methodName -> {
-                            Timber.d("You are ready to make calls.")
-                        }
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                        when (data?.method) {
+                            SocketMethod.CLIENT_READY.methodName -> {
+                                Timber.d("You are ready to make calls.")
+                            }
 
-                        SocketMethod.LOGIN.methodName -> {
-                            progress_indicator_id.visibility = View.INVISIBLE
-                            val sessionId = (data.result as LoginResponse).sessid
-                            Timber.d("Current Session: $sessionId")
-                            onLoginSuccessfullyViews()
-                        }
+                            SocketMethod.LOGIN.methodName -> {
+                                progress_indicator_id.visibility = View.INVISIBLE
+                                val sessionId = (data.result as LoginResponse).sessid
+                                Timber.d("Current Session: $sessionId")
+                                onLoginSuccessfullyViews()
+                            }
 
-                        SocketMethod.INVITE.methodName -> {
-                            val inviteResponse = data.result as InviteResponse
-                            onReceiveCallView(
-                                inviteResponse.callId,
-                                inviteResponse.callerIdName,
-                                inviteResponse.callerIdNumber
-                            )
-                        }
+                            SocketMethod.INVITE.methodName -> {
+                                val inviteResponse = data.result as InviteResponse
+                                onReceiveCallView(
+                                    inviteResponse.callId,
+                                    inviteResponse.callerIdName,
+                                    inviteResponse.callerIdNumber
+                                )
+                            }
 
-                        SocketMethod.ANSWER.methodName -> {
-                            val callId = (data.result as AnswerResponse).callId
-                            launchCallInstance(callId)
-                            call_button_id.visibility = View.VISIBLE
-                            cancel_call_button_id.visibility = View.GONE
-                            invitationSent = false
-                        }
+                            SocketMethod.ANSWER.methodName -> {
+                                val callId = (data.result as AnswerResponse).callId
+                                launchCallInstance(callId)
+                                call_button_id.visibility = View.VISIBLE
+                                cancel_call_button_id.visibility = View.GONE
+                                invitationSent = false
+                            }
 
-                        SocketMethod.BYE.methodName -> {
-                            onByeReceivedViews()
+                            SocketMethod.BYE.methodName -> {
+                                onByeReceivedViews()
+                            }
                         }
                     }
-                }
 
-                override fun onLoading() {
-                    Timber.i("Loading...")
-                }
+                    override fun onLoading() {
+                        Timber.i("Loading...")
+                    }
 
-                override fun onError(message: String?) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        message ?: "Socket Connection Error",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    progress_indicator_id.visibility = View.INVISIBLE
+                    override fun onError(message: String?) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            message ?: "Socket Connection Error",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        progress_indicator_id.visibility = View.INVISIBLE
+                    }
                 }
+            )
+    }
 
-            })
+    private fun observeWsMessage() {
+        mainViewModel.getWsMessageResponse()?.observe(this) {
+            it?.let { wsMesssage ->
+                wsMessageList?.add(wsMesssage.toString())
+            }
+        }
     }
 
     private fun updateEnvText(isDevEnvironment: Boolean) {
@@ -217,6 +240,7 @@ class MainActivity : AppCompatActivity() {
         mockInputs()
         handleUserLoginState()
         getFCMToken()
+        observeWsMessage()
 
         connect_button_id.setOnClickListener {
             if (!hasLoginEmptyFields()) {
@@ -345,7 +369,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doLogin(isAuto: Boolean) {
-         // path to ringtone and ringBackTone
+        // path to ringtone and ringBackTone
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
@@ -361,8 +385,7 @@ class MainActivity : AppCompatActivity() {
                 LogLevel.ALL
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
-        }
-        else {
+        } else {
             if (token_login_switch.isChecked) {
                 val sipToken = sip_token_id.text.toString()
                 val sipCallerName = token_caller_id_name_id.text.toString()
@@ -405,8 +428,7 @@ class MainActivity : AppCompatActivity() {
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
                 fcmToken = null
-            }
-            else if (task.isSuccessful){
+            } else if (task.isSuccessful) {
                 // Get new FCM registration token
                 try {
                     token = task.result
@@ -429,7 +451,6 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel.disconnect()
     }
-
 
     private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
@@ -546,9 +567,8 @@ class MainActivity : AppCompatActivity() {
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
-
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
-               // Handle Reject
+                // Handle Reject
                 notificationAcceptHandling = false
             }
         }

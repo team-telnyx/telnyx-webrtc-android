@@ -31,6 +31,10 @@
     <string name="on">On</string>
     <string name="audio_settings">Audio Output Device</string>
     <string name="call_state">Call State:</string>
+    <string name="show_wsmessages">WsMessages</string>
+    <string name="clear_wsmessages">Clear WsMessages</string>
+    <string name="share_wsmessages">Share WsMessages</string>
+    <string name="empty_wsmessages">Oops! No logs are available currently. Please check after some time!</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>

@@ -7,7 +7,11 @@ package com.telnyx.webrtc.sdk.ui
 import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
-import com.telnyx.webrtc.sdk.*
+import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
@@ -33,11 +37,10 @@ class MainViewModel @Inject constructor(
     fun initConnection(context: Context, providedServerConfig: TxServerConfiguration?) {
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
-                telnyxClient?.connect(it)
+            telnyxClient?.connect(it)
         } ?: run {
             telnyxClient?.connect()
         }
-
     }
 
     fun saveUserData(
@@ -61,6 +64,8 @@ class MainViewModel @Inject constructor(
 
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient?.getSocketResponse()
+
+    fun getWsMessageResponse(): LiveData<JsonObject>? = telnyxClient?.getWsMessageResponse()
 
     fun setCurrentCall(callId: UUID) {
         calls = telnyxClient?.getActiveCalls()!!
@@ -120,11 +125,11 @@ class MainViewModel @Inject constructor(
         currentCall?.onLoudSpeakerPressed()
     }
 
-    fun dtmfPressed(callId: UUID, tone: String){
+    fun dtmfPressed(callId: UUID, tone: String) {
         currentCall?.dtmf(callId, tone)
     }
 
-     fun disconnect() {
+    fun disconnect() {
         telnyxClient?.disconnect()
         userManager.isUserLogin = false
     }

@@ -71,6 +71,11 @@ android {
         unitTests.returnDefaultValues = true
     }
 
+    buildFeatures{
+        viewBinding true
+        dataBinding true
+    }
+
     packagingOptions {
         exclude "META-INF/DEPENDENCIES"
         exclude "**/attach_hotspot_windows.dll"
