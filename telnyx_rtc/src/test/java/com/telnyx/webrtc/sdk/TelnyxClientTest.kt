@@ -62,7 +62,6 @@ class TelnyxClientTest : BaseTest() {
     lateinit var capabilities: NetworkCapabilities
 
     private val testDispatcher = StandardTestDispatcher()
-    
     @Spy
     private lateinit var socket: TxSocket
 
