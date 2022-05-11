@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.gson.JsonObject
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
@@ -115,7 +114,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun createAudioOutputSelectionDialog(): Dialog {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
@@ -158,74 +156,74 @@ class MainActivity : AppCompatActivity() {
             )
         }
         observeSocketResponses()
-
     }
 
     private fun observeSocketResponses() {
         mainViewModel.getSocketResponse()
-            ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
-                override fun onConnectionEstablished() {
-                    doLogin(isAutomaticLogin)
-                }
+            ?.observe(
+                this,
+                object : SocketObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        doLogin(isAutomaticLogin)
+                    }
 
-                override fun onMessageReceived(data: ReceivedMessageBody?) {
-                    Timber.d("onMessageReceived from SDK [%s]", data?.method)
-                    when (data?.method) {
-                        SocketMethod.CLIENT_READY.methodName -> {
-                            Timber.d("You are ready to make calls.")
-                        }
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                        when (data?.method) {
+                            SocketMethod.CLIENT_READY.methodName -> {
+                                Timber.d("You are ready to make calls.")
+                            }
 
-                        SocketMethod.LOGIN.methodName -> {
-                            progress_indicator_id.visibility = View.INVISIBLE
-                            val sessionId = (data.result as LoginResponse).sessid
-                            Timber.d("Current Session: $sessionId")
-                            onLoginSuccessfullyViews()
-                        }
+                            SocketMethod.LOGIN.methodName -> {
+                                progress_indicator_id.visibility = View.INVISIBLE
+                                val sessionId = (data.result as LoginResponse).sessid
+                                Timber.d("Current Session: $sessionId")
+                                onLoginSuccessfullyViews()
+                            }
 
-                        SocketMethod.INVITE.methodName -> {
-                            val inviteResponse = data.result as InviteResponse
-                            onReceiveCallView(
-                                inviteResponse.callId,
-                                inviteResponse.callerIdName,
-                                inviteResponse.callerIdNumber
-                            )
-                        }
+                            SocketMethod.INVITE.methodName -> {
+                                val inviteResponse = data.result as InviteResponse
+                                onReceiveCallView(
+                                    inviteResponse.callId,
+                                    inviteResponse.callerIdName,
+                                    inviteResponse.callerIdNumber
+                                )
+                            }
 
-                        SocketMethod.ANSWER.methodName -> {
-                            val callId = (data.result as AnswerResponse).callId
-                            launchCallInstance(callId)
-                            call_button_id.visibility = View.VISIBLE
-                            cancel_call_button_id.visibility = View.GONE
-                            invitationSent = false
-                        }
+                            SocketMethod.ANSWER.methodName -> {
+                                val callId = (data.result as AnswerResponse).callId
+                                launchCallInstance(callId)
+                                call_button_id.visibility = View.VISIBLE
+                                cancel_call_button_id.visibility = View.GONE
+                                invitationSent = false
+                            }
 
-                        SocketMethod.BYE.methodName -> {
-                            onByeReceivedViews()
+                            SocketMethod.BYE.methodName -> {
+                                onByeReceivedViews()
+                            }
                         }
                     }
-                }
 
-                override fun onLoading() {
-                    Timber.i("Loading...")
-                }
+                    override fun onLoading() {
+                        Timber.i("Loading...")
+                    }
 
-                override fun onError(message: String?) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        message ?: "Socket Connection Error",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    progress_indicator_id.visibility = View.INVISIBLE
+                    override fun onError(message: String?) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            message ?: "Socket Connection Error",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        progress_indicator_id.visibility = View.INVISIBLE
+                    }
                 }
-
-            })
+            )
     }
 
     private fun observeWsMessage() {
         mainViewModel.getWsMessageResponse()?.observe(this) {
             it?.let { wsMesssage ->
                 wsMessageList?.add(wsMesssage.toString())
-
             }
         }
     }
@@ -454,7 +452,6 @@ class MainActivity : AppCompatActivity() {
         mainViewModel.disconnect()
     }
 
-
     private fun onLoginSuccessfullyViews() {
         socket_text_value.text = getString(R.string.connected)
         login_section_id.visibility = View.GONE
@@ -570,7 +567,6 @@ class MainActivity : AppCompatActivity() {
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
-
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
                 // Handle Reject
                 notificationAcceptHandling = false

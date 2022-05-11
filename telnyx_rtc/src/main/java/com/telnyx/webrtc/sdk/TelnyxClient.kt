@@ -259,6 +259,9 @@ class TelnyxClient(
      */
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
+    /**
+     * Returns the  json messages from socket in the form of LiveData used for debugging purposes
+     */
     fun getWsMessageResponse(): LiveData<JsonObject> = wsMessagesResponseLiveDate
 
     /**

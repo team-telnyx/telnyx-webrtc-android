@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.telnyx.webrtc.sdk.databinding.ItemWsmessagesBinding
 
-
 class WsMessageAdapter(
     messageList: MutableList<String>?
 ) : RecyclerView.Adapter<WsMessagesViewHolder>() {
@@ -17,7 +16,6 @@ class WsMessageAdapter(
             wsMessagesList.addAll(messageList)
         }
     }
-
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WsMessagesViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
@@ -39,7 +37,6 @@ class WsMessageAdapter(
     fun addWsMessages(wsMessages: String) {
         wsMessagesList.add(wsMessages)
         notifyDataSetChanged()
-
     }
 
     fun clearWsMessages() {
@@ -47,4 +44,3 @@ class WsMessageAdapter(
         notifyDataSetChanged()
     }
 }
-

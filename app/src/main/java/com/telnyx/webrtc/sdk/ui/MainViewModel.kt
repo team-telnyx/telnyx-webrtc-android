@@ -41,7 +41,6 @@ class MainViewModel @Inject constructor(
         } ?: run {
             telnyxClient?.connect()
         }
-
     }
 
     fun saveUserData(

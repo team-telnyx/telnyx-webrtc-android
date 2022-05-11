@@ -21,7 +21,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
-
 class WsMessageFragment : Fragment() {
     private lateinit var binding: FragmentWsmessageBinding
     private val mainViewModel: MainViewModel by activityViewModels()
@@ -73,7 +72,6 @@ class WsMessageFragment : Fragment() {
         }
     }
 
-
     private fun setupViews() {
         binding.buttonClearwsmessage.setOnClickListener {
             wsMessageAdapter?.clearWsMessages()
@@ -98,7 +96,6 @@ class WsMessageFragment : Fragment() {
                 wsMessages.forEach {
 
                     outputStream.write(it.toByteArray())
-
                 }
                 outputStream.close()
 

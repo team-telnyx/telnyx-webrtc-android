@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.databinding.ItemWsmessagesBinding
 
-
 class WsMessagesViewHolder(private val binding: ItemWsmessagesBinding) :
     RecyclerView.ViewHolder(binding.root) {
 
@@ -16,6 +15,4 @@ class WsMessagesViewHolder(private val binding: ItemWsmessagesBinding) :
 
         binding.textviewWsmessages.text = formattedWsMessageJson
     }
-
-
 }
