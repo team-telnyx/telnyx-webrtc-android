@@ -24,6 +24,10 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineDispatcher
+import kotlinx.coroutines.test.setMain
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -56,6 +60,8 @@ class TelnyxClientTest : BaseTest() {
 
     @MockK lateinit var capabilities: NetworkCapabilities
 
+    private val testDispatcher = StandardTestDispatcher()
+    
     @Spy
     private lateinit var socket: TxSocket
 
@@ -72,6 +78,8 @@ class TelnyxClientTest : BaseTest() {
     fun setUp() {
         MockKAnnotations.init(this, true, true, true)
         networkCallbackSetup()
+
+        Dispatchers.setMain(testDispatcher)
 
         BuildConfig.IS_TESTING.set(true)
         audioManager = Mockito.spy(AudioManager::class.java)
