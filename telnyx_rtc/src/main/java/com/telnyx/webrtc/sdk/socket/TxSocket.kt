@@ -46,9 +46,12 @@ class TxSocket(
 
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
-     * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our relevant listener methods via the [TxSocketListener] interface
-     * @param providedHostAddress the host address specified when connecting, will default to Telnyx Production Host if not specified.
-     * @param providedPort the port specified when connecting, will use default Telnyx Port if not specified.
+     * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
+     * relevant listener methods via the [TxSocketListener] interface
+     * @param providedHostAddress the host address specified when connecting,
+     * will default to Telnyx Production Host if not specified.
+     * @param providedPort the port specified when connecting,
+     * will use default Telnyx Port if not specified.
      * @see [TxSocketListener]
      */
     fun connect(
