@@ -24,6 +24,9 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.setMain
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -52,10 +55,13 @@ class TelnyxClientTest : BaseTest() {
     @MockK
     lateinit var connectivityManager: ConnectivityManager
 
-    @MockK lateinit var activeNetwork: Network
+    @MockK
+    lateinit var activeNetwork: Network
 
-    @MockK lateinit var capabilities: NetworkCapabilities
+    @MockK
+    lateinit var capabilities: NetworkCapabilities
 
+    private val testDispatcher = StandardTestDispatcher()
     @Spy
     private lateinit var socket: TxSocket
 
@@ -72,6 +78,8 @@ class TelnyxClientTest : BaseTest() {
     fun setUp() {
         MockKAnnotations.init(this, true, true, true)
         networkCallbackSetup()
+
+        Dispatchers.setMain(testDispatcher)
 
         BuildConfig.IS_TESTING.set(true)
         audioManager = Mockito.spy(AudioManager::class.java)
@@ -104,8 +112,15 @@ class TelnyxClientTest : BaseTest() {
         } returns request
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
         every { connectivityManager.registerNetworkCallback(any(), callback) } just Runs
-        every { connectivityManager.registerNetworkCallback(any(), callback) } answers { registered = true }
-        every { connectivityManager.unregisterNetworkCallback(callback) } answers { registered = false }
+        every {
+            connectivityManager.registerNetworkCallback(
+                any(),
+                callback
+            )
+        } answers { registered = true }
+        every { connectivityManager.unregisterNetworkCallback(callback) } answers {
+            registered = false
+        }
         every { connectivityHelper.isNetworkEnabled(mockContext) } returns true
         every { connectivityHelper.registerNetworkStatusCallback(mockContext, callback) } just Runs
 
@@ -237,7 +252,8 @@ class TelnyxClientTest : BaseTest() {
         client.tokenLogin(config)
 
         Thread.sleep(3000)
-        Mockito.verify(client.socket, Mockito.times(1)).send(dataObject = any(SendingMessageBody::class.java))
+        Mockito.verify(client.socket, Mockito.times(1))
+            .send(dataObject = any(SendingMessageBody::class.java))
     }
 
     @Test
@@ -266,7 +282,8 @@ class TelnyxClientTest : BaseTest() {
         val jsonMock = Mockito.mock(JsonObject::class.java)
 
         Thread.sleep(3000)
-        Mockito.verify(client.socket, Mockito.times(1)).send(dataObject = any(SendingMessageBody::class.java))
+        Mockito.verify(client.socket, Mockito.times(1))
+            .send(dataObject = any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onClientReady(jsonMock)
     }
 
@@ -337,7 +354,10 @@ class TelnyxClientTest : BaseTest() {
         client.credentialLogin(config)
 
         Thread.sleep(1000)
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("No Network Connection"))
+        assertEquals(
+            client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("No Network Connection")
+        )
     }
 
     @Test
@@ -353,7 +373,10 @@ class TelnyxClientTest : BaseTest() {
         client = Mockito.spy(TelnyxClient(mockContext))
         val sessid = UUID.randomUUID().toString()
         client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("Gateway registration has timed out"))
+        assertEquals(
+            client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("Gateway registration has timed out")
+        )
     }
 
     /*@Test
@@ -448,7 +471,10 @@ class TelnyxClientTest : BaseTest() {
         errorMessageBody.addProperty("message", "my error message")
         errorJson.add("error", errorMessageBody)
         client.onErrorReceived(errorJson)
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("my error message"))
+        assertEquals(
+            client.socketResponseLiveData.getOrAwaitValue(),
+            SocketResponse.error("my error message")
+        )
     }
 
     @Test
