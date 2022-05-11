@@ -13,9 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.databinding.FragmentWsmessageBinding
-import com.telnyx.webrtc.sdk.model.WsMessageData
 import com.telnyx.webrtc.sdk.ui.MainViewModel
-import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,21 +66,11 @@ class WsMessageFragment : Fragment() {
     }
 
     private fun observeWsMessages() {
-        mainViewModel.getWsMessageResponse()?.observe(
-            this.viewLifecycleOwner, object : SocketObserver<WsMessageData>() {
-                override fun onConnectionEstablished() {}
-
-                override fun onMessageReceived(data: WsMessageData?) {
-                    data?.wsMessageJsonObject?.let {
-                        wsMessageAdapter?.addWsMessages(it.toString())
-                    }
-                }
-
-                override fun onLoading() {}
-
-                override fun onError(message: String?) {}
+        mainViewModel.getWsMessageResponse()?.observe(this) {
+            it?.let { wsMesssage ->
+                wsMessageAdapter?.addWsMessages(wsMesssage.toString())
             }
-        )
+        }
     }
 
 

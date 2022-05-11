@@ -60,11 +60,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '11'
     }
     testOptions {
         unitTests.includeAndroidResources = true
@@ -135,20 +135,20 @@ dependencies {
 
     implementation deps.hilt.android
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'com.google.firebase:firebase-inappmessaging-display:20.1.1'
+    implementation 'com.google.firebase:firebase-inappmessaging-display:20.1.2'
     kapt deps.hilt.compiler
 
     //Testing:
     testImplementation "androidx.arch.core:core-testing:2.1.0"
     androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.1'
     testImplementation('org.robolectric:robolectric:4.7.3') {
         exclude group: 'com.google.protobuf'
     }
-    testImplementation "io.mockk:mockk:1.12.1"
+    testImplementation "io.mockk:mockk:1.12.3"
     testImplementation "com.squareup.okhttp3:mockwebserver:4.9.3"
     testImplementation 'org.hamcrest:hamcrest-library:2.2'
-    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.5.2"
+    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.0"
 
     // jUnit 4
     testImplementation 'junit:junit:4.13.2'
@@ -162,7 +162,7 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$jupiter_version"
     testImplementation "org.junit.jupiter:junit-jupiter-params:$jupiter_version"
 
-    def kotest_version = "5.0.2"
+    def kotest_version = "5.1.0"
     testImplementation "io.kotest:kotest-runner-junit5:$kotest_version"
     testImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
     testImplementation "io.kotest:kotest-property-jvm:$kotest_version"
@@ -184,8 +184,8 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:truth:1.4.0'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.work:work-testing:2.7.1'
-    androidTestImplementation "io.mockk:mockk-android:1.12.1"
-    debugImplementation 'androidx.fragment:fragment-testing:1.4.0'
+    androidTestImplementation "io.mockk:mockk-android:1.12.3"
+    debugImplementation 'androidx.fragment:fragment-testing:1.4.1'
     debugImplementation 'androidx.test:core-ktx:1.4.0'
 
     androidTestImplementation 'androidx.test.espresso:espresso-intents:3.4.0'
@@ -194,8 +194,8 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
 
-    testImplementation "org.mockito:mockito-core:4.1.0"
-    androidTestImplementation "org.mockito:mockito-android:4.1.0"
+    testImplementation "org.mockito:mockito-core:4.5.1"
+    androidTestImplementation "org.mockito:mockito-android:4.5.1"
 
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'

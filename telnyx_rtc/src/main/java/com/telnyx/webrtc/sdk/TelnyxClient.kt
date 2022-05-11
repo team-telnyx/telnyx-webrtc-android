@@ -66,7 +66,7 @@ class TelnyxClient(
 
     private var sessionId: String? = null
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
-    val wsMessagesResponseLiveDate = MutableLiveData<SocketResponse<WsMessageData>>()
+    val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
@@ -259,7 +259,7 @@ class TelnyxClient(
      */
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
-    fun getWsMessageResponse(): LiveData<SocketResponse<WsMessageData>> = wsMessagesResponseLiveDate
+    fun getWsMessageResponse(): LiveData<JsonObject> = wsMessagesResponseLiveDate
 
     /**
      * Returns all active calls that have been stored in our calls MutableMap

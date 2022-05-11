@@ -11,8 +11,6 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
-import com.telnyx.webrtc.sdk.model.WsMessageData
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
@@ -98,11 +96,8 @@ class TxSocket(
                         text
                     )
                     val jsonObject = gson.fromJson(text, JsonObject::class.java)
-                    listener.wsMessagesResponseLiveDate.postValue(
-                        SocketResponse.messageReceived(
-                            WsMessageData(jsonObject)
-                        )
-                    )
+                    listener.wsMessagesResponseLiveDate.postValue(jsonObject)
+
                     var params: JsonObject? = null
                     if (jsonObject.has("params")) {
                         params = jsonObject.get("params").asJsonObject

@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.gson.JsonObject
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
@@ -27,7 +28,10 @@ import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
-import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.model.AudioDevice
+import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -218,31 +222,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeWsMessage() {
-        mainViewModel.getWsMessageResponse()?.observe(
-            this, object : SocketObserver<WsMessageData>() {
-                override fun onConnectionEstablished() {
-                    TODO("Not yet implemented")
-                }
-
-                override fun onMessageReceived(data: WsMessageData?) {
-                    data?.let {
-                        wsMessageList?.add(data.wsMessageJsonObject.toString())
-                    } ?: run {
-                        wsMessageList = ArrayList()
-                    }
-
-                }
-
-                override fun onLoading() {
-                    TODO("Not yet implemented")
-                }
-
-                override fun onError(message: String?) {
-                    TODO("Not yet implemented")
-                }
+        mainViewModel.getWsMessageResponse()?.observe(this) {
+            it?.let { wsMesssage ->
+                wsMessageList?.add(wsMesssage.toString())
 
             }
-        )
+        }
     }
 
     private fun updateEnvText(isDevEnvironment: Boolean) {
