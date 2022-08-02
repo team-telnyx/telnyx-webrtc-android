@@ -441,7 +441,7 @@ class TelnyxClient(
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            if (!mediaPlayer!!.isPlaying) {
+            if (mediaPlayer?.isPlaying == false) {
                 mediaPlayer!!.start()
                 mediaPlayer!!.isLooping = true
             }
@@ -461,7 +461,7 @@ class TelnyxClient(
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)
             mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            if (!mediaPlayer!!.isPlaying) {
+            if (mediaPlayer?.isPlaying == false) {
                 mediaPlayer!!.start()
                 mediaPlayer!!.isLooping = true
             }
@@ -475,9 +475,11 @@ class TelnyxClient(
      * @see [MediaPlayer]
      */
     internal fun stopMediaPlayer() {
-        if (mediaPlayer != null && mediaPlayer!!.isPlaying) {
+        if (mediaPlayer != null) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
+            mediaPlayer!!.release()
+            mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
     }
