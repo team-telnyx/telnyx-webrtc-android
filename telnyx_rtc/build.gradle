@@ -201,7 +201,7 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-process:2.4.1'
     testImplementation deps.ktor.client_test
 
-    implementation 'org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.6.21'
+    implementation 'org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.7.10'
 
 
     //BugSnag:
