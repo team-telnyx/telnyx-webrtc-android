@@ -217,11 +217,11 @@ dependencies {
     //Testing:
     testImplementation "androidx.arch.core:core-testing:2.1.0"
     androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.1'
-    testImplementation('org.robolectric:robolectric:4.7.3') {
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4'
+    testImplementation('org.robolectric:robolectric:4.8.1') {
         exclude group: 'com.google.protobuf'
     }
-    testImplementation "io.mockk:mockk:1.12.3"
+    testImplementation "io.mockk:mockk:1.12.5"
     testImplementation "com.squareup.okhttp3:mockwebserver:4.9.3"
     testImplementation 'org.hamcrest:hamcrest-library:2.2'
 
@@ -236,14 +236,14 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$jupiter_version"
     testImplementation "org.junit.jupiter:junit-jupiter-params:$jupiter_version"
 
-    def kotest_version = "5.1.0"
+    def kotest_version = "5.3.0"
     testImplementation "io.kotest:kotest-runner-junit5:$kotest_version"
     testImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
     testImplementation "io.kotest:kotest-property-jvm:$kotest_version"
     androidTestImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
     androidTestImplementation "io.kotest:kotest-property-jvm:$kotest_version"
 
-    testImplementation "org.slf4j:slf4j-nop:1.7.32"
+    testImplementation "org.slf4j:slf4j-nop:1.7.36"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 
@@ -256,7 +256,7 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:truth:1.4.0'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.work:work-testing:2.7.1'
-    androidTestImplementation "io.mockk:mockk-android:1.12.3"
+    androidTestImplementation "io.mockk:mockk-android:1.12.5"
     debugImplementation 'androidx.fragment:fragment-testing:1.4.1'
     debugImplementation 'androidx.test:core-ktx:1.4.0'
 
