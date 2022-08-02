@@ -31,7 +31,9 @@ publishing {
             groupId 'com.telnyx.webrtc.sdk.telnyx_rtc'
             artifactId getArtifactId()
             version getVersionName()
-            artifact("$buildDir/outputs/aar/${getArtifactId()}-release.aar")
+            artifact("$buildDir/outputs/aar/${getArtifactId()}-release.aar") {
+                builtBy assemble
+            }
             artifact(sourceJar)
             pom.withXml {
                 final dependenciesNode = asNode().appendNode('dependencies')
