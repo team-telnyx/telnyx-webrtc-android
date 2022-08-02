@@ -431,7 +431,7 @@ class MainActivity : AppCompatActivity() {
             } else if (task.isSuccessful) {
                 // Get new FCM registration token
                 try {
-                    token = task.result
+                    token = task.result.toString()
                 } catch (e: IOException) {
                     Timber.d(e)
                 }
