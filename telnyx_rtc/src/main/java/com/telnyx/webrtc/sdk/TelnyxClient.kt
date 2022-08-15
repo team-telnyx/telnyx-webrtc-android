@@ -83,7 +83,15 @@ class TelnyxClient(
      */
     private fun buildCall(): Call? {
         sessionId?.let {
-            return Call(context, this, socket, sessionId!!, audioManager!!, providedTurn!!, providedStun!!)
+            return Call(
+                context,
+                this,
+                socket,
+                sessionId!!,
+                audioManager!!,
+                providedTurn!!,
+                providedStun!!
+            )
         }
         socketResponseLiveData.postValue(SocketResponse.error("Session ID is not set, failed to build call"))
         return null
@@ -111,10 +119,13 @@ class TelnyxClient(
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
-            // User has been logged in
-            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                runBlocking { reconnectToSocket() }
-                reconnecting = false
+            // There is no ongoing call which this reconnect logic will mess with
+            if (calls.isEmpty()) {
+                // User has been logged in
+                if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
+                    runBlocking { reconnectToSocket() }
+                    reconnecting = false
+                }
             }
         }
 
@@ -123,8 +134,11 @@ class TelnyxClient(
                 "[%s] :: There is no network available",
                 this@TelnyxClient.javaClass.simpleName
             )
-            reconnecting = true
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            // There is no ongoing call which this reconnect logic will mess with.
+            if (calls.isEmpty()) {
+                reconnecting = true
+                socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            }
         }
     }
 
@@ -610,7 +624,10 @@ class TelnyxClient(
             GatewayState.FAIL_WAIT.state -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
-                    Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
+                    Timber.d(
+                        "[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME",
+                        this@TelnyxClient.javaClass.simpleName
+                    )
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
@@ -680,7 +697,11 @@ class TelnyxClient(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onRingingReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        Timber.d(
+            "[%s] :: onRingingReceived [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            jsonObject
+        )
         call?.onRingingReceived(jsonObject)
     }
 

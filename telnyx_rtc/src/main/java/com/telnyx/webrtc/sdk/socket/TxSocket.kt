@@ -43,6 +43,7 @@ class TxSocket(
 
     private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
+    private lateinit var storedClientListener: TelnyxClient
 
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
@@ -59,8 +60,10 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT
     ) = launch {
+        storedClientListener = listener
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+            .retryOnConnectionFailure(true)
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(25, TimeUnit.SECONDS)
@@ -203,10 +206,15 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Timber.tag("TxSocket").i("Socket is closed: $response $t")
+                    Timber.tag("TxSocket").i("Socket is closed: $response $t :: Will attempt to reconnect")
+                    reconnect()
                 }
             }
         )
+    }
+
+    internal fun reconnect() {
+        connect(storedClientListener, null, null)
     }
 
     /**
