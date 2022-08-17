@@ -46,7 +46,7 @@ data class AnswerResponse(
  * @param sdp the Session Description Protocol that is received as a part of the answer to the call.
  * @param callerIdName the name of the person who sent the invitation
  * @param callerIdNumber the number of the person who sent the invitation
- * @param sessionId the Telnyx Session ID on the socket connection.
+ * @param sessid the Telnyx Session ID on the socket connection.
  */
 @Parcelize
 data class InviteResponse(
@@ -58,6 +58,6 @@ data class InviteResponse(
     val callerIdName: String,
     @SerializedName("callerIdNumber")
     val callerIdNumber: String,
-    @SerializedName("sessionId")
-    val sessionId: String
+    @SerializedName("sessid")
+    val sessid: String
 ) : ReceivedResult(), Parcelable

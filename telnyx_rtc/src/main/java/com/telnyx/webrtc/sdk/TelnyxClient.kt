@@ -65,6 +65,7 @@ class TelnyxClient(
     private var mediaPlayer: MediaPlayer? = null
 
     private var sessionId: String? = null
+    var sessid: String // sessid used to recover calls when reconnecting
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
@@ -177,6 +178,9 @@ class TelnyxClient(
         if (!BuildConfig.IS_TESTING.get()) {
             Bugsnag.start(context)
         }
+
+        // Generate random UUID for sessid param, convert it to string and set globally
+        sessid = UUID.randomUUID().toString()
 
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
@@ -333,7 +337,8 @@ class TelnyxClient(
                 login = user,
                 passwd = password,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf()
+                loginParams = arrayListOf(),
+                sessid = sessid
             )
         )
 
@@ -374,7 +379,8 @@ class TelnyxClient(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf()
+                loginParams = arrayListOf(),
+                sessid = sessid
             )
         )
         socket.send(loginMessage)

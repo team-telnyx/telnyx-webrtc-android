@@ -19,7 +19,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
-import io.ktor.util.*
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
@@ -120,7 +119,7 @@ class Call(
                     id = uuid,
                     method = SocketMethod.INVITE.methodName,
                     params = CallParams(
-                        sessionId = sessionId,
+                        sessid = sessionId,
                         sdp = peerConnection?.getLocalDescription()?.description.toString(),
                         dialogParams = CallDialogParams(
                             callerIdName = callerName,
@@ -158,7 +157,7 @@ class Call(
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ANSWER.methodName,
                 CallParams(
-                    sessionId = sessionId,
+                    sessid = sessionId,
                     sdp = sessionDescriptionString,
                     dialogParams = CallDialogParams(
                         callId = callId,
@@ -256,7 +255,7 @@ class Call(
             id = uuid,
             method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
-                sessionId = sessionId,
+                sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
                     callId = callId,
@@ -279,7 +278,7 @@ class Call(
             id = uuid,
             method = SocketMethod.INFO.methodName,
             params = InfoParams(
-                sessionId = sessionId,
+                sessid = sessionId,
                 dtmf = tone,
                 dialogParams = CallDialogParams(
                     callId = callId,
