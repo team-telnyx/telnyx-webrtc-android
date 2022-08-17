@@ -89,4 +89,17 @@ interface TxSocketListener {
      * @see [IceCandidate]
      */
     fun onIceCandidateReceived(iceCandidate: IceCandidate)
+
+    /**
+     * Fires once a connection has been reestablished during an ongoing call and a session
+     * is being reattached
+     * @param jsonObject, the socket response in a jsonObject format
+     */
+    fun onAttachReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when network has dropped during an ongoing call. Signifies that the SDK will attempt
+     * to recover once network has returned
+     */
+    fun setCallRecovering()
 }

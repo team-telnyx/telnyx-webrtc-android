@@ -21,6 +21,7 @@ package com.telnyx.webrtc.sdk.model
  */
 enum class SocketMethod(var methodName: String) {
     ANSWER("telnyx_rtc.answer"),
+    ATTACH("telnyx_rtc.attach"),
     INVITE("telnyx_rtc.invite"),
     BYE("telnyx_rtc.bye"),
     MODIFY("telnyx_rtc.modify"),

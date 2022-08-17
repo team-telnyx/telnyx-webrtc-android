@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.bugsnag.android.Bugsnag
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.TelnyxClient.Companion.RETRY_REGISTER_TIME
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
@@ -121,12 +122,9 @@ class TelnyxClient(
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             // There is no ongoing call which this reconnect logic will mess with
-            if (calls.isEmpty()) {
-                // User has been logged in
-                if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                    runBlocking { reconnectToSocket() }
-                    reconnecting = false
-                }
+            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
+                runBlocking { reconnectToSocket() }
+                reconnecting = false
             }
         }
 
@@ -135,11 +133,8 @@ class TelnyxClient(
                 "[%s] :: There is no network available",
                 this@TelnyxClient.javaClass.simpleName
             )
-            // There is no ongoing call which this reconnect logic will mess with.
-            if (calls.isEmpty()) {
-                reconnecting = true
-                socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
-            }
+            reconnecting = true
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
     }
 
@@ -713,6 +708,14 @@ class TelnyxClient(
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         call?.onIceCandidateReceived(iceCandidate)
+    }
+
+    override fun onAttachReceived(jsonObject: JsonObject) {
+        call?.onAttachReceived(jsonObject)
+    }
+
+    override fun setCallRecovering() {
+        call?.setCallRecovering()
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
