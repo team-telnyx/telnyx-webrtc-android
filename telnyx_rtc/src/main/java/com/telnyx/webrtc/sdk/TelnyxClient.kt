@@ -167,10 +167,10 @@ class TelnyxClient(
             credentialSessionConfig?.let {
                 credentialLogin(it)
             } ?: tokenLogin(tokenSessionConfig!!)
-        }
 
-        // Change an ongoing call's socket to the new socket.
-        call?.let { call?.socket = socket }
+            // Change an ongoing call's socket to the new socket.
+            call?.let { call?.socket = socket }
+        }
     }
 
     init {
