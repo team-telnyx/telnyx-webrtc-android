@@ -121,7 +121,7 @@ class TelnyxClient(
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
-            // There is no ongoing call which this reconnect logic will mess with
+            // User has been logged in
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
                 runBlocking { reconnectToSocket() }
                 reconnecting = false
