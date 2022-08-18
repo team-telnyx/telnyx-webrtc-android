@@ -123,8 +123,6 @@ class TxSocket(
                                 val message = result.get("message").asString
                                 if (message == "logged in" && isLoggedIn) {
                                     listener.onClientReady(jsonObject)
-                                } else {
-                                    listener.onSessionIdReceived(jsonObject)
                                 }
                             }
                         }

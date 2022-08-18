@@ -13,7 +13,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.bugsnag.android.Bugsnag
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.TelnyxClient.Companion.RETRY_REGISTER_TIME
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
@@ -65,7 +64,6 @@ class TelnyxClient(
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    private var sessionId: String? = null
     var sessid: String // sessid used to recover calls when reconnecting
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
@@ -83,20 +81,18 @@ class TelnyxClient(
      * Will return null if there has been no session established (No successful connection and login)
      * @return [Call]
      */
-    private fun buildCall(): Call? {
-        sessionId?.let {
+    private fun buildCall(): Call {
+        sessid.let {
             return Call(
                 context,
                 this,
                 socket,
-                sessionId!!,
+                sessid,
                 audioManager!!,
                 providedTurn!!,
                 providedStun!!
             )
         }
-        socketResponseLiveData.postValue(SocketResponse.error("Session ID is not set, failed to build call"))
-        return null
     }
 
     /**
@@ -523,7 +519,7 @@ class TelnyxClient(
             this@TelnyxClient.javaClass.simpleName,
             receivedLoginSessionId
         )
-        sessionId = receivedLoginSessionId
+        sessid = receivedLoginSessionId
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
@@ -591,12 +587,6 @@ class TelnyxClient(
         }
     }
 
-    override fun onSessionIdReceived(jsonObject: JsonObject) {
-        val result = jsonObject.get("result")
-        val sessId = result.asJsonObject.get("sessid").asString
-        sessionId = sessId
-    }
-
     override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
@@ -606,12 +596,8 @@ class TelnyxClient(
                     resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
-                    if (sessionId != null) {
-                        resetGatewayCounters()
-                        onLoginSuccessful(sessionId!!)
-                    } else {
-                        socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
-                    }
+                    resetGatewayCounters()
+                    onLoginSuccessful(sessid)
                 }
             }
             GatewayState.NOREG.state -> {

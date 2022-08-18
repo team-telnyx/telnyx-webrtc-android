@@ -21,13 +21,6 @@ interface TxSocketListener {
     fun onClientReady(jsonObject: JsonObject)
 
     /**
-     * Fires once we have received a sessionID from the Telnyx web socket.
-     * @param jsonObject, the socket response in a jsonObject format
-     * @see [TxSocket]
-     */
-    fun onSessionIdReceived(jsonObject: JsonObject)
-
-    /**
      * Fires once a Gateway state has been received. These are used to find a verified registration
      * @param gatewayState, the string representation of the gateway state received from the socket connection
      * @param sessionId, the string representation of the session ID received from the socket connection
