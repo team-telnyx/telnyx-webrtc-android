@@ -81,17 +81,22 @@ class TelnyxClient(
      * Will return null if there has been no session established (No successful connection and login)
      * @return [Call]
      */
-    private fun buildCall(): Call {
-        sessid.let {
-            return Call(
-                context,
-                this,
-                socket,
-                sessid,
-                audioManager!!,
-                providedTurn!!,
-                providedStun!!
-            )
+    private fun buildCall(): Call? {
+        if (!BuildConfig.IS_TESTING.get()) {
+            sessid.let {
+                return Call(
+                    context,
+                    this,
+                    socket,
+                    sessid,
+                    audioManager!!,
+                    providedTurn!!,
+                    providedStun!!
+                )
+            }
+        } else {
+            // We are testing, and will instead return a mocked call.
+            return null
         }
     }
 
