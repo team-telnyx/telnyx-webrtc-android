@@ -601,11 +601,7 @@ class Call(
         // NOOP
     }
 
-    override fun onSessionIdReceived(jsonObject: JsonObject) {
-        // NOOP
-    }
-
-    override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
+    override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         // NOOP
     }
 

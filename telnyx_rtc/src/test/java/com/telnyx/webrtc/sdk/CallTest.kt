@@ -40,12 +40,16 @@ class CallTest : BaseTest() {
 
     @MockK
     private lateinit var mockContext: Context
+
     @Spy
     lateinit var client: TelnyxClient
+
     @Spy
     lateinit var socket: TxSocket
+
     @Spy
     lateinit var call: Call
+
     @MockK
     lateinit var audioManager: AudioManager
 
@@ -153,7 +157,8 @@ class CallTest : BaseTest() {
         )
         call.dtmf(UUID.randomUUID(), "2")
         Thread.sleep(1000)
-        Mockito.verify(client.socket, Mockito.times(1)).send(ArgumentMatchers.any(SendingMessageBody::class.java))
+        Mockito.verify(client.socket, Mockito.times(1))
+            .send(ArgumentMatchers.any(SendingMessageBody::class.java))
     }
 
     @Test
@@ -205,24 +210,6 @@ class CallTest : BaseTest() {
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
             call.onClientReady(JsonObject())
-        }
-    }
-
-    @Test
-    fun `NOOP onSessionIdReceived test`() {
-        assertDoesNotThrow {
-            client = Mockito.spy(TelnyxClient(mockContext))
-            client.socket = Mockito.spy(
-                TxSocket(
-                    host_address = "rtc.telnyx.com",
-                    port = 14938,
-                )
-            )
-
-            call = Mockito.spy(
-                Call(mockContext, client, client.socket, "123", audioManager)
-            )
-            call.onSessionIdReceived(JsonObject())
         }
     }
 
