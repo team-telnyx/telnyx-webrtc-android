@@ -19,7 +19,6 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
-import io.ktor.util.*
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
@@ -120,7 +119,7 @@ class Call(
                     id = uuid,
                     method = SocketMethod.INVITE.methodName,
                     params = CallParams(
-                        sessionId = sessionId,
+                        sessid = sessionId,
                         sdp = peerConnection?.getLocalDescription()?.description.toString(),
                         dialogParams = CallDialogParams(
                             callerIdName = callerName,
@@ -158,7 +157,7 @@ class Call(
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ANSWER.methodName,
                 CallParams(
-                    sessionId = sessionId,
+                    sessid = sessionId,
                     sdp = sessionDescriptionString,
                     dialogParams = CallDialogParams(
                         callId = callId,
@@ -170,6 +169,37 @@ class Call(
             client.stopMediaPlayer()
             callStateLiveData.postValue(CallState.ACTIVE)
             client.callOngoing()
+        }
+    }
+
+    /**
+     * Accepts an attach invitation
+     * Functions the same as the acceptCall but changes the attach param to true
+     * @param callId, the callId provided with the invitation
+     * @param destinationNumber, the number or SIP name that will receive the invitation
+     * @see [Call]
+     */
+    private fun acceptReattachCall(callId: UUID, destinationNumber: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val sessionDescriptionString =
+            peerConnection?.getLocalDescription()?.description
+        if (sessionDescriptionString == null) {
+            callStateLiveData.postValue(CallState.ERROR)
+        } else {
+            val answerBodyMessage = SendingMessageBody(
+                uuid, SocketMethod.ATTACH.methodName,
+                CallParams(
+                    sessid = sessionId,
+                    sdp = sessionDescriptionString,
+                    dialogParams = CallDialogParams(
+                        attach = true,
+                        callId = callId,
+                        destinationNumber = destinationNumber
+                    )
+                )
+            )
+            socket.send(answerBodyMessage)
+            callStateLiveData.postValue(CallState.ACTIVE)
         }
     }
 
@@ -256,7 +286,7 @@ class Call(
             id = uuid,
             method = SocketMethod.MODIFY.methodName,
             params = ModifyParams(
-                sessionId = sessionId,
+                sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
                     callId = callId,
@@ -279,7 +309,7 @@ class Call(
             id = uuid,
             method = SocketMethod.INFO.methodName,
             params = InfoParams(
-                sessionId = sessionId,
+                sessid = sessionId,
                 dtmf = tone,
                 dialogParams = CallDialogParams(
                     callId = callId,
@@ -526,15 +556,52 @@ class Call(
         )
     }
 
+    override fun onAttachReceived(jsonObject: JsonObject) {
+        Timber.d("[%s] :: onAttachReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = UUID.fromString(params.get("callID").asString)
+        val remoteSdp = params.get("sdp").asString
+        val callerNumber = params.get("caller_id_number").asString
+
+        peerConnection = Peer(
+            context, client, providedTurn, providedStun,
+            object : PeerConnectionObserver() {
+                override fun onIceCandidate(p0: IceCandidate?) {
+                    super.onIceCandidate(p0)
+                    peerConnection?.addIceCandidate(p0)
+                }
+            }
+        )
+
+        peerConnection?.startLocalAudioCapture()
+
+        peerConnection?.onRemoteSessionReceived(
+            SessionDescription(
+                SessionDescription.Type.OFFER,
+                remoteSdp
+            )
+        )
+
+        peerConnection?.answer(AppSdpObserver())
+
+        val iceCandidateTimer = Timer()
+        iceCandidateTimer.schedule(
+            timerTask {
+                acceptReattachCall(callId, callerNumber)
+            },
+            ICE_CANDIDATE_DELAY
+        )
+    }
+
+    override fun setCallRecovering() {
+        callStateLiveData.postValue(CallState.RECOVERING)
+    }
+
     override fun onClientReady(jsonObject: JsonObject) {
         // NOOP
     }
 
-    override fun onSessionIdReceived(jsonObject: JsonObject) {
-        // NOOP
-    }
-
-    override fun onGatewayStateReceived(gatewayState: String, sessionId: String?) {
+    override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         // NOOP
     }
 

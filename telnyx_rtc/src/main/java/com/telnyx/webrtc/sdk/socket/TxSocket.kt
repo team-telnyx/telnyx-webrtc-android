@@ -61,6 +61,7 @@ class TxSocket(
     ) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
+            .retryOnConnectionFailure(true)
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(25, TimeUnit.SECONDS)
@@ -122,8 +123,6 @@ class TxSocket(
                                 val message = result.get("message").asString
                                 if (message == "logged in" && isLoggedIn) {
                                     listener.onClientReady(jsonObject)
-                                } else {
-                                    listener.onSessionIdReceived(jsonObject)
                                 }
                             }
                         }
@@ -143,6 +142,9 @@ class TxSocket(
                             when (jsonObject.get("method").asString) {
                                 CLIENT_READY.methodName -> {
                                     listener.onClientReady(jsonObject)
+                                }
+                                ATTACH.methodName -> {
+                                    listener.onAttachReceived(jsonObject)
                                 }
                                 INVITE.methodName -> {
                                     listener.onOfferReceived(jsonObject)
@@ -203,7 +205,11 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Timber.tag("TxSocket").i("Socket is closed: $response $t")
+                    Timber.tag("TxSocket")
+                        .i("Socket is closed: $response $t :: Will attempt to reconnect")
+                    if (ongoingCall) {
+                        listener.call?.setCallRecovering()
+                    }
                 }
             }
         )

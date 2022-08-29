@@ -64,7 +64,7 @@ class TelnyxClient(
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    private var sessionId: String? = null
+    var sessid: String // sessid used to recover calls when reconnecting
     val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
@@ -82,11 +82,22 @@ class TelnyxClient(
      * @return [Call]
      */
     private fun buildCall(): Call? {
-        sessionId?.let {
-            return Call(context, this, socket, sessionId!!, audioManager!!, providedTurn!!, providedStun!!)
+        if (!BuildConfig.IS_TESTING.get()) {
+            sessid.let {
+                return Call(
+                    context,
+                    this,
+                    socket,
+                    sessid,
+                    audioManager!!,
+                    providedTurn!!,
+                    providedStun!!
+                )
+            }
+        } else {
+            // We are testing, and will instead return a mocked call.
+            return null
         }
-        socketResponseLiveData.postValue(SocketResponse.error("Session ID is not set, failed to build call"))
-        return null
     }
 
     /**
@@ -153,16 +164,19 @@ class TelnyxClient(
             credentialSessionConfig?.let {
                 credentialLogin(it)
             } ?: tokenLogin(tokenSessionConfig!!)
-        }
 
-        // Change an ongoing call's socket to the new socket.
-        call?.let { call?.socket = socket }
+            // Change an ongoing call's socket to the new socket.
+            call?.let { call?.socket = socket }
+        }
     }
 
     init {
         if (!BuildConfig.IS_TESTING.get()) {
             Bugsnag.start(context)
         }
+
+        // Generate random UUID for sessid param, convert it to string and set globally
+        sessid = UUID.randomUUID().toString()
 
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
@@ -319,7 +333,8 @@ class TelnyxClient(
                 login = user,
                 passwd = password,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf()
+                loginParams = arrayListOf(),
+                sessid = sessid
             )
         )
 
@@ -360,7 +375,8 @@ class TelnyxClient(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf()
+                loginParams = arrayListOf(),
+                sessid = sessid
             )
         )
         socket.send(loginMessage)
@@ -508,7 +524,7 @@ class TelnyxClient(
             this@TelnyxClient.javaClass.simpleName,
             receivedLoginSessionId
         )
-        sessionId = receivedLoginSessionId
+        sessid = receivedLoginSessionId
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
@@ -576,12 +592,6 @@ class TelnyxClient(
         }
     }
 
-    override fun onSessionIdReceived(jsonObject: JsonObject) {
-        val result = jsonObject.get("result")
-        val sessId = result.asJsonObject.get("sessid").asString
-        sessionId = sessId
-    }
-
     override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
@@ -591,12 +601,8 @@ class TelnyxClient(
                     resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
-                    if (sessionId != null) {
-                        resetGatewayCounters()
-                        onLoginSuccessful(sessionId!!)
-                    } else {
-                        socketResponseLiveData.postValue(SocketResponse.error("No session ID received. Please try again"))
-                    }
+                    resetGatewayCounters()
+                    onLoginSuccessful(sessid)
                 }
             }
             GatewayState.NOREG.state -> {
@@ -610,7 +616,10 @@ class TelnyxClient(
             GatewayState.FAIL_WAIT.state -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
-                    Timber.d("[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME", this@TelnyxClient.javaClass.simpleName)
+                    Timber.d(
+                        "[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME",
+                        this@TelnyxClient.javaClass.simpleName
+                    )
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
@@ -680,12 +689,24 @@ class TelnyxClient(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onRingingReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+        Timber.d(
+            "[%s] :: onRingingReceived [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            jsonObject
+        )
         call?.onRingingReceived(jsonObject)
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         call?.onIceCandidateReceived(iceCandidate)
+    }
+
+    override fun onAttachReceived(jsonObject: JsonObject) {
+        call?.onAttachReceived(jsonObject)
+    }
+
+    override fun setCallRecovering() {
+        call?.setCallRecovering()
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {

@@ -64,7 +64,7 @@ class UserManager @Inject constructor(private val sharedPreferences: SharedPrefe
         }
         set(callerNumber) = sharedPreferences.edit().putString(KEY_USER_CALLER_ID_NUMBER, callerNumber).apply()
 
-    var sessionId: String
+    var sessid: String
         get() {
             val temp = sharedPreferences.getString(KEY_USER_SESSION_ID, "")
             return temp ?: ""
