@@ -21,7 +21,7 @@ versions.dexter = "6.2.2"
 versions.googleservices = "4.3.8"
 versions.volley = "1.1.1"
 versions.firebasebom = "28.2.1"
-versions.hilt = "2.38.1"
+versions.hilt = "2.43.2"
 versions.bugsnag = "7.+"
 versions.dialpad = "3.0.0"
 
