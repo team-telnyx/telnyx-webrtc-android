@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk.socket
 
+import android.util.Log
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
@@ -167,6 +168,11 @@ class TxSocket(
                                 }
                                 RINGING.methodName -> {
                                     listener.onRingingReceived(jsonObject)
+                                }
+
+                               PINGPONG.methodName->{
+                                    Log.i( "onPing: ",text)
+                                    webSocket.send(text)
                                 }
                             }
                         }
