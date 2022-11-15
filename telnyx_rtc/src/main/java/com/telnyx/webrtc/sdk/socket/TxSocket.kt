@@ -171,7 +171,6 @@ class TxSocket(
                                 }
 
                                PINGPONG.methodName->{
-                                    Log.i( "onPing: ",text)
                                     webSocket.send(text)
                                 }
                             }
