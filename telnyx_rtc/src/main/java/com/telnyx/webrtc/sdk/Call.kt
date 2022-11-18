@@ -597,6 +597,10 @@ class Call(
         callStateLiveData.postValue(CallState.RECOVERING)
     }
 
+    override fun pingPong() {
+        //NOOP
+    }
+
     override fun onClientReady(jsonObject: JsonObject) {
         // NOOP
     }

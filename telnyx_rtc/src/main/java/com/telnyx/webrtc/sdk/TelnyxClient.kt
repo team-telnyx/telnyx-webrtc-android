@@ -709,6 +709,10 @@ class TelnyxClient(
         call?.setCallRecovering()
     }
 
+    override fun pingPong() {
+        Timber.d("[%s] :: pingPong ", this@TelnyxClient.javaClass.simpleName)
+    }
+
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
         socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })

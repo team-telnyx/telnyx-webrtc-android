@@ -95,4 +95,6 @@ interface TxSocketListener {
      * to recover once network has returned
      */
     fun setCallRecovering()
+
+    fun pingPong()
 }
