@@ -169,7 +169,7 @@ class TxSocket(
                                     listener.onRingingReceived(jsonObject)
                                 }
 
-                               PINGPONG.methodName->{
+                                PINGPONG.methodName -> {
                                     webSocket.send(text)
                                 }
                             }
