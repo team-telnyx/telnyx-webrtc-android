@@ -253,7 +253,7 @@ dependencies {
     androidTestImplementation "io.kotest:kotest-assertions-core-jvm:$kotest_version"
     androidTestImplementation "io.kotest:kotest-property-jvm:$kotest_version"
 
-    testImplementation "org.slf4j:slf4j-nop:1.7.36"
+    testImplementation "org.slf4j:slf4j-nop:2.0.4"
 
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
 
