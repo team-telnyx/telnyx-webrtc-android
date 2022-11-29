@@ -40,6 +40,7 @@ class TxSocket(
     internal var ongoingCall = false
     internal var isLoggedIn = false
     internal var isConnected = false
+    internal var isPing=false
 
     private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
@@ -167,6 +168,12 @@ class TxSocket(
                                 }
                                 RINGING.methodName -> {
                                     listener.onRingingReceived(jsonObject)
+                                }
+
+                                PINGPONG.methodName -> {
+                                    isPing =true
+                                    webSocket.send(text)
+                                    listener.pingPong()
                                 }
                             }
                         }
