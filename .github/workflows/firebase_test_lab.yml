@@ -46,7 +46,7 @@ jobs:
         run: bash ./gradlew assembleDebug --stacktrace
 
       - name: Upload app APK
-        uses: actions/upload-artifact@v3.1.0
+        uses: actions/upload-artifact@v3.1.1
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -56,7 +56,7 @@ jobs:
         run: bash ./gradlew assembleDebugAndroidTest
 
       - name: Upload Android Test APK
-        uses: actions/upload-artifact@v3.1.0
+        uses: actions/upload-artifact@v3.1.1
         with:
           name: app-debug-androidTest
           path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
