@@ -724,7 +724,8 @@ class TelnyxClient(
      * @see [ConnectivityHelper]
      * @see [TxSocket]
      */
-    fun disconnect() {
+    fun disconnect(disconnectMessage: String = "") {
+        socketResponseLiveData.postValue(SocketResponse.error(disconnectMessage))
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()

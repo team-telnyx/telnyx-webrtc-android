@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk.ui
 
+import android.Manifest
 import android.Manifest.permission.INTERNET
 import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
@@ -11,6 +12,7 @@ import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -215,6 +217,13 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
                         progress_indicator_id.visibility = View.INVISIBLE
+                        progress_indicator_id.visibility = View.INVISIBLE
+                        incoming_call_section_id.visibility = View.GONE
+                        call_control_section_id.visibility = View.GONE
+                        login_section_id.visibility = View.VISIBLE
+
+                        socket_text_value.text = getString(R.string.disconnected)
+                        call_state_text_value.text = "-"
                     }
                 }
             )
@@ -533,31 +542,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        Dexter.withContext(this)
-            .withPermissions(
-                RECORD_AUDIO,
-                INTERNET,
-            )
-            .withListener(object : MultiplePermissionsListener {
-                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
-                    if (report!!.areAllPermissionsGranted()) {
-                        connect_button_id.isClickable = true
-                    } else if (report.isAnyPermissionPermanentlyDenied) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Audio permissions are required to continue",
-                            Toast.LENGTH_LONG
-                        ).show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Dexter.withContext(this)
+                .withPermissions(
+                    RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS
+                )
+                .withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                        if (report!!.areAllPermissionsGranted()) {
+                            connect_button_id.isClickable = true
+                        } else if (report.isAnyPermissionPermanentlyDenied) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "permissions are required to continue",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
-                }
 
-                override fun onPermissionRationaleShouldBeShown(
-                    permission: MutableList<PermissionRequest>?,
-                    token: PermissionToken?
-                ) {
-                    token?.continuePermissionRequest()
-                }
-            }).check()
+                    override fun onPermissionRationaleShouldBeShown(
+                        permission: MutableList<PermissionRequest>?,
+                        token: PermissionToken?
+                    ) {
+                        token?.continuePermissionRequest()
+                    }
+                }).check()
+        } else {
+            Dexter.withContext(this)
+                .withPermissions(
+                    RECORD_AUDIO,
+                    INTERNET
+                )
+                .withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                        if (report!!.areAllPermissionsGranted()) {
+                            connect_button_id.isClickable = true
+                        } else if (report.isAnyPermissionPermanentlyDenied) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "permissions are required to continue",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+
+                    override fun onPermissionRationaleShouldBeShown(
+                        permission: MutableList<PermissionRequest>?,
+                        token: PermissionToken?
+                    ) {
+                        token?.continuePermissionRequest()
+                    }
+                }).check()
+        }
     }
 
     private fun handleCallNotification() {
