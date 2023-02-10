@@ -131,6 +131,10 @@ class TxSocketTest : BaseTest() {
         // Sleep to give time to connect
         Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
+        client.pingPong()
+        Thread.sleep(30000)
+        verify(client, times(2)).pingPong()
+        socket.isPing shouldBe true
     }
 
     @Test
@@ -169,10 +173,10 @@ class TxSocketTest : BaseTest() {
         // Sleep to give time to connect
         Thread.sleep(6000)
         verify(client, times(1)).onConnectionEstablished()
-        client.pingPong()
+       /* client.pingPong()
         Thread.sleep(30000)
         verify(client, times(2)).pingPong()
-        socket.isPing shouldBe true
+        socket.isPing shouldBe true*/
     }
 
     @Test
