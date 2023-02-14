@@ -217,7 +217,6 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
                         progress_indicator_id.visibility = View.INVISIBLE
-                        progress_indicator_id.visibility = View.INVISIBLE
                         incoming_call_section_id.visibility = View.GONE
                         call_control_section_id.visibility = View.GONE
                         login_section_id.visibility = View.VISIBLE
@@ -451,15 +450,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun disconnectPressed() {
-/*
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.GONE
-        login_section_id.visibility = View.VISIBLE
-
-        socket_text_value.text = getString(R.string.disconnected)
-        call_state_text_value.text = "-"
-*/
-
         mainViewModel.disconnect()
     }
 
