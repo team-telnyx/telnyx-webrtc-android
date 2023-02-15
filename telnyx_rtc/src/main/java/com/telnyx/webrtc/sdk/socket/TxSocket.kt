@@ -203,12 +203,14 @@ class TxSocket(
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosing(webSocket, code, reason)
                     Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+                    listener.disconnect("Socket is closed: $code :: $reason")
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosed(webSocket, code, reason)
                     Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
                     destroy()
+                    listener.disconnect("Socket is closed: $code :: $reason")
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
