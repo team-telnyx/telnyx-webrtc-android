@@ -133,7 +133,7 @@ internal class Peer(
         localAudioTrack.setEnabled(true)
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
-        peerConnection?.addStream(localStream)
+        peerConnection?.addTrack(localAudioTrack)
     }
 
     /**
