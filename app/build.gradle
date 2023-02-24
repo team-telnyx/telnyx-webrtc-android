@@ -156,7 +156,7 @@ dependencies {
     testImplementation "androidx.test:core-ktx:1.4.0"
 
     // jUnit 5
-    def jupiter_version = "5.8.2"
+    def jupiter_version = "5.9.2"
     testImplementation "org.junit.jupiter:junit-jupiter-api:$jupiter_version"
     androidTestImplementation "org.junit.jupiter:junit-jupiter-api:$jupiter_version"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$jupiter_version"
