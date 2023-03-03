@@ -148,7 +148,7 @@ class TelnyxClientTest : BaseTest() {
             )
         )
 
-        client.disconnect()
+        client.onDisconnect()
         assertEquals(client.isNetworkCallbackRegistered, false)
         assertEquals(client.socket.isConnected, false)
         assertEquals(client.socket.isLoggedIn, false)

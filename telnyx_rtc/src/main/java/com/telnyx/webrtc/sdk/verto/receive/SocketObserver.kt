@@ -13,6 +13,7 @@ abstract class SocketObserver<T> : Observer<SocketResponse<T>> {
     abstract fun onMessageReceived(data: T?)
     abstract fun onLoading()
     abstract fun onError(message: String?)
+    abstract fun onSocketDisconnect()
 
     override fun onChanged(t: SocketResponse<T>?) {
         if (t == null) {
@@ -23,6 +24,7 @@ abstract class SocketObserver<T> : Observer<SocketResponse<T>> {
                 SocketStatus.MESSAGERECEIVED -> onMessageReceived(t.data)
                 SocketStatus.LOADING -> onLoading()
                 SocketStatus.ERROR -> onError(t.errorMessage)
+                SocketStatus.DISCONNECT -> onSocketDisconnect()
             }
         }
     }

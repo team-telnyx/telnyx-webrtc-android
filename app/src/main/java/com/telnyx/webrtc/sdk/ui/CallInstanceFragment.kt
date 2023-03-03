@@ -139,6 +139,10 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
                     //NOOP
                 }
 
+                override fun onSocketDisconnect() {
+                    //NOOP
+                }
+
             })
     }
 
@@ -160,12 +164,12 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
     }
 
     override fun onLeftAuxButtonClicked() {
-       //NOOP
+        //NOOP
     }
 
     override fun onNumberClicked(number: Int) {
         mainViewModel.dtmfPressed(callId!!, number.toString())
-        when(number) {
+        when (number) {
             0 -> {
                 toneGenerator.startTone(TONE_DTMF_0, 500)
             }

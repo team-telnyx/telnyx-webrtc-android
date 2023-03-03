@@ -97,4 +97,8 @@ interface TxSocketListener {
     fun setCallRecovering()
 
     fun pingPong()
+    /**
+     * Fires when the socket has disconnected
+     * */
+    fun onDisconnect()
 }

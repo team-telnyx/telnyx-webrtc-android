@@ -40,7 +40,7 @@ class TxSocket(
     internal var ongoingCall = false
     internal var isLoggedIn = false
     internal var isConnected = false
-    internal var isPing=false
+    internal var isPing = false
 
     private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
@@ -171,7 +171,7 @@ class TxSocket(
                                 }
 
                                 PINGPONG.methodName -> {
-                                    isPing =true
+                                    isPing = true
                                     webSocket.send(text)
                                     listener.pingPong()
                                 }
@@ -203,14 +203,14 @@ class TxSocket(
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosing(webSocket, code, reason)
                     Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
-                    listener.disconnect("Socket is closed: $code :: $reason")
+                    listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosed(webSocket, code, reason)
                     Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
                     destroy()
-                    listener.disconnect("Socket is closed: $code :: $reason")
+                    listener.onDisconnect()
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
