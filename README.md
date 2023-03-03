@@ -185,6 +185,10 @@ We can then use this method to create a listener that listens for an invitation 
                    // Handle errors - Update UI or Navigate to new screen, etc.
                 }
 
+                override fun onSocketDisconnect() {
+                    // Handle disconnect - Update UI or Navigate to login screen, etc.
+                }
+
             })
 ```
 
