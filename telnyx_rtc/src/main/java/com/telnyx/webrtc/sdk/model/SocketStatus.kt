@@ -12,10 +12,12 @@ package com.telnyx.webrtc.sdk.model
  * @property MESSAGERECEIVED the socket has received a message
  * @property ERROR the socket has encountered an error
  * @property LOADING the socket is loading a connection
+ * @property DISCONNECT when the socket is disconnect
  */
 enum class SocketStatus {
     ESTABLISHED,
     MESSAGERECEIVED,
     ERROR,
-    LOADING
+    LOADING,
+    DISCONNECT
 }

@@ -27,6 +27,9 @@ data class SocketResponse<out T>(val status: SocketStatus, val data: T?, val err
         fun <T> error(msg: String): SocketResponse<T> {
             return SocketResponse(SocketStatus.ERROR, null, msg)
         }
+        fun <T> disconnect(): SocketResponse<T> {
+            return SocketResponse(SocketStatus.DISCONNECT, null, null)
+        }
 
         fun <T> loading(): SocketResponse<T> {
             return SocketResponse(

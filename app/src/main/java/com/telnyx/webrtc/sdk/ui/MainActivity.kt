@@ -216,6 +216,15 @@ class MainActivity : AppCompatActivity() {
                             message ?: "Socket Connection Error",
                             Toast.LENGTH_SHORT
                         ).show()
+                    }
+
+                    override fun onSocketDisconnect() {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Socket is disconnected",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
                         progress_indicator_id.visibility = View.INVISIBLE
                         incoming_call_section_id.visibility = View.GONE
                         call_control_section_id.visibility = View.GONE

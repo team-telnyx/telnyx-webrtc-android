@@ -152,7 +152,7 @@ class TxSocketTest : BaseTest() {
         // Sleep to give time to connect
         Thread.sleep(1000)
 
-        client.disconnect()
+        client.onDisconnect()
         Thread.sleep(1000)
         verify(client.socket, atLeastOnce()).destroy()
     }

@@ -601,6 +601,10 @@ class Call(
         //NOOP
     }
 
+    override fun onDisconnect() {
+        //NOOP
+    }
+
     override fun onClientReady(jsonObject: JsonObject) {
         // NOOP
     }
