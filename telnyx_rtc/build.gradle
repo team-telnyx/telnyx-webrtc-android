@@ -228,7 +228,7 @@ dependencies {
     testImplementation "androidx.arch.core:core-testing:2.1.0"
     androidTestImplementation 'androidx.arch.core:core-testing:2.1.0'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4'
-    testImplementation('org.robolectric:robolectric:4.8.1') {
+    testImplementation('org.robolectric:robolectric:4.10') {
         exclude group: 'com.google.protobuf'
     }
     testImplementation "io.mockk:mockk:1.12.5"
