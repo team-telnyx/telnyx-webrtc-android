@@ -90,7 +90,7 @@ class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String
-    ) {
+    ) : String {
         val uuid: String = UUID.randomUUID().toString()
         val inviteCallId: UUID = UUID.randomUUID()
 
@@ -138,6 +138,8 @@ class Call(
         client.callOngoing()
         client.playRingBackTone()
         client.addToCalls(this)
+
+        return uuid
     }
 
     /**
