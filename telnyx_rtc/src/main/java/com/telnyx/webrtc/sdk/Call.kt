@@ -221,6 +221,15 @@ class Call(
                 )
             )
         )
+        // send bye message to the UI
+        client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.BYE.methodName,
+                    null
+                )
+            )
+        )
         callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(callId)
         client.callNotOngoing()
