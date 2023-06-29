@@ -435,6 +435,7 @@ class Call(
                         )
                     )
                 )
+                callStateLiveData.postValue(CallState.ACTIVE)
             }
             else -> {
                 // There was no SDP in the response, there was an error.
