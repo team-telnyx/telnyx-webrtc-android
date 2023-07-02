@@ -555,6 +555,15 @@ class Call(
         } else {
             UUID.randomUUID()
         }
+        client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.RINGING.methodName,
+                    null
+                )
+            )
+        )
+
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
