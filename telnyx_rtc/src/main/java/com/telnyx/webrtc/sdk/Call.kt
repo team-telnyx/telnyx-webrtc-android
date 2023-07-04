@@ -221,6 +221,15 @@ class Call(
                 )
             )
         )
+        // send bye message to the UI
+        client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.BYE.methodName,
+                    null
+                )
+            )
+        )
         callStateLiveData.postValue(CallState.DONE)
         client.removeFromCalls(callId)
         client.callNotOngoing()
@@ -435,6 +444,7 @@ class Call(
                         )
                     )
                 )
+                callStateLiveData.postValue(CallState.ACTIVE)
             }
             else -> {
                 // There was no SDP in the response, there was an error.
@@ -545,6 +555,15 @@ class Call(
         } else {
             UUID.randomUUID()
         }
+        client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.RINGING.methodName,
+                    null
+                )
+            )
+        )
+
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {

@@ -695,6 +695,14 @@ class TelnyxClient(
             jsonObject
         )
         call?.onRingingReceived(jsonObject)
+        socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.RINGING.methodName,
+                    null
+                )
+            )
+        )
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
