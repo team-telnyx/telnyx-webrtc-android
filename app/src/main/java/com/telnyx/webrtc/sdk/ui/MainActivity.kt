@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
 
         FirebaseApp.initializeApp(this)
 
-        mainViewModel = ViewModelProvider(this@MainActivity).get(MainViewModel::class.java)
+        mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
         checkPermissions()
         initViews()
