@@ -31,5 +31,6 @@ enum class SocketMethod(var methodName: String) {
     PINGPONG("telnyx_rtc.ping"),
     CLIENT_READY("telnyx_rtc.clientReady"),
     GATEWAY_STATE("telnyx_rtc.gatewayState"),
+    DISABLE_PUSH("telnyx_rtc.disable_push_notification"),
     LOGIN("login")
 }

@@ -46,8 +46,8 @@ android {
             jniDebuggable true
         }
         debug {
-            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"xxxxx"')
-            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"xxxxx"')
+            buildConfigField 'String', "MOCK_USERNAME", properties.getProperty('MOCK_USERNAME', '"isaac55577"')
+            buildConfigField 'String', "MOCK_PASSWORD", properties.getProperty('MOCK_PASSWORD', '"UcfBBJGR"')
 
             resValue('string', "mock_username", properties.getProperty('MOCK_USERNAME', '"xxxxx"'))
             resValue('string', "mock_password", properties.getProperty('MOCK_PASSWORD', '"xxxxx"'))

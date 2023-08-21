@@ -84,6 +84,13 @@ interface TxSocketListener {
     fun onIceCandidateReceived(iceCandidate: IceCandidate)
 
     /**
+     * Fires when a disablePush response is recieved
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [IceCandidate]
+     */
+    fun onDisablePushReceived(jsonObject: JsonObject)
+
+    /**
      * Fires once a connection has been reestablished during an ongoing call and a session
      * is being reattached
      * @param jsonObject, the socket response in a jsonObject format

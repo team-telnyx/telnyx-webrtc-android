@@ -575,6 +575,10 @@ class Call(
         )
     }
 
+    override fun onDisablePushReceived(jsonObject: JsonObject) {
+        // Noop
+    }
+
     override fun onAttachReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onAttachReceived [%s]", this@Call.javaClass.simpleName, jsonObject)
         val params = jsonObject.getAsJsonObject("params")

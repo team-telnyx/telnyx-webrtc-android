@@ -9,9 +9,11 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.os.PowerManager
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.bugsnag.android.Bugsnag
+import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -340,6 +342,32 @@ class TelnyxClient(
 
         socket.send(loginMessage)
     }
+
+
+    /**
+    * Disables push notifications for current user
+    *
+    *  Takes :
+    *  @param sipUserName : sip username of the current user
+     *  @param fcmToken : fcm token of the device
+    * NB : Push Notifications are enabled by default after login
+     *
+     * returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
+    * */
+    fun disablePushNotification(sipUserName:String,fcmToken:String){
+        val disablePushMessage = SendingMessageBody(
+            id = UUID.randomUUID().toString(),
+            method = SocketMethod.DISABLE_PUSH.methodName,
+            params = DisablePushParams(
+                user = sipUserName,
+                userVariables = UserVariables(fcmToken)
+            )
+        )
+        val message = Gson().toJson(disablePushMessage)
+        Log.d("disablePushMessage",message)
+        socket.send(disablePushMessage)
+    }
+
 
     /**
      * Logs the user in with credentials provided via TokenConfig
@@ -707,6 +735,24 @@ class TelnyxClient(
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
         call?.onIceCandidateReceived(iceCandidate)
+    }
+
+    override fun onDisablePushReceived(jsonObject: JsonObject) {
+        Timber.d(
+            "[%s] :: onDisablePushReceived [%s]",
+            this@TelnyxClient.javaClass.simpleName,
+            jsonObject
+        )
+        val errorMessage = jsonObject.get("result").asJsonObject.get("message").asString
+        val disablePushResponse = DisablePushResponse(errorMessage.contains(DisablePushResponse.SUCCESS_KEY),errorMessage)
+        socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.RINGING.methodName,
+                    disablePushResponse
+                )
+            )
+        )
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {

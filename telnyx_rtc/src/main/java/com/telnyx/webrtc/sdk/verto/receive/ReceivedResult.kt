@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk.verto.receive
 
+import android.os.Parcel
 import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
 import kotlinx.android.parcel.Parcelize
@@ -13,6 +14,21 @@ import java.util.*
  * Class representations of responses received on the socket connection
  */
 sealed class ReceivedResult
+
+
+@Parcelize
+data class DisablePushResponse(
+    @SerializedName("message")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String
+) : ReceivedResult(), Parcelable {
+
+    companion object {
+        // Refactor for backend to send a boolean instead of a string
+        const val SUCCESS_KEY = "success"
+    }
+}
 
 /**
  * A login response received by the socket connection
