@@ -348,20 +348,39 @@ class TelnyxClient(
     * Disables push notifications for current user
     *
     *  Takes :
-    *  @param sipUserName : sip username of the current user
+    *  @param sipUserName : sip username of the current user or
+     *  @param loginToken : fcm token of the device
      *  @param fcmToken : fcm token of the device
     * NB : Push Notifications are enabled by default after login
      *
      * returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
     * */
-    fun disablePushNotification(sipUserName:String,fcmToken:String){
+    fun disablePushNotification(sipUserName:String?,loginToken:String?,fcmToken:String){
+
+        sipUserName ?: loginToken ?: return
+
+        val params = when {
+            sipUserName == null -> {
+                TokenDisablePushParams(
+                    loginToken = loginToken!!,
+                    userVariables = UserVariables(fcmToken)
+                )
+            }
+            loginToken == null -> {
+                DisablePushParams(
+                    user = sipUserName,
+                    userVariables = UserVariables(fcmToken)
+                )
+            }
+            else -> {
+                return
+            }
+        }
+
         val disablePushMessage = SendingMessageBody(
             id = UUID.randomUUID().toString(),
             method = SocketMethod.DISABLE_PUSH.methodName,
-            params = DisablePushParams(
-                user = sipUserName,
-                userVariables = UserVariables(fcmToken)
-            )
+            params = params
         )
         val message = Gson().toJson(disablePushMessage)
         Log.d("disablePushMessage",message)

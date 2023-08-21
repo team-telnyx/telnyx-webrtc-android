@@ -42,6 +42,13 @@ data class DisablePushParams(
     val userVariables: UserVariables
 ) : ParamRequest()
 
+data class TokenDisablePushParams(
+    @SerializedName("login_token")
+    val loginToken: String,
+    @SerializedName("User-Agent")
+    val userVariables: UserVariables
+) : ParamRequest()
+
 data class UserVariables(
     @SerializedName("push_device_token")
     val pushDeviceToken:String,
