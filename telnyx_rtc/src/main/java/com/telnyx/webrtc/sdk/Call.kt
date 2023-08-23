@@ -237,6 +237,7 @@ class Call(
         resetCallOptions()
         client.stopMediaPlayer()
         peerConnection?.release()
+        peerConnection = null
     }
 
     /**
