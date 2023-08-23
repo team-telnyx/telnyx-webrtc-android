@@ -345,17 +345,17 @@ class TelnyxClient(
 
 
     /**
-    * Disables push notifications for current user
-    *
-    *  Takes :
-    *  @param sipUserName : sip username of the current user or
+     * Disables push notifications for current user
+     *
+     *  Takes :
+     *  @param sipUserName : sip username of the current user or
      *  @param loginToken : fcm token of the device
      *  @param fcmToken : fcm token of the device
-    * NB : Push Notifications are enabled by default after login
+     * NB : Push Notifications are enabled by default after login
      *
      * returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
-    * */
-    fun disablePushNotification(sipUserName:String?,loginToken:String?,fcmToken:String){
+     * */
+    fun disablePushNotification(sipUserName: String?, loginToken: String?, fcmToken: String) {
 
         sipUserName ?: loginToken ?: return
 
@@ -366,12 +366,14 @@ class TelnyxClient(
                     userVariables = UserVariables(fcmToken)
                 )
             }
+
             loginToken == null -> {
                 DisablePushParams(
                     user = sipUserName,
                     userVariables = UserVariables(fcmToken)
                 )
             }
+
             else -> {
                 return
             }
@@ -383,7 +385,7 @@ class TelnyxClient(
             params = params
         )
         val message = Gson().toJson(disablePushMessage)
-        Log.d("disablePushMessage",message)
+        Log.d("disablePushMessage", message)
         socket.send(disablePushMessage)
     }
 
@@ -476,6 +478,7 @@ class TelnyxClient(
                     )
                 }
             }
+
             AudioDevice.PHONE_EARPIECE -> {
                 // For phone ear piece
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -483,6 +486,7 @@ class TelnyxClient(
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = false
             }
+
             AudioDevice.LOUDSPEAKER -> {
                 // For phone speaker(loudspeaker)
                 audioManager?.mode = AudioManager.MODE_NORMAL
@@ -652,14 +656,17 @@ class TelnyxClient(
                     onLoginSuccessful(sessid)
                 }
             }
+
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
             }
+
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
+
             GatewayState.FAIL_WAIT.state -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
@@ -673,22 +680,28 @@ class TelnyxClient(
                     socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
                 }
             }
+
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
             }
+
             GatewayState.UNREGED.state -> {
                 // NOOP - logged within TxSocket
             }
+
             GatewayState.TRYING.state -> {
                 // NOOP - logged within TxSocket
             }
+
             GatewayState.REGISTER.state -> {
                 // NOOP - logged within TxSocket
             }
+
             GatewayState.UNREGISTER.state -> {
                 // NOOP - logged within TxSocket
             }
+
             else -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
@@ -763,7 +776,10 @@ class TelnyxClient(
             jsonObject
         )
         val errorMessage = jsonObject.get("result").asJsonObject.get("message").asString
-        val disablePushResponse = DisablePushResponse(errorMessage.contains(DisablePushResponse.SUCCESS_KEY),errorMessage)
+        val disablePushResponse = DisablePushResponse(
+            errorMessage.contains(DisablePushResponse.SUCCESS_KEY),
+            errorMessage
+        )
         socketResponseLiveData.postValue(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(

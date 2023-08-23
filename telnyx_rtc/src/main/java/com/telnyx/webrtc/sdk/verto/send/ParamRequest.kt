@@ -28,7 +28,7 @@ data class CallParams(
 ) : ParamRequest()
 
 data class ByeParams(
-    val sessid: String,
+    val sessId: String,
     val causeCode: Int,
     val cause: String,
     val dialogParams: ByeDialogParams
@@ -52,7 +52,8 @@ data class TokenDisablePushParams(
 data class UserVariables(
     @SerializedName("push_device_token")
     val pushDeviceToken:String,
-    val push_notification_provider:String = "android",
+    @SerializedName("push_notification_provider")
+    val pushNotificationProvider:String = "android",
 )
 
 data class ModifyParams(
