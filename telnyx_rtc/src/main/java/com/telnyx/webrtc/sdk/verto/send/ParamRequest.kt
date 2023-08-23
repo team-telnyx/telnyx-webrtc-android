@@ -28,7 +28,7 @@ data class CallParams(
 ) : ParamRequest()
 
 data class ByeParams(
-    val sessId: String,
+    val sessid: String,
     val causeCode: Int,
     val cause: String,
     val dialogParams: ByeDialogParams
