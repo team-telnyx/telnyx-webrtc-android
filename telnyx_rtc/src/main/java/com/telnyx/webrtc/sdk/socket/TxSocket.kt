@@ -127,6 +127,7 @@ class TxSocket(
                                 }
                             }
                         }
+
                         params !== null && params.asJsonObject.has("state") -> {
                             params = jsonObject.get("params").asJsonObject
                             if (params.asJsonObject.has("state")) {
@@ -134,6 +135,7 @@ class TxSocket(
                                 listener.onGatewayStateReceived(gatewayState, null)
                             }
                         }
+
                         jsonObject.has("method") -> {
                             Timber.tag("VERTO").d(
                                 "[%s] Received Method [%s]",
@@ -144,18 +146,23 @@ class TxSocket(
                                 CLIENT_READY.methodName -> {
                                     listener.onClientReady(jsonObject)
                                 }
+
                                 ATTACH.methodName -> {
                                     listener.onAttachReceived(jsonObject)
                                 }
+
                                 INVITE.methodName -> {
                                     listener.onOfferReceived(jsonObject)
                                 }
+
                                 ANSWER.methodName -> {
                                     listener.onAnswerReceived(jsonObject)
                                 }
+
                                 MEDIA.methodName -> {
                                     listener.onMediaReceived(jsonObject)
                                 }
+
                                 BYE.methodName -> {
                                     val params =
                                         jsonObject.getAsJsonObject("params")
@@ -163,13 +170,18 @@ class TxSocket(
                                         UUID.fromString(params.get("callID").asString)
                                     listener.onByeReceived(callId)
                                 }
+
                                 INVITE.methodName -> {
                                     listener.onOfferReceived(jsonObject)
                                 }
+
                                 RINGING.methodName -> {
                                     listener.onRingingReceived(jsonObject)
                                 }
 
+                                DISABLE_PUSH.methodName -> {
+                                    listener.onDisablePushReceived(jsonObject)
+                                }
                                 PINGPONG.methodName -> {
                                     isPing = true
                                     webSocket.send(text)
@@ -177,6 +189,7 @@ class TxSocket(
                                 }
                             }
                         }
+
                         jsonObject.has("error") -> {
                             if (jsonObject.get("error").asJsonObject.has("code")) {
                                 val errorCode =
@@ -191,6 +204,7 @@ class TxSocket(
                                     CREDENTIAL_ERROR.errorCode -> {
                                         listener.onErrorReceived(jsonObject)
                                     }
+
                                     TOKEN_ERROR.errorCode -> {
                                         listener.onErrorReceived(jsonObject)
                                     }

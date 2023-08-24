@@ -101,6 +101,10 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
+    fun disablePushNotifications(sipUserName:String,fcmToken: String) {
+        telnyxClient?.disablePushNotification(sipUserName,null, fcmToken)
+    }
+
     fun endCall(callId: UUID? = null) {
         callId?.let {
             telnyxClient?.call?.endCall(callId)
