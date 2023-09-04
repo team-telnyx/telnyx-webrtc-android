@@ -63,7 +63,7 @@ jobs:
           
       - name: Slackify the release body
         id: release_body
-        uses: LoveToKnow/slackify-markdown-action@v1.0.0
+        uses: LoveToKnow/slackify-markdown-action@v1.0.2
         with:
           text: ${{ steps.generate-release-changelog.outputs.changelog }}
           
