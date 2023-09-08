@@ -209,6 +209,19 @@ In order to do this you need to:
        4. Setup a Push Credential within the Telnyx Portal
        5. Generate a Firebase Cloud Messaging instance token
        6. Send the token with your login message
+
+Finally, you will need to provide the `connect(..)` method with a `txPushIPConfig` object if the call is from a push notification.
+The `txPushIPConfig` is a data class that represents the push notification settings for the client to use. It looks like this: 
+
+```kotlin
+val txPushIPConfig = TxPushIPConfig(
+    rtcIP = "",
+    rtcPort = ""
+)
+
+```
+
+The `rtc_port` and `rtc_ip` are the provided in the push notification payload.
        
  For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
 

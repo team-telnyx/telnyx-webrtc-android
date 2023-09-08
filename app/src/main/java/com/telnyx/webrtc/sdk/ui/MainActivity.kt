@@ -32,8 +32,11 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
+import com.telnyx.webrtc.sdk.utilities.parseObject
+import com.telnyx.webrtc.sdk.utilities.toJsonString
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -59,7 +62,7 @@ class MainActivity : AppCompatActivity() {
     private var isDev = false
     private var isAutomaticLogin = false
     private var wsMessageList: ArrayList<String>? = null
-
+    private var txPushIPConfig: TxPushIPConfig? = null
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
 
@@ -67,6 +70,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById(R.id.toolbar_id))
+        mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
+
 
         // Add environment text
         isDev = userManager.isDev
@@ -74,9 +79,9 @@ class MainActivity : AppCompatActivity() {
 
         FirebaseApp.initializeApp(this)
 
-        mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
         checkPermissions()
+        handleCallNotification()
         initViews()
     }
 
@@ -148,13 +153,14 @@ class MainActivity : AppCompatActivity() {
         } ?: throw IllegalStateException("Activity cannot be null")
     }
 
-    private fun connectToSocketAndObserve() {
+    private fun connectToSocketAndObserve(txPushIPConfig: TxPushIPConfig? = null) {
         if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null)
+            mainViewModel.initConnection(applicationContext, null,txPushIPConfig)
         } else {
             mainViewModel.initConnection(
                 applicationContext,
-                TxServerConfiguration(host = "rtcdev.telnyx.com")
+                TxServerConfiguration(host = "rtcdev.telnyx.com"),
+                txPushIPConfig
             )
         }
         observeSocketResponses()
@@ -211,6 +217,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     override fun onError(message: String?) {
+                        Timber.e("onError: %s", message)
                         Toast.makeText(
                             this@MainActivity,
                             message ?: "Socket Connection Error",
@@ -382,7 +389,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectButtonPressed() {
         progress_indicator_id.visibility = View.VISIBLE
-        connectToSocketAndObserve()
+        if (notificationAcceptHandling == true) {
+            Timber.d("notificationAcceptHandling is true ${txPushIPConfig?.toJsonString()}")
+            if (txPushIPConfig != null) {
+                connectToSocketAndObserve(txPushIPConfig)
+            }
+        }else {
+            connectToSocketAndObserve()
+        }
     }
 
     private fun doLogin(isAuto: Boolean) {
@@ -455,6 +469,7 @@ class MainActivity : AppCompatActivity() {
                 Timber.d("FCM TOKEN RECEIVED: $token")
             }
             fcmToken = token
+
         }
     }
 
@@ -601,6 +616,7 @@ class MainActivity : AppCompatActivity() {
         val action = intent.extras?.get(MyFirebaseMessagingService.EXT_KEY_DO_ACTION) as String?
 
         action?.let {
+            txPushIPConfig = intent.extras?.get(MyFirebaseMessagingService.TX_IP_CONFIG)?.toString()?.parseObject()
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
@@ -611,8 +627,5 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        handleCallNotification()
-    }
+
 }

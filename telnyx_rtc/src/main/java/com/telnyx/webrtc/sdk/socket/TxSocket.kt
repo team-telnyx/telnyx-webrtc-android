@@ -11,6 +11,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
+import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
@@ -58,7 +59,8 @@ class TxSocket(
     fun connect(
         listener: TelnyxClient,
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
-        providedPort: Int? = Config.TELNYX_PORT
+        providedPort: Int? = Config.TELNYX_PORT,
+        txPushIPConfig: TxPushIPConfig? = null
     ) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
@@ -74,6 +76,7 @@ class TxSocket(
                 }
             ).build()
 
+
         providedHostAddress?.let {
             host_address = it
         }
@@ -81,8 +84,16 @@ class TxSocket(
             port = it
         }
 
+        val requestUrl = if (txPushIPConfig != null) {
+            "wss://$host_address"
+        } else {
+            "wss://$host_address:$port/"
+        }
+
         val request: Request =
-            Request.Builder().url("wss://$host_address:$port/").build()
+            Request.Builder().url(requestUrl).build()
+
+        Timber.d("request: $requestUrl")
         socket = client.newWebSocket(
             request,
             object : WebSocketListener() {
@@ -117,7 +128,9 @@ class TxSocket(
                                 params = result.get("params").asJsonObject
                                 if (params.asJsonObject.has("state")) {
                                     val gatewayState = params.get("state").asString
-                                    listener.onGatewayStateReceived(gatewayState, sessionId)
+                                    if (gatewayState != STATE_ATTACHED) {
+                                        listener.onGatewayStateReceived(gatewayState, sessionId)
+                                    }
                                 }
                             } else if (jsonObject.get("result").asJsonObject.has("message")) {
                                 val result = jsonObject.get("result").asJsonObject
@@ -286,5 +299,9 @@ class TxSocket(
             }
         }
         job.cancel("Socket was destroyed, cancelling attached job")
+    }
+
+    companion object {
+        const val STATE_ATTACHED = "ATTACHED"
     }
 }

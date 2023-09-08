@@ -15,6 +15,7 @@ import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -34,12 +35,16 @@ class MainViewModel @Inject constructor(
 
     private var calls: Map<UUID, Call> = mapOf()
 
-    fun initConnection(context: Context, providedServerConfig: TxServerConfiguration?) {
+    fun initConnection(
+        context: Context,
+        providedServerConfig: TxServerConfiguration?,
+        txPushIPConfig: TxPushIPConfig? = null
+    ) {
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
-            telnyxClient?.connect(it)
+            telnyxClient?.connect(it, txPushIPConfig = txPushIPConfig)
         } ?: run {
-            telnyxClient?.connect()
+            telnyxClient?.connect(txPushIPConfig = txPushIPConfig)
         }
     }
 
@@ -101,9 +106,10 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
-    fun disablePushNotifications(sipUserName:String,fcmToken: String) {
-        telnyxClient?.disablePushNotification(sipUserName,null, fcmToken)
+    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
+        telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
     }
+
 
     fun endCall(callId: UUID? = null) {
         callId?.let {
