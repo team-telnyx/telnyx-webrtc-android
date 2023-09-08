@@ -35,7 +35,11 @@ class MainViewModel @Inject constructor(
 
     private var calls: Map<UUID, Call> = mapOf()
 
-    fun initConnection(context: Context, providedServerConfig: TxServerConfiguration?,txPushIPConfig: TxPushIPConfig? = null) {
+    fun initConnection(
+        context: Context,
+        providedServerConfig: TxServerConfiguration?,
+        txPushIPConfig: TxPushIPConfig? = null
+    ) {
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
             telnyxClient?.connect(it, txPushIPConfig = txPushIPConfig)
@@ -102,8 +106,8 @@ class MainViewModel @Inject constructor(
         telnyxClient?.call?.acceptCall(callId, destinationNumber)
     }
 
-    fun disablePushNotifications(sipUserName:String,fcmToken: String) {
-        telnyxClient?.disablePushNotification(sipUserName,null, fcmToken)
+    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
+        telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
     }
 
 

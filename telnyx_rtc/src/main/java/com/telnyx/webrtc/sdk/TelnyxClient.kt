@@ -168,12 +168,15 @@ class TelnyxClient(
             socket = socketReconnection!!
 
 
-            if (providedHostAddress == null){
-                providedHostAddress  = if (txPushIPConfig == null) Config.TELNYX_PROD_HOST_ADDRESS else "${Config.TELNYX_PROD_HOST_ADDRESS}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+            if (providedHostAddress == null) {
+                providedHostAddress =
+                    if (txPushIPConfig == null) Config.TELNYX_PROD_HOST_ADDRESS
+                    else
+                        "${Config.TELNYX_PROD_HOST_ADDRESS}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
             }
 
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort,txPushIPConfig)
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, txPushIPConfig)
             delay(1000)
             // Login with stored configuration
             credentialSessionConfig?.let {
@@ -225,7 +228,10 @@ class TelnyxClient(
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      */
-    fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration(),txPushIPConfig: TxPushIPConfig? = null) {
+    fun connect(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        txPushIPConfig: TxPushIPConfig? = null
+    ) {
 
         if (txPushIPConfig != null) {
             processCallFromPush(txPushIPConfig)
@@ -234,14 +240,15 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
-        providedHostAddress = if (txPushIPConfig == null) providedServerConfig.host else "${providedServerConfig.host}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+        providedHostAddress =
+            if (txPushIPConfig == null) providedServerConfig.host else "${providedServerConfig.host}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
         Timber.d("Provided Host Address: $providedHostAddress")
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this, providedHostAddress, providedPort,txPushIPConfig)
+            socket.connect(this, providedHostAddress, providedPort, txPushIPConfig)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -411,7 +418,7 @@ class TelnyxClient(
     }
 
 
-    private fun attachCall(){
+    private fun attachCall() {
 
         val params = AttachCallParams(
             userVariables = AttachUserVariables()
@@ -429,8 +436,6 @@ class TelnyxClient(
         isCallPendingFromPush = false
 
     }
-
-
 
 
     /**
@@ -632,7 +637,7 @@ class TelnyxClient(
 
         Timber.d("isCallPendingFromPush $isCallPendingFromPush")
         //if there is a call pending from push, attach it
-        if (isCallPendingFromPush){
+        if (isCallPendingFromPush) {
             attachCall()
         }
 
@@ -777,7 +782,7 @@ class TelnyxClient(
 
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-        Timber.d("[%s] :: onErrorReceived ",errorMessage)
+        Timber.d("[%s] :: onErrorReceived ", errorMessage)
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 

@@ -50,8 +50,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         // Save the IP and Port for the call
         val txPushIPConfigData = TxPushIPConfig(
-            telnyxPushMetadata.rtc_ip,
-            telnyxPushMetadata.rtc_port
+            telnyxPushMetadata.rtcIP,
+            telnyxPushMetadata.rtcPort
         ).toJsonString()
         /*
             Apps targeting SDK 26 or above (Android O) must implement notification channels and add its notifications
