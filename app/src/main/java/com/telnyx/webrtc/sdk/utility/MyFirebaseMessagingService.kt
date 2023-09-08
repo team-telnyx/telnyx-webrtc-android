@@ -19,7 +19,9 @@ import com.google.firebase.messaging.RemoteMessage
 import com.google.gson.Gson
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.model.PushMetaData
+import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import com.telnyx.webrtc.sdk.ui.MainActivity
+import com.telnyx.webrtc.sdk.utilities.toJsonString
 import org.json.JSONObject
 import timber.log.Timber
 import java.util.*
@@ -46,6 +48,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notificationID = Random().nextInt(3000)
 
+        // Save the IP and Port for the call
+        val txPushIPConfigData = TxPushIPConfig(
+            telnyxPushMetadata.rtc_ip,
+            telnyxPushMetadata.rtc_port
+        ).toJsonString()
         /*
             Apps targeting SDK 26 or above (Android O) must implement notification channels and add its notifications
             to at least one of them.
@@ -71,6 +78,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         answerResultIntent.action = Intent.ACTION_VIEW
         answerResultIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         answerResultIntent.putExtra(EXT_KEY_DO_ACTION, ACT_ANSWER_CALL)
+
+        answerResultIntent.putExtra(TX_IP_CONFIG, txPushIPConfigData)
+
         val answerPendingIntent = PendingIntent.getActivity(
             this,
             ANSWER_REQUEST_CODE,
@@ -142,6 +152,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         private const val TELNYX_CHANNEL_ID = "telnyx_channel"
         private const val ANSWER_REQUEST_CODE = 0
         private const val REJECT_REQUEST_CODE = 1
+
+        const val TX_IP_CONFIG = "tx_push_ip_config"
 
         const val EXT_KEY_DO_ACTION = "ext_key_do_action"
         const val EXT_CALL_ID = "ext_call_id"

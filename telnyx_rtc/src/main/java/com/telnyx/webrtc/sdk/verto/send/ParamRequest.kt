@@ -15,9 +15,11 @@ data class LoginParam(
     val login: String?,
     val passwd: String?,
     val userVariables: JsonObject,
-    val loginParams: ArrayList<Any>?,
-    val sessid: String
+    val loginParams: Map<Any,Any>?,
+    val sessid: String ,
 ) : ParamRequest()
+
+
 
 data class CallParams(
     val sessid: String,
@@ -48,6 +50,19 @@ data class TokenDisablePushParams(
     @SerializedName("User-Agent")
     val userVariables: UserVariables
 ) : ParamRequest()
+
+data class AttachCallParams(
+    @SerializedName("userVariables")
+    val userVariables: AttachUserVariables
+) : ParamRequest()
+
+
+data class AttachUserVariables(
+    @SerializedName("push_notification_environment")
+    val pushNotificationEnvironment:String = "production",
+    @SerializedName("push_notification_provider")
+    val pushNotificationProvider:String = "android",
+)
 
 data class UserVariables(
     @SerializedName("push_device_token")

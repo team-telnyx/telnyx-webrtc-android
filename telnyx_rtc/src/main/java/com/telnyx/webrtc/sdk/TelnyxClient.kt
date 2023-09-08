@@ -78,6 +78,13 @@ class TelnyxClient(
 
     val call: Call? by lazy { buildCall() }
 
+    private var isCallPendingFromPush: Boolean = false
+    private var txPushIPConfig: TxPushIPConfig? = null
+    fun processCallFromPush(txPushIPConfig: TxPushIPConfig) {
+        isCallPendingFromPush = true
+        this.txPushIPConfig = txPushIPConfig
+    }
+
     /**
      * Build a call containing all required parameters.
      * Will return null if there has been no session established (No successful connection and login)
@@ -159,8 +166,14 @@ class TelnyxClient(
         launch {
             // Socket is now the reconnectionSocket
             socket = socketReconnection!!
+
+
+            if (providedHostAddress == null){
+                providedHostAddress  = if (txPushIPConfig == null) Config.TELNYX_PROD_HOST_ADDRESS else "${Config.TELNYX_PROD_HOST_ADDRESS}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+            }
+
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort)
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort,txPushIPConfig)
             delay(1000)
             // Login with stored configuration
             credentialSessionConfig?.let {
@@ -215,12 +228,15 @@ class TelnyxClient(
     fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration()) {
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
-        providedHostAddress = providedServerConfig.host
+
+        providedHostAddress = if (txPushIPConfig == null) providedServerConfig.host else "${providedServerConfig.host}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+        Timber.d("Provided Host Address: $providedHostAddress")
+
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this, providedHostAddress, providedPort)
+            socket.connect(this, providedHostAddress, providedPort,txPushIPConfig)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -335,7 +351,7 @@ class TelnyxClient(
                 login = user,
                 passwd = password,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf(),
+                loginParams = mapOf("attach_call" to "true"),
                 sessid = sessid
             )
         )
@@ -390,6 +406,28 @@ class TelnyxClient(
     }
 
 
+    private fun attachCall(){
+
+        val params = AttachCallParams(
+            userVariables = AttachUserVariables()
+        )
+
+        val attachPushMessage = SendingMessageBody(
+            id = UUID.randomUUID().toString(),
+            method = SocketMethod.ATTACH_CALL.methodName,
+            params = params
+        )
+        Log.d("sending attach Call", attachPushMessage.toString())
+        socket.send(attachPushMessage)
+        //reset push params
+        txPushIPConfig = null
+        isCallPendingFromPush = false
+
+    }
+
+
+
+
     /**
      * Logs the user in with credentials provided via TokenConfig
      *
@@ -424,7 +462,7 @@ class TelnyxClient(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = arrayListOf(),
+                loginParams = mapOf("attach_calls" to "true"),
                 sessid = sessid
             )
         )
@@ -587,6 +625,12 @@ class TelnyxClient(
 
         socket.isLoggedIn = true
 
+        Timber.d("isCallPendingFromPush $isCallPendingFromPush")
+        //if there is a call pending from push, attach it
+        if (isCallPendingFromPush){
+            attachCall()
+        }
+
         CoroutineScope(Dispatchers.Main).launch {
             socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
@@ -632,6 +676,7 @@ class TelnyxClient(
                 "[%s] :: onClientReady :: Ready to make calls",
                 this@TelnyxClient.javaClass.simpleName,
             )
+
             socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
@@ -727,6 +772,7 @@ class TelnyxClient(
 
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
+        Timber.d("[%s] :: onErrorReceived ",errorMessage)
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
