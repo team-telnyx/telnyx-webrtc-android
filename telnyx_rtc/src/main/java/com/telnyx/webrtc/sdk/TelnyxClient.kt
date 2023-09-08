@@ -80,7 +80,7 @@ class TelnyxClient(
 
     private var isCallPendingFromPush: Boolean = false
     private var txPushIPConfig: TxPushIPConfig? = null
-    fun processCallFromPush(txPushIPConfig: TxPushIPConfig) {
+    private fun processCallFromPush(txPushIPConfig: TxPushIPConfig) {
         isCallPendingFromPush = true
         this.txPushIPConfig = txPushIPConfig
     }
@@ -225,7 +225,12 @@ class TelnyxClient(
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      */
-    fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration()) {
+    fun connect(providedServerConfig: TxServerConfiguration = TxServerConfiguration(),txPushIPConfig: TxPushIPConfig? = null) {
+
+        if (txPushIPConfig != null) {
+            processCallFromPush(txPushIPConfig)
+        }
+
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 

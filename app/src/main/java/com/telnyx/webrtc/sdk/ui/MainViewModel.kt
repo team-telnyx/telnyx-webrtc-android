@@ -37,13 +37,10 @@ class MainViewModel @Inject constructor(
 
     fun initConnection(context: Context, providedServerConfig: TxServerConfiguration?,txPushIPConfig: TxPushIPConfig? = null) {
         telnyxClient = TelnyxClient(context)
-        if (txPushIPConfig != null) {
-            telnyxClient?.processCallFromPush(txPushIPConfig)
-        }
         providedServerConfig?.let {
-            telnyxClient?.connect(it)
+            telnyxClient?.connect(it, txPushIPConfig = txPushIPConfig)
         } ?: run {
-            telnyxClient?.connect()
+            telnyxClient?.connect(txPushIPConfig = txPushIPConfig)
         }
     }
 
@@ -109,9 +106,7 @@ class MainViewModel @Inject constructor(
         telnyxClient?.disablePushNotification(sipUserName,null, fcmToken)
     }
 
-    fun processCallFromPush(txPushIPConfig: TxPushIPConfig) {
-        telnyxClient?.processCallFromPush(txPushIPConfig)
-    }
+
     fun endCall(callId: UUID? = null) {
         callId?.let {
             telnyxClient?.call?.endCall(callId)
