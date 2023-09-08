@@ -72,8 +72,6 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
-       /* notificationAcceptHandling = true
-        txPushIPConfig = TxPushIPConfig(rtcIP = "10.31.14.80", rtcPort = 14938)*/
 
         // Add environment text
         isDev = userManager.isDev

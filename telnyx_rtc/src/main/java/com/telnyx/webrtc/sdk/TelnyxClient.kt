@@ -172,7 +172,9 @@ class TelnyxClient(
                 providedHostAddress =
                     if (txPushIPConfig == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
-                        "${Config.TELNYX_PROD_HOST_ADDRESS}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+                        Config.TELNYX_PROD_HOST_ADDRESS +
+                                "?rtc_ip=${txPushIPConfig!!.rtcIP}" +
+                                "&rtc_port=${txPushIPConfig!!.rtcPort}"
             }
 
             // Connect to new socket
@@ -241,7 +243,12 @@ class TelnyxClient(
         resetGatewayCounters()
 
         providedHostAddress =
-            if (txPushIPConfig == null) providedServerConfig.host else "${providedServerConfig.host}?rtc_ip=${txPushIPConfig!!.rtcIP}&rtc_port=${txPushIPConfig!!.rtcPort}"
+            if (txPushIPConfig == null) providedServerConfig.host
+            else providedServerConfig.host +
+                    "?rtc_ip=${txPushIPConfig!!.rtcIP}" +
+                    "&rtc_port=${txPushIPConfig!!.rtcPort}"
+
+
         Timber.d("Provided Host Address: $providedHostAddress")
 
         providedPort = providedServerConfig.port

@@ -93,7 +93,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle(remoteMessage.data["title"])
-            .setContentText(telnyxPushMetadata.caller_name + " - " + telnyxPushMetadata.caller_number)
+            .setContentText(telnyxPushMetadata.callerName + " - " + telnyxPushMetadata.callerNumber)
             .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
             .addAction(R.drawable.ic_call_white, ACT_ANSWER_CALL, answerPendingIntent)
             .addAction(R.drawable.ic_call_end_white, ACT_REJECT_CALL, rejectPendingIntent)
