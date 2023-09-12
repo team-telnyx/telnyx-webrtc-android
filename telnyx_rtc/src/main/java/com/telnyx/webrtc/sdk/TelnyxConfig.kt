@@ -38,8 +38,8 @@ data class CredentialConfig(
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val fcmToken: String?,
-    val ringtone: Int?,
-    val ringBackTone: Int?,
+    val ringtone: Any?,
+    val ringBackTone: Any?,
     val logLevel: LogLevel = LogLevel.NONE,
     val autoReconnect: Boolean = true
 ) : TelnyxConfig()
@@ -61,8 +61,8 @@ data class TokenConfig(
     val sipCallerIDName: String?,
     val sipCallerIDNumber: String?,
     val fcmToken: String?,
-    val ringtone: Int?,
-    val ringBackTone: Int?,
+    val ringtone: Any?,
+    val ringBackTone: Any?,
     val logLevel: LogLevel = LogLevel.NONE,
     val autoReconnect: Boolean = true,
 ) : TelnyxConfig()

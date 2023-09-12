@@ -11,7 +11,6 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
-import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
@@ -60,7 +59,7 @@ class TxSocket(
         listener: TelnyxClient,
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
-        txPushIPConfig: TxPushIPConfig? = null
+        rtcId: String? = null
     ) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
@@ -84,7 +83,7 @@ class TxSocket(
             port = it
         }
 
-        val requestUrl = if (txPushIPConfig != null) {
+        val requestUrl = if (rtcId != null) {
             "wss://$host_address"
         } else {
             "wss://$host_address:$port/"

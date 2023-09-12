@@ -7,6 +7,7 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.net.ConnectivityManager
 import android.os.PowerManager
 import android.util.Log
@@ -79,10 +80,10 @@ class TelnyxClient(
     val call: Call? by lazy { buildCall() }
 
     private var isCallPendingFromPush: Boolean = false
-    private var txPushIPConfig: TxPushIPConfig? = null
-    private fun processCallFromPush(txPushIPConfig: TxPushIPConfig) {
+    private var rtcId: String? = null
+    private fun processCallFromPush(metaData: PushMetaData) {
         isCallPendingFromPush = true
-        this.txPushIPConfig = txPushIPConfig
+        this.rtcId = metaData.rtcId
     }
 
     /**
@@ -170,15 +171,14 @@ class TelnyxClient(
 
             if (providedHostAddress == null) {
                 providedHostAddress =
-                    if (txPushIPConfig == null) Config.TELNYX_PROD_HOST_ADDRESS
+                    if (rtcId == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS +
-                                "?rtc_ip=${txPushIPConfig!!.rtcIP}" +
-                                "&rtc_port=${txPushIPConfig!!.rtcPort}"
+                                "?rtc_id=${rtcId}"
             }
 
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, txPushIPConfig)
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, rtcId)
             delay(1000)
             // Login with stored configuration
             credentialSessionConfig?.let {
@@ -232,22 +232,22 @@ class TelnyxClient(
      */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
-        txPushIPConfig: TxPushIPConfig? = null
+        txPushMetaData: String?
     ) {
 
-        if (txPushIPConfig != null) {
-            processCallFromPush(txPushIPConfig)
+        if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
         }
 
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
+        // if rtc id is not null, we are connecting to a call from push
         providedHostAddress =
-            if (txPushIPConfig == null) providedServerConfig.host
+            if (rtcId == null) providedServerConfig.host
             else providedServerConfig.host +
-                    "?rtc_ip=${txPushIPConfig!!.rtcIP}" +
-                    "&rtc_port=${txPushIPConfig!!.rtcPort}"
-
+                    "?rtc_id=${rtcId}"
 
         Timber.d("Provided Host Address: $providedHostAddress")
 
@@ -255,7 +255,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this, providedHostAddress, providedPort, txPushIPConfig)
+            socket.connect(this, providedHostAddress, providedPort, rtcId)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -439,7 +439,7 @@ class TelnyxClient(
         Log.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         //reset push params
-        txPushIPConfig = null
+        rtcId = null
         isCallPendingFromPush = false
 
     }
@@ -559,6 +559,7 @@ class TelnyxClient(
      * @see [MediaPlayer]
      */
     internal fun playRingtone() {
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         rawRingtone?.let {
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)

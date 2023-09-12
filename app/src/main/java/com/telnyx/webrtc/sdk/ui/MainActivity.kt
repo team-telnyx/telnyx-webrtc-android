@@ -32,11 +32,8 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
-import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
-import com.telnyx.webrtc.sdk.utilities.parseObject
-import com.telnyx.webrtc.sdk.utilities.toJsonString
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,10 +59,9 @@ class MainActivity : AppCompatActivity() {
     private var isDev = false
     private var isAutomaticLogin = false
     private var wsMessageList: ArrayList<String>? = null
-    private var txPushIPConfig: TxPushIPConfig? = null
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
-
+    private var txPushMetaData:String? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -153,14 +149,14 @@ class MainActivity : AppCompatActivity() {
         } ?: throw IllegalStateException("Activity cannot be null")
     }
 
-    private fun connectToSocketAndObserve(txPushIPConfig: TxPushIPConfig? = null) {
+    private fun connectToSocketAndObserve(txPushMetaData: String? = null) {
         if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null,txPushIPConfig)
+            mainViewModel.initConnection(applicationContext, null,txPushMetaData)
         } else {
             mainViewModel.initConnection(
                 applicationContext,
                 TxServerConfiguration(host = "rtcdev.telnyx.com"),
-                txPushIPConfig
+                txPushMetaData
             )
         }
         observeSocketResponses()
@@ -390,9 +386,9 @@ class MainActivity : AppCompatActivity() {
     private fun connectButtonPressed() {
         progress_indicator_id.visibility = View.VISIBLE
         if (notificationAcceptHandling == true) {
-            Timber.d("notificationAcceptHandling is true ${txPushIPConfig?.toJsonString()}")
-            if (txPushIPConfig != null) {
-                connectToSocketAndObserve(txPushIPConfig)
+            Timber.d("notificationAcceptHandling is true $txPushMetaData")
+            if (txPushMetaData != null) {
+                connectToSocketAndObserve(txPushMetaData)
             }
         }else {
             connectToSocketAndObserve()
@@ -616,7 +612,7 @@ class MainActivity : AppCompatActivity() {
         val action = intent.extras?.get(MyFirebaseMessagingService.EXT_KEY_DO_ACTION) as String?
 
         action?.let {
-            txPushIPConfig = intent.extras?.get(MyFirebaseMessagingService.TX_IP_CONFIG)?.toString()?.parseObject()
+            txPushMetaData = intent.extras?.get(MyFirebaseMessagingService.TX_PUSH_METADATA)?.toString()
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
