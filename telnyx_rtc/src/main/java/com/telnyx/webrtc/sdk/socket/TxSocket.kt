@@ -8,6 +8,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
@@ -59,7 +60,7 @@ class TxSocket(
         listener: TelnyxClient,
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
-        rtcId: String? = null
+        pushmetaData: PushMetaData? = null
     ) = launch {
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
@@ -83,7 +84,7 @@ class TxSocket(
             port = it
         }
 
-        val requestUrl = if (rtcId != null) {
+        val requestUrl = if (pushmetaData != null) {
             "wss://$host_address"
         } else {
             "wss://$host_address:$port/"

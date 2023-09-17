@@ -10,5 +10,11 @@ data class PushMetaData(
     @SerializedName("call_id")
     val callId: String,
     @SerializedName("rtc_id")
-    val rtcId: String,
+    val rtcId: String? = null,
+    @SerializedName("rtc_ip")
+    val rtcIP: String? = null,
+    @SerializedName("rtc_port")
+    val rtcPort: Int? = null,
+
+
     )

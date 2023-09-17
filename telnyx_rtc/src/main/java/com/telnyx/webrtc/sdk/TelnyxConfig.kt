@@ -27,7 +27,7 @@ sealed class TelnyxConfig
  * @property sipCallerIDName The user's chosen Caller ID Name
  * @property sipCallerIDNumber The user's Caller ID Number
  * @property fcmToken The user's Firebase Cloud Messaging device ID
- * @property ringtone The integer raw value of the audio file to use as a ringtone
+ * @property ringtone The integer raw value or uri of the audio file to use as a ringtone
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
@@ -39,7 +39,7 @@ data class CredentialConfig(
     val sipCallerIDNumber: String?,
     val fcmToken: String?,
     val ringtone: Any?,
-    val ringBackTone: Any?,
+    val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
     val autoReconnect: Boolean = true
 ) : TelnyxConfig()

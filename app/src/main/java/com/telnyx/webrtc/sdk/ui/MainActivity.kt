@@ -12,6 +12,7 @@ import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
@@ -407,7 +408,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
                 userManager.fcmToken,
-                R.raw.incoming_call,
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
                 R.raw.ringback_tone,
                 LogLevel.ALL
             )

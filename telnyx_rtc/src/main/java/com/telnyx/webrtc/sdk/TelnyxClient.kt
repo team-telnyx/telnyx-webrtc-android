@@ -9,6 +9,8 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.ConnectivityManager
+import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -38,6 +40,11 @@ import kotlin.concurrent.timerTask
 class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
+
+    enum class RINGTONE_TYPE {
+        RAW,
+        URI
+    }
 
     companion object {
         const val RETRY_REGISTER_TIME = 3
@@ -80,10 +87,10 @@ class TelnyxClient(
     val call: Call? by lazy { buildCall() }
 
     private var isCallPendingFromPush: Boolean = false
-    private var rtcId: String? = null
+    private var pushMetaData: PushMetaData? = null
     private fun processCallFromPush(metaData: PushMetaData) {
         isCallPendingFromPush = true
-        this.rtcId = metaData.rtcId
+        this.pushMetaData = metaData
     }
 
     /**
@@ -171,14 +178,17 @@ class TelnyxClient(
 
             if (providedHostAddress == null) {
                 providedHostAddress =
-                    if (rtcId == null) Config.TELNYX_PROD_HOST_ADDRESS
+                    if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS +
-                                "?rtc_id=${rtcId}"
+                                "?rtc_ip=${pushMetaData?.rtcIP}" +
+                                "&rtc_port=${pushMetaData?.rtcPort}"
+
+
             }
 
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, rtcId)
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData)
             delay(1000)
             // Login with stored configuration
             credentialSessionConfig?.let {
@@ -206,14 +216,14 @@ class TelnyxClient(
         registerNetworkCallback()
     }
 
-    private var rawRingtone: Int? = null
+    private var rawRingtone: Any? = null
     private var rawRingbackTone: Int? = null
 
     /**
      * Return the saved ringtone reference
      * @returns [Int]
      */
-    fun getRawRingtone(): Int? {
+    fun getRawRingtone(): Any? {
         return rawRingtone
     }
 
@@ -229,25 +239,29 @@ class TelnyxClient(
      * Connects to the socket using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
+     * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
+     * @param txPushMetaData, the push metadata used to connect to a call from push (Get this from push notification - fcm data payload)
+     * required fot push calls to work
      */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String?
     ) {
 
-        if (txPushMetaData != null) {
+        providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
+            providedServerConfig.host +
+                    "?rtc_ip=${metadata.rtcIP}" +
+                    "&rtc_port=${metadata.rtcPort}"
+        }else {
+            providedServerConfig.host
         }
 
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
-        // if rtc id is not null, we are connecting to a call from push
-        providedHostAddress =
-            if (rtcId == null) providedServerConfig.host
-            else providedServerConfig.host +
-                    "?rtc_id=${rtcId}"
+
 
         Timber.d("Provided Host Address: $providedHostAddress")
 
@@ -255,7 +269,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this, providedHostAddress, providedPort, rtcId)
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData)
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
@@ -439,7 +453,7 @@ class TelnyxClient(
         Log.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         //reset push params
-        rtcId = null
+        pushMetaData = null
         isCallPendingFromPush = false
 
     }
@@ -559,17 +573,40 @@ class TelnyxClient(
      * @see [MediaPlayer]
      */
     internal fun playRingtone() {
-        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        audioManager?.mode = AudioManager.MODE_RINGTONE
+        audioManager?.isSpeakerphoneOn = true
         rawRingtone?.let {
             stopMediaPlayer()
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            if (mediaPlayer?.isPlaying == false) {
-                mediaPlayer!!.start()
-                mediaPlayer!!.isLooping = true
+            try {
+
+                if (it.getRingtoneType() == RINGTONE_TYPE.URI) {
+                     mediaPlayer = MediaPlayer.create(context, it as Uri)
+                } else if (it.getRingtoneType() == RINGTONE_TYPE.RAW) {
+                     mediaPlayer =  MediaPlayer.create(context, it as Int)
+                }
+                mediaPlayer ?: kotlin.run {
+                    Timber.d("Ringtone not valid:: No ringtone will be played")
+                    return
+                }
+                mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+                if (mediaPlayer?.isPlaying == false) {
+                    mediaPlayer!!.start()
+                    mediaPlayer!!.isLooping = true
+                }
+                Timber.d("Ringtone playing")
+            }catch (e: TypeCastException) {
+                Timber.e("Exception: ${e.message}")
             }
         } ?: run {
             Timber.d("No ringtone specified :: No ringtone will be played")
+        }
+    }
+
+    private fun Any?.getRingtoneType(): RINGTONE_TYPE? {
+        return when (this) {
+            is Uri -> RINGTONE_TYPE.URI
+            is Int -> RINGTONE_TYPE.RAW
+            else -> null
         }
     }
 
@@ -605,6 +642,9 @@ class TelnyxClient(
             mediaPlayer = null
         }
         Timber.d("ringtone/ringback media player stopped and released")
+
+        // reset audio mode to communication
+        audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
     }
 
     private fun requestGatewayStatus() {

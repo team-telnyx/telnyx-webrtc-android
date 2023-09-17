@@ -169,6 +169,8 @@ class Call(
             client.stopMediaPlayer()
             callStateLiveData.postValue(CallState.ACTIVE)
             client.callOngoing()
+            // reset audio mode to communication
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         }
     }
 
