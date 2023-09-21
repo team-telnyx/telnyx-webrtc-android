@@ -37,7 +37,7 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
-        txPushMetaData:String? = null
+        txPushMetaData:String?
     ) {
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {

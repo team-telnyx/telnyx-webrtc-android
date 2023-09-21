@@ -12,12 +12,14 @@ import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
+import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.util.*
 import java.util.concurrent.TimeUnit
+
 
 /**
  * The socket connection that will send and receive messages related to calls.
@@ -62,6 +64,16 @@ class TxSocket(
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null
     ) = launch {
+
+        val loggingInterceptor = HttpLoggingInterceptor()
+        loggingInterceptor.apply {
+            if (BuildConfig.DEBUG){
+                loggingInterceptor.level = HttpLoggingInterceptor.Level.BODY
+            }else {
+                loggingInterceptor.level = HttpLoggingInterceptor.Level.NONE
+            }
+        }
+
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
             .retryOnConnectionFailure(true)
@@ -74,7 +86,10 @@ class TxSocket(
                     val builder = chain.request().newBuilder()
                     chain.proceed(builder.build())
                 }
+            ).addInterceptor(
+                loggingInterceptor
             ).build()
+
 
 
         providedHostAddress?.let {
@@ -85,15 +100,27 @@ class TxSocket(
         }
 
         val requestUrl = if (pushmetaData != null) {
-            "wss://$host_address"
+            HttpUrl.Builder()
+                .scheme("https")
+                .host(host_address)
+                .addQueryParameter("rtc_ip", pushmetaData.rtcIP ?: "")
+                .addQueryParameter("rtc_port", pushmetaData.rtcPort?.toString() ?: "")
+                .build()
         } else {
-            "wss://$host_address:$port/"
+            HttpUrl.Builder()
+                .scheme("https")
+                .port(port)
+                .host(host_address)
+                .build()
         }
+        Timber.d("request: $client.")
 
         val request: Request =
             Request.Builder().url(requestUrl).build()
 
-        Timber.d("request: $requestUrl")
+
+        Timber.d("request2 : ${request.url.encodedQuery}")
+
         socket = client.newWebSocket(
             request,
             object : WebSocketListener() {

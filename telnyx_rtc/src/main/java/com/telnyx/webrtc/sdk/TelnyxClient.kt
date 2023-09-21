@@ -180,9 +180,7 @@ class TelnyxClient(
                 providedHostAddress =
                     if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
-                        Config.TELNYX_PROD_HOST_ADDRESS +
-                                "?rtc_ip=${pushMetaData?.rtcIP}" +
-                                "&rtc_port=${pushMetaData?.rtcPort}"
+                        Config.TELNYX_PROD_HOST_ADDRESS
 
 
             }
@@ -251,9 +249,7 @@ class TelnyxClient(
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
-            providedServerConfig.host +
-                    "?rtc_ip=${metadata.rtcIP}" +
-                    "&rtc_port=${metadata.rtcPort}"
+            providedServerConfig.host 
         }else {
             providedServerConfig.host
         }

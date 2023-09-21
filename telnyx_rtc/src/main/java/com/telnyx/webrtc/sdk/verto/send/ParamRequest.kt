@@ -59,7 +59,7 @@ data class AttachCallParams(
 
 data class AttachUserVariables(
     @SerializedName("push_notification_environment")
-    val pushNotificationEnvironment:String = "production",
+    val pushNotificationEnvironment:String = if (BuildConfig.DEBUG) "development" else "production",
     @SerializedName("push_notification_provider")
     val pushNotificationProvider:String = "android",
 )

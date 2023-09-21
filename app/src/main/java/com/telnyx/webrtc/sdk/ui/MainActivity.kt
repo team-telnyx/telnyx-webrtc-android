@@ -610,10 +610,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleCallNotification() {
-        val action = intent.extras?.get(MyFirebaseMessagingService.EXT_KEY_DO_ACTION) as String?
+        val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
-            txPushMetaData = intent.extras?.get(MyFirebaseMessagingService.TX_PUSH_METADATA)?.toString()
+            txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
