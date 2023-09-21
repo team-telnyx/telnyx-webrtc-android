@@ -13,7 +13,7 @@ apply plugin: 'maven-publish'
 apply plugin: "com.bugsnag.android.gradle"
 
 def getVersionName = { ->
-    return "v1.2.16-alpha"
+    return "v1.2.5"
 }
 
 def getArtifactId = { ->
