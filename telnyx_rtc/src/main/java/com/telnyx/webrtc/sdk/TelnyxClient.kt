@@ -7,10 +7,8 @@ package com.telnyx.webrtc.sdk
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.net.ConnectivityManager
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -41,7 +39,7 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
 
-    enum class RINGTONE_TYPE {
+    enum class RingtoneType {
         RAW,
         URI
     }
@@ -238,7 +236,8 @@ class TelnyxClient(
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
-     * @param txPushMetaData, the push metadata used to connect to a call from push (Get this from push notification - fcm data payload)
+     * @param txPushMetaData, the push metadata used to connect to a call from push
+     * (Get this from push notification - fcm data payload)
      * required fot push calls to work
      */
     fun connect(
@@ -249,7 +248,7 @@ class TelnyxClient(
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
-            providedServerConfig.host 
+            providedServerConfig.host
         }else {
             providedServerConfig.host
         }
@@ -575,9 +574,9 @@ class TelnyxClient(
             stopMediaPlayer()
             try {
 
-                if (it.getRingtoneType() == RINGTONE_TYPE.URI) {
+                if (it.getRingtoneType() == RingtoneType.URI) {
                      mediaPlayer = MediaPlayer.create(context, it as Uri)
-                } else if (it.getRingtoneType() == RINGTONE_TYPE.RAW) {
+                } else if (it.getRingtoneType() == RingtoneType.RAW) {
                      mediaPlayer =  MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
@@ -598,10 +597,10 @@ class TelnyxClient(
         }
     }
 
-    private fun Any?.getRingtoneType(): RINGTONE_TYPE? {
+    private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> RINGTONE_TYPE.URI
-            is Int -> RINGTONE_TYPE.RAW
+            is Uri -> RingtoneType.URI
+            is Int -> RingtoneType.RAW
             else -> null
         }
     }
