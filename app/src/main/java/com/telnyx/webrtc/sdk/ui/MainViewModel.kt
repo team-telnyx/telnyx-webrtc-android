@@ -15,7 +15,6 @@ import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
-import com.telnyx.webrtc.sdk.model.TxPushIPConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -38,13 +37,13 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
-        txPushIPConfig: TxPushIPConfig? = null
+        txPushMetaData:String?
     ) {
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
-            telnyxClient?.connect(it, txPushIPConfig = txPushIPConfig)
+            telnyxClient?.connect(it, txPushMetaData)
         } ?: run {
-            telnyxClient?.connect(txPushIPConfig = txPushIPConfig)
+            telnyxClient?.connect(txPushMetaData = txPushMetaData)
         }
     }
 

@@ -135,7 +135,7 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `initiate connection`() {
-        client.connect()
+        client.connect(txPushMetaData = null)
         assertEquals(client.isNetworkCallbackRegistered, true)
     }
 
@@ -164,7 +164,7 @@ class TelnyxClientTest : BaseTest() {
             )
         )
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.connect()
+        client.connect(txPushMetaData = null)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
             SocketResponse.error("No Network Connection")
@@ -180,7 +180,7 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        client.connect()
+        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             MOCK_USERNAME,
@@ -207,7 +207,7 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        client.connect()
+        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             "asdfasass",
@@ -238,7 +238,7 @@ class TelnyxClientTest : BaseTest() {
             )
         )
 
-        client.connect()
+        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             MOCK_TOKEN,
@@ -266,7 +266,7 @@ class TelnyxClientTest : BaseTest() {
             )
         )
 
-        client.connect()
+        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             anyString(),
@@ -339,7 +339,7 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        client.connect()
+        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             "asdfasass",

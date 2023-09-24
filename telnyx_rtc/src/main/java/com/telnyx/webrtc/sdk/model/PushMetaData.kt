@@ -9,8 +9,12 @@ data class PushMetaData(
     val callerNumber: String,
     @SerializedName("call_id")
     val callId: String,
+    @SerializedName("voice_sdk_id")
+    val voiceSdkId: String? = null,
     @SerializedName("rtc_ip")
-    val rtcIP: String,
+    val rtcIP: String? = null,
     @SerializedName("rtc_port")
-    val rtcPort: Int,
+    val rtcPort: Int? = null,
+
+
     )
