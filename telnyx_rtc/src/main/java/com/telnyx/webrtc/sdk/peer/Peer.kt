@@ -37,9 +37,7 @@ internal class Peer(
 
     private val rootEglBase: EglBase = EglBase.create()
 
-    init {
-        initPeerConnectionFactory(context)
-    }
+
 
     private val iceServer = getIceServers()
 
@@ -53,6 +51,7 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
+        Timber.e("start get ice server")
         iceServers.add(
             PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
@@ -63,11 +62,12 @@ internal class Peer(
                 PASSWORD
             ).createIceServer()
         )
+        Timber.e("end get ice server")
         return iceServers
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private val peerConnection by lazy { buildPeerConnection(observer) }
+    private var peerConnection:PeerConnection? = null
 
     /**
      * Initiates our peer connection factory with the specified options
@@ -123,7 +123,7 @@ internal class Peer(
      * @see [AudioSource]
      * @see [AudioTrack]
      */
-    fun startLocalAudioCapture() {
+    fun  startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
             AUDIO_LOCAL_TRACK_ID,
@@ -131,9 +131,10 @@ internal class Peer(
         )
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localAudioTrack.setEnabled(true)
-        localAudioTrack.setVolume(1.0)
+        localAudioTrack.setVolume(3.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
+
     }
 
     /**
@@ -287,10 +288,18 @@ internal class Peer(
     fun disconnect() {
         peerConnection?.close()
         peerConnection?.dispose()
+        peerConnection = null
     }
 
     fun release() {
-        disconnect()
-        peerConnectionFactory.dispose()
+        if (peerConnection != null) {
+            disconnect()
+            peerConnectionFactory.dispose()
+        }
+    }
+
+    init {
+        initPeerConnectionFactory(context)
+        peerConnection =  buildPeerConnection(observer)
     }
 }

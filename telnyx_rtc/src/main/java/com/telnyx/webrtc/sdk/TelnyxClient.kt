@@ -240,7 +240,7 @@ class TelnyxClient(
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
      */
-    fun connect(
+    fun  connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String?
     ) {
@@ -840,6 +840,7 @@ class TelnyxClient(
 
     override fun onMediaReceived(jsonObject: JsonObject) {
         call?.onMediaReceived(jsonObject)
+        stopMediaPlayer()
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
