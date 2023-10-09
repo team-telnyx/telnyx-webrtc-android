@@ -38,7 +38,6 @@ internal class Peer(
     private val rootEglBase: EglBase = EglBase.create()
 
 
-
     private val iceServer = getIceServers()
 
     /**
@@ -67,7 +66,7 @@ internal class Peer(
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private var peerConnection:PeerConnection? = null
+    private var peerConnection: PeerConnection? = null
 
     /**
      * Initiates our peer connection factory with the specified options
@@ -123,7 +122,7 @@ internal class Peer(
      * @see [AudioSource]
      * @see [AudioTrack]
      */
-    fun  startLocalAudioCapture() {
+    fun startLocalAudioCapture() {
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
         val localAudioTrack = peerConnectionFactory.createAudioTrack(
             AUDIO_LOCAL_TRACK_ID,
@@ -134,7 +133,6 @@ internal class Peer(
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
-
     }
 
     /**
@@ -300,6 +298,6 @@ internal class Peer(
 
     init {
         initPeerConnectionFactory(context)
-        peerConnection =  buildPeerConnection(observer)
+        peerConnection = buildPeerConnection(observer)
     }
 }

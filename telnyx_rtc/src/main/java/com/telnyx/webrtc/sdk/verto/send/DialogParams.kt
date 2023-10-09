@@ -31,4 +31,4 @@ data class CallDialogParams(
     val callerIdName: String = "",
     @SerializedName("destination_number")
     val destinationNumber: String = ""
-    )
+)
