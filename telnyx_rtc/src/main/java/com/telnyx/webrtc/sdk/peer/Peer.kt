@@ -131,7 +131,7 @@ internal class Peer(
         )
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localAudioTrack.setEnabled(true)
-        localAudioTrack.setVolume(3.0)
+        localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
 

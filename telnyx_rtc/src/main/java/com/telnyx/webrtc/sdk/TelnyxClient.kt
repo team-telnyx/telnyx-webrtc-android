@@ -840,6 +840,7 @@ class TelnyxClient(
 
     override fun onMediaReceived(jsonObject: JsonObject) {
         call?.onMediaReceived(jsonObject)
+        /*Stop local Media and play ringback from telnyx cloud*/
         stopMediaPlayer()
     }
 
