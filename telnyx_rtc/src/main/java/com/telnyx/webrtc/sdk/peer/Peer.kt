@@ -37,9 +37,6 @@ internal class Peer(
 
     private val rootEglBase: EglBase = EglBase.create()
 
-    init {
-        initPeerConnectionFactory(context)
-    }
 
     private val iceServer = getIceServers()
 
@@ -53,6 +50,7 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
+        Timber.e("start get ice server")
         iceServers.add(
             PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
@@ -63,11 +61,12 @@ internal class Peer(
                 PASSWORD
             ).createIceServer()
         )
+        Timber.e("end get ice server")
         return iceServers
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private val peerConnection by lazy { buildPeerConnection(observer) }
+    private var peerConnection: PeerConnection? = null
 
     /**
      * Initiates our peer connection factory with the specified options
@@ -287,10 +286,18 @@ internal class Peer(
     fun disconnect() {
         peerConnection?.close()
         peerConnection?.dispose()
+        peerConnection = null
     }
 
     fun release() {
-        disconnect()
-        peerConnectionFactory.dispose()
+        if (peerConnection != null) {
+            disconnect()
+            peerConnectionFactory.dispose()
+        }
+    }
+
+    init {
+        initPeerConnectionFactory(context)
+        peerConnection = buildPeerConnection(observer)
     }
 }
