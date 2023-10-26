@@ -8,6 +8,8 @@ import android.content.Context
 import android.media.AudioManager
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CauseCode
@@ -23,6 +25,7 @@ import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.concurrent.timerTask
 
 /**
@@ -34,6 +37,9 @@ import kotlin.concurrent.timerTask
  * @param sessionId the session ID of the user session
  * @param audioManager the [AudioManager] instance in use, used to change audio related settings.
  */
+
+data class CustomHeaders(val name: String, val value: String)
+
 class Call(
     val context: Context,
     val client: TelnyxClient,
@@ -89,7 +95,8 @@ class Call(
         callerName: String,
         callerNumber: String,
         destinationNumber: String,
-        clientState: String
+        clientState: String,
+        customHeaders: Map<String,String>? = null
     ) {
         val uuid: String = UUID.randomUUID().toString()
         val inviteCallId: UUID = UUID.randomUUID()
@@ -127,9 +134,9 @@ class Call(
                             clientState = clientState.encodeBase64(),
                             callId = inviteCallId,
                             destinationNumber = destinationNumber,
+                            customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf())
                         )
                     )
-                )
                 socket.send(inviteMessageBody)
             },
             ICE_CANDIDATE_DELAY
@@ -140,6 +147,14 @@ class Call(
         client.addToCalls(this)
     }
 
+    private fun Map<String,String>.toCustomHeaders():ArrayList<CustomHeaders>{
+        val customHeaders = arrayListOf<CustomHeaders>()
+        this.forEach {
+            customHeaders.add(CustomHeaders(it.key,it.value))
+        }
+        return customHeaders
+    }
+
     /**
      * Accepts an incoming call
      * Local user response with both local and remote SDPs
@@ -147,7 +162,7 @@ class Call(
      * @param destinationNumber, the number or SIP name that will receive the invitation
      * @see [Call]
      */
-    fun acceptCall(callId: UUID, destinationNumber: String) {
+    fun acceptCall(callId: UUID, destinationNumber: String,customHeaders: Map<String, String>? = null) {
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()?.description
@@ -161,7 +176,8 @@ class Call(
                     sdp = sessionDescriptionString,
                     dialogParams = CallDialogParams(
                         callId = callId,
-                        destinationNumber = destinationNumber
+                        destinationNumber = destinationNumber,
+                        customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
                     )
                 )
             )
@@ -417,6 +433,7 @@ class Call(
         // set remote description
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
+        val customHeaders = params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
         when {
             params.has("sdp") -> {
@@ -431,7 +448,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(UUID.fromString(callId), stringSdp)
+                            AnswerResponse(UUID.fromString(callId), stringSdp,customHeaders?.toCustomHeaders() ?: arrayListOf())
                         )
                     )
                 )
@@ -443,7 +460,7 @@ class Call(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(UUID.fromString(callId), stringSdp!!)
+                            AnswerResponse(UUID.fromString(callId), stringSdp!!,customHeaders?.toCustomHeaders() ?: arrayListOf())
                         )
                     )
                 )
@@ -506,6 +523,8 @@ class Call(
             // Set global callID
             callId = offerCallId
 
+            //retrieve custom headers
+            val customHeaders = params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
             peerConnection = Peer(
                 context, client, providedTurn, providedStun,
                 object : PeerConnectionObserver() {
@@ -531,7 +550,7 @@ class Call(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.INVITE.methodName,
-                        InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId)
+                        InviteResponse(callId, remoteSdp, callerName, callerNumber, sessionId, customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf())
                     )
                 )
             )
@@ -577,6 +596,21 @@ class Call(
             iceCandidate
         )
     }
+
+    private fun JsonArray.toCustomHeaders():ArrayList<CustomHeaders>{
+        val customHeaders = arrayListOf<CustomHeaders>()
+        return try {
+            this.forEach {
+                customHeaders.add(Gson().fromJson(it, CustomHeaders::class.java))
+            }
+            customHeaders
+        }catch (e:Exception){
+            Timber.e(e)
+            e.printStackTrace()
+            customHeaders
+        }
+
+     }
 
     override fun onDisablePushReceived(jsonObject: JsonObject) {
         // Noop

@@ -7,8 +7,13 @@ package com.telnyx.webrtc.sdk.verto.receive
 import android.os.Parcel
 import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
+import com.telnyx.webrtc.sdk.CustomHeaders
+import com.telnyx.webrtc.sdk.utilities.parseObject
+import com.telnyx.webrtc.sdk.utilities.toJsonString
+import kotlinx.android.parcel.Parceler
 import kotlinx.android.parcel.Parcelize
 import java.util.*
+import kotlin.collections.ArrayList
 
 /**
  * Class representations of responses received on the socket connection
@@ -52,8 +57,27 @@ data class AnswerResponse(
     @SerializedName("callID")
     val callId: UUID,
     @SerializedName("sdp")
-    val sdp: String
-) : ReceivedResult(), Parcelable
+    val sdp: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult(), Parcelable {
+    private companion object : Parceler<AnswerResponse> {
+        override fun AnswerResponse.write(parcel: Parcel, flags: Int) {
+            parcel.writeString(sdp)
+            parcel.writeString(callId.toString())
+            parcel.writeString(customHeaders.toJsonString())
+        }
+
+        override fun create(parcel: Parcel): AnswerResponse {
+            return AnswerResponse(
+                callId = UUID.fromString(parcel.readString()),
+                sdp = parcel.readString()!!,
+                customHeaders = parcel.readString()?.parseObject<ArrayList<CustomHeaders>>() ?: arrayListOf()
+            )
+        }
+    }
+
+}
 
 /**
  * An invitation response containing the required information
@@ -75,5 +99,29 @@ data class InviteResponse(
     @SerializedName("callerIdNumber")
     val callerIdNumber: String,
     @SerializedName("sessid")
-    val sessid: String
-) : ReceivedResult(), Parcelable
+    val sessid: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult(), Parcelable {
+    private companion object : Parceler<InviteResponse> {
+        override fun InviteResponse.write(parcel: Parcel, flags: Int) {
+            parcel.writeString(sdp)
+            parcel.writeString(callId.toString())
+            parcel.writeString(callerIdNumber)
+            parcel.writeString(callerIdName)
+            parcel.writeString(sessid)
+            parcel.writeString(customHeaders.toJsonString())
+        }
+
+        override fun create(parcel: Parcel): InviteResponse {
+            return InviteResponse(
+                callId = UUID.fromString(parcel.readString()),
+                sdp = parcel.readString()!!,
+                callerIdNumber = parcel.readString()!!,
+                callerIdName = parcel.readString()!!,
+                sessid = parcel.readString()!!,
+                customHeaders = parcel.readString()?.parseObject<ArrayList<CustomHeaders>>() ?: arrayListOf()
+            )
+        }
+    }
+}
