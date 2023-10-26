@@ -491,9 +491,9 @@ class Call(
             val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
 
             peerConnection?.onRemoteSessionReceived(sdp)
-
             // Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
             earlySDP = true
+
         } else {
             // There was no SDP in the response, there was an error.
             callStateLiveData.postValue(CallState.DONE)

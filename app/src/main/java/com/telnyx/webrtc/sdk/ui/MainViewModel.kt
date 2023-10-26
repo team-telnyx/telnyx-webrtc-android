@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 
@@ -86,6 +87,7 @@ class MainViewModel @Inject constructor(
 
     fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
         telnyxClient?.credentialLogin(credentialConfig)
+        Timber.e("token_ ${credentialConfig.fcmToken}")
     }
 
     fun doLoginWithToken(tokenConfig: TokenConfig) {

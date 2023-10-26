@@ -46,6 +46,7 @@ import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
 import timber.log.Timber
 import java.io.IOException
+import java.sql.Time
 import java.util.*
 import javax.inject.Inject
 
@@ -408,7 +409,7 @@ class MainActivity : AppCompatActivity() {
                 userManager.callerIdNumber,
                 userManager.callerIdNumber,
                 userManager.fcmToken,
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
                 R.raw.ringback_tone,
                 LogLevel.ALL
             )
@@ -441,7 +442,7 @@ class MainActivity : AppCompatActivity() {
                     sipCallerName,
                     sipCallerNumber,
                     fcmToken,
-                    ringtone,
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
                     ringBackTone,
                     LogLevel.ALL
                 )

@@ -13,7 +13,7 @@ apply plugin: 'maven-publish'
 apply plugin: "com.bugsnag.android.gradle"
 
 def getVersionName = { ->
-    return "v1.2.5"
+    return "1.2.6"
 }
 
 def getArtifactId = { ->
@@ -178,7 +178,7 @@ dependencies {
     implementation deps.material
     implementation deps.constraint_layout
 
-    implementation "io.getstream:stream-webrtc-android:1.0.0"
+    implementation "io.getstream:stream-webrtc-android:1.0.4"
 
     implementation deps.gson
     implementation deps.retrofit.runtime

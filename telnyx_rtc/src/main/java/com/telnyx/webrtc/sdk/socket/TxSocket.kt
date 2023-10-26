@@ -103,8 +103,7 @@ class TxSocket(
             HttpUrl.Builder()
                 .scheme("https")
                 .host(host_address)
-                .addQueryParameter("rtc_ip", pushmetaData.rtcIP ?: "")
-                .addQueryParameter("rtc_port", pushmetaData.rtcPort?.toString() ?: "")
+                .addQueryParameter("voice_sdk_id", pushmetaData.voiceSdkId ?: "")
                 .build()
         } else {
             HttpUrl.Builder()
