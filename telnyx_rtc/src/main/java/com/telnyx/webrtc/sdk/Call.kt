@@ -630,7 +630,7 @@ class Call(
             Timber.d("customHeaders: $customHeaders")
             customHeaders
         } catch (e: JsonSyntaxException) {
-            e.printStackTrace()
+            Timber.e(e)
             customHeaders
         }
 
