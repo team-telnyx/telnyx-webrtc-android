@@ -603,6 +603,7 @@ class Call(
             this.forEach {
                 customHeaders.add(Gson().fromJson(it, CustomHeaders::class.java))
             }
+            Timber.d("customHeaders: $customHeaders")
             customHeaders
         }catch (e:Exception){
             Timber.e(e)
