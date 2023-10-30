@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.verto.send
 
 import com.google.gson.annotations.SerializedName
+import com.telnyx.webrtc.sdk.CustomHeaders
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -30,5 +31,7 @@ data class CallDialogParams(
     @SerializedName("caller_id_name")
     val callerIdName: String = "",
     @SerializedName("destination_number")
-    val destinationNumber: String = ""
-)
+    val destinationNumber: String = "",
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf(),
+    )
