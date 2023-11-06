@@ -47,7 +47,7 @@ class TxSocket(
 
     private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
-
+    private var reconnectClient:Boolean = false
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -62,7 +62,8 @@ class TxSocket(
         listener: TelnyxClient,
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
-        pushmetaData: PushMetaData? = null
+        pushmetaData: PushMetaData? = null,
+        onConnected:(Boolean) -> Unit = {}
     ) = launch {
 
         val loggingInterceptor = HttpLoggingInterceptor()
@@ -128,6 +129,7 @@ class TxSocket(
                         "[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName
                     )
+                    onConnected(true)
                     listener.onConnectionEstablished()
                     isConnected = true
                 }

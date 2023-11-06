@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
@@ -500,6 +501,37 @@ class TelnyxClientTest : BaseTest() {
         client.onAnswerReceived(callMessage)
         Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
     }
+
+    @Test
+    fun `Test onAnswerReceived customHeaders`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        params.addProperty("callID", callID.toString())
+        params.addProperty("sdp","sdp")
+        val dialogParams = JsonObject()
+        dialogParams.add("customHeaders", JsonArray().apply {
+            add(JsonObject().apply {
+                addProperty("X-key", "Value")
+            })
+        })
+        params.add("dialogParams", dialogParams)
+        callMessage.add("params", params)
+        client.onAnswerReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        assert(fakeCall.answerResponse != null)
+    }
+
+
 
     @Test
     fun `Test onMediaReceived calls call related method`() {

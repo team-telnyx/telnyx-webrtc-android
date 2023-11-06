@@ -22,6 +22,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import org.jetbrains.annotations.TestOnly
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 import timber.log.Timber
@@ -57,6 +58,9 @@ class Call(
     private var peerConnection: Peer? = null
 
     private var earlySDP = false
+
+    var inviteResponse:InviteResponse? = null
+    var answerResponse:AnswerResponse? = null
 
     lateinit var callId: UUID
 
@@ -261,6 +265,8 @@ class Call(
         client.stopMediaPlayer()
         peerConnection?.release()
         peerConnection = null
+        answerResponse = null
+        inviteResponse = null
     }
 
     /**
@@ -450,15 +456,17 @@ class Call(
 
                 callStateLiveData.postValue(CallState.ACTIVE)
 
+                val answerResponse = AnswerResponse(
+                    UUID.fromString(callId),
+                    stringSdp,
+                    customHeaders?.toCustomHeaders() ?: arrayListOf()
+                )
+                this.answerResponse = answerResponse
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(
-                                UUID.fromString(callId),
-                                stringSdp,
-                                customHeaders?.toCustomHeaders() ?: arrayListOf()
-                            )
+                            answerResponse
                         )
                     )
                 )
@@ -467,15 +475,17 @@ class Call(
             earlySDP -> {
                 callStateLiveData.postValue(CallState.CONNECTING)
                 val stringSdp = peerConnection?.getLocalDescription()?.description
+                val answerResponse = AnswerResponse(
+                    UUID.fromString(callId),
+                    stringSdp!!,
+                    customHeaders?.toCustomHeaders() ?: arrayListOf()
+                )
+                this.answerResponse = answerResponse
                 client.socketResponseLiveData.postValue(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.ANSWER.methodName,
-                            AnswerResponse(
-                                UUID.fromString(callId),
-                                stringSdp!!,
-                                customHeaders?.toCustomHeaders() ?: arrayListOf()
-                            )
+                            answerResponse
                         )
                     )
                 )
@@ -563,18 +573,20 @@ class Call(
 
             peerConnection?.answer(AppSdpObserver())
 
+            val inviteResponse = InviteResponse(
+                callId,
+                remoteSdp,
+                callerName,
+                callerNumber,
+                sessionId,
+                customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+            )
+            this.inviteResponse = inviteResponse
             client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.INVITE.methodName,
-                        InviteResponse(
-                            callId,
-                            remoteSdp,
-                            callerName,
-                            callerNumber,
-                            sessionId,
-                            customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
-                        )
+                        inviteResponse
                     )
                 )
             )
