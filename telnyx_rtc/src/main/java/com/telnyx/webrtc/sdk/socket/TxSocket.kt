@@ -47,7 +47,6 @@ class TxSocket(
 
     private lateinit var client: OkHttpClient
     private lateinit var socket: WebSocket
-    private var reconnectClient:Boolean = false
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
