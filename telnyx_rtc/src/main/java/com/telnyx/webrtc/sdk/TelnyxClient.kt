@@ -184,15 +184,18 @@ class TelnyxClient(
             }
 
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData)
-            delay(1000)
-            // Login with stored configuration
-            credentialSessionConfig?.let {
-                credentialLogin(it)
-            } ?: tokenLogin(tokenSessionConfig!!)
+            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
 
-            // Change an ongoing call's socket to the new socket.
-            call?.let { call?.socket = socket }
+                //We can safely assume that the socket is connected at this point
+                // Login with stored configuration
+                credentialSessionConfig?.let {
+                    credentialLogin(it)
+                } ?: tokenLogin(tokenSessionConfig!!)
+
+                // Change an ongoing call's socket to the new socket.
+                call?.let { call?.socket = socket }
+            }
+
         }
     }
 
