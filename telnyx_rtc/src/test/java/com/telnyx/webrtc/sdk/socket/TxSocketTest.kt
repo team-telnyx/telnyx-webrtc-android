@@ -1,12 +1,12 @@
 package com.telnyx.webrtc.sdk.socket
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -74,7 +74,7 @@ class TxSocketTest : BaseTest() {
     fun setup() {
         MockKAnnotations.init(this, true)
         BuildConfig.IS_TESTING.set(true)
-        every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
+        every { mockContext.getSystemService(Activity.AUDIO_SERVICE) } returns audioManager
 
         networkCallbackSetup()
     }

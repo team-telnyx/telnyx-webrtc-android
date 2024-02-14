@@ -1,8 +1,6 @@
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
-    id 'kotlin-kapt'
-    id 'dagger.hilt.android.plugin'
     id 'org.jetbrains.dokka'
     id 'maven-publish'
     id 'kotlin-android-extensions'
@@ -10,7 +8,6 @@ plugins {
 }
 
 apply plugin: 'maven-publish'
-apply plugin: "com.bugsnag.android.gradle"
 
 def getVersionName = { ->
     return "1.3.0"
@@ -173,16 +170,10 @@ tasks.koverXmlReport {
 dependencies {
 
     implementation deps.kotlin.stdlib
-    implementation deps.androidx_core
-    implementation deps.appcompat
-    implementation deps.material
-    implementation deps.constraint_layout
 
     implementation "io.getstream:stream-webrtc-android:1.0.4"
 
     implementation deps.gson
-    implementation deps.retrofit.runtime
-    implementation deps.retrofit.gson
 
 
     implementation deps.coroutines.core
@@ -193,36 +184,18 @@ dependencies {
     implementation deps.okhttp
     implementation deps.interceptor
 
-    implementation deps.ktor.android
-    implementation deps.ktor.cio
-    implementation deps.ktor.gson
-    implementation deps.ktor.websockets
-    implementation deps.ktor.okhttp
-    implementation 'androidx.lifecycle:lifecycle-process:2.5.1'
+    testImplementation deps.ktor.android
+    testImplementation deps.ktor.cio
+    testImplementation deps.ktor.gson
+    testImplementation deps.ktor.websockets
+    testImplementation deps.ktor.okhttp
     testImplementation deps.ktor.client_test
-
-    implementation 'org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.7.10'
-
-
-    //BugSnag:
-    implementation "com.bugsnag:bugsnag-android:5.+"
-
-    // Volley
-    implementation deps.volley
-
-    // Firebase
-    implementation platform(deps.firebasebom)
-    implementation deps.firebase_analytics
-    implementation deps.firebase_messaging
 
     // Timber
     implementation deps.timber
 
-    //permissions
-    implementation deps.dexter
-
-    implementation deps.hilt.android
-    kapt deps.hilt.compiler
+    def lifecycle_version = "2.5.1"
+    implementation "androidx.lifecycle:lifecycle-livedata:$lifecycle_version"
 
     //Testing:
     testImplementation "androidx.arch.core:core-testing:2.1.0"
@@ -276,7 +249,4 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
-    def lifecycle_version = "2.4.0"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
 }

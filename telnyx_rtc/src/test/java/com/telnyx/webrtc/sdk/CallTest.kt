@@ -1,8 +1,8 @@
 package com.telnyx.webrtc.sdk
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
-import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -66,7 +66,7 @@ class CallTest : BaseTest() {
 
         BuildConfig.IS_TESTING.set(true)
 
-        every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
+        every { mockContext.getSystemService(Activity.AUDIO_SERVICE) } returns audioManager
         every { audioManager.isMicrophoneMute = true } just Runs
         every { audioManager.isSpeakerphoneOn = true } just Runs
         every { audioManager.isSpeakerphoneOn } returns false

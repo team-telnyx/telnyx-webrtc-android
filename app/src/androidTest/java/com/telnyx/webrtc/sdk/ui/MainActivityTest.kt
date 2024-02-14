@@ -17,6 +17,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
 import androidx.test.rule.ActivityTestRule
+import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.testhelpers.BaseUITest
@@ -50,6 +51,7 @@ class MainActivityTest : BaseUITest() {
 
     @Before
     fun setUp() {
+        BuildConfig.IS_TESTING.set(true)
         context = getInstrumentation().targetContext.applicationContext
         clearSharedPrefs()
         Intents.init()
@@ -58,6 +60,7 @@ class MainActivityTest : BaseUITest() {
 
     @After
     fun tearDown() {
+        BuildConfig.IS_TESTING.set(false)
         Intents.release()
         clearSharedPrefs()
         setAnimations(true)
