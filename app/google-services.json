@@ -8,18 +8,18 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "",
+        "mobilesdk_app_id": "1:1041583037627:android:aecc361dc3c82a4ce19d9e",
         "android_client_info": {
           "package_name": "com.telnyx.webrtc.sdk"
         }
       },
       "oauth_client": [
         {
-          "client_id": ",
+          "client_id": "1041583037627-u0hfle6k6h7d29l8mofc6iq5o43l9r3n.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.telnyx.webrtc.sdk",
-            "certificate_hash": ""
+            "certificate_hash": "d68a9217a3d88b16740ae4068787bda93d83d558"
           }
         },
         {
@@ -29,7 +29,7 @@
       ],
       "api_key": [
         {
-          "current_key": ""
+          "current_key": "AIyaxasxBBasxasxPAmK1AGqrhfN_3TalFnw-AKsof9M"
         }
       ],
       "services": {
