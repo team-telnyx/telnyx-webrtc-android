@@ -1,25 +1,25 @@
 {
   "project_info": {
     "project_number": "1041583037627",
-    "firebase_url": "https://traceit-ae280.firebaseio.com",
+    "firebase_url": "https://traceitfirebase login-ae280.firebaseio.com",
     "project_id": "traceit-ae280",
     "storage_bucket": "traceit-ae280.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1041583037627:android:aecc361dc3c82a4ce19d9e",
+        "mobilesdk_app_id": "",
         "android_client_info": {
           "package_name": "com.telnyx.webrtc.sdk"
         }
       },
       "oauth_client": [
         {
-          "client_id": "1041583037627-u0hfle6k6h7d29l8mofc6iq5o43l9r3n.apps.googleusercontent.com",
+          "client_id": ",
           "client_type": 1,
           "android_info": {
             "package_name": "com.telnyx.webrtc.sdk",
-            "certificate_hash": "d68a9217a3d88b16740ae4068787bda93d83d558"
+            "certificate_hash": ""
           }
         },
         {
@@ -29,7 +29,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBBvKRPAmK1AGqrhfN_3TalFnw-AKsof9M"
+          "current_key": ""
         }
       ],
       "services": {
