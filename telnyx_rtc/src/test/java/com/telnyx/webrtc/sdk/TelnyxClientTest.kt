@@ -1,12 +1,12 @@
 package com.telnyx.webrtc.sdk
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -86,7 +86,7 @@ class TelnyxClientTest : BaseTest() {
         audioManager = Mockito.spy(AudioManager::class.java)
 
         every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns connectivityManager
-        every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
+        every { mockContext.getSystemService(Activity.AUDIO_SERVICE) } returns audioManager
 
         client = TelnyxClient(mockContext)
     }

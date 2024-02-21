@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -11,9 +12,7 @@ import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.PowerManager
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
-import com.bugsnag.android.Bugsnag
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
@@ -77,7 +76,7 @@ class TelnyxClient(
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
     private val audioManager =
-        context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
+        context.getSystemService(Activity.AUDIO_SERVICE) as? AudioManager
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
@@ -200,10 +199,6 @@ class TelnyxClient(
     }
 
     init {
-        if (!BuildConfig.IS_TESTING.get()) {
-            Bugsnag.start(context)
-        }
-
         // Generate random UUID for sessid param, convert it to string and set globally
         sessid = UUID.randomUUID().toString()
 

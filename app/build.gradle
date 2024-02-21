@@ -8,6 +8,8 @@ plugins {
 
 }
 
+apply plugin: "com.bugsnag.android.gradle"
+
 def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
@@ -25,6 +27,7 @@ android {
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "java.util.concurrent.atomic.AtomicBoolean", "IS_TESTING", "new java.util.concurrent.atomic.AtomicBoolean(false)"
     }
 
     buildTypes {
@@ -99,6 +102,10 @@ dependencies {
 
     // SDK:
     implementation project(':telnyx_rtc')
+
+
+    //BugSnag:
+    implementation "com.bugsnag:bugsnag-android:5.+"
 
     implementation deps.dialpad
 

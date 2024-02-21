@@ -60,5 +60,18 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="telnyx_channel" />
 
+        <meta-data
+            android:name="com.bugsnag.android.APP_TYPE"
+            android:value="telnyx_rtc" />
+        <meta-data
+            android:name="com.bugsnag.android.PROJECT_PACKAGES"
+            android:value="com.telnyx.webrtc.sdk.telnyx_rtc" />
+        <meta-data
+            android:name="com.bugsnag.android.SEND_THREADS"
+            android:value="ALWAYS" />
+        <meta-data
+            android:name="com.bugsnag.android.API_KEY"
+            android:value="8deb3e73bbe5d352ef442c42b129314c" />
+
     </application>
 </manifest>
