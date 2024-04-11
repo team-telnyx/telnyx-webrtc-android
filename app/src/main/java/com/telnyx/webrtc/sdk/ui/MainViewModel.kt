@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import com.google.gson.JsonObject
@@ -30,7 +31,7 @@ class MainViewModel @Inject constructor(
 
     private var telnyxClient: TelnyxClient? = null
 
-    private var currentCall: Call? = null
+    var currentCall: Call? = null
     private var previousCall: Call? = null
 
     private var calls: Map<UUID, Call> = mapOf()
@@ -74,6 +75,8 @@ class MainViewModel @Inject constructor(
 
     fun setCurrentCall(callId: UUID) {
         calls = telnyxClient?.getActiveCalls()!!
+        Log.e("setCall Previous", currentCall?.callId.toString())
+        Log.e("setCall Current", callId.toString())
         if (calls.size > 1) {
             previousCall = currentCall
         }
