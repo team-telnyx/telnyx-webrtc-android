@@ -361,8 +361,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
-        sip_username_id.setText("isaac33882")
-        sip_password_id.setText("Iamtooold")
+        sip_username_id.setText(MOCK_USERNAME)
+        sip_password_id.setText(MOCK_PASSWORD)
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)

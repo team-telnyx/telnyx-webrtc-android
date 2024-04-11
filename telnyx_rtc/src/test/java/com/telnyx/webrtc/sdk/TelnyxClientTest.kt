@@ -479,7 +479,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callId = UUID.randomUUID()
         client.onByeReceived(callId)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onByeReceived(callId)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onByeReceived(callId)
     }
 
     @Test
@@ -499,7 +499,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("callID", callID.toString())
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onAnswerReceived(callMessage)
     }
 
     @Test
@@ -527,7 +527,7 @@ class TelnyxClientTest : BaseTest() {
         params.add("dialogParams", dialogParams)
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onAnswerReceived(callMessage)
         assert(fakeCall.answerResponse != null)
     }
 
@@ -550,7 +550,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("callID", callID.toString())
         callMessage.add("params", params)
         client.onMediaReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onMediaReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onMediaReceived(callMessage)
     }
 
     @Test
@@ -570,7 +570,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("callID", callID.toString())
         callMessage.add("incorrect_params", params)
         client.onOfferReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onOfferReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onOfferReceived(callMessage)
     }
 
     @Test
@@ -592,7 +592,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("telnyx_leg_id", callID.toString())
         callMessage.add("params", params)
         client.onRingingReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onRingingReceived(callMessage)
     }
 
     @Test
@@ -614,7 +614,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("telnyx_leg_id", callID.toString())
         callMessage.add("params", params)
         client.onRingingReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        Mockito.verify(client.call, Mockito.atLeast(1))?.client?.onRingingReceived(callMessage)
         assertEquals(client.call?.getTelnyxSessionId(), callID)
         assertEquals(client.call?.getTelnyxLegId(), callID)
     }
