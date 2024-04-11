@@ -17,15 +17,19 @@ import com.bugsnag.android.Bugsnag
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.peer.Peer
+import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import org.webrtc.IceCandidate
+import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -82,7 +86,17 @@ class TelnyxClient(
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    val call: Call? by lazy { buildCall() }
+    @Deprecated("telnyxclient.call is deprecated. Use telnyxclient.[option] instead. e.g telnyxclient.newInvite()")
+    val call: Call? by lazy {
+        if (calls.isNotEmpty()) {
+            val allCalls = calls.values
+            val activeCall = allCalls.firstOrNull { it.getCallState().value == CallState.ACTIVE }
+            activeCall ?: allCalls.first() // return the first
+        } else {
+            buildCall()
+        }
+    }
+
 
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
@@ -112,6 +126,159 @@ class TelnyxClient(
         } else {
             // We are testing, and will instead return a mocked call.
             return null
+        }
+    }
+
+
+    /* Accepts an incoming call
+    * Local user response with both local and remote SDPs
+    * @param callId, the callId provided with the invitation
+    * @param destinationNumber, the number or SIP name that will receive the invitation
+    * @see [Call]
+    */
+    fun acceptCall(
+        callId: UUID,
+        destinationNumber: String,
+        customHeaders: Map<String, String>? = null
+    ) {
+        val acceptCall = calls[callId]
+        acceptCall!!.apply {
+            val uuid: String = UUID.randomUUID().toString()
+            val sessionDescriptionString =
+                peerConnection?.getLocalDescription()?.description
+            if (sessionDescriptionString == null) {
+                callStateLiveData.postValue(CallState.ERROR)
+            } else {
+                val answerBodyMessage = SendingMessageBody(
+                    uuid, SocketMethod.ANSWER.methodName,
+                    CallParams(
+                        sessid = sessionId,
+                        sdp = sessionDescriptionString,
+                        dialogParams = CallDialogParams(
+                            callId = callId,
+                            destinationNumber = destinationNumber,
+                            customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                        )
+                    )
+                )
+                socket.send(answerBodyMessage)
+                client.stopMediaPlayer()
+                callStateLiveData.postValue(CallState.ACTIVE)
+                client.callOngoing()
+                // reset audio mode to communication
+                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            }
+        }
+        this.addToCalls(acceptCall)
+    }
+
+    fun newInvite(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>? = null
+    ){
+        val inviteCall = call!!.copy(
+            context = context,
+            client = this,
+            socket = socket,
+            sessionId = sessid,
+            audioManager = audioManager!!,
+            providedTurn = providedTurn!!,
+            providedStun = providedStun!!
+        ).apply {
+            val uuid: String = UUID.randomUUID().toString()
+            val inviteCallId: UUID = UUID.randomUUID()
+
+            // set global call CallID
+            callId = inviteCallId
+
+            // Create new peer
+            peerConnection = Peer(
+                context, client, providedTurn, providedStun,
+                object : PeerConnectionObserver() {
+                    override fun onIceCandidate(p0: IceCandidate?) {
+                        super.onIceCandidate(p0)
+                        peerConnection?.addIceCandidate(p0)
+                    }
+                }
+            )
+
+            peerConnection?.startLocalAudioCapture()
+            peerConnection?.createOfferForSdp(AppSdpObserver())
+
+            val iceCandidateTimer = Timer()
+            iceCandidateTimer.schedule(
+                timerTask {
+                    // set localInfo and ice candidate and able to create correct offer
+                    val inviteMessageBody = SendingMessageBody(
+                        id = uuid,
+                        method = SocketMethod.INVITE.methodName,
+                        params = CallParams(
+                            sessid = sessionId,
+                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                            dialogParams = CallDialogParams(
+                                callerIdName = callerName,
+                                callerIdNumber = callerNumber,
+                                clientState = clientState.encodeBase64(),
+                                callId = inviteCallId,
+                                destinationNumber = destinationNumber,
+                                customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                            )
+                        )
+                    )
+                    socket.send(inviteMessageBody)
+                },
+                Call.ICE_CANDIDATE_DELAY
+            )
+
+            client.callOngoing()
+            client.playRingBackTone()
+        }
+        this.addToCalls(inviteCall)
+
+    }
+
+    /**
+     * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
+     * @param callId, the callId provided with the invitation
+     * @see [Call]
+     */
+    fun endCall(callId: UUID) {
+        val endCall = calls[callId]
+        endCall?.apply {
+            val uuid: String = UUID.randomUUID().toString()
+            val byeMessageBody = SendingMessageBody(
+                uuid, SocketMethod.BYE.methodName,
+                ByeParams(
+                    sessionId,
+                    CauseCode.USER_BUSY.code,
+                    CauseCode.USER_BUSY.name,
+                    ByeDialogParams(
+                        callId
+                    )
+                )
+            )
+            // send bye message to the UI
+            client.socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.BYE.methodName,
+                        null
+                    )
+                )
+            )
+            callStateLiveData.postValue(CallState.DONE)
+            client.removeFromCalls(callId)
+            client.callNotOngoing()
+            socket.send(byeMessageBody)
+            resetCallOptions()
+            client.stopMediaPlayer()
+            peerConnection?.release()
+            peerConnection = null
+            answerResponse = null
+            inviteResponse = null
         }
     }
 
@@ -243,7 +410,7 @@ class TelnyxClient(
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
      */
-    fun  connect(
+    fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String?
     ) {
@@ -252,7 +419,7 @@ class TelnyxClient(
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
             providedServerConfig.host
-        }else {
+        } else {
             providedServerConfig.host
         }
 
@@ -578,9 +745,9 @@ class TelnyxClient(
             try {
 
                 if (it.getRingtoneType() == RingtoneType.URI) {
-                     mediaPlayer = MediaPlayer.create(context, it as Uri)
+                    mediaPlayer = MediaPlayer.create(context, it as Uri)
                 } else if (it.getRingtoneType() == RingtoneType.RAW) {
-                     mediaPlayer =  MediaPlayer.create(context, it as Int)
+                    mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
                     Timber.d("Ringtone not valid:: No ringtone will be played")
@@ -592,7 +759,7 @@ class TelnyxClient(
                     mediaPlayer!!.isLooping = true
                 }
                 Timber.d("Ringtone playing")
-            }catch (e: TypeCastException) {
+            } catch (e: TypeCastException) {
                 Timber.e("Exception: ${e.message}")
             }
         } ?: run {
@@ -833,23 +1000,192 @@ class TelnyxClient(
     }
 
     override fun onByeReceived(callId: UUID) {
-        Timber.d("[%s] :: onByeReceived", this@TelnyxClient.javaClass.simpleName)
-        call?.onByeReceived(callId)
+        Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
+        val byeCall = calls[callId]
+        byeCall?.apply {
+            Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
+            client.socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.BYE.methodName,
+                        null
+                    )
+                )
+            )
+
+            callStateLiveData.postValue(CallState.DONE)
+            client.removeFromCalls(callId)
+            client.callNotOngoing()
+            resetCallOptions()
+            client.stopMediaPlayer()
+            peerConnection?.release()
+        }
+
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
-        call?.onAnswerReceived(jsonObject)
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val answeredCall = calls[UUID.fromString(callId)]
+        answeredCall?.apply {
+            val customHeaders =
+                params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
+
+            when {
+                params.has("sdp") -> {
+                    val stringSdp = params.get("sdp").asString
+                    val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
+
+                    peerConnection?.onRemoteSessionReceived(sdp)
+
+                    callStateLiveData.postValue(CallState.ACTIVE)
+
+                    val answerResponse = AnswerResponse(
+                        UUID.fromString(callId),
+                        stringSdp,
+                        customHeaders?.toCustomHeaders() ?: arrayListOf()
+                    )
+                    this.answerResponse = answerResponse
+                    client.socketResponseLiveData.postValue(
+                        SocketResponse.messageReceived(
+                            ReceivedMessageBody(
+                                SocketMethod.ANSWER.methodName,
+                                answerResponse
+                            )
+                        )
+                    )
+                }
+
+                earlySDP -> {
+                    callStateLiveData.postValue(CallState.CONNECTING)
+                    val stringSdp = peerConnection?.getLocalDescription()?.description
+                    val answerResponse = AnswerResponse(
+                        UUID.fromString(callId),
+                        stringSdp!!,
+                        customHeaders?.toCustomHeaders() ?: arrayListOf()
+                    )
+                    this.answerResponse = answerResponse
+                    client.socketResponseLiveData.postValue(
+                        SocketResponse.messageReceived(
+                            ReceivedMessageBody(
+                                SocketMethod.ANSWER.methodName,
+                                answerResponse
+                            )
+                        )
+                    )
+                    callStateLiveData.postValue(CallState.ACTIVE)
+                }
+
+                else -> {
+                    // There was no SDP in the response, there was an error.
+                    callStateLiveData.postValue(CallState.DONE)
+                    client.removeFromCalls(UUID.fromString(callId))
+                }
+            }
+            client.callOngoing()
+            client.stopMediaPlayer()
+        }
+
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
-        call?.onMediaReceived(jsonObject)
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val mediaCall = calls[UUID.fromString(callId)]
+        mediaCall?.apply {
+            if (params.has("sdp")) {
+                val stringSdp = params.get("sdp").asString
+                val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
+
+                peerConnection?.onRemoteSessionReceived(sdp)
+                // Set internal flag for early retrieval of SDP - generally occurs when a ringback setting is applied in inbound call settings
+                earlySDP = true
+
+            } else {
+                // There was no SDP in the response, there was an error.
+                callStateLiveData.postValue(CallState.DONE)
+                client.removeFromCalls(UUID.fromString(callId))
+            }
+        }
+
         /*Stop local Media and play ringback from telnyx cloud*/
         stopMediaPlayer()
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        call?.onOfferReceived(jsonObject)
+        val offerCall = call!!.copy(
+            context = context,
+            client = this,
+            socket = socket,
+            sessionId = sessid,
+            audioManager = audioManager!!,
+            providedTurn = providedTurn!!,
+            providedStun = providedStun!!
+        ).apply {
+            if (jsonObject.has("params")) {
+                val params = jsonObject.getAsJsonObject("params")
+                val offerCallId = UUID.fromString(params.get("callID").asString)
+                val remoteSdp = params.get("sdp").asString
+                val callerName = params.get("caller_id_name").asString
+                val callerNumber = params.get("caller_id_number").asString
+                telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
+                telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
+
+                // Set global callID
+                callId = offerCallId
+
+                //retrieve custom headers
+                val customHeaders =
+                    params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
+                peerConnection = Peer(
+                    context, client, providedTurn, providedStun,
+                    object : PeerConnectionObserver() {
+                        override fun onIceCandidate(p0: IceCandidate?) {
+                            super.onIceCandidate(p0)
+                            peerConnection?.addIceCandidate(p0)
+                        }
+                    }
+                )
+
+                peerConnection?.startLocalAudioCapture()
+
+                peerConnection?.onRemoteSessionReceived(
+                    SessionDescription(
+                        SessionDescription.Type.OFFER,
+                        remoteSdp
+                    )
+                )
+
+                peerConnection?.answer(AppSdpObserver())
+
+                val inviteResponse = InviteResponse(
+                    callId,
+                    remoteSdp,
+                    callerName,
+                    callerNumber,
+                    sessionId,
+                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                )
+                this.inviteResponse = inviteResponse
+
+            } else {
+                Timber.d(
+                    "[%s] :: Invalid offer received, missing required parameters [%s]",
+                    this.javaClass.simpleName, jsonObject
+                )
+            }
+        }
+        addToCalls(offerCall)
+        offerCall.client.socketResponseLiveData.postValue(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.INVITE.methodName,
+                    offerCall.inviteResponse
+                )
+            )
+        )
+        offerCall.client.playRingtone()
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
@@ -858,19 +1194,36 @@ class TelnyxClient(
             this@TelnyxClient.javaClass.simpleName,
             jsonObject
         )
-        call?.onRingingReceived(jsonObject)
-        socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.RINGING.methodName,
-                    null
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = params.get("callID").asString
+        val ringingCall = calls[UUID.fromString(callId)]
+
+        ringingCall?.apply {
+            telnyxSessionId = if (params.has("telnyx_session_id")) {
+                UUID.fromString(params.get("telnyx_session_id").asString)
+            } else {
+                UUID.randomUUID()
+            }
+            telnyxLegId = if (params.has("telnyx_leg_id")) {
+                UUID.fromString(params.get("telnyx_leg_id").asString)
+            } else {
+                UUID.randomUUID()
+            }
+            client.socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.RINGING.methodName,
+                        null
+                    )
                 )
             )
-        )
+        }
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
-        call?.onIceCandidateReceived(iceCandidate)
+        call?.apply {
+            callStateLiveData.postValue(CallState.CONNECTING)
+        }
     }
 
     override fun onDisablePushReceived(jsonObject: JsonObject) {
@@ -895,7 +1248,42 @@ class TelnyxClient(
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {
-        call?.onAttachReceived(jsonObject)
+        val params = jsonObject.getAsJsonObject("params")
+        val callId = UUID.fromString(params.get("callID").asString)
+        val attachCall = calls[callId]
+        attachCall?.apply {
+            val remoteSdp = params.get("sdp").asString
+            val callerNumber = params.get("caller_id_number").asString
+
+            peerConnection = Peer(
+                context, client, providedTurn, providedStun,
+                object : PeerConnectionObserver() {
+                    override fun onIceCandidate(p0: IceCandidate?) {
+                        super.onIceCandidate(p0)
+                        peerConnection?.addIceCandidate(p0)
+                    }
+                }
+            )
+
+            peerConnection?.startLocalAudioCapture()
+
+            peerConnection?.onRemoteSessionReceived(
+                SessionDescription(
+                    SessionDescription.Type.OFFER,
+                    remoteSdp
+                )
+            )
+
+            peerConnection?.answer(AppSdpObserver())
+
+            val iceCandidateTimer = Timer()
+            iceCandidateTimer.schedule(
+                timerTask {
+                    acceptReattachCall(callId, callerNumber)
+                },
+                Call.ICE_CANDIDATE_DELAY
+            )
+        }
     }
 
     override fun setCallRecovering() {

@@ -16,6 +16,9 @@
     <string name="reject">Reject</string>
     <string name="answer">Answer</string>
     <string name="incoming_call">Incoming Call</string>
+    <string name="end_and_accept">And and Accept</string>
+    <string name="reject_incoming">Reject Incoming</string>
+
     <string name="end">End</string>
 
     <string name="telnyx_notification_channel_description">Telnyx WebRTC call notification</string>

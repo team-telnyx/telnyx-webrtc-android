@@ -1,11 +1,40 @@
 {
   "project_info": {
     "project_number": "1041583037627",
-    "firebase_url": "https://traceitfirebase login-ae280.firebaseio.com",
+    "firebase_url": "https://traceit-ae280.firebaseio.com",
     "project_id": "traceit-ae280",
     "storage_bucket": "traceit-ae280.appspot.com"
   },
   "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041583037627:android:398bfd2d3a70b324e19d9e",
+        "android_client_info": {
+          "package_name": "com.telnyx.telnyx_flutter_webrtc"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1041583037627-bomsmo9hk9ostmci3iciqmgkr9q5aptb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBvKRPAmK1AGqrhfN_3TalFnw-AKsof9M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1041583037627-bomsmo9hk9ostmci3iciqmgkr9q5aptb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
     {
       "client_info": {
         "mobilesdk_app_id": "1:1041583037627:android:aecc361dc3c82a4ce19d9e",
@@ -29,7 +58,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIyaxasxBBasxasxPAmK1AGqrhfN_3TalFnw-AKsof9M"
+          "current_key": "AIzaSyBBvKRPAmK1AGqrhfN_3TalFnw-AKsof9M"
         }
       ],
       "services": {

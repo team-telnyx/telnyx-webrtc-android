@@ -31,6 +31,7 @@
         app:layout_constraintTop_toBottomOf="@+id/incoming_call_id"
         app:layout_constraintStart_toEndOf="@id/guideline_start"/>
 
+
     <ImageButton
         android:id="@+id/reject_call_id"
         android:layout_width="100dp"

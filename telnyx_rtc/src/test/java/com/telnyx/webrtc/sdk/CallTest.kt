@@ -209,7 +209,7 @@ class CallTest : BaseTest() {
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
-            call.onClientReady(JsonObject())
+            call.client.onClientReady(JsonObject())
         }
     }
 
@@ -227,7 +227,7 @@ class CallTest : BaseTest() {
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
-            call.onGatewayStateReceived("", "")
+            call.client.onGatewayStateReceived("", "")
         }
     }
 
@@ -245,7 +245,7 @@ class CallTest : BaseTest() {
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
-            call.onConnectionEstablished()
+            call.client.onConnectionEstablished()
         }
     }
 
@@ -262,7 +262,7 @@ class CallTest : BaseTest() {
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
-            call.onErrorReceived(JsonObject())
+            call.client.onErrorReceived(JsonObject())
         }
     }
 }
