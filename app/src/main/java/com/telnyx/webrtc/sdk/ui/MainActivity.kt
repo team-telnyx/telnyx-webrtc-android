@@ -198,7 +198,6 @@ class MainActivity : AppCompatActivity() {
                                 val inviteResponse = data.result as InviteResponse
                                 onReceiveCallView(
                                     inviteResponse.callId,
-                                    inviteResponse.callerIdName,
                                     inviteResponse.callerIdNumber
                                 )
                             }
@@ -528,9 +527,9 @@ class MainActivity : AppCompatActivity() {
 
 
 
-    private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
+    private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
         if (mainViewModel.currentCall?.getCallState()?.value == CallState.ACTIVE) {
-            onReceiveActiveCallView(callId, callerIdName, callerIdNumber)
+            onReceiveActiveCallView(callId, callerIdNumber)
             return
         }
 
@@ -561,7 +560,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onReceiveActiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
+    private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
 
         call_control_section_id.visibility = View.GONE
         incoming_active_call_section_id.visibility = View.VISIBLE

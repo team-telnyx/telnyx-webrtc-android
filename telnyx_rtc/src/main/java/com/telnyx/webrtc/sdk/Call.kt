@@ -41,9 +41,6 @@ import kotlin.concurrent.timerTask
 
 data class CustomHeaders(val name: String, val value: String)
 
-interface CallListener {
-
-}
 data class Call(
     val context: Context,
     val client: TelnyxClient,
