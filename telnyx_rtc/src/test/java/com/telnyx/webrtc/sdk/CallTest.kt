@@ -29,6 +29,7 @@ import org.junit.rules.TestRule
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 import org.mockito.Spy
+import timber.log.Timber
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -174,7 +175,9 @@ class CallTest : BaseTest() {
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
-        call.acceptCall(UUID.randomUUID(), "00000")
+        call.callId = UUID.randomUUID()
+        client.addToCalls(call)
+        call.acceptCall(call.callId, "00000")
         assertEquals(call.getCallState().value, CallState.ERROR)
     }
 
@@ -262,7 +265,16 @@ class CallTest : BaseTest() {
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
-            call.client.onErrorReceived(JsonObject())
+            val jsonObject = JsonObject().apply {
+                add("error", JsonObject().apply {
+                    addProperty("message", "Your error message here")
+                })
+            }
+
+            //write a way to test this
+            //
+
+            call.client.onErrorReceived(jsonObject)
         }
     }
 }

@@ -70,8 +70,8 @@ class TelnyxClient(
     internal var socket: TxSocket
     private var providedHostAddress: String? = null
     private var providedPort: Int? = null
-    private var providedTurn: String? = null
-    private var providedStun: String? = null
+    internal var providedTurn: String? = null
+    internal var providedStun: String? = null
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -148,7 +148,8 @@ class TelnyxClient(
                 peerConnection?.getLocalDescription()?.description
             if (sessionDescriptionString == null) {
                 callStateLiveData.postValue(CallState.ERROR)
-            } else {
+            }
+            else {
                 val answerBodyMessage = SendingMessageBody(
                     uuid, SocketMethod.ANSWER.methodName,
                     CallParams(
@@ -1113,17 +1114,17 @@ class TelnyxClient(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
-        Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
-        val offerCall = call!!.copy(
-            context = context,
-            client = this,
-            socket = socket,
-            sessionId = sessid,
-            audioManager = audioManager!!,
-            providedTurn = providedTurn!!,
-            providedStun = providedStun!!
-        ).apply {
-            if (jsonObject.has("params")) {
+        if (jsonObject.has("params")) {
+            Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+            val offerCall = call!!.copy(
+                context = context,
+                client = this,
+                socket = socket,
+                sessionId = sessid,
+                audioManager = audioManager!!,
+                providedTurn = providedTurn!!,
+                providedStun = providedStun!!
+            ).apply {
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
@@ -1169,23 +1170,24 @@ class TelnyxClient(
                 )
                 this.inviteResponse = inviteResponse
 
-            } else {
-                Timber.d(
-                    "[%s] :: Invalid offer received, missing required parameters [%s]",
-                    this.javaClass.simpleName, jsonObject
-                )
             }
-        }
-        addToCalls(offerCall)
-        offerCall.client.socketResponseLiveData.postValue(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.INVITE.methodName,
-                    offerCall.inviteResponse
+            addToCalls(offerCall)
+            offerCall.client.socketResponseLiveData.postValue(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.INVITE.methodName,
+                        offerCall.inviteResponse
+                    )
                 )
             )
-        )
-        offerCall.client.playRingtone()
+            offerCall.client.playRingtone()
+        } else {
+            Timber.d(
+                "[%s] :: Invalid offer received, missing required parameters [%s]",
+                this.javaClass.simpleName, jsonObject
+            )
+        }
+
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
