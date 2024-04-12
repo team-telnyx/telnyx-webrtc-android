@@ -519,10 +519,6 @@ class MainActivity : AppCompatActivity() {
         call_button_id.visibility = View.VISIBLE
         cancel_call_button_id.visibility = View.GONE
         incoming_active_call_section_id.visibility = View.GONE
-        if (!isActiveBye) {
-           supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
-            isActiveBye = false
-        }
     }
 
 
