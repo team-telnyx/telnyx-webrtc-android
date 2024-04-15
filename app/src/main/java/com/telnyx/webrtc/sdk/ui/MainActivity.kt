@@ -15,12 +15,14 @@ import android.content.Context
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import com.karumi.dexter.Dexter
@@ -31,6 +33,7 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.*
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
@@ -40,10 +43,13 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.include_call_control_section.*
+import kotlinx.android.synthetic.main.include_incoming_activel_section.*
 import kotlinx.android.synthetic.main.include_incoming_call_section.*
 import kotlinx.android.synthetic.main.include_login_credential_section.*
 import kotlinx.android.synthetic.main.include_login_section.*
 import kotlinx.android.synthetic.main.include_login_token_section.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.IOException
 import java.sql.Time
@@ -64,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
     private var txPushMetaData:String? = null
+    private var isActiveBye = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -191,7 +198,6 @@ class MainActivity : AppCompatActivity() {
                                 val inviteResponse = data.result as InviteResponse
                                 onReceiveCallView(
                                     inviteResponse.callId,
-                                    inviteResponse.callerIdName,
                                     inviteResponse.callerIdNumber
                                 )
                             }
@@ -354,8 +360,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
-        sip_username_id.setText(BuildConfig.MOCK_USERNAME)
-        sip_password_id.setText(BuildConfig.MOCK_PASSWORD)
+        sip_username_id.setText(MOCK_USERNAME)
+        sip_password_id.setText(MOCK_PASSWORD)
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)
@@ -494,12 +500,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var callInstanceFragment: CallInstanceFragment? = null
     private fun launchCallInstance(callId: UUID) {
         mainViewModel.setCurrentCall(callId)
-
-        val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        if (callInstanceFragment != null) {
+            supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
+        }
+        callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
         supportFragmentManager.beginTransaction()
-            .add(R.id.fragment_call_instance, callInstanceFragment)
+            .add(R.id.fragment_call_instance, callInstanceFragment!!)
             .commit()
     }
 
@@ -509,9 +518,18 @@ class MainActivity : AppCompatActivity() {
         call_control_section_id.visibility = View.VISIBLE
         call_button_id.visibility = View.VISIBLE
         cancel_call_button_id.visibility = View.GONE
+        incoming_active_call_section_id.visibility = View.GONE
     }
 
-    private fun onReceiveCallView(callId: UUID, callerIdName: String, callerIdNumber: String) {
+
+
+    private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
+        if (mainViewModel.currentCall?.getCallState()?.value == CallState.ACTIVE) {
+            onReceiveActiveCallView(callId, callerIdNumber)
+            return
+        }
+
+        mainViewModel.currentCall
         mainViewModel.setCurrentCall(callId)
         when (notificationAcceptHandling) {
             true -> {
@@ -538,15 +556,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
+
+        call_control_section_id.visibility = View.GONE
+        incoming_active_call_section_id.visibility = View.VISIBLE
+        incoming_active_call_section_id.bringToFront()
+
+        endAndAccept.setOnClickListener {
+            mainViewModel.currentCall?.let {
+                isActiveBye = true
+                it.endCall(it.callId)
+            }
+            mainViewModel.setCurrentCall(callId)
+            onAcceptCall(callId, callerIdNumber)
+
+        }
+        reject_current_call.setOnClickListener {
+            onRejectActiveCall(callId)
+        }
+    }
+
+
     private fun onAcceptCall(callId: UUID, destinationNumber: String) {
         incoming_call_section_id.visibility = View.GONE
+        incoming_active_call_section_id.visibility = View.GONE
         // Visible but underneath fragment
         call_control_section_id.visibility = View.VISIBLE
 
-        mainViewModel.acceptCall(callId, destinationNumber)
         launchCallInstance(callId)
+        mainViewModel.acceptCall(callId, destinationNumber)
+
     }
 
+    private fun onRejectActiveCall(callId: UUID) {
+        // Reject call and make call control section visible
+        incoming_active_call_section_id.visibility = View.GONE
+        mainViewModel.endCall(callId)
+    }
     private fun onRejectCall(callId: UUID) {
         // Reject call and make call control section visible
         incoming_call_section_id.visibility = View.GONE
