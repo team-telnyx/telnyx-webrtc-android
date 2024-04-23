@@ -212,6 +212,8 @@ class MainActivity : AppCompatActivity() {
 
                             SocketMethod.BYE.methodName -> {
                                 onByeReceivedViews()
+                                val callId = (data.result as ByeResponse).callId
+                                supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
                             }
                         }
                     }
@@ -360,8 +362,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
-        sip_username_id.setText(MOCK_USERNAME)
-        sip_password_id.setText(MOCK_PASSWORD)
+        sip_username_id.setText("isaac29798")
+        sip_password_id.setText("EAraBMKx")
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)

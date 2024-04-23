@@ -268,8 +268,9 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    t.printStackTrace()
                     Timber.tag("TxSocket")
-                        .i("Socket is closed: $response $t :: Will attempt to reconnect")
+                        .i("Socket is closed: ${response?.message} $t :: Will attempt to reconnect")
                     if (ongoingCall) {
                         listener.call?.setCallRecovering()
                     }

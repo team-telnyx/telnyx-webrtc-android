@@ -80,9 +80,10 @@ data class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-
-        callStateLiveData.postValue(CallState.RINGING)
+        if (audioManager.mode != AudioManager.MODE_IN_COMMUNICATION) {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        }
+        callStateLiveData.postValue(CallState.CONNECTING)
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
