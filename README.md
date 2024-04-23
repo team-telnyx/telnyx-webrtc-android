@@ -194,12 +194,31 @@ We can then use this method to create a listener that listens for an invitation 
 
 When we receive a call we will receive an InviteResponse data class that contains the details we need to accept the call. We can then call the acceptCall method in TelnyxClient from our ViewModel:
 
+### Handling Multiple Calls
+The Telnyx WebRTC SDK allows for multiple calls to be handled at once. You can use the callId to differentiate the calls..
+
 ```kotlin
- telnyxClient.call.acceptCall(callId, destinationNumber)
+import java.util.UUID
+// Retrieve all calls from the TelnyxClient
+val calls: Map<UUID,Call> = telnyxClient.calls 
+
+// Retrieve a specific call by callId
+val currentCall: Call? = calls[callId]
+
 ```
 
+With the current call object, you can perform actions such as:
+
+1. Hold/UnHold `currentCall.onHoldUnholdPressed(callId: UUID)`
+2. Mute/UnMute `currentCall.onMuteUnmutePressed()`
+3. AcceptCall `currentCall.acceptCall(...)`
+4. EndCall `currentCall.endCall(callId: UUID)`
+
+
+
  ## Adding push notifications
-The Telnyx Android Client WebRTC SDK makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
+The Telnyx Android Client WebRTC SDK makes use of Firebase Cloud Messaging in order to deliver push notifications. 
+If you want to receive notifications for incoming calls on your Android mobile device you have to enable Firebase Cloud Messaging within your application.
 
 In order to do this you need to:
 

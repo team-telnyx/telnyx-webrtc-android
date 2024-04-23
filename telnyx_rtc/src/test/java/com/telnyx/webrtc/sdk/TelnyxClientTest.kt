@@ -89,6 +89,7 @@ class TelnyxClientTest : BaseTest() {
         every { mockContext.getSystemService(AppCompatActivity.AUDIO_SERVICE) } returns audioManager
 
         client = TelnyxClient(mockContext)
+        client.connect(txPushMetaData = null)
     }
 
     private fun networkCallbackSetup() {
@@ -479,7 +480,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.`when`(client.call).thenReturn(fakeCall)
         val callId = UUID.randomUUID()
         client.onByeReceived(callId)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onByeReceived(callId)
+        Mockito.verify(client, Mockito.atLeast(1))?.onByeReceived(callId)
     }
 
     @Test
@@ -499,7 +500,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("callID", callID.toString())
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
     }
 
     @Test
@@ -516,6 +517,8 @@ class TelnyxClientTest : BaseTest() {
         val callMessage = JsonObject()
         val params = JsonObject()
         val callID = UUID.randomUUID()
+        fakeCall.callId = callID
+        client.addToCalls(fakeCall)
         params.addProperty("callID", callID.toString())
         params.addProperty("sdp","sdp")
         val dialogParams = JsonObject()
@@ -527,7 +530,7 @@ class TelnyxClientTest : BaseTest() {
         params.add("dialogParams", dialogParams)
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
         assert(fakeCall.answerResponse != null)
     }
 
@@ -550,7 +553,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("callID", callID.toString())
         callMessage.add("params", params)
         client.onMediaReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onMediaReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onMediaReceived(callMessage)
     }
 
     @Test
@@ -567,10 +570,14 @@ class TelnyxClientTest : BaseTest() {
         val callMessage = JsonObject()
         val params = JsonObject()
         val callID = UUID.randomUUID()
+        fakeCall.callId = callID
         params.addProperty("callID", callID.toString())
         callMessage.add("incorrect_params", params)
+        client.providedTurn = "stun:rtc.telnyx.com"
+        client.providedStun = "turn:rtc.telnyx.com"
+
         client.onOfferReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onOfferReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onOfferReceived(callMessage)
     }
 
     @Test
@@ -592,7 +599,7 @@ class TelnyxClientTest : BaseTest() {
         params.addProperty("telnyx_leg_id", callID.toString())
         callMessage.add("params", params)
         client.onRingingReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onRingingReceived(callMessage)
     }
 
     @Test
@@ -609,14 +616,16 @@ class TelnyxClientTest : BaseTest() {
         val callMessage = JsonObject()
         val params = JsonObject()
         val callID = UUID.randomUUID()
+        fakeCall.telnyxSessionId = callID
+        fakeCall.telnyxLegId = callID
         params.addProperty("callID", callID.toString())
         params.addProperty("telnyx_session_id", callID.toString())
         params.addProperty("telnyx_leg_id", callID.toString())
         callMessage.add("params", params)
         client.onRingingReceived(callMessage)
-        Mockito.verify(client.call, Mockito.atLeast(1))?.onRingingReceived(callMessage)
-        assertEquals(client.call?.getTelnyxSessionId(), callID)
-        assertEquals(client.call?.getTelnyxLegId(), callID)
+        Mockito.verify(client, Mockito.atLeast(1))?.onRingingReceived(callMessage)
+        assertEquals(fakeCall.getTelnyxSessionId(), callID)
+        assertEquals(fakeCall.getTelnyxLegId(), callID)
     }
 
     @Test

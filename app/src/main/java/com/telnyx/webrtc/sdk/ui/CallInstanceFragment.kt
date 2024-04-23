@@ -121,8 +121,7 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
                             //NOOP
                         }
                         SocketMethod.BYE.methodName -> {
-                            parentFragmentManager.beginTransaction()
-                                .remove(this@CallInstanceFragment).commit();
+
                         }
                     }
                 }

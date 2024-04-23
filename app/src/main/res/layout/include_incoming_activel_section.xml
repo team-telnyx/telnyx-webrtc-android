@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <TextView
+        android:id="@+id/incoming_call_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/incoming_call"
+        android:textColor="@color/black"
+        android:textSize="@dimen/font_large"
+        android:paddingTop="@dimen/spacing_medium"
+        android:paddingBottom="@dimen/spacing_medium"
+        app:layout_constraintStart_toStartOf="@id/guideline_start"
+        app:layout_constraintEnd_toEndOf="@id/guideline_end"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+
+
+    <RelativeLayout
+        android:id="@+id/endAndAccept"
+        android:clickable="true"
+        android:layout_width="wrap_content"
+        app:layout_constraintTop_toBottomOf="@+id/incoming_call_id"
+        android:layout_marginTop="@dimen/spacing_huge"
+        android:layout_marginStart="@dimen/spacing_huge"
+        android:layout_marginBottom="@dimen/spacing_huge"
+        app:layout_constraintStart_toEndOf="@id/guideline_start"
+        android:layout_height="wrap_content">
+
+
+        <ImageView
+            android:padding="10dp"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:background="@drawable/round_button_red"
+            android:gravity="center_vertical|center_horizontal"
+            android:src="@drawable/ic_call_white"
+            />
+        <ImageView
+            android:padding="10dp"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_marginStart="40dp"
+            android:background="@drawable/round_button_green"
+            android:gravity="center_vertical|center_horizontal"
+            android:src="@drawable/ic_call_white"
+
+         />
+
+
+
+    </RelativeLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/end_and_accept"
+        android:layout_marginTop="15dp"
+        app:layout_constraintEnd_toEndOf="@+id/endAndAccept"
+        app:layout_constraintTop_toBottomOf="@+id/endAndAccept"
+        android:layout_marginStart="@dimen/spacing_huge"
+        app:layout_constraintStart_toEndOf="@id/guideline_start"/>
+
+    <RelativeLayout
+        android:id="@+id/reject_current_call"
+        android:layout_width="wrap_content"
+        android:clickable="true"
+        app:layout_constraintTop_toBottomOf="@+id/incoming_call_id"
+        android:layout_marginTop="@dimen/spacing_huge"
+        android:layout_marginStart="@dimen/spacing_huge"
+        android:layout_marginEnd="@dimen/spacing_huge"
+        app:layout_constraintEnd_toStartOf="@id/guideline_end"
+        android:layout_marginBottom="@dimen/spacing_huge"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:layout_width="70dp"
+            android:padding="10dp"
+            android:layout_height="70dp"
+            android:background="@drawable/round_button_red"
+            android:gravity="center_vertical|center_horizontal"
+            android:src="@drawable/ic_call_end_white"
+            />
+
+
+
+
+    </RelativeLayout>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/reject_incoming"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="@dimen/spacing_huge"
+        app:layout_constraintTop_toBottomOf="@+id/reject_current_call"
+        app:layout_constraintStart_toStartOf="@+id/reject_current_call"
+        app:layout_constraintEnd_toStartOf="@id/guideline_end"
+        />
+
+
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_begin="@dimen/guideline_start" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline_end"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_end="@dimen/guideline_end" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
