@@ -8,7 +8,9 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import com.bugsnag.android.Bugsnag
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -41,6 +43,9 @@ class MainViewModel @Inject constructor(
         providedServerConfig: TxServerConfiguration?,
         txPushMetaData: String?
     ) {
+        if (!BuildConfig.IS_TESTING.get()) {
+            Bugsnag.start(context)
+        }
         telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
             telnyxClient?.connect(it, txPushMetaData)
