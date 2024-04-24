@@ -46,6 +46,12 @@ data class LoginResponse(
     val sessid: String
 ) : ReceivedResult(), Parcelable
 
+
+data class ByeResponse(
+    @SerializedName("sessid")
+    val callId : UUID
+) : ReceivedResult()
+
 /**
  * A response to an invitation that the user created. Someone has answered your call.
  *
@@ -125,3 +131,16 @@ data class InviteResponse(
         }
     }
 }
+
+data class RingingResponse(
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("callerIdName")
+    val callerIdName: String,
+    @SerializedName("callerIdNumber")
+    val callerIdNumber: String,
+    @SerializedName("sessid")
+    val sessid: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult()
