@@ -1024,7 +1024,6 @@ class TelnyxClient(
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
-            //End the call from bye message
             byeCall.endCall(callId)
         }
 
