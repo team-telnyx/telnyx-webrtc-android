@@ -261,12 +261,13 @@ class TelnyxClient(
                     )
                 )
             )
+            val byeResponse = ByeResponse(callId)
             // send bye message to the UI
             client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.BYE.methodName,
-                        null
+                        byeResponse
                     )
                 )
             )
@@ -1005,11 +1006,14 @@ class TelnyxClient(
         val byeCall = calls[callId]
         byeCall?.apply {
             Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
+            val byeResponse = ByeResponse(
+                callId
+            )
             client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.BYE.methodName,
-                        null
+                        byeResponse
                     )
                 )
             )
@@ -1020,6 +1024,7 @@ class TelnyxClient(
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
+            byeCall.endCall(callId)
         }
 
     }
@@ -1212,11 +1217,21 @@ class TelnyxClient(
             } else {
                 UUID.randomUUID()
             }
+            val customHeaders =
+                params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
+
+            val ringingResponse = RingingResponse(
+                UUID.fromString(callId),
+                params.get("caller_id_name").asString,
+                params.get("caller_id_number").asString,
+                sessionId,
+                customHeaders?.toCustomHeaders() ?: arrayListOf()
+            )
             client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.RINGING.methodName,
-                        null
+                        ringingResponse
                     )
                 )
             )
