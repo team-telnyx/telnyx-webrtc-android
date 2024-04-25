@@ -194,7 +194,7 @@ class CallTest : BaseTest() {
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
-        assertEquals(call.getCallState().value, CallState.RINGING)
+        assertEquals(call.getCallState().value, CallState.CONNECTING)
     }
 
     // NOOP tests, methods that should literally do nothing -- included for test coverage
