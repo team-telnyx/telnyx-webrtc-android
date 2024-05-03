@@ -49,7 +49,7 @@ class TelnyxClient(
     }
 
     /*
-    * TODO: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
+    * Add Later: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
     * */
     enum class SpeakerMode {
         SPEAKER,
