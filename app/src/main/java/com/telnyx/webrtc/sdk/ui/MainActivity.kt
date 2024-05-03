@@ -213,7 +213,10 @@ class MainActivity : AppCompatActivity() {
                             SocketMethod.BYE.methodName -> {
                                 onByeReceivedViews()
                                 val callId = (data.result as ByeResponse).callId
-                                supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
+                                val callInstanceFragment = callInstanceFragments[callId]
+                                callInstanceFragment?.let {
+                                    supportFragmentManager.beginTransaction().remove(it).commit()
+                                }
                             }
                         }
                     }
@@ -362,6 +365,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
+        sip_username_id.setText("isaac61059")
+        sip_password_id.setText("XLfKJE21")
         caller_id_name_id.setText(MOCK_CALLER_NAME)
         caller_id_number_id.setText(MOCK_CALLER_NUMBER)
         call_input_id.setText(MOCK_DESTINATION_NUMBER)
@@ -500,15 +505,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private var callInstanceFragment: CallInstanceFragment? = null
+    private val callInstanceFragments = mutableMapOf<UUID, CallInstanceFragment>()
     private fun launchCallInstance(callId: UUID) {
         mainViewModel.setCurrentCall(callId)
-        if (callInstanceFragment != null) {
-            supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
-        }
-        callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        callInstanceFragments[callId] = callInstanceFragment
         supportFragmentManager.beginTransaction()
-            .add(R.id.fragment_call_instance, callInstanceFragment!!)
+            .add(R.id.fragment_call_instance, callInstanceFragment)
             .commit()
     }
 
