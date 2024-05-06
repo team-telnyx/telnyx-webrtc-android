@@ -80,7 +80,7 @@ class MainViewModel @Inject constructor(
         if (calls.size > 1) {
             previousCall = currentCall
         }
-        currentCall = calls[callId]
+        currentCall = calls[callId]!!
     }
 
     fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
@@ -124,10 +124,9 @@ class MainViewModel @Inject constructor(
 
     fun endCall(callId: UUID? = null) {
         callId?.let {
-            telnyxClient?.call?.endCall(callId)
+            telnyxClient?.endCall(callId)
         } ?: run {
-            val clientCallId = telnyxClient?.call?.callId
-            clientCallId?.let { telnyxClient?.call?.endCall(it) }
+            currentCall?.endCall(currentCall?.callId!!)
         }
         previousCall?.let {
             currentCall = it
@@ -143,6 +142,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun onLoudSpeakerPressed() {
+        Timber.e("onLoudSpeakerPressed ${currentCall?.callId}")
         currentCall?.onLoudSpeakerPressed()
     }
 
