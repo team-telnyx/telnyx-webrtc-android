@@ -804,7 +804,6 @@ class TelnyxClient(
             SpeakerMode.EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
-
             SpeakerMode.UNASSIGNED ->   audioManager?.isSpeakerphoneOn = false
         }
     }
