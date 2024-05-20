@@ -15,17 +15,13 @@ abstract class SocketObserver<T> : Observer<SocketResponse<T>> {
     abstract fun onError(message: String?)
     abstract fun onSocketDisconnect()
 
-    override fun onChanged(t: SocketResponse<T>?) {
-        if (t == null) {
-            onError("Socket Error")
-        } else {
-            when (t.status) {
-                SocketStatus.ESTABLISHED -> onConnectionEstablished()
-                SocketStatus.MESSAGERECEIVED -> onMessageReceived(t.data)
-                SocketStatus.LOADING -> onLoading()
-                SocketStatus.ERROR -> onError(t.errorMessage)
-                SocketStatus.DISCONNECT -> onSocketDisconnect()
-            }
+    override fun onChanged(value: SocketResponse<T>) {
+        when (value.status) {
+            SocketStatus.ESTABLISHED -> onConnectionEstablished()
+            SocketStatus.MESSAGERECEIVED -> onMessageReceived(value.data)
+            SocketStatus.LOADING -> onLoading()
+            SocketStatus.ERROR -> onError(value.errorMessage)
+            SocketStatus.DISCONNECT -> onSocketDisconnect()
         }
     }
 }

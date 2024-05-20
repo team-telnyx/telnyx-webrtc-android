@@ -225,6 +225,11 @@ class MainActivity : AppCompatActivity() {
                         Timber.i("Loading...")
                     }
 
+                    override fun onChanged(value: SocketResponse<ReceivedMessageBody>) {
+                        super.onChanged(value)
+                        // Do Nothing
+                    }
+
                     override fun onError(message: String?) {
                         Timber.e("onError: %s", message)
                         Toast.makeText(
