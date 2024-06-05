@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var callControlView: View
     private lateinit var incomingCallView: View
     private lateinit var loginSectionView: View
-    var call_state_text_value: TextView? = null
+    var callStateTextValue: TextView? = null
 
     @Inject
     lateinit var userManager: UserManager
@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity() {
             callControlView = callControlSectionId.callControlView
             incomingCallView = incomingActiveCallSectionId.incomingView
             loginSectionView = loginSectionId.loginSectionView
-            call_state_text_value = callStateTextValue
+            this@MainActivity.callStateTextValue = callStateTextValue
         }
 
         // Add environment text

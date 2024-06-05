@@ -68,7 +68,7 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
 
         //Handle call option observers
         mainViewModel.getCallState()?.observe(this.viewLifecycleOwner) { value ->
-            (requireActivity() as MainActivity).call_state_text_value?.text = value.name
+            (requireActivity() as MainActivity).callStateTextValue?.text = value.name
         }
         mainViewModel.getIsMuteStatus()?.observe(this.viewLifecycleOwner) { value ->
             binding.apply {
