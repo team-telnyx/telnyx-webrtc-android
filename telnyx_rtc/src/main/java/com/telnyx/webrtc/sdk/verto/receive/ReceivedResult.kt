@@ -10,8 +10,8 @@ import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.CustomHeaders
 import com.telnyx.webrtc.sdk.utilities.parseObject
 import com.telnyx.webrtc.sdk.utilities.toJsonString
-import kotlinx.android.parcel.Parceler
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.Parceler
+import kotlinx.parcelize.Parcelize
 import java.util.*
 import kotlin.collections.ArrayList
 
