@@ -9,16 +9,17 @@ import android.media.ToneGenerator
 import android.media.ToneGenerator.*
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.davidmiguel.numberkeyboard.NumberKeyboard
 import com.davidmiguel.numberkeyboard.NumberKeyboardListener
 import com.telnyx.webrtc.sdk.R
+import com.telnyx.webrtc.sdk.databinding.FragmentCallInstanceBinding
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
-import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.fragment_call_instance.*
 import java.util.*
 
 
@@ -32,10 +33,23 @@ lateinit var mainViewModel: MainViewModel
  * Use the [CallInstanceFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
-class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKeyboardListener {
+class CallInstanceFragment : Fragment(), NumberKeyboardListener {
     private var callId: UUID? = null
+    private var _binding: FragmentCallInstanceBinding? = null
+
+    private val binding get() = _binding!!
 
     private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentCallInstanceBinding.inflate(inflater, container, false)
+        val view = binding.root
+        return view
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -53,63 +67,75 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
     private fun setUpOngoingCallButtons() {
 
         //Handle call option observers
-        mainViewModel.getCallState()?.observe(this.viewLifecycleOwner, { value ->
-            requireActivity().call_state_text_value.text = value.name
-        })
-        mainViewModel.getIsMuteStatus()?.observe(this.viewLifecycleOwner, { value ->
-            if (!value) {
-                mute_button_id.setImageResource(R.drawable.ic_mic_off)
-            } else {
-                mute_button_id.setImageResource(R.drawable.ic_mic)
+        mainViewModel.getCallState()?.observe(this.viewLifecycleOwner) { value ->
+            (requireActivity() as MainActivity).callStateTextValue?.text = value.name
+        }
+        mainViewModel.getIsMuteStatus()?.observe(this.viewLifecycleOwner) { value ->
+            binding.apply {
+                if (!value) {
+                    muteButtonId.setImageResource(R.drawable.ic_mic_off)
+                } else {
+                    muteButtonId.setImageResource(R.drawable.ic_mic)
+                }
             }
-        })
+        }
 
-        mainViewModel.getIsOnHoldStatus()?.observe(this.viewLifecycleOwner, { value ->
-            if (!value) {
-                hold_button_id.setImageResource(R.drawable.ic_hold)
-            } else {
-                hold_button_id.setImageResource(R.drawable.ic_play)
+        mainViewModel.getIsOnHoldStatus()?.observe(this.viewLifecycleOwner) { value ->
+            binding.apply {
+                if (!value) {
+                    holdButtonId.setImageResource(R.drawable.ic_hold)
+                } else {
+                    holdButtonId.setImageResource(R.drawable.ic_play)
+                }
             }
-        })
+        }
 
-        mainViewModel.getIsOnLoudSpeakerStatus()?.observe(this.viewLifecycleOwner, { value ->
-            if (!value) {
-                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker_off)
-            } else {
-                loud_speaker_button_id.setImageResource(R.drawable.ic_loud_speaker)
+        mainViewModel.getIsOnLoudSpeakerStatus()?.observe(this.viewLifecycleOwner) { value ->
+            binding.apply {
+                if (!value) {
+                    loudSpeakerButtonId.setImageResource(R.drawable.ic_loud_speaker_off)
+                } else {
+                    loudSpeakerButtonId.setImageResource(R.drawable.ic_loud_speaker)
+                }
             }
-        })
+        }
 
         onTimerStart()
 
-        end_call_id.setOnClickListener {
-            onEndCall()
+        binding.apply {
+            endCallId.setOnClickListener {
+                onEndCall()
+            }
+            muteButtonId.setOnClickListener {
+                mainViewModel.onMuteUnmutePressed()
+            }
+            holdButtonId.setOnClickListener {
+                mainViewModel.onHoldUnholdPressed(callId!!)
+            }
+            loudSpeakerButtonId.setOnClickListener {
+                mainViewModel.onLoudSpeakerPressed()
+            }
+            dialPadButtonId.setOnClickListener {
+                dialpadSectionId.root.visibility = View.VISIBLE
+                val numberKeyboard = view?.findViewById<NumberKeyboard>(R.id.dialpad_id)
+                numberKeyboard?.setListener(this@CallInstanceFragment)
+            }
         }
-        mute_button_id.setOnClickListener {
-            mainViewModel.onMuteUnmutePressed()
-        }
-        hold_button_id.setOnClickListener {
-            mainViewModel.onHoldUnholdPressed(callId!!)
-        }
-        loud_speaker_button_id.setOnClickListener {
-            mainViewModel.onLoudSpeakerPressed()
-        }
-        dial_pad_button_id.setOnClickListener {
-            dialpad_section_id.visibility = View.VISIBLE
-            val numberKeyboard = view?.findViewById<NumberKeyboard>(R.id.dialpad_id)
-            numberKeyboard?.setListener(this)
-        }
+
+
     }
 
     private fun onEndCall() {
         mainViewModel.endCall(callId!!)
-        call_timer_id.stop()
+        binding.callTimerId.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
     }
 
     private fun onTimerStart() {
-        call_timer_id.base = SystemClock.elapsedRealtime()
-        call_timer_id.start()
+        binding.apply {
+            callTimerId.base = SystemClock.elapsedRealtime()
+            callTimerId.start()
+        }
     }
 
     private fun observeSocketResponses() {
@@ -204,6 +230,6 @@ class CallInstanceFragment : Fragment(R.layout.fragment_call_instance), NumberKe
     }
 
     override fun onRightAuxButtonClicked() {
-        dialpad_section_id.visibility = View.INVISIBLE
+       binding.dialpadSectionId.root.visibility = View.INVISIBLE
     }
 }

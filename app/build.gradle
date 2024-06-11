@@ -1,11 +1,9 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'kotlin-android-extensions'
     id 'kotlin-kapt'
-    id 'dagger.hilt.android.plugin'
     id 'com.google.gms.google-services'
-
+    id 'com.google.dagger.hilt.android'
 }
 
 def localProperties = new Properties()
@@ -169,7 +167,7 @@ dependencies {
 
     testImplementation "org.slf4j:slf4j-nop:1.7.36"
 
-    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.9.10"
 
 
     // Testing - Instrumentation
