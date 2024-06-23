@@ -149,7 +149,9 @@ internal class Peer(
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
-        startTimer()
+        if (client.isStatsEnabled){
+            startTimer()
+        }
     }
 
     var gson: Gson = GsonBuilder().setPrettyPrinting().create()
@@ -162,6 +164,7 @@ internal class Peer(
     var candidateParis: JsonArray = JsonArray()
 
     private fun stopTimer() {
+        if (!client.isStatsEnabled) return
         client.sendStats(mainObject)
         mainObject = JsonObject()
         timer.cancel()

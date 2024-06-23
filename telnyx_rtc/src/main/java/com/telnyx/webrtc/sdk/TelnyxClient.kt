@@ -83,7 +83,7 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
 
-    private var isStatsEnabled:Boolean = false
+    internal var isStatsEnabled:Boolean = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
