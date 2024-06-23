@@ -645,12 +645,14 @@ class MainActivity : AppCompatActivity() {
             incomingActiveCallSectionId.root.bringToFront()
 
             incomingActiveCallSectionId.endAndAccept.setOnClickListener {
-                mainViewModel.currentCall?.let {
+                mainViewModel.currentCall!!.let {
                     isActiveBye = true
                     it.endCall(it.callId)
+                }.also {
+                     mainViewModel.setCurrentCall(callId)
+                    onAcceptCall(callId, callerIdNumber)
                 }
-                mainViewModel.setCurrentCall(callId)
-                onAcceptCall(callId, callerIdNumber)
+
 
             }
             incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
