@@ -83,6 +83,8 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
 
+    private var isStatsEnabled:Boolean = false
+
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
@@ -210,7 +212,7 @@ class TelnyxClient(
 
             // Create new peer
             peerConnection = Peer(
-                context, client, providedTurn, providedStun,
+                context, client, providedTurn, providedStun,callId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
@@ -427,7 +429,8 @@ class TelnyxClient(
      */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
-        txPushMetaData: String?
+        txPushMetaData: String?,
+        enableStats: Boolean? = false
     ) {
 
         providedHostAddress = if (txPushMetaData != null) {
@@ -453,6 +456,9 @@ class TelnyxClient(
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
+
+
+        isStatsEnabled = enableStats ?: false
     }
 
     /**
@@ -676,6 +682,20 @@ class TelnyxClient(
                 loginParams = mapOf("attach_calls" to "true"),
                 sessid = sessid
             )
+        )
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Sends Logged webrtc stats to backend
+     *
+     * @param config, the TokenConfig used to log in
+     * @see [TokenConfig]
+     */
+    internal fun sendStats(data:JsonObject) {
+
+        val loginMessage = StatPrams(
+            reportData = data
         )
         socket.send(loginMessage)
     }
@@ -1041,6 +1061,7 @@ class TelnyxClient(
     }
 
     override fun onByeReceived(callId: UUID) {
+
         Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
         val byeCall = calls[callId]
         byeCall?.apply {
@@ -1185,7 +1206,7 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
                 peerConnection = Peer(
-                    context, client, providedTurn, providedStun,
+                    context, client, providedTurn, providedStun,offerCallId.toString(),
                     object : PeerConnectionObserver() {
                         override fun onIceCandidate(p0: IceCandidate?) {
                             super.onIceCandidate(p0)
@@ -1313,7 +1334,7 @@ class TelnyxClient(
             val callerNumber = params.get("caller_id_number").asString
 
             peerConnection = Peer(
-                context, client, providedTurn, providedStun,
+                context, client, providedTurn, providedStun,callId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
