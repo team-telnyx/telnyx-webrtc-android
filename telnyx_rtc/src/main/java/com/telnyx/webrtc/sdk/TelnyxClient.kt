@@ -132,7 +132,7 @@ class TelnyxClient(
                     sessid,
                     audioManager!!,
                     providedTurn!!,
-                    providedStun!!
+                    providedStun!!,
                 )
             }
         } else {
@@ -692,9 +692,10 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
-    internal fun sendStats(data:JsonObject) {
+    internal fun sendStats(data:JsonObject,sessionId:UUID) {
 
         val loginMessage = StatPrams(
+            debugReportId = sessionId.toString(),
             reportData = data
         )
         socket.send(loginMessage)

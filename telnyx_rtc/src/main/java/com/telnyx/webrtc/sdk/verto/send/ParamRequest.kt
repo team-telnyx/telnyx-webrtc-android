@@ -28,7 +28,12 @@ data class StatPrams(
     @SerializedName("debug_report_id")
     val debugReportId: String = UUID.randomUUID().toString(),
     @SerializedName("debug_report_data")
-    val reportData: JsonObject
+    val reportData: JsonObject,
+    @SerializedName("debug_report_version")
+    val debugReportVersion: Int = 1,
+    @SerializedName("id")
+    val id: String = UUID.randomUUID().toString(),
+    val jsonrpc:String = "2.0"
 ) : ParamRequest()
 
 

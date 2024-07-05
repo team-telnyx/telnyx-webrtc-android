@@ -41,22 +41,21 @@ import kotlin.concurrent.timerTask
  */
 
 data class CustomHeaders(val name: String, val value: String)
-
-data class Call(
+ data class Call(
     val context: Context,
     val client: TelnyxClient,
     var socket: TxSocket,
     val sessionId: String,
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
-    val providedStun: String = Config.DEFAULT_STUN
-)  {
+    val providedStun: String = Config.DEFAULT_STUN,
+    )  {
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400
     }
-
     internal var peerConnection: Peer? = null
+
 
     internal var earlySDP = false
 
@@ -85,6 +84,18 @@ data class Call(
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
+
+    fun startDebug(){
+        Timber.d("Peer connection debug started")
+        peerConnection?.startTimer()
+    }
+
+    fun stopDebug(){
+        Timber.d("Peer connection debug stopped")
+        peerConnection?.stopTimer()
+    }
+
+
 
     /**
      * Initiates a new call invitation

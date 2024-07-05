@@ -52,6 +52,11 @@ internal class Peer(
     }
 
     private val rootEglBase: EglBase = EglBase.create()
+    private val candidateNumber = 5
+    private val statsInterval = 5000
+    private val statsInitital = 0
+
+    internal val debugStatsId = UUID.randomUUID()
 
 
     private val iceServer = getIceServers()
@@ -149,9 +154,6 @@ internal class Peer(
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
-        if (client.isStatsEnabled){
-            startTimer()
-        }
     }
 
     var gson: Gson = GsonBuilder().setPrettyPrinting().create()
@@ -163,14 +165,13 @@ internal class Peer(
     var outBoundStats: JsonArray = JsonArray()
     var candidateParis: JsonArray = JsonArray()
 
-    private fun stopTimer() {
+    internal fun stopTimer() {
         if (!client.isStatsEnabled) return
-        client.sendStats(mainObject)
         mainObject = JsonObject()
         timer.cancel()
     }
 
-    private fun startTimer() {
+    internal fun startTimer() {
         timer.schedule(object : TimerTask() {
             override fun run() {
                 mainObject.addProperty("event", "stats")
@@ -184,11 +185,11 @@ internal class Peer(
                             inBoundStats.add(jsonInbound)
                         }
                         if (value.type == "outbound-rtp") {
-                            val jsonOutbound = gson.toJson(value)
+                            val jsonOutbound = gson.toJsonTree(value)
                             outBoundStats.add(jsonOutbound)
                         }
-                        if (value.type == "candidate-pair" && candidateParis.size() < 5) {
-                            val jsonCandidatePair = gson.toJson(value)
+                        if (value.type == "candidate-pair" && candidateParis.size() < candidateNumber) {
+                            val jsonCandidatePair = gson.toJsonTree(value)
                             candidateParis.add(jsonCandidatePair)
                         }
 
@@ -207,11 +208,11 @@ internal class Peer(
                     statsData = JsonObject()
                     audio = JsonObject()
                     Timber.tag("Stats Inbound").d("Inbound: ${mainObject.toString()}")
-                   // client.sendStats(mainObject.toString())
+                    client.sendStats(mainObject, debugStatsId)
                 }
 
             }
-        }, 0, 5000)
+        }, 0, 2000)
     }
 
 
