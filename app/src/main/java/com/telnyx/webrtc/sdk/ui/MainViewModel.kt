@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.slf4j.Logger
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -103,10 +104,11 @@ class MainViewModel @Inject constructor(
         destinationNumber: String,
         clientState: String
     ) {
-        telnyxClient?.newInvite(
+       val call =  telnyxClient?.newInvite(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )
+        setCurrentCall(call?.callId!!)
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
@@ -126,6 +128,10 @@ class MainViewModel @Inject constructor(
         callId?.let {
             telnyxClient?.endCall(callId)
         } ?: run {
+            Timber.e("Run End call $callId")
+            if (currentCall != null) {
+                telnyxClient?.endCall(currentCall?.callId!!)
+            }
             currentCall?.endCall(currentCall?.callId!!)
         }
         previousCall?.let {
@@ -151,6 +157,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun disconnect() {
+        Log.d("MainViewModel", "disconnect")
         telnyxClient?.onDisconnect()
         userManager.isUserLogin = false
     }

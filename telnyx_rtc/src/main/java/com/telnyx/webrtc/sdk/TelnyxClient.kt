@@ -192,7 +192,7 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null
-    ){
+    ) : Call {
         val inviteCall = call!!.copy(
             context = context,
             client = this,
@@ -251,6 +251,8 @@ class TelnyxClient(
             client.playRingBackTone()
         }
         this.addToCalls(inviteCall)
+
+        return inviteCall
 
     }
 

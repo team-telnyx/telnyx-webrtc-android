@@ -98,6 +98,10 @@ class MainActivity : AppCompatActivity() {
             this@MainActivity.callStateTextValue = callStateTextValue
         }
 
+        binding.toolbarId.setOnMenuItemClickListener {
+            onOptionsItemSelected(it)
+        }
+
         // Add environment text
         isDev = userManager.isDev
         updateEnvText(isDev)
@@ -111,44 +115,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        Timber.d("onCreateOptionsMenu")
         menuInflater.inflate(R.menu.actionbar_menu, menu)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
-        R.id.action_disconnect -> {
-            if (userManager.isUserLogin) {
-                disconnectPressed()
-                isAutomaticLogin = false
-            } else {
-                Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
+
+
+    override fun onOptionsItemSelected(item: MenuItem):Boolean {
+        Timber.d("onOptionsItemSelected ${item.itemId}")
+       return when (item.itemId) {
+            R.id.action_disconnect -> {
+                if (userManager.isUserLogin) {
+                    disconnectPressed()
+                    isAutomaticLogin = false
+                } else {
+                    Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
+                }
+
+                true
             }
-            true
-        }
 
-        R.id.action_change_audio_output -> {
-            val dialog = createAudioOutputSelectionDialog()
-            dialog.show()
-            true
-        }
-
-        R.id.action_wsmessages -> {
-            if (wsMessageList == null) {
-                wsMessageList = ArrayList()
+            R.id.action_change_audio_output -> {
+                val dialog = createAudioOutputSelectionDialog()
+                dialog.show()
+                true
             }
-            val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
-            supportFragmentManager.beginTransaction()
-                .replace(android.R.id.content, instanceFragment)
-                .addToBackStack(null)
-                .commitAllowingStateLoss()
-            true
-        }
 
-        else -> {
-            super.onOptionsItemSelected(item)
+            R.id.action_wsmessages -> {
+                if (wsMessageList == null) {
+                    wsMessageList = ArrayList()
+                }
+                val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
+                supportFragmentManager.beginTransaction()
+                    .replace(android.R.id.content, instanceFragment)
+                    .addToBackStack(null)
+                    .commitAllowingStateLoss()
+                true
+            }
+
+            else -> {
+                super.onOptionsItemSelected(item)
+            }
         }
     }
-
     private fun createAudioOutputSelectionDialog(): Dialog {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
