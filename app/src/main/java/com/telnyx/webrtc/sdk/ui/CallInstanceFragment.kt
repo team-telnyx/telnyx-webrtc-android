@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.databinding.FragmentCallInstanceBinding
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
+import timber.log.Timber
 import java.util.*
 
 
