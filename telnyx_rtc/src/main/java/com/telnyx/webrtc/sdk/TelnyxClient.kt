@@ -701,6 +701,14 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    internal fun stopStats(sessionId:UUID) {
+
+        val loginMessage = StopStatPrams(
+            debugReportId = sessionId.toString(),
+        )
+        socket.send(loginMessage)
+    }
+
     /**
      * Sets the global SDK log level
      * Logging is implemented with Timber

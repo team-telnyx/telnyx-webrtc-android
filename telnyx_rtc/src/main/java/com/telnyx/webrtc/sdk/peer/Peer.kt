@@ -56,7 +56,7 @@ internal class Peer(
     private val statsInterval = 5000
     private val statsInitital = 0
 
-    internal val debugStatsId = UUID.randomUUID()
+    internal var debugStatsId = UUID.randomUUID()
 
 
     private val iceServer = getIceServers()
@@ -166,12 +166,15 @@ internal class Peer(
     var candidateParis: JsonArray = JsonArray()
 
     internal fun stopTimer() {
+        client.stopStats(debugStatsId)
+        debugStatsId = null
         if (!client.isStatsEnabled) return
         mainObject = JsonObject()
         timer.cancel()
     }
 
     internal fun startTimer() {
+        debugStatsId = UUID.randomUUID()
         timer.schedule(object : TimerTask() {
             override fun run() {
                 mainObject.addProperty("event", "stats")
@@ -208,7 +211,9 @@ internal class Peer(
                     statsData = JsonObject()
                     audio = JsonObject()
                     Timber.tag("Stats Inbound").d("Inbound: ${mainObject.toString()}")
-                    client.sendStats(mainObject, debugStatsId)
+                    if (debugStatsId != null){
+                        client.sendStats(mainObject, debugStatsId)
+                    }
                 }
 
             }
@@ -373,11 +378,11 @@ internal class Peer(
     }
 
     fun release() {
-        stopTimer()
         if (peerConnection != null) {
             disconnect()
             peerConnectionFactory.dispose()
         }
+        stopTimer()
     }
 
     init {
