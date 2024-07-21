@@ -9,9 +9,14 @@ import android.Manifest.permission.INTERNET
 import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
 import android.app.Dialog
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.graphics.Color
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
@@ -24,17 +29,20 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.gson.Gson
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
+import com.telnyx.webrtc.sdk.App
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_DESTINATION_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_PASSWORD
 import com.telnyx.webrtc.sdk.MOCK_USERNAME
+import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
@@ -42,6 +50,7 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
@@ -77,6 +86,8 @@ class MainActivity : AppCompatActivity() {
     private var isDev = false
     private var isAutomaticLogin = false
     private var wsMessageList: ArrayList<String>? = null
+    private var credentialConfig: CredentialConfig? = null
+    private var tokenConfig: TokenConfig? = null
 
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
@@ -106,8 +117,8 @@ class MainActivity : AppCompatActivity() {
 
 
         checkPermissions()
-        handleCallNotification()
         initViews()
+        binding.toolbarId.setOnMenuItemClickListener(this::onOptionsItemSelected)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -184,25 +195,128 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectToSocketAndObserve(txPushMetaData: String? = null) {
-        if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null, txPushMetaData)
-        } else {
-            mainViewModel.initConnection(
-                applicationContext,
-                TxServerConfiguration(host = "rtcdev.telnyx.com"),
-                txPushMetaData
+
+        Timber.d("doLogin")
+        // path to ringtone and ringBackTone
+        val ringtone = R.raw.incoming_call
+        val ringBackTone = R.raw.ringback_tone
+
+        if (!userManager.isUserLogin) {
+            val loginConfig = CredentialConfig(
+                userManager.sipUsername,
+                userManager.sipPass,
+                userManager.callerIdNumber,
+                userManager.callerIdNumber,
+                userManager.fcmToken,
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
+                R.raw.ringback_tone,
+                LogLevel.ALL
             )
+           credentialConfig = loginConfig
+        } else {
+            binding.loginSectionId.apply {
+                if (tokenLoginSwitch.isChecked) {
+                    loginTokenId.apply {
+                        val sipToken = sipTokenId.text.toString()
+                        val sipCallerName = tokenCallerIdNameId.text.toString()
+                        val sipCallerNumber = tokenCallerIdNumberId.text.toString()
+
+                        val loginConfig = TokenConfig(
+                            sipToken,
+                            sipCallerName,
+                            sipCallerNumber,
+                            fcmToken,
+                            ringtone,
+                            ringBackTone,
+                            LogLevel.ALL
+                        )
+                        tokenConfig = loginConfig
+                    }
+                } else {
+                    loginCredentialId.apply {
+                        val sipUsername = sipUsernameId.text.toString()
+                        val password = sipPasswordId.text.toString()
+                        val sipCallerName = callerIdNameId.text.toString()
+                        val sipCallerNumber = callerIdNumberId.text.toString()
+
+                        val loginConfig = CredentialConfig(
+                            sipUsername,
+                            password,
+                            sipCallerName,
+                            sipCallerNumber,
+                            fcmToken,
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
+                            ringBackTone,
+                            LogLevel.ALL
+                        )
+                       credentialConfig = loginConfig
+                    }
+                }
+            }
+
+        }
+        Timber.d("Connect to Socket and Observe")
+        if (false) {
+            mainViewModel.initConnection(applicationContext, null,credentialConfig =  credentialConfig!!,tokenConfig = tokenConfig, txPushMetaData)
+        } else {
+            mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"),credentialConfig =  credentialConfig,tokenConfig = tokenConfig, txPushMetaData)
+
         }
         observeSocketResponses()
     }
 
+
+    private fun showLocalPushNotification(inviteResponse: InviteResponse) {
+
+        val metadata = PushMetaData(
+            inviteResponse.callerIdName,
+            inviteResponse.callerIdNumber,
+            inviteResponse.callId.toString(),
+            null,
+            null,
+            null
+        )
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("metadata", Gson().toJson(metadata))
+        }
+        this.startForegroundService(serviceIntent)
+    }
+
+    private fun createNotificationChanel(
+        notificationManager: NotificationManager
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.apply {
+                val channelCall = NotificationChannel(
+                    "NOTIFICATION_CHANNEL_ID_INCOMING",
+                    "incomingCallChannelName",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = ""
+                    vibrationPattern =
+                        longArrayOf(0, 1000, 500, 1000, 500)
+                    lightColor = Color.RED
+                    enableLights(true)
+                    enableVibration(true)
+                    setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), null)
+                }
+                channelCall.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+
+                channelCall.importance = NotificationManager.IMPORTANCE_HIGH
+
+                createNotificationChannel(channelCall)
+            }
+        }
+    }
+
     private fun observeSocketResponses() {
-        mainViewModel.getSocketResponse()
-            ?.observe(
+        App.telnyxClient.getSocketResponse()
+            .observe(
                 this,
                 object : SocketObserver<ReceivedMessageBody>() {
                     override fun onConnectionEstablished() {
-                        doLogin(isAutomaticLogin)
+                        Timber.d("OnConMan")
+
                     }
 
                     override fun onMessageReceived(data: ReceivedMessageBody?) {
@@ -210,6 +324,7 @@ class MainActivity : AppCompatActivity() {
                         when (data?.method) {
                             SocketMethod.CLIENT_READY.methodName -> {
                                 Timber.d("You are ready to make calls.")
+
                             }
 
                             SocketMethod.LOGIN.methodName -> {
@@ -225,6 +340,7 @@ class MainActivity : AppCompatActivity() {
                                     inviteResponse.callId,
                                     inviteResponse.callerIdNumber
                                 )
+                                showLocalPushNotification(inviteResponse)
                             }
 
                             SocketMethod.ANSWER.methodName -> {
@@ -238,6 +354,15 @@ class MainActivity : AppCompatActivity() {
                                 }
 
                                 invitationSent = false
+                            }
+
+                            SocketMethod.RINGING.methodName -> {
+                                // Client Can simulate ringing state
+                            }
+
+                            SocketMethod.RINGING.methodName -> {
+                                // Ringback tone is streamed to the caller
+                                // early Media -  Client Can simulate ringing state
                             }
 
                             SocketMethod.BYE.methodName -> {
@@ -467,64 +592,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doLogin(isAuto: Boolean) {
-        // path to ringtone and ringBackTone
-        val ringtone = R.raw.incoming_call
-        val ringBackTone = R.raw.ringback_tone
 
-        if (isAuto) {
-            val loginConfig = CredentialConfig(
-                userManager.sipUsername,
-                userManager.sipPass,
-                userManager.callerIdNumber,
-                userManager.callerIdNumber,
-                userManager.fcmToken,
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
-                R.raw.ringback_tone,
-                LogLevel.ALL
-            )
-            mainViewModel.doLoginWithCredentials(loginConfig)
-        } else {
-            binding.loginSectionId.apply {
-                if (tokenLoginSwitch.isChecked) {
-                    loginTokenId.apply {
-                        val sipToken = sipTokenId.text.toString()
-                        val sipCallerName = tokenCallerIdNameId.text.toString()
-                        val sipCallerNumber = tokenCallerIdNumberId.text.toString()
-
-                        val loginConfig = TokenConfig(
-                            sipToken,
-                            sipCallerName,
-                            sipCallerNumber,
-                            fcmToken,
-                            ringtone,
-                            ringBackTone,
-                            LogLevel.ALL
-                        )
-                        mainViewModel.doLoginWithToken(loginConfig)
-                    }
-                } else {
-                    loginCredentialId.apply {
-                        val sipUsername = sipUsernameId.text.toString()
-                        val password = sipPasswordId.text.toString()
-                        val sipCallerName = callerIdNameId.text.toString()
-                        val sipCallerNumber = callerIdNumberId.text.toString()
-
-                        val loginConfig = CredentialConfig(
-                            sipUsername,
-                            password,
-                            sipCallerName,
-                            sipCallerNumber,
-                            fcmToken,
-                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
-                            ringBackTone,
-                            LogLevel.ALL
-                        )
-                        mainViewModel.doLoginWithCredentials(loginConfig)
-                    }
-                }
-            }
-
-        }
     }
 
     private fun getFCMToken() {
@@ -649,7 +717,7 @@ class MainActivity : AppCompatActivity() {
                     isActiveBye = true
                     it.endCall(it.callId)
                 }.also {
-                     mainViewModel.setCurrentCall(callId)
+                    mainViewModel.setCurrentCall(callId)
                     onAcceptCall(callId, callerIdNumber)
                 }
 
@@ -749,11 +817,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleCallNotification() {
+    private fun handleCallNotification(intent: Intent?) {
+
+        if (intent == null) {
+            Timber.d("Intent is null")
+            return
+        }
+
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
             txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
@@ -761,7 +836,25 @@ class MainActivity : AppCompatActivity() {
                 // Handle Reject
                 notificationAcceptHandling = false
             }
+            connectButtonPressed()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Timber.d("onResume")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Timber.d("onStop")
+       //disconnectPressed()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        Timber.d("onNewIntent ")
+        handleCallNotification(intent)
     }
 
 

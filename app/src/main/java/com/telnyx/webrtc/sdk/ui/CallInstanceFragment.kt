@@ -146,6 +146,12 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
                         SocketMethod.INVITE.methodName -> {
                             //NOOP
                         }
+                        SocketMethod.RINGING.methodName -> {
+
+                        }
+                        SocketMethod.MEDIA.methodName -> {
+
+                        }
                         SocketMethod.BYE.methodName -> {
 
                         }

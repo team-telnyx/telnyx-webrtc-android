@@ -87,6 +87,7 @@ data class CustomHeaders(val name: String, val value: String)
 
     fun startDebug(){
         Timber.d("Peer connection debug started")
+
         peerConnection?.startTimer()
     }
 
@@ -142,6 +143,7 @@ data class CustomHeaders(val name: String, val value: String)
         customHeaders: Map<String, String>? = null
     ) {
       client.acceptCall(callId, destinationNumber, customHeaders)
+
     }
 
     /**

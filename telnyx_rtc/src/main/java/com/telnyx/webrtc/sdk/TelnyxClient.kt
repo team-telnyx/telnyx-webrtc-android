@@ -84,12 +84,13 @@ class TelnyxClient(
     internal var providedStun: String? = null
 
     internal var isStatsEnabled:Boolean = false
+    internal var debugReportStarted = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
     var sessid: String // sessid used to recover calls when reconnecting
-    val socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
+    lateinit var socketResponseLiveData : MutableLiveData<SocketResponse<ReceivedMessageBody>>
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
     private val audioManager =
@@ -113,6 +114,7 @@ class TelnyxClient(
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
     private fun processCallFromPush(metaData: PushMetaData) {
+        Log.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
     }
@@ -207,7 +209,6 @@ class TelnyxClient(
             val uuid: String = UUID.randomUUID().toString()
             val inviteCallId: UUID = UUID.randomUUID()
 
-            // set global call CallID
             callId = inviteCallId
 
             // Create new peer
@@ -391,11 +392,12 @@ class TelnyxClient(
         // Generate random UUID for sessid param, convert it to string and set globally
         sessid = UUID.randomUUID().toString()
 
+        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
-
+        //socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
         registerNetworkCallback()
     }
 
@@ -426,12 +428,21 @@ class TelnyxClient(
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
+     * TODO - Provide two separate methods for credentialConfig and tokenConfig login
      */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String?,
-        enableStats: Boolean? = false
+        credentialConfig: CredentialConfig? = null,
+        tokenConfig: TokenConfig? = null,
+        autoLogin: Boolean = false,
+        enableStats: Boolean? = false,
     ) {
+
+        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
@@ -441,25 +452,34 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
-        invalidateGatewayResponseTimer()
-        resetGatewayCounters()
-
-
-
-        Timber.d("Provided Host Address: $providedHostAddress")
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData)
+            Timber.d("Provided Host Address: $providedHostAddress")
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+                if(autoLogin){
+                    credentialConfig?.let {
+                        credentialLogin(it)
+                    } ?: tokenConfig?.let {
+                        tokenLogin(it)
+                    }
+                }
+            }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
 
-
         isStatsEnabled = enableStats ?: false
     }
+
+
+
 
     /**
      * Sets the callOngoing state to true. This can be used to see if the SDK thinks a call is ongoing.
@@ -531,7 +551,9 @@ class TelnyxClient(
      * @param config, the CredentialConfig used to log in
      * @see [CredentialConfig]
      */
+    @Deprecated("telnyxclient.credentialLogin is deprecated. Use telnyxclient.connect(..) instead.")
     fun credentialLogin(config: CredentialConfig) {
+
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
@@ -574,6 +596,7 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
+        Timber.d("Auto login with credentialConfig")
 
         socket.send(loginMessage)
     }
@@ -651,6 +674,7 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
+    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...) instead.")
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
@@ -686,6 +710,15 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    internal  fun startStats(sessionId:UUID) {
+        debugReportStarted = true
+        val loginMessage = InitiateOrStopStatPrams(
+            type = "debug_report_start",
+            debugReportId = sessionId.toString(),
+        )
+        socket.send(loginMessage)
+    }
+
     /**
      * Sends Logged webrtc stats to backend
      *
@@ -699,11 +732,12 @@ class TelnyxClient(
             reportData = data
         )
         socket.send(loginMessage)
+
     }
 
     internal fun stopStats(sessionId:UUID) {
-
-        val loginMessage = StopStatPrams(
+        debugReportStarted = false
+        val loginMessage = InitiateOrStopStatPrams(
             debugReportId = sessionId.toString(),
         )
         socket.send(loginMessage)
@@ -1061,6 +1095,7 @@ class TelnyxClient(
     override fun onConnectionEstablished() {
         Timber.d("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName)
         socketResponseLiveData.postValue(SocketResponse.established())
+
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {

@@ -36,7 +36,7 @@ data class StatPrams(
     val jsonrpc:String = "2.0"
 ) : ParamRequest()
 
-data class StopStatPrams(
+data class InitiateOrStopStatPrams(
     val type: String = "debug_report_stop",
     @SerializedName("debug_report_id")
     val debugReportId: String = UUID.randomUUID().toString(),

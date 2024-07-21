@@ -174,6 +174,14 @@ We can then use this method to create a listener that listens for an invitation 
                         SocketMethod.BYE.methodName -> {
                            // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
                         }
+                        SocketMethod.RINGING.methodName -> {
+                            // Client Can simulate ringing state
+                        }
+
+                        SocketMethod.RINGING.methodName -> {
+                            // Ringback tone is streamed to the caller
+                            // early Media -  Client Can simulate ringing state
+                        }
                     }
                 }
                 

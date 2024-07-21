@@ -6,9 +6,17 @@ package com.telnyx.webrtc.sdk.verto.receive
 
 import com.telnyx.webrtc.sdk.model.SocketStatus
 
-data class SocketResponse<out T>(val status: SocketStatus, val data: T?, val errorMessage: String?) {
+data class SocketResponse<out T>(var status: SocketStatus, val data: T?, val errorMessage: String?) {
     companion object {
         fun <T> established(): SocketResponse<T> {
+            return SocketResponse(
+                SocketStatus.ESTABLISHED,
+                null,
+                null
+            )
+        }
+
+        fun <T> initialised(): SocketResponse<T> {
             return SocketResponse(
                 SocketStatus.ESTABLISHED,
                 null,

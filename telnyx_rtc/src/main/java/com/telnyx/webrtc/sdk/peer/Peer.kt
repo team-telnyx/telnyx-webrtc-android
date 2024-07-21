@@ -174,7 +174,10 @@ internal class Peer(
     }
 
     internal fun startTimer() {
-        debugStatsId = UUID.randomUUID()
+        if (!client.debugReportStarted){
+            debugStatsId = UUID.randomUUID()
+            client.startStats(debugStatsId)
+        }
         timer.schedule(object : TimerTask() {
             override fun run() {
                 mainObject.addProperty("event", "stats")

@@ -41,7 +41,7 @@ data class CredentialConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect: Boolean = true
+    val autoReconnect: Boolean = false
 ) : TelnyxConfig()
 
 /**

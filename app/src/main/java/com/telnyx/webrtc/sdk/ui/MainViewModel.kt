@@ -9,8 +9,10 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.App
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
@@ -39,13 +41,17 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
+        credentialConfig: CredentialConfig?,
+        tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
-        telnyxClient = TelnyxClient(context)
+        Timber.e("initConnection")
+        telnyxClient = App.telnyxClient
+
         providedServerConfig?.let {
-            telnyxClient?.connect(it, txPushMetaData)
+            telnyxClient?.connect(it, txPushMetaData,credentialConfig,tokenConfig,true)
         } ?: run {
-            telnyxClient?.connect(txPushMetaData = txPushMetaData)
+            telnyxClient?.connect(txPushMetaData = txPushMetaData, credentialConfig = credentialConfig, tokenConfig = tokenConfig, autoLogin = true)
         }
     }
 
@@ -85,7 +91,6 @@ class MainViewModel @Inject constructor(
             previousCall = currentCall
         }
         currentCall = calls[callId]!!
-        currentCall?.startDebug()
     }
 
     fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
@@ -120,6 +125,7 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
+        //startDebugStats()
     }
 
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {

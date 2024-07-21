@@ -142,6 +142,13 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `checkForMockCredentials`() {
+        assertEquals(MOCK_USERNAME_TEST, "<SIP_USER>")
+        assertEquals(MOCK_PASSWORD, "<SIP_PASSWORD>")
+    }
+
+
+    @Test
     fun `disconnect connection`() {
         client.socket = Mockito.spy(
             TxSocket(
@@ -185,7 +192,7 @@ class TelnyxClientTest : BaseTest() {
         client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
-            MOCK_USERNAME,
+            MOCK_USERNAME_TEST,
             MOCK_PASSWORD,
             "Test",
             "000000000",
