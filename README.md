@@ -237,7 +237,7 @@ The `txPushMetaData` is neccessary for push notifications to work.
   telnyxClient.connect(txPushMetaData)
 ```
 
-For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
+For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/push-notifications)
 
 
  ## ProGuard changes

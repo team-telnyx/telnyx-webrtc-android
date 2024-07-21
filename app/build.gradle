@@ -1,24 +1,22 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'kotlin-android-extensions'
     id 'kotlin-kapt'
-    id 'dagger.hilt.android.plugin'
     id 'com.google.gms.google-services'
-
+    id 'com.google.dagger.hilt.android'
 }
 
 def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
 android {
-    compileSdkVersion 33
+    compileSdkVersion 34
     buildToolsVersion "30.0.3"
 
     defaultConfig {
         applicationId "com.telnyx.webrtc.sdk"
         minSdkVersion 23
-        targetSdkVersion 33
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
 
@@ -120,9 +118,6 @@ dependencies {
     implementation deps.ktor.gson
     implementation deps.ktor.websockets
 
-    // Volley
-    implementation deps.volley
-
     // Firebase
     implementation platform(deps.firebasebom)
     implementation deps.firebase_analytics
@@ -172,7 +167,7 @@ dependencies {
 
     testImplementation "org.slf4j:slf4j-nop:1.7.36"
 
-    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.9.10"
 
 
     // Testing - Instrumentation

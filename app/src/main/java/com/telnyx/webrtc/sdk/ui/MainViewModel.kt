@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.slf4j.Logger
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -80,7 +81,7 @@ class MainViewModel @Inject constructor(
         if (calls.size > 1) {
             previousCall = currentCall
         }
-        currentCall = calls[callId]
+        currentCall = calls[callId]!!
     }
 
     fun getCallState(): LiveData<CallState>? = currentCall?.getCallState()
@@ -103,14 +104,15 @@ class MainViewModel @Inject constructor(
         destinationNumber: String,
         clientState: String
     ) {
-        telnyxClient?.call?.newInvite(
+       val call =  telnyxClient?.newInvite(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )
+        setCurrentCall(call?.callId!!)
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
-        telnyxClient?.call?.acceptCall(
+        telnyxClient?.acceptCall(
             callId,
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
@@ -124,10 +126,13 @@ class MainViewModel @Inject constructor(
 
     fun endCall(callId: UUID? = null) {
         callId?.let {
-            telnyxClient?.call?.endCall(callId)
+            telnyxClient?.endCall(callId)
         } ?: run {
-            val clientCallId = telnyxClient?.call?.callId
-            clientCallId?.let { telnyxClient?.call?.endCall(it) }
+            Timber.e("Run End call $callId")
+            if (currentCall != null) {
+                telnyxClient?.endCall(currentCall?.callId!!)
+            }
+            currentCall?.endCall(currentCall?.callId!!)
         }
         previousCall?.let {
             currentCall = it
@@ -143,6 +148,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun onLoudSpeakerPressed() {
+        Timber.e("onLoudSpeakerPressed ${currentCall?.callId}")
         currentCall?.onLoudSpeakerPressed()
     }
 
@@ -151,6 +157,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun disconnect() {
+        Log.d("MainViewModel", "disconnect")
         telnyxClient?.onDisconnect()
         userManager.isUserLogin = false
     }

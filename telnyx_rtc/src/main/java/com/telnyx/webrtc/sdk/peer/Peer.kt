@@ -133,6 +133,11 @@ internal class Peer(
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
+        peerConnection?.getStats {
+            it.statsMap.forEach { (key, value) ->
+                Timber.tag("Stats").d("Key: $key, Value: $value")
+            }
+        }
     }
 
     /**

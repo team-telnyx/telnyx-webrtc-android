@@ -81,12 +81,6 @@ data class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
-        if (!BuildConfig.IS_TESTING.get()) {
-            if (audioManager.mode != AudioManager.MODE_IN_COMMUNICATION) {
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            }
-        }
-
         callStateLiveData.postValue(CallState.CONNECTING)
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
@@ -198,14 +192,21 @@ data class Call(
      * @see [AudioManager]
      */
     fun onLoudSpeakerPressed() {
-        if (!loudSpeakerLiveData.value!!) {
+        if (!audioManager.isSpeakerphoneOn) {
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true
         } else {
             loudSpeakerLiveData.postValue(false)
             audioManager.isSpeakerphoneOn = false
         }
+        Timber.e("audioManager.isSpeakerphoneOn ${audioManager.isSpeakerphoneOn}")
     }
+
+    fun getLoudSpeakerStatus(): Boolean {
+        return loudSpeakerLiveData.value!!
+    }
+
+
 
     /**
      * Either places a call on hold, or unholds a call based on the current [holdLiveData] value

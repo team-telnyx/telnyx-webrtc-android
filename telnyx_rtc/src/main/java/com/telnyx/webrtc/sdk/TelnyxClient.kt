@@ -48,6 +48,15 @@ class TelnyxClient(
         URI
     }
 
+    /*
+    * Add Later: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
+    * */
+    enum class SpeakerMode {
+        SPEAKER,
+        EARPIECE,
+        UNASSIGNED
+    }
+
     companion object {
         const val RETRY_REGISTER_TIME = 3
         const val RETRY_CONNECT_TIME = 3
@@ -66,6 +75,7 @@ class TelnyxClient(
     private var registrationRetryCounter = 0
     private var connectRetryCounter = 0
     private var gatewayState = "idle"
+    private var speakerState: SpeakerMode = SpeakerMode.UNASSIGNED
 
     internal var socket: TxSocket
     private var providedHostAddress: String? = null
@@ -140,7 +150,7 @@ class TelnyxClient(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
-    ) {
+    ) : Call {
         val acceptCall = calls[callId]
         acceptCall!!.apply {
             val uuid: String = UUID.randomUUID().toString()
@@ -164,13 +174,17 @@ class TelnyxClient(
                 )
                 socket.send(answerBodyMessage)
                 client.stopMediaPlayer()
+                // reset audio mode to communication
+                speakerState?.let { setSpeakerMode(it) }
+
+
                 callStateLiveData.postValue(CallState.ACTIVE)
                 client.callOngoing()
-                // reset audio mode to communication
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+
             }
         }
         this.addToCalls(acceptCall)
+        return acceptCall
     }
 
     fun newInvite(
@@ -179,7 +193,7 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null
-    ){
+    ) : Call {
         val inviteCall = call!!.copy(
             context = context,
             client = this,
@@ -238,6 +252,8 @@ class TelnyxClient(
             client.playRingBackTone()
         }
         this.addToCalls(inviteCall)
+
+        return inviteCall
 
     }
 
@@ -733,6 +749,7 @@ class TelnyxClient(
         }
     }
 
+
     /**
      * Use MediaPlayer to play the audio of the saved user Ringtone
      * If no ringtone was provided, we print a relevant message
@@ -740,8 +757,21 @@ class TelnyxClient(
      * @see [MediaPlayer]
      */
     internal fun playRingtone() {
+        // set speakerState to current audioManager settings
+        speakerState = if (speakerState != SpeakerMode.UNASSIGNED) {
+            if (audioManager?.isSpeakerphoneOn == true) {
+                SpeakerMode.SPEAKER
+            } else {
+                SpeakerMode.EARPIECE
+            }
+        }else{
+            SpeakerMode.EARPIECE
+        }
+
+        // set audioManager to ringtone settings
         audioManager?.mode = AudioManager.MODE_RINGTONE
         audioManager?.isSpeakerphoneOn = true
+
         rawRingtone?.let {
             stopMediaPlayer()
             try {
@@ -769,6 +799,18 @@ class TelnyxClient(
         }
     }
 
+    private fun setSpeakerMode(speakerMode: SpeakerMode) {
+        when (speakerMode) {
+            SpeakerMode.SPEAKER -> {
+                audioManager?.isSpeakerphoneOn = true
+            }
+            SpeakerMode.EARPIECE -> {
+                audioManager?.isSpeakerphoneOn = false
+            }
+            SpeakerMode.UNASSIGNED ->   audioManager?.isSpeakerphoneOn = false
+        }
+    }
+
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
             is Uri -> RingtoneType.URI
@@ -783,7 +825,7 @@ class TelnyxClient(
      *
      * @see [MediaPlayer]
      */
-    internal fun playRingBackTone() {
+    private fun playRingBackTone() {
         rawRingbackTone?.let {
             stopMediaPlayer()
             mediaPlayer = MediaPlayer.create(context, it)

@@ -15,14 +15,13 @@ import android.content.Context
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import com.karumi.dexter.Dexter
@@ -30,7 +29,15 @@ import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.telnyx.webrtc.sdk.*
+import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
+import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
+import com.telnyx.webrtc.sdk.MOCK_DESTINATION_NUMBER
+import com.telnyx.webrtc.sdk.MOCK_PASSWORD
+import com.telnyx.webrtc.sdk.MOCK_USERNAME
+import com.telnyx.webrtc.sdk.R
+import com.telnyx.webrtc.sdk.TokenConfig
+import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
@@ -39,25 +46,28 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
-import com.telnyx.webrtc.sdk.verto.receive.*
+import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
+import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
+import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
+import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
+import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.include_call_control_section.*
-import kotlinx.android.synthetic.main.include_incoming_activel_section.*
-import kotlinx.android.synthetic.main.include_incoming_call_section.*
-import kotlinx.android.synthetic.main.include_login_credential_section.*
-import kotlinx.android.synthetic.main.include_login_section.*
-import kotlinx.android.synthetic.main.include_login_token_section.*
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.IOException
-import java.sql.Time
 import java.util.*
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
+
+    private lateinit var callControlView: View
+    private lateinit var incomingCallView: View
+    private lateinit var loginSectionView: View
+    var callStateTextValue: TextView? = null
 
     @Inject
     lateinit var userManager: UserManager
@@ -67,16 +77,30 @@ class MainActivity : AppCompatActivity() {
     private var isDev = false
     private var isAutomaticLogin = false
     private var wsMessageList: ArrayList<String>? = null
+
     // Notification handling
     private var notificationAcceptHandling: Boolean? = null
-    private var txPushMetaData:String? = null
+    private var txPushMetaData: String? = null
     private var isActiveBye = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view: View = binding.root
         setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
+
+        setContentView(view)
+        binding.apply {
+            callControlView = callControlSectionId.callControlView
+            incomingCallView = incomingActiveCallSectionId.incomingView
+            loginSectionView = loginSectionId.loginSectionView
+            this@MainActivity.callStateTextValue = callStateTextValue
+        }
+
+        binding.toolbarId.setOnMenuItemClickListener {
+            onOptionsItemSelected(it)
+        }
 
         // Add environment text
         isDev = userManager.isDev
@@ -91,41 +115,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        Timber.d("onCreateOptionsMenu")
         menuInflater.inflate(R.menu.actionbar_menu, menu)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
-        R.id.action_disconnect -> {
-            if (userManager.isUserLogin) {
-                disconnectPressed()
-                isAutomaticLogin = false
-            } else {
-                Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
+
+
+    override fun onOptionsItemSelected(item: MenuItem):Boolean {
+        Timber.d("onOptionsItemSelected ${item.itemId}")
+       return when (item.itemId) {
+            R.id.action_disconnect -> {
+                if (userManager.isUserLogin) {
+                    disconnectPressed()
+                    isAutomaticLogin = false
+                } else {
+                    Toast.makeText(this, "Not connected", Toast.LENGTH_SHORT).show()
+                }
+
+                true
             }
-            true
-        }
-        R.id.action_change_audio_output -> {
-            val dialog = createAudioOutputSelectionDialog()
-            dialog.show()
-            true
-        }
-        R.id.action_wsmessages -> {
-            if (wsMessageList == null) {
-                wsMessageList = ArrayList()
+
+            R.id.action_change_audio_output -> {
+                val dialog = createAudioOutputSelectionDialog()
+                dialog.show()
+                true
             }
-            val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
-            supportFragmentManager.beginTransaction()
-                .replace(android.R.id.content, instanceFragment)
-                .addToBackStack(null)
-                .commitAllowingStateLoss()
-            true
-        }
-        else -> {
-            super.onOptionsItemSelected(item)
+
+            R.id.action_wsmessages -> {
+                if (wsMessageList == null) {
+                    wsMessageList = ArrayList()
+                }
+                val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
+                supportFragmentManager.beginTransaction()
+                    .replace(android.R.id.content, instanceFragment)
+                    .addToBackStack(null)
+                    .commitAllowingStateLoss()
+                true
+            }
+
+            else -> {
+                super.onOptionsItemSelected(item)
+            }
         }
     }
-
     private fun createAudioOutputSelectionDialog(): Dialog {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
@@ -140,9 +173,11 @@ class MainActivity : AppCompatActivity() {
                     0 -> {
                         mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
                     }
+
                     1 -> {
                         mainViewModel.changeAudioOutput(AudioDevice.BLUETOOTH)
                     }
+
                     2 -> {
                         mainViewModel.changeAudioOutput(AudioDevice.LOUDSPEAKER)
                     }
@@ -160,7 +195,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectToSocketAndObserve(txPushMetaData: String? = null) {
         if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null,txPushMetaData)
+            mainViewModel.initConnection(applicationContext, null, txPushMetaData)
         } else {
             mainViewModel.initConnection(
                 applicationContext,
@@ -188,7 +223,7 @@ class MainActivity : AppCompatActivity() {
                             }
 
                             SocketMethod.LOGIN.methodName -> {
-                                progress_indicator_id.visibility = View.INVISIBLE
+                                binding.progressIndicatorId.visibility = View.INVISIBLE
                                 val sessionId = (data.result as LoginResponse).sessid
                                 Timber.d("Current Session: $sessionId")
                                 onLoginSuccessfullyViews()
@@ -205,21 +240,34 @@ class MainActivity : AppCompatActivity() {
                             SocketMethod.ANSWER.methodName -> {
                                 val callId = (data.result as AnswerResponse).callId
                                 launchCallInstance(callId)
-                                call_button_id.visibility = View.VISIBLE
-                                cancel_call_button_id.visibility = View.GONE
+                                binding.apply {
+                                    callControlSectionId.callButtonId.visibility =
+                                        View.VISIBLE
+                                    callControlSectionId.cancelCallButtonId.visibility =
+                                        View.GONE
+                                }
+
                                 invitationSent = false
                             }
 
                             SocketMethod.BYE.methodName -> {
                                 onByeReceivedViews()
                                 val callId = (data.result as ByeResponse).callId
-                                supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
+                                val callInstanceFragment = callInstanceFragments[callId]
+                                callInstanceFragment?.let {
+                                    supportFragmentManager.beginTransaction().remove(it).commit()
+                                }
                             }
                         }
                     }
 
                     override fun onLoading() {
                         Timber.i("Loading...")
+                    }
+
+                    override fun onChanged(value: SocketResponse<ReceivedMessageBody>) {
+                        super.onChanged(value)
+                        // Do Nothing
                     }
 
                     override fun onError(message: String?) {
@@ -238,13 +286,17 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
 
-                        progress_indicator_id.visibility = View.INVISIBLE
-                        incoming_call_section_id.visibility = View.GONE
-                        call_control_section_id.visibility = View.GONE
-                        login_section_id.visibility = View.VISIBLE
+                        binding.apply {
+                            progressIndicatorId.visibility = View.INVISIBLE
+                            incomingCallView.visibility = View.GONE
+                            callControlView.visibility = View.GONE
+                            loginSectionView.visibility = View.VISIBLE
 
-                        socket_text_value.text = getString(R.string.disconnected)
-                        call_state_text_value.text = "-"
+                            socketTextValue.text = getString(R.string.disconnected)
+                            callStateTextValue.text = "-"
+                        }
+
+
                     }
                 }
             )
@@ -259,11 +311,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateEnvText(isDevEnvironment: Boolean) {
-        if (isDevEnvironment) {
-            environment_text.text = "Dev"
-        } else {
-            environment_text.text = "Prod"
+        binding.apply {
+            if (isDevEnvironment) {
+                environmentText.text = "Dev"
+            } else {
+                environmentText.text = "Prod"
+            }
         }
+
     }
 
     private fun initViews() {
@@ -272,27 +327,32 @@ class MainActivity : AppCompatActivity() {
         getFCMToken()
         observeWsMessage()
 
-        connect_button_id.setOnClickListener {
+        binding.loginSectionId.connectButtonId.setOnClickListener {
             if (!hasLoginEmptyFields()) {
                 connectButtonPressed()
             }
         }
-        call_button_id.setOnClickListener {
-            mainViewModel.sendInvite(
-                userManager.callerIdName,
-                userManager.callerIdNumber,
-                call_input_id.text.toString(),
-                "Sample Client State"
-            )
-            call_button_id.visibility = View.GONE
-            cancel_call_button_id.visibility = View.VISIBLE
+        binding.callControlSectionId.apply {
+            callButtonId.setOnClickListener {
+                mainViewModel.sendInvite(
+                    userManager.callerIdName,
+                    userManager.callerIdNumber,
+                    callInputId.text.toString(),
+                    "Sample Client State"
+                )
+                callButtonId.visibility = View.GONE
+                cancelCallButtonId.visibility = View.VISIBLE
+            }
         }
-        cancel_call_button_id.setOnClickListener {
-            mainViewModel.endCall()
-            call_button_id.visibility = View.VISIBLE
-            cancel_call_button_id.visibility = View.GONE
+        binding.callControlSectionId.apply {
+            cancelCallButtonId.setOnClickListener {
+                mainViewModel.endCall()
+                callButtonId.visibility = View.VISIBLE
+                cancelCallButtonId.visibility = View.GONE
+            }
         }
-        telnyx_image_id.setOnLongClickListener {
+
+        binding.telnyxImageId.setOnLongClickListener {
             onCreateSecretMenuDialog().show()
             true
         }
@@ -319,6 +379,7 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this, "Switched to DEV environment", Toast.LENGTH_LONG)
                                 .show()
                         }
+
                         1 -> {
                             // Switch to Prod
                             isDev = false
@@ -327,6 +388,7 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this, "Switched to PROD environment", Toast.LENGTH_LONG)
                                 .show()
                         }
+
                         2 -> {
                             val clipboardManager =
                                 getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -343,15 +405,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasLoginEmptyFields(): Boolean {
         var hasEmptyFields = false
-        if (token_login_switch.isChecked) {
-            if (sip_token_id.text.isEmpty()) {
-                showEmptyFieldsToast()
-                hasEmptyFields = true
-            }
-        } else {
-            if (sip_username_id.text.isEmpty() || sip_password_id.text.isEmpty()) {
-                showEmptyFieldsToast()
-                hasEmptyFields = true
+
+        binding.loginSectionId.apply {
+            if (tokenLoginSwitch.isChecked) {
+                if (binding.loginSectionId.loginTokenId.sipTokenId.text.isEmpty()) {
+                    showEmptyFieldsToast()
+                    hasEmptyFields = true
+                }
+            } else {
+                binding.loginSectionId.loginCredentialId.apply {
+                    if (sipUsernameId.text.isEmpty() || sipPasswordId.text.isEmpty()) {
+                        showEmptyFieldsToast()
+                        hasEmptyFields = true
+                    }
+                }
             }
         }
         return hasEmptyFields
@@ -362,17 +429,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mockInputs() {
-        caller_id_name_id.setText(MOCK_CALLER_NAME)
-        caller_id_number_id.setText(MOCK_CALLER_NUMBER)
-        call_input_id.setText(MOCK_DESTINATION_NUMBER)
+        binding.loginSectionId.loginCredentialId.apply {
+            sipUsernameId.setText(MOCK_USERNAME)
+            sipPasswordId.setText(MOCK_PASSWORD)
+            callerIdNameId.setText(MOCK_CALLER_NAME)
+            callerIdNumberId.setText(MOCK_CALLER_NUMBER)
+            binding.callControlSectionId.callInputId.setText(MOCK_DESTINATION_NUMBER)
+        }
+
     }
 
     private fun handleUserLoginState() {
         listenLoginTypeSwitch()
         if (!userManager.isUserLogin) {
-            login_section_id.visibility = View.VISIBLE
-            incoming_call_section_id.visibility = View.GONE
-            call_control_section_id.visibility = View.GONE
+            binding.loginSectionId.loginSectionView.visibility = View.VISIBLE
+            incomingCallView.visibility = View.GONE
+            callControlView.visibility = View.GONE
         } else {
             isAutomaticLogin = true
             connectButtonPressed()
@@ -380,25 +452,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun listenLoginTypeSwitch() {
-        token_login_switch.setOnCheckedChangeListener { _, isChecked ->
+        binding.loginSectionId.tokenLoginSwitch.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                login_credential_id.visibility = View.GONE
-                login_token_id.visibility = View.VISIBLE
+                binding.loginSectionId.loginSectionView.visibility = View.GONE
+                binding.loginSectionId.loginTokenId.loginTokenSectionView.visibility = View.VISIBLE
             } else {
-                login_credential_id.visibility = View.VISIBLE
-                login_token_id.visibility = View.GONE
+                binding.loginSectionId.loginCredentialId.credentialLoginView.visibility =
+                    View.VISIBLE
+                binding.loginSectionId.loginTokenId.loginTokenSectionView.visibility = View.GONE
             }
         }
     }
 
     private fun connectButtonPressed() {
-        progress_indicator_id.visibility = View.VISIBLE
+        binding.progressIndicatorId.visibility = View.VISIBLE
         if (notificationAcceptHandling == true) {
             Timber.d("notificationAcceptHandling is true $txPushMetaData")
             if (txPushMetaData != null) {
                 connectToSocketAndObserve(txPushMetaData)
             }
-        }else {
+        } else {
             connectToSocketAndObserve()
         }
     }
@@ -421,39 +494,46 @@ class MainActivity : AppCompatActivity() {
             )
             mainViewModel.doLoginWithCredentials(loginConfig)
         } else {
-            if (token_login_switch.isChecked) {
-                val sipToken = sip_token_id.text.toString()
-                val sipCallerName = token_caller_id_name_id.text.toString()
-                val sipCallerNumber = token_caller_id_number_id.text.toString()
+            binding.loginSectionId.apply {
+                if (tokenLoginSwitch.isChecked) {
+                    loginTokenId.apply {
+                        val sipToken = sipTokenId.text.toString()
+                        val sipCallerName = tokenCallerIdNameId.text.toString()
+                        val sipCallerNumber = tokenCallerIdNumberId.text.toString()
 
-                val loginConfig = TokenConfig(
-                    sipToken,
-                    sipCallerName,
-                    sipCallerNumber,
-                    fcmToken,
-                    ringtone,
-                    ringBackTone,
-                    LogLevel.ALL
-                )
-                mainViewModel.doLoginWithToken(loginConfig)
-            } else {
-                val sipUsername = sip_username_id.text.toString()
-                val password = sip_password_id.text.toString()
-                val sipCallerName = caller_id_name_id.text.toString()
-                val sipCallerNumber = caller_id_number_id.text.toString()
+                        val loginConfig = TokenConfig(
+                            sipToken,
+                            sipCallerName,
+                            sipCallerNumber,
+                            fcmToken,
+                            ringtone,
+                            ringBackTone,
+                            LogLevel.ALL
+                        )
+                        mainViewModel.doLoginWithToken(loginConfig)
+                    }
+                } else {
+                    loginCredentialId.apply {
+                        val sipUsername = sipUsernameId.text.toString()
+                        val password = sipPasswordId.text.toString()
+                        val sipCallerName = callerIdNameId.text.toString()
+                        val sipCallerNumber = callerIdNumberId.text.toString()
 
-                val loginConfig = CredentialConfig(
-                    sipUsername,
-                    password,
-                    sipCallerName,
-                    sipCallerNumber,
-                    fcmToken,
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
-                    ringBackTone,
-                    LogLevel.ALL
-                )
-                mainViewModel.doLoginWithCredentials(loginConfig)
+                        val loginConfig = CredentialConfig(
+                            sipUsername,
+                            password,
+                            sipCallerName,
+                            sipCallerNumber,
+                            fcmToken,
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
+                            ringBackTone,
+                            LogLevel.ALL
+                        )
+                        mainViewModel.doLoginWithCredentials(loginConfig)
+                    }
+                }
             }
+
         }
     }
 
@@ -482,45 +562,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onLoginSuccessfullyViews() {
-        socket_text_value.text = getString(R.string.connected)
-        login_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.VISIBLE
+        binding.apply {
+            socketTextValue.text = getString(R.string.connected)
+            loginSectionId.loginSectionView.visibility = View.GONE
+            callControlSectionId.callControlView.visibility = View.VISIBLE
 
-        // Don't store login details if logged in via a token
-        if (!token_login_switch.isChecked) {
-            // Set Shared Preferences now that user has logged in - storing the session:
-            mainViewModel.saveUserData(
-                sip_username_id.text.toString(),
-                sip_password_id.text.toString(),
-                fcmToken,
-                caller_id_name_id.text.toString(),
-                caller_id_number_id.text.toString(),
-                isDev
-            )
+            loginSectionId.apply {
+                // Don't store login details if logged in via a token
+                if (!tokenLoginSwitch.isChecked) {
+                    loginCredentialId.apply {
+                        // Set Shared Preferences now that user has logged in - storing the session:
+                        mainViewModel.saveUserData(
+                            sipUsernameId.text.toString(),
+                            sipPasswordId.text.toString(),
+                            fcmToken,
+                            callerIdNameId.text.toString(),
+                            callerIdNumberId.text.toString(),
+                            isDev
+                        )
+                    }
+
+                }
+            }
         }
+
+
     }
 
-    private var callInstanceFragment: CallInstanceFragment? = null
+    private val callInstanceFragments = mutableMapOf<UUID, CallInstanceFragment>()
     private fun launchCallInstance(callId: UUID) {
         mainViewModel.setCurrentCall(callId)
-        if (callInstanceFragment != null) {
-            supportFragmentManager.beginTransaction().remove(callInstanceFragment!!).commit()
-        }
-        callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
+        callInstanceFragments[callId] = callInstanceFragment
         supportFragmentManager.beginTransaction()
-            .add(R.id.fragment_call_instance, callInstanceFragment!!)
+            .add(R.id.fragment_call_instance, callInstanceFragment)
             .commit()
     }
 
     private fun onByeReceivedViews() {
         invitationSent = false
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.VISIBLE
-        call_button_id.visibility = View.VISIBLE
-        cancel_call_button_id.visibility = View.GONE
-        incoming_active_call_section_id.visibility = View.GONE
+        binding.apply {
+            incomingCallSectionId.root.visibility = View.GONE
+            callControlSectionId.root.visibility = View.VISIBLE
+            callControlSectionId.callButtonId.visibility = View.VISIBLE
+            callControlSectionId.cancelCallButtonId.visibility = View.GONE
+            incomingActiveCallSectionId.root.visibility = View.GONE
+        }
     }
-
 
 
     private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
@@ -537,51 +625,60 @@ class MainActivity : AppCompatActivity() {
                 onAcceptCall(callId, callerIdNumber)
                 notificationAcceptHandling = null
             }
+
             false -> {
                 onRejectCall(callId)
                 notificationAcceptHandling = null
             }
-            else -> {
-                call_control_section_id.visibility = View.GONE
-                incoming_call_section_id.visibility = View.VISIBLE
-                incoming_call_section_id.bringToFront()
 
-                answer_call_id.setOnClickListener {
-                    onAcceptCall(callId, callerIdNumber)
+            else -> {
+                binding.apply {
+                    callControlSectionId.root.visibility = View.GONE
+                    incomingCallSectionId.root.visibility = View.VISIBLE
+                    incomingCallSectionId.root.bringToFront()
+                    incomingCallSectionId.answerCallId.setOnClickListener {
+                        onAcceptCall(callId, callerIdNumber)
+                    }
+                    incomingCallSectionId.rejectCallId.setOnClickListener {
+                        onRejectCall(callId)
+                    }
                 }
-                reject_call_id.setOnClickListener {
-                    onRejectCall(callId)
-                }
+
             }
         }
     }
 
     private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
+        binding.apply {
+            callControlSectionId.root.visibility = View.GONE
+            incomingActiveCallSectionId.root.visibility = View.VISIBLE
+            incomingActiveCallSectionId.root.bringToFront()
 
-        call_control_section_id.visibility = View.GONE
-        incoming_active_call_section_id.visibility = View.VISIBLE
-        incoming_active_call_section_id.bringToFront()
+            incomingActiveCallSectionId.endAndAccept.setOnClickListener {
+                mainViewModel.currentCall?.let {
+                    isActiveBye = true
+                    it.endCall(it.callId)
+                }
+                mainViewModel.setCurrentCall(callId)
+                onAcceptCall(callId, callerIdNumber)
 
-        endAndAccept.setOnClickListener {
-            mainViewModel.currentCall?.let {
-                isActiveBye = true
-                it.endCall(it.callId)
             }
-            mainViewModel.setCurrentCall(callId)
-            onAcceptCall(callId, callerIdNumber)
+            incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
+                onRejectActiveCall(callId)
+            }
+        }
 
-        }
-        reject_current_call.setOnClickListener {
-            onRejectActiveCall(callId)
-        }
     }
 
 
     private fun onAcceptCall(callId: UUID, destinationNumber: String) {
-        incoming_call_section_id.visibility = View.GONE
-        incoming_active_call_section_id.visibility = View.GONE
-        // Visible but underneath fragment
-        call_control_section_id.visibility = View.VISIBLE
+        binding.apply {
+            incomingCallSectionId.root.visibility = View.GONE
+            incomingActiveCallSectionId.root.visibility = View.GONE
+            // Visible but underneath fragment
+            callControlSectionId.root.visibility = View.VISIBLE
+
+        }
 
         launchCallInstance(callId)
         mainViewModel.acceptCall(callId, destinationNumber)
@@ -590,13 +687,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun onRejectActiveCall(callId: UUID) {
         // Reject call and make call control section visible
-        incoming_active_call_section_id.visibility = View.GONE
+        binding.incomingActiveCallSectionId.root.visibility = View.GONE
         mainViewModel.endCall(callId)
     }
+
     private fun onRejectCall(callId: UUID) {
         // Reject call and make call control section visible
-        incoming_call_section_id.visibility = View.GONE
-        call_control_section_id.visibility = View.VISIBLE
+        binding.apply {
+            incomingCallSectionId.root.visibility = View.GONE
+            callControlSectionId.root.visibility = View.VISIBLE
+        }
+
 
         mainViewModel.endCall(callId)
     }
@@ -610,7 +711,7 @@ class MainActivity : AppCompatActivity() {
                 .withListener(object : MultiplePermissionsListener {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                         if (report!!.areAllPermissionsGranted()) {
-                            connect_button_id.isClickable = true
+                            binding.loginSectionId.connectButtonId.isClickable = true
                         } else if (report.isAnyPermissionPermanentlyDenied) {
                             Toast.makeText(
                                 this@MainActivity,
@@ -636,7 +737,7 @@ class MainActivity : AppCompatActivity() {
                 .withListener(object : MultiplePermissionsListener {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
                         if (report!!.areAllPermissionsGranted()) {
-                            connect_button_id.isClickable = true
+                            binding.loginSectionId.connectButtonId.isClickable = true
                         } else if (report.isAnyPermissionPermanentlyDenied) {
                             Toast.makeText(
                                 this@MainActivity,

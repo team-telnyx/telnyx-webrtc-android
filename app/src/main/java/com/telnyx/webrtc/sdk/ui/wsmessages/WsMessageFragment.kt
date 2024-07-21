@@ -12,7 +12,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
-import com.telnyx.webrtc.sdk.databinding.FragmentWsmessageBinding
+import com.telnyx.webrtc.sdk.databinding.FragmentWsMessageBinding
 import com.telnyx.webrtc.sdk.ui.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,18 +22,19 @@ import java.io.File
 import java.io.FileOutputStream
 
 class WsMessageFragment : Fragment() {
-    private lateinit var binding: FragmentWsmessageBinding
     private val mainViewModel: MainViewModel by activityViewModels()
     private var receivedWsMessageList = emptyList<String>()
 
     private var wsMessageAdapter: WsMessageAdapter? = null
+    private var _binding: FragmentWsMessageBinding? = null
 
+    private val binding get() = _binding!!
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = FragmentWsmessageBinding.inflate(inflater, container, false)
+        _binding = FragmentWsMessageBinding.inflate(inflater, container, false)
         receivedWsMessageList = arguments?.getStringArrayList(WSMESSAGES_LIST)!!
 
         return binding.root
