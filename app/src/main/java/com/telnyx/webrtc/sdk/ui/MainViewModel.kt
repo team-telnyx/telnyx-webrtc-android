@@ -9,10 +9,8 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.App
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
-import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.manager.UserManager
@@ -22,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.slf4j.Logger
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -41,22 +40,14 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
-        credentialConfig: CredentialConfig?,
-        tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
-        Timber.e("initConnection")
         telnyxClient = TelnyxClient(context)
-
         providedServerConfig?.let {
-            telnyxClient?.connect(it,credentialConfig!!,txPushMetaData,true)
+            telnyxClient?.connect(it, txPushMetaData)
         } ?: run {
-            telnyxClient?.connect(txPushMetaData = txPushMetaData, credentialConfig = credentialConfig!!, autoLogin = true)
+            telnyxClient?.connect(txPushMetaData = txPushMetaData)
         }
-    }
-
-    fun startDebugStats() {
-        currentCall?.startDebug()
     }
 
     fun saveUserData(
@@ -98,7 +89,10 @@ class MainViewModel @Inject constructor(
     fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
-
+    fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
+        telnyxClient?.credentialLogin(credentialConfig)
+        Timber.e("token_ ${credentialConfig.fcmToken}")
+    }
 
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
@@ -110,10 +104,11 @@ class MainViewModel @Inject constructor(
         destinationNumber: String,
         clientState: String
     ) {
-        telnyxClient?.newInvite(
+       val call =  telnyxClient?.newInvite(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )
+        setCurrentCall(call?.callId!!)
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
@@ -122,7 +117,6 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
-        //startDebugStats()
     }
 
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {
@@ -134,6 +128,10 @@ class MainViewModel @Inject constructor(
         callId?.let {
             telnyxClient?.endCall(callId)
         } ?: run {
+            Timber.e("Run End call $callId")
+            if (currentCall != null) {
+                telnyxClient?.endCall(currentCall?.callId!!)
+            }
             currentCall?.endCall(currentCall?.callId!!)
         }
         previousCall?.let {
@@ -159,6 +157,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun disconnect() {
+        Log.d("MainViewModel", "disconnect")
         telnyxClient?.onDisconnect()
         userManager.isUserLogin = false
     }

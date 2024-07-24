@@ -154,7 +154,7 @@ class TelnyxClient(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
-    ) {
+    ) : Call {
         val acceptCall = calls[callId]
         acceptCall!!.apply {
             val uuid: String = UUID.randomUUID().toString()
@@ -188,6 +188,7 @@ class TelnyxClient(
             }
         }
         this.addToCalls(acceptCall)
+        return acceptCall
     }
 
     fun newInvite(
@@ -196,7 +197,7 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null
-    ){
+    ) : Call {
         val inviteCall = call!!.copy(
             context = context,
             client = this,
@@ -254,6 +255,8 @@ class TelnyxClient(
             client.playRingBackTone()
         }
         this.addToCalls(inviteCall)
+
+        return inviteCall
 
     }
 
