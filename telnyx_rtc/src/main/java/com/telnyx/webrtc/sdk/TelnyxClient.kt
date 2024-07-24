@@ -1296,12 +1296,32 @@ class TelnyxClient(
                 // generally occurs when a ringback setting is applied in inbound call settings
                 earlySDP = true
 
+                val callerIDName = if (params.has("caller_id_name")) params.get("caller_id_name").asString else ""
+                val callerNumber = if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
+
+                val mediaResponse = MediaResponse(
+                    UUID.fromString(callId),
+                    callerIDName,
+                    callerNumber,
+                    sessionId,
+                )
+                client.socketResponseLiveData.postValue(
+                    SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                            SocketMethod.MEDIA.methodName,
+                            mediaResponse
+                        )
+                    )
+                )
+
             } else {
                 // There was no SDP in the response, there was an error.
                 callStateLiveData.postValue(CallState.DONE)
                 client.removeFromCalls(UUID.fromString(callId))
             }
+
         }
+
 
         /*Stop local Media and play ringback from telnyx cloud*/
         stopMediaPlayer()
