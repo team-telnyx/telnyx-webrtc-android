@@ -183,13 +183,13 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             MOCK_USERNAME_TEST,
@@ -210,13 +210,13 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             "asdfasass",
@@ -240,6 +240,7 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -247,7 +248,6 @@ class TelnyxClientTest : BaseTest() {
             )
         )
 
-        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             MOCK_TOKEN,
@@ -268,14 +268,15 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+
+
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-
-        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             anyString(),

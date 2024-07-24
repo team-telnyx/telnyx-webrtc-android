@@ -400,7 +400,6 @@ class TelnyxClient(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
-        //socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>()
         registerNetworkCallback()
     }
 
@@ -483,7 +482,8 @@ class TelnyxClient(
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
      *
-     * @param autoLogin, if true, the SDK will automatically log in with the provided credentials on connection established
+     * @param autoLogin, if true, the SDK will automatically log in with
+     * the provided credentials on connection established
      * We recommend setting this to true
      *
      */

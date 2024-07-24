@@ -48,9 +48,21 @@ class MainViewModel @Inject constructor(
         telnyxClient = TelnyxClient(context)
 
         providedServerConfig?.let {
-            telnyxClient?.connect(it,credentialConfig!!,txPushMetaData,true)
+            telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {
-            telnyxClient?.connect(txPushMetaData = txPushMetaData, credentialConfig = credentialConfig!!, autoLogin = true)
+            if (tokenConfig != null) {
+                telnyxClient?.connect(
+                    txPushMetaData = txPushMetaData,
+                    tokenConfig = tokenConfig,
+                    autoLogin = true
+                )
+            } else {
+                telnyxClient?.connect(
+                    txPushMetaData = txPushMetaData,
+                    credentialConfig = credentialConfig!!,
+                    autoLogin = true
+                )
+            }
         }
     }
 
@@ -98,7 +110,6 @@ class MainViewModel @Inject constructor(
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
 
-
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
     }
@@ -109,7 +120,7 @@ class MainViewModel @Inject constructor(
         destinationNumber: String,
         clientState: String
     ) {
-       val call =  telnyxClient?.newInvite(
+        val call = telnyxClient?.newInvite(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )

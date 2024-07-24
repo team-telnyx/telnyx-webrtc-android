@@ -49,13 +49,13 @@ internal class Peer(
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
+        private const val CANDIDATE_LIMIT : Int = 5
+        private const val STATS_INTERVAL : Long = 2000L
+        private const val STATS_INITIAL : Long = 0L
     }
 
     private val rootEglBase: EglBase = EglBase.create()
-    private val candidateNumber = 5
 
-    private val statsInterval = 2000L
-    private val statsInitial = 0L
     internal var debugStatsId = UUID.randomUUID()
 
 
@@ -193,7 +193,7 @@ internal class Peer(
                             val jsonOutbound = gson.toJsonTree(value)
                             outBoundStats.add(jsonOutbound)
                         }
-                        if (value.type == "candidate-pair" && candidateParis.size() < candidateNumber) {
+                        if (value.type == "candidate-pair" && candidateParis.size() < CANDIDATE_LIMIT) {
                             val jsonCandidatePair = gson.toJsonTree(value)
                             candidateParis.add(jsonCandidatePair)
                         }
@@ -219,7 +219,7 @@ internal class Peer(
                 }
 
             }
-        }, statsInitial, statsInterval)
+        }, STATS_INITIAL, STATS_INTERVAL)
     }
 
 
