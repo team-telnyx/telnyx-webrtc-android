@@ -256,7 +256,7 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
-        if (false) {
+        if (!isDev) {
             mainViewModel.initConnection(applicationContext, null,credentialConfig =  credentialConfig!!,tokenConfig = tokenConfig, txPushMetaData)
         } else {
             mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"),credentialConfig =  credentialConfig,tokenConfig = tokenConfig, txPushMetaData)
