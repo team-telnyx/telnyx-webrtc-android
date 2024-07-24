@@ -132,10 +132,9 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
-    override fun onOptionsItemSelected(item: MenuItem):Boolean {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
         Timber.d("onOptionsItemSelected ${item.itemId}")
-       return when (item.itemId) {
+        return when (item.itemId) {
             R.id.action_disconnect -> {
                 if (userManager.isUserLogin) {
                     disconnectPressed()
@@ -170,6 +169,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun createAudioOutputSelectionDialog(): Dialog {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity() {
                 R.raw.ringback_tone,
                 LogLevel.ALL
             )
-           credentialConfig = loginConfig
+            credentialConfig = loginConfig
         } else {
             binding.loginSectionId.apply {
                 if (tokenLoginSwitch.isChecked) {
@@ -267,41 +267,24 @@ class MainActivity : AppCompatActivity() {
         }
         Timber.d("Connect to Socket and Observe")
         if (!isDev) {
-            mainViewModel.initConnection(applicationContext, null,credentialConfig =  credentialConfig!!,tokenConfig = tokenConfig, txPushMetaData)
+            mainViewModel.initConnection(
+                applicationContext,
+                null,
+                credentialConfig = credentialConfig!!,
+                tokenConfig = tokenConfig,
+                txPushMetaData
+            )
         } else {
-            mainViewModel.initConnection(applicationContext, TxServerConfiguration(host = "rtcdev.telnyx.com"),credentialConfig =  credentialConfig,tokenConfig = tokenConfig, txPushMetaData)
+            mainViewModel.initConnection(
+                applicationContext,
+                TxServerConfiguration(host = "rtcdev.telnyx.com"),
+                credentialConfig = credentialConfig,
+                tokenConfig = tokenConfig,
+                txPushMetaData
+            )
 
         }
         observeSocketResponses()
-    }
-
-
-
-    private fun createNotificationChanel(
-        notificationManager: NotificationManager
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.apply {
-                val channelCall = NotificationChannel(
-                    "NOTIFICATION_CHANNEL_ID_INCOMING",
-                    "incomingCallChannelName",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = ""
-                    vibrationPattern =
-                        longArrayOf(0, 1000, 500, 1000, 500)
-                    lightColor = Color.RED
-                    enableLights(true)
-                    enableVibration(true)
-                    setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), null)
-                }
-                channelCall.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-
-                channelCall.importance = NotificationManager.IMPORTANCE_HIGH
-
-                createNotificationChannel(channelCall)
-            }
-        }
     }
 
     private fun observeSocketResponses() {
@@ -353,7 +336,7 @@ class MainActivity : AppCompatActivity() {
                             // Client Can simulate ringing state
                         }
 
-                        SocketMethod.RINGING.methodName -> {
+                        SocketMethod.MEDIA.methodName -> {
                             // Ringback tone is streamed to the caller
                             // early Media -  Client Can simulate ringing state
                         }

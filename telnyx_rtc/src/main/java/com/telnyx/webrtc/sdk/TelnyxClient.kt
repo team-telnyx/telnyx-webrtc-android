@@ -90,7 +90,7 @@ class TelnyxClient(
     private var mediaPlayer: MediaPlayer? = null
 
     var sessid: String // sessid used to recover calls when reconnecting
-    lateinit var socketResponseLiveData : MutableLiveData<SocketResponse<ReceivedMessageBody>>
+    lateinit var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
 
     private val audioManager =
@@ -154,7 +154,7 @@ class TelnyxClient(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
-    ) : Call {
+    ): Call {
         val acceptCall = calls[callId]
         acceptCall!!.apply {
             val uuid: String = UUID.randomUUID().toString()
@@ -162,8 +162,7 @@ class TelnyxClient(
                 peerConnection?.getLocalDescription()?.description
             if (sessionDescriptionString == null) {
                 callStateLiveData.postValue(CallState.ERROR)
-            }
-            else {
+            } else {
                 val answerBodyMessage = SendingMessageBody(
                     uuid, SocketMethod.ANSWER.methodName,
                     CallParams(
@@ -197,7 +196,7 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null
-    ) : Call {
+    ): Call {
         val inviteCall = call!!.copy(
             context = context,
             client = this,
@@ -214,7 +213,7 @@ class TelnyxClient(
 
             // Create new peer
             peerConnection = Peer(
-                context, client, providedTurn, providedStun,callId.toString(),
+                context, client, providedTurn, providedStun, callId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
@@ -395,7 +394,8 @@ class TelnyxClient(
         // Generate random UUID for sessid param, convert it to string and set globally
         sessid = UUID.randomUUID().toString()
 
-        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
@@ -433,13 +433,16 @@ class TelnyxClient(
      * required fot push calls to work
      *
      */
-    @Deprecated("this telnyxclient.connect is deprecated. Use telnyxclient.connect(providedServerConfig,txPushMetaData,credential or tokenLogin) instead.")
+    @Deprecated("this telnyxclient.connect is deprecated." +
+            " Use telnyxclient.connect(providedServerConfig,txPushMetaData," +
+            "credential or tokenLogin) instead.")
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String? = null,
     ) {
 
-        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -487,11 +490,12 @@ class TelnyxClient(
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         credentialConfig: CredentialConfig,
-        txPushMetaData: String?  = null,
+        txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
 
-        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -515,7 +519,7 @@ class TelnyxClient(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if(autoLogin){
+                if (autoLogin) {
                     credentialLogin(credentialConfig)
                 }
             }
@@ -531,7 +535,8 @@ class TelnyxClient(
         autoLogin: Boolean = true,
     ) {
 
-        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -555,7 +560,7 @@ class TelnyxClient(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if(autoLogin){
+                if (autoLogin) {
                     tokenLogin(tokenConfig)
                 }
             }
@@ -563,9 +568,6 @@ class TelnyxClient(
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
     }
-
-
-
 
 
     /**
@@ -761,7 +763,8 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
-    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) with autoLogin set to true instead.")
+    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) " +
+            "with autoLogin set to true instead.")
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
@@ -797,7 +800,7 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    internal  fun startStats(sessionId:UUID) {
+    internal fun startStats(sessionId: UUID) {
         debugReportStarted = true
         val loginMessage = InitiateOrStopStatPrams(
             type = "debug_report_start",
@@ -812,7 +815,7 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
-    internal fun sendStats(data:JsonObject,sessionId:UUID) {
+    internal fun sendStats(data: JsonObject, sessionId: UUID) {
 
         val loginMessage = StatPrams(
             debugReportId = sessionId.toString(),
@@ -822,7 +825,7 @@ class TelnyxClient(
 
     }
 
-    internal fun stopStats(sessionId:UUID) {
+    internal fun stopStats(sessionId: UUID) {
         debugReportStarted = false
         val loginMessage = InitiateOrStopStatPrams(
             debugReportId = sessionId.toString(),
@@ -911,7 +914,7 @@ class TelnyxClient(
             } else {
                 SpeakerMode.EARPIECE
             }
-        }else{
+        } else {
             SpeakerMode.EARPIECE
         }
 
@@ -951,10 +954,12 @@ class TelnyxClient(
             SpeakerMode.SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
+
             SpeakerMode.EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
-            SpeakerMode.UNASSIGNED ->   audioManager?.isSpeakerphoneOn = false
+
+            SpeakerMode.UNASSIGNED -> audioManager?.isSpeakerphoneOn = false
         }
     }
 
@@ -1299,8 +1304,10 @@ class TelnyxClient(
                 // generally occurs when a ringback setting is applied in inbound call settings
                 earlySDP = true
 
-                val callerIDName = if (params.has("caller_id_name")) params.get("caller_id_name").asString else ""
-                val callerNumber = if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
+                val callerIDName =
+                    if (params.has("caller_id_name")) params.get("caller_id_name").asString else ""
+                val callerNumber =
+                    if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
 
                 val mediaResponse = MediaResponse(
                     UUID.fromString(callId),
@@ -1332,7 +1339,11 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         if (jsonObject.has("params")) {
-            Timber.d("[%s] :: onOfferReceived [%s]", this@TelnyxClient.javaClass.simpleName, jsonObject)
+            Timber.d(
+                "[%s] :: onOfferReceived [%s]",
+                this@TelnyxClient.javaClass.simpleName,
+                jsonObject
+            )
             val offerCall = call!!.copy(
                 context = context,
                 client = this,
@@ -1357,7 +1368,7 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
                 peerConnection = Peer(
-                    context, client, providedTurn, providedStun,offerCallId.toString(),
+                    context, client, providedTurn, providedStun, offerCallId.toString(),
                     object : PeerConnectionObserver() {
                         override fun onIceCandidate(p0: IceCandidate?) {
                             super.onIceCandidate(p0)
@@ -1485,7 +1496,7 @@ class TelnyxClient(
             val callerNumber = params.get("caller_id_number").asString
 
             peerConnection = Peer(
-                context, client, providedTurn, providedStun,callId.toString(),
+                context, client, providedTurn, providedStun, callId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)

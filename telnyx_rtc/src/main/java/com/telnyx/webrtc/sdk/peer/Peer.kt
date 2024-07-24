@@ -53,9 +53,9 @@ internal class Peer(
 
     private val rootEglBase: EglBase = EglBase.create()
     private val candidateNumber = 5
-    private val statsInterval = 5000
-    private val statsInitital = 0
 
+    private val statsInterval = 2000L
+    private val statsInitial = 0L
     internal var debugStatsId = UUID.randomUUID()
 
 
@@ -219,7 +219,7 @@ internal class Peer(
                 }
 
             }
-        }, 0, 2000)
+        }, statsInitial, statsInterval)
     }
 
 

@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.media.RingtoneManager
 import android.net.Uri
@@ -39,8 +40,8 @@ class NotificationsService : Service() {
         try {
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             RingtoneManager.getRingtone(applicationContext, notification).play()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (e: NotFoundException) {
+            Timber.e("playPushRingTone: $e")
         }
     }
 
@@ -58,10 +59,6 @@ class NotificationsService : Service() {
 
         val metadata = intent?.getStringExtra("metadata")
         val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
-        val sharedPref = this.getSharedPreferences(
-            AppModule.SHARED_PREFERENCES_KEY,
-            Context.MODE_PRIVATE
-        )
         telnyxPushMetadata?.let {
             showNotification(it)
             playPushRingTone()
@@ -83,8 +80,6 @@ class NotificationsService : Service() {
 
             val notificationManager = getSystemService(NotificationManager::class.java)
             channel.apply {
-                vibrationPattern =
-                    longArrayOf(0, 1000, 500, 1000, 500)
                 lightColor = Color.RED
                 enableLights(true)
                 enableVibration(true)
@@ -143,7 +138,6 @@ class NotificationsService : Service() {
             .setContentText("Incoming call from: ")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(pendingIntent)
-            .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
             .setSound(customSoundUri)
             .addAction(
                 R.drawable.ic_call_white,

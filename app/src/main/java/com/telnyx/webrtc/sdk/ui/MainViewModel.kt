@@ -40,14 +40,22 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
+        credentialConfig: CredentialConfig?,
+        tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
+        Timber.e("initConnection")
         telnyxClient = TelnyxClient(context)
+
         providedServerConfig?.let {
-            telnyxClient?.connect(it, txPushMetaData)
+            telnyxClient?.connect(it,credentialConfig!!,txPushMetaData,true)
         } ?: run {
-            telnyxClient?.connect(txPushMetaData = txPushMetaData)
+            telnyxClient?.connect(txPushMetaData = txPushMetaData, credentialConfig = credentialConfig!!, autoLogin = true)
         }
+    }
+
+    fun startDebugStats() {
+        currentCall?.startDebug()
     }
 
     fun saveUserData(
@@ -89,10 +97,7 @@ class MainViewModel @Inject constructor(
     fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
-    fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
-        telnyxClient?.credentialLogin(credentialConfig)
-        Timber.e("token_ ${credentialConfig.fcmToken}")
-    }
+
 
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
