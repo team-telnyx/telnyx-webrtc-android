@@ -61,6 +61,7 @@ class TelnyxClient(
         const val RETRY_REGISTER_TIME = 3
         const val RETRY_CONNECT_TIME = 3
         const val GATEWAY_RESPONSE_DELAY: Long = 3000
+
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -83,7 +84,6 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
 
-    internal var isStatsEnabled:Boolean = false
     internal var debugReportStarted = false
 
     // MediaPlayer for ringtone / ringbacktone
@@ -428,15 +428,64 @@ class TelnyxClient(
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
-     * TODO - Provide two separate methods for credentialConfig and tokenConfig login
+     *
+     */
+    @Deprecated("this telnyxclient.connect is deprecated. Use telnyxclient.connect(providedServerConfig,txPushMetaData,credential or tokenLogin) instead.")
+    fun connect(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        txPushMetaData: String? = null,
+    ) {
+
+        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Timber.d("Provided Host Address: $providedHostAddress")
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+
+            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+        }
+    }
+
+
+    /**
+     * Connects to the socket using this client as the listener
+     * Will respond with 'No Network Connection' if there is no network available
+     * @see [TxSocket]
+     * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
+     * @param txPushMetaData, the push metadata used to connect to a call from push
+     * (Get this from push notification - fcm data payload)
+     * required fot push calls to work
+     *
+     * @param autoLogin, if true, the SDK will automatically log in with the provided credentials on connection established
+     * We recommend setting this to true
+     *
      */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
-        txPushMetaData: String?,
-        credentialConfig: CredentialConfig? = null,
-        tokenConfig: TokenConfig? = null,
-        autoLogin: Boolean = false,
-        enableStats: Boolean? = false,
+        credentialConfig: CredentialConfig,
+        txPushMetaData: String?  = null,
+        autoLogin: Boolean = true,
     ) {
 
         socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
@@ -464,19 +513,54 @@ class TelnyxClient(
             Timber.d("Provided Host Address: $providedHostAddress")
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
                 if(autoLogin){
-                    credentialConfig?.let {
-                        credentialLogin(it)
-                    } ?: tokenConfig?.let {
-                        tokenLogin(it)
-                    }
+                    credentialLogin(credentialConfig)
                 }
             }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
         }
-
-        isStatsEnabled = enableStats ?: false
     }
+
+    fun connect(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        tokenConfig: TokenConfig,
+        txPushMetaData: String? = null,
+        autoLogin: Boolean = true,
+    ) {
+
+        socketResponseLiveData = MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Timber.d("Provided Host Address: $providedHostAddress")
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+                if(autoLogin){
+                    tokenLogin(tokenConfig)
+                }
+            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+        }
+    }
+
 
 
 
@@ -674,7 +758,7 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
-    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...) instead.")
+    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) with autoLogin set to true instead.")
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken

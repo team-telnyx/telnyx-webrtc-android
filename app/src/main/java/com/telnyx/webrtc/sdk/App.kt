@@ -12,16 +12,6 @@ import timber.log.Timber
 @HiltAndroidApp
 class App : Application() {
 
-    init {
-        appContext = this
-    }
-
-    companion object {
-        lateinit var appContext: Context
-
-        val telnyxClient by lazy { TelnyxClient(appContext) }
-    }
-
     override fun onCreate() {
         super.onCreate()
 

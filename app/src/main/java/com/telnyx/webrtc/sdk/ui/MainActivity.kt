@@ -201,7 +201,7 @@ class MainActivity : AppCompatActivity() {
         val ringtone = R.raw.incoming_call
         val ringBackTone = R.raw.ringback_tone
 
-        if (!userManager.isUserLogin) {
+        if (userManager.isUserLogin) {
             val loginConfig = CredentialConfig(
                 userManager.sipUsername,
                 userManager.sipPass,
@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity() {
                             ringBackTone,
                             LogLevel.ALL
                         )
-                       credentialConfig = loginConfig
+                        credentialConfig = loginConfig
                     }
                 }
             }
@@ -266,21 +266,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun showLocalPushNotification(inviteResponse: InviteResponse) {
-
-        val metadata = PushMetaData(
-            inviteResponse.callerIdName,
-            inviteResponse.callerIdNumber,
-            inviteResponse.callId.toString(),
-            null,
-            null,
-            null
-        )
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            putExtra("metadata", Gson().toJson(metadata))
-        }
-        this.startForegroundService(serviceIntent)
-    }
 
     private fun createNotificationChanel(
         notificationManager: NotificationManager
@@ -310,111 +295,109 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeSocketResponses() {
-        App.telnyxClient.getSocketResponse()
-            .observe(
-                this,
-                object : SocketObserver<ReceivedMessageBody>() {
-                    override fun onConnectionEstablished() {
-                        Timber.d("OnConMan")
+        mainViewModel.getSocketResponse()?.observe(
+            this,
+            object : SocketObserver<ReceivedMessageBody>() {
+                override fun onConnectionEstablished() {
+                    Timber.d("OnConMan")
 
-                    }
+                }
 
-                    override fun onMessageReceived(data: ReceivedMessageBody?) {
-                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
-                        when (data?.method) {
-                            SocketMethod.CLIENT_READY.methodName -> {
-                                Timber.d("You are ready to make calls.")
+                override fun onMessageReceived(data: ReceivedMessageBody?) {
+                    Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                    when (data?.method) {
+                        SocketMethod.CLIENT_READY.methodName -> {
+                            Timber.d("You are ready to make calls.")
 
-                            }
-
-                            SocketMethod.LOGIN.methodName -> {
-                                binding.progressIndicatorId.visibility = View.INVISIBLE
-                                val sessionId = (data.result as LoginResponse).sessid
-                                Timber.d("Current Session: $sessionId")
-                                onLoginSuccessfullyViews()
-                            }
-
-                            SocketMethod.INVITE.methodName -> {
-                                val inviteResponse = data.result as InviteResponse
-                                onReceiveCallView(
-                                    inviteResponse.callId,
-                                    inviteResponse.callerIdNumber
-                                )
-                                showLocalPushNotification(inviteResponse)
-                            }
-
-                            SocketMethod.ANSWER.methodName -> {
-                                val callId = (data.result as AnswerResponse).callId
-                                launchCallInstance(callId)
-                                binding.apply {
-                                    callControlSectionId.callButtonId.visibility =
-                                        View.VISIBLE
-                                    callControlSectionId.cancelCallButtonId.visibility =
-                                        View.GONE
-                                }
-
-                                invitationSent = false
-                            }
-
-                            SocketMethod.RINGING.methodName -> {
-                                // Client Can simulate ringing state
-                            }
-
-                            SocketMethod.RINGING.methodName -> {
-                                // Ringback tone is streamed to the caller
-                                // early Media -  Client Can simulate ringing state
-                            }
-
-                            SocketMethod.BYE.methodName -> {
-                                onByeReceivedViews()
-                                val callId = (data.result as ByeResponse).callId
-                                val callInstanceFragment = callInstanceFragments[callId]
-                                callInstanceFragment?.let {
-                                    supportFragmentManager.beginTransaction().remove(it).commit()
-                                }
-                            }
-                        }
-                    }
-
-                    override fun onLoading() {
-                        Timber.i("Loading...")
-                    }
-
-                    override fun onChanged(value: SocketResponse<ReceivedMessageBody>) {
-                        super.onChanged(value)
-                        // Do Nothing
-                    }
-
-                    override fun onError(message: String?) {
-                        Timber.e("onError: %s", message)
-                        Toast.makeText(
-                            this@MainActivity,
-                            message ?: "Socket Connection Error",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-
-                    override fun onSocketDisconnect() {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Socket is disconnected",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
-                        binding.apply {
-                            progressIndicatorId.visibility = View.INVISIBLE
-                            incomingCallView.visibility = View.GONE
-                            callControlView.visibility = View.GONE
-                            loginSectionView.visibility = View.VISIBLE
-
-                            socketTextValue.text = getString(R.string.disconnected)
-                            callStateTextValue.text = "-"
                         }
 
+                        SocketMethod.LOGIN.methodName -> {
+                            binding.progressIndicatorId.visibility = View.INVISIBLE
+                            val sessionId = (data.result as LoginResponse).sessid
+                            Timber.d("Current Session: $sessionId")
+                            onLoginSuccessfullyViews()
+                        }
 
+                        SocketMethod.INVITE.methodName -> {
+                            val inviteResponse = data.result as InviteResponse
+                            onReceiveCallView(
+                                inviteResponse.callId,
+                                inviteResponse.callerIdNumber
+                            )
+                        }
+
+                        SocketMethod.ANSWER.methodName -> {
+                            val callId = (data.result as AnswerResponse).callId
+                            launchCallInstance(callId)
+                            binding.apply {
+                                callControlSectionId.callButtonId.visibility =
+                                    View.VISIBLE
+                                callControlSectionId.cancelCallButtonId.visibility =
+                                    View.GONE
+                            }
+
+                            invitationSent = false
+                        }
+
+                        SocketMethod.RINGING.methodName -> {
+                            // Client Can simulate ringing state
+                        }
+
+                        SocketMethod.RINGING.methodName -> {
+                            // Ringback tone is streamed to the caller
+                            // early Media -  Client Can simulate ringing state
+                        }
+
+                        SocketMethod.BYE.methodName -> {
+                            onByeReceivedViews()
+                            val callId = (data.result as ByeResponse).callId
+                            val callInstanceFragment = callInstanceFragments[callId]
+                            callInstanceFragment?.let {
+                                supportFragmentManager.beginTransaction().remove(it).commit()
+                            }
+                        }
                     }
                 }
-            )
+
+                override fun onLoading() {
+                    Timber.i("Loading...")
+                }
+
+                override fun onChanged(value: SocketResponse<ReceivedMessageBody>) {
+                    super.onChanged(value)
+                    // Do Nothing
+                }
+
+                override fun onError(message: String?) {
+                    Timber.e("onError: %s", message)
+                    Toast.makeText(
+                        this@MainActivity,
+                        message ?: "Socket Connection Error",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                override fun onSocketDisconnect() {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Socket is disconnected",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    binding.apply {
+                        progressIndicatorId.visibility = View.INVISIBLE
+                        incomingCallView.visibility = View.GONE
+                        callControlView.visibility = View.GONE
+                        loginSectionView.visibility = View.VISIBLE
+
+                        socketTextValue.text = getString(R.string.disconnected)
+                        callStateTextValue.text = "-"
+                    }
+
+
+                }
+            }
+        )
     }
 
     private fun observeWsMessage() {
@@ -832,9 +815,12 @@ class MainActivity : AppCompatActivity() {
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 // Handle Answer
                 notificationAcceptHandling = true
+                Timber.d("Call answered from notification")
+
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
                 // Handle Reject
                 notificationAcceptHandling = false
+                Timber.d("Call rejected from notification")
             }
             connectButtonPressed()
         }
@@ -848,12 +834,17 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         Timber.d("onStop")
-       //disconnectPressed()
+        disconnectPressed()
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         Timber.d("onNewIntent ")
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("action", NotificationsService.STOP_ACTION)
+        }
+        serviceIntent.setAction(NotificationsService.STOP_ACTION)
+        startService(serviceIntent)
         handleCallNotification(intent)
     }
 

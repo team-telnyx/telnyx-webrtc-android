@@ -23,7 +23,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
-        Timber.d("Message Received From Firebase: ${remoteMessage.priority}")
+        Timber.d("Message Received From Firebase Priority: ${remoteMessage.priority}")
         Timber.d("Message Received From Firebase: ${remoteMessage.originalPriority}")
 
         val params = remoteMessage.data

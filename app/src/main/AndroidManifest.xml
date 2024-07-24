@@ -28,7 +28,10 @@
         android:name=".App"
         android:theme="@style/Theme.TelnyxAndroidWebRTCSDK">
 
-        <activity android:name=".ui.MainActivity"/>
+        <activity android:name=".ui.MainActivity"
+            android:launchMode="singleInstance"
+
+            />
 
         <activity android:name=".ui.SplashScreenActivity"
             android:theme="@style/SplashScreenTheme"

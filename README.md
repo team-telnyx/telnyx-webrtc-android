@@ -247,6 +247,44 @@ The `txPushMetaData` is neccessary for push notifications to work.
 
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
 
+## Best Practices
+
+ 1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services]
+    with broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing. 
+    Play a ringtone when a call is received from push notification using the `RingtoneManager`
+    ``` kotlin
+     val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+     RingtoneManager.getRingtone(applicationContext, notification).play()
+    ```
+    ### Android 14 Requirements
+    In order to receive push notifications on Android 14, you will need to add  the following permissions to your AndroidManifest.xml file and request a few at runtime:
+    ``` xml
+        // Request this permission at runtime
+        <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+        // If you need to use foreground services, you will need to add the following permissions
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    
+        // Configure foregroundservice and set the foreground service type
+        // Remember to stopForegroundService when the call is answered or rejected
+        <service
+            android:name=".ForegroundService"
+            android:foregroundServiceType="phoneCall"
+            android:exported="true" />
+    ```
+ 2. Handling Multiple Calls : The Telnyx WebRTC SDK allows for multiple calls to be handled at once.  
+    You can use the callId to differentiate the calls. 
+    ``` kotlin
+    import java.util.UUID
+    // Retrieve all calls from the TelnyxClient
+    val calls: Map<UUID,Call> = telnyxClient.calls 
+
+    // Retrieve a specific call by callId
+    val currentCall: Call? = calls[callId]
+    ```
+    
+
 
  ## ProGuard changes
  NOTE:

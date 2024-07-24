@@ -168,7 +168,6 @@ internal class Peer(
     internal fun stopTimer() {
         client.stopStats(debugStatsId)
         debugStatsId = null
-        if (!client.isStatsEnabled) return
         mainObject = JsonObject()
         timer.cancel()
     }
