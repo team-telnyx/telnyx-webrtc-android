@@ -7,6 +7,8 @@ package com.telnyx.webrtc.sdk.verto.send
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import java.util.UUID
+
 sealed class ParamRequest
 
 data class LoginParam(
@@ -19,6 +21,30 @@ data class LoginParam(
     val sessid: String ,
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION.toString(),
+) : ParamRequest()
+
+data class StatPrams(
+    val type: String = "debug_report_data",
+    @SerializedName("debug_report_id")
+    val debugReportId: String = UUID.randomUUID().toString(),
+    @SerializedName("debug_report_data")
+    val reportData: JsonObject,
+    @SerializedName("debug_report_version")
+    val debugReportVersion: Int = 1,
+    @SerializedName("id")
+    val id: String = UUID.randomUUID().toString(),
+    val jsonrpc:String = "2.0"
+) : ParamRequest()
+
+data class InitiateOrStopStatPrams(
+    val type: String = "debug_report_stop",
+    @SerializedName("debug_report_id")
+    val debugReportId: String = UUID.randomUUID().toString(),
+    @SerializedName("debug_report_version")
+    val debugReportVersion: Int = 1,
+    @SerializedName("id")
+    val id: String = UUID.randomUUID().toString(),
+    val jsonrpc:String = "2.0"
 ) : ParamRequest()
 
 

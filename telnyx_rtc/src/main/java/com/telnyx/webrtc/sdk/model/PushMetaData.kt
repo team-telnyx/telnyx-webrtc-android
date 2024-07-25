@@ -1,5 +1,6 @@
 package com.telnyx.webrtc.sdk.model
 
+import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 
 data class PushMetaData(
@@ -15,6 +16,9 @@ data class PushMetaData(
     val rtcIP: String? = null,
     @SerializedName("rtc_port")
     val rtcPort: Int? = null,
+    ) {
+    fun toJson() : String {
+      return   Gson() .toJson(this)
+    }
 
-
-    )
+}

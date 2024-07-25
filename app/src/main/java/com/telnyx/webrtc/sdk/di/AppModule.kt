@@ -17,7 +17,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val SHARED_PREFERENCES_KEY = "TelnyxSharedPreferences"
+    const val SHARED_PREFERENCES_KEY = "TelnyxSharedPreferences"
 
     @Singleton
     @Provides

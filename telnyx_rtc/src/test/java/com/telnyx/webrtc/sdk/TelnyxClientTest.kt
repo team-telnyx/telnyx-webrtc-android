@@ -142,6 +142,13 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `checkForMockCredentials`() {
+        assertEquals(MOCK_USERNAME_TEST, "<SIP_USER>")
+        assertEquals(MOCK_PASSWORD, "<SIP_PASSWORD>")
+    }
+
+
+    @Test
     fun `disconnect connection`() {
         client.socket = Mockito.spy(
             TxSocket(
@@ -176,16 +183,16 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
-            MOCK_USERNAME,
+            MOCK_USERNAME_TEST,
             MOCK_PASSWORD,
             "Test",
             "000000000",
@@ -203,13 +210,13 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client.connect(txPushMetaData = null)
 
         val config = CredentialConfig(
             "asdfasass",
@@ -233,6 +240,7 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -240,7 +248,6 @@ class TelnyxClientTest : BaseTest() {
             )
         )
 
-        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             MOCK_TOKEN,
@@ -261,14 +268,15 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+
+
+        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-
-        client.connect(txPushMetaData = null)
 
         val config = TokenConfig(
             anyString(),
