@@ -18,7 +18,7 @@ data class PushMetaData(
     val rtcPort: Int? = null,
     ) {
     fun toJson() : String {
-      return   Gson().toJson(this)
+      return   Gson() .toJson(this)
     }
 
 }

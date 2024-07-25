@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Resources.NotFoundException
 import android.graphics.Color
+import android.media.Ringtone
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -35,15 +36,19 @@ class NotificationsService : Service() {
         super.onCreate()
         createNotificationChannel()
     }
+    private var ringtone:Ringtone? = null
 
     private fun playPushRingTone() {
         try {
-            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            RingtoneManager.getRingtone(applicationContext, notification).play()
+            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            ringtone =  RingtoneManager.getRingtone(applicationContext, notification)
+            ringtone?.play()
         } catch (e: NotFoundException) {
             Timber.e("playPushRingTone: $e")
         }
     }
+
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
@@ -51,6 +56,7 @@ class NotificationsService : Service() {
         if (stopAction != null && stopAction == STOP_ACTION) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                ringtone?.stop()
             } else {
                 stopForeground(true)
             }
@@ -60,8 +66,9 @@ class NotificationsService : Service() {
         val metadata = intent?.getStringExtra("metadata")
         val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
         telnyxPushMetadata?.let {
-            showNotification(it)
+            showNotification(it, metadata!!)
             playPushRingTone()
+
         }
         return START_STICKY
     }
@@ -89,10 +96,12 @@ class NotificationsService : Service() {
         }
     }
 
-    private fun showNotification(txPushMetaData: PushMetaData) {
-        val intent = Intent(this, MainActivity::class.java)
+    private fun showNotification(txPushMetaData: PushMetaData, metaData: String) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
         val pendingIntent: PendingIntent =
-            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_MUTABLE)
 
         val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
@@ -102,15 +111,19 @@ class NotificationsService : Service() {
             MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
             MyFirebaseMessagingService.ACT_REJECT_CALL
         )
+        rejectResultIntent.putExtra(
+            MyFirebaseMessagingService.TX_PUSH_METADATA,
+            txPushMetaData.toJson()
+        )
         val rejectPendingIntent = PendingIntent.getActivity(
             this,
             MyFirebaseMessagingService.REJECT_REQUEST_CODE,
             rejectResultIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val answerResultIntent = Intent(this, MainActivity::class.java)
-        answerResultIntent.action = Intent.ACTION_VIEW
+        answerResultIntent.setAction(Intent.ACTION_VIEW)
 
         answerResultIntent.putExtra(
             MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
@@ -126,9 +139,8 @@ class NotificationsService : Service() {
             this,
             MyFirebaseMessagingService.ANSWER_REQUEST_CODE,
             answerResultIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
         Timber.d("showNotification: ${txPushMetaData.toJson()}")
 
 
@@ -159,66 +171,5 @@ class NotificationsService : Service() {
         )
     }
 
-
-    /*
-    private fun showNotification(telnyxPushMetadata: PushMetaData,metaData: String) {
-
-        val rejectResultIntent = Intent(this, MainActivity::class.java)
-        rejectResultIntent.addCategory(Intent.CATEGORY_LAUNCHER)
-        rejectResultIntent.action = Intent.ACTION_VIEW
-        rejectResultIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        rejectResultIntent.putExtra(
-            MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
-            MyFirebaseMessagingService.ACT_REJECT_CALL
-        )
-        val rejectPendingIntent = PendingIntent.getActivity(
-            this,
-            MyFirebaseMessagingService.REJECT_REQUEST_CODE,
-            rejectResultIntent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val answerResultIntent = Intent(this, MainActivity::class.java)
-        answerResultIntent.addCategory(Intent.CATEGORY_LAUNCHER)
-        answerResultIntent.action = Intent.ACTION_VIEW
-        answerResultIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-
-        answerResultIntent.putExtra(
-            MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
-            MyFirebaseMessagingService.ACT_ANSWER_CALL
-        )
-
-        answerResultIntent.putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, metaData)
-
-        val answerPendingIntent = PendingIntent.getActivity(
-            this,
-            MyFirebaseMessagingService.ANSWER_REQUEST_CODE,
-            answerResultIntent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notificationSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        val notificationBuilder = NotificationCompat.Builder(this,
-            MyFirebaseMessagingService.TELNYX_CHANNEL_ID
-        )
-            .setSmallIcon(R.drawable.ic_stat_contact_phone)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setContentTitle("Incoming Call")
-            .setContentText(telnyxPushMetadata.callerName + " - " + telnyxPushMetadata.callerNumber)
-            .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
-            .addAction(R.drawable.ic_call_white,
-                MyFirebaseMessagingService.ACT_ANSWER_CALL, answerPendingIntent)
-            .addAction(R.drawable.ic_call_end_white,
-                MyFirebaseMessagingService.ACT_REJECT_CALL, rejectPendingIntent)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setSound(notificationSoundUri)
-
-
-
-        startForeground(NOTIFICATION_ID, notificationBuilder.build())
-    }
-
-*/
 
 }

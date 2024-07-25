@@ -995,7 +995,7 @@ class TelnyxClient(
      * Stops any audio that the MediaPlayer is playing
      * @see [MediaPlayer]
      */
-    internal fun stopMediaPlayer() {
+    private fun stopMediaPlayer() {
         if (mediaPlayer != null) {
             mediaPlayer!!.stop()
             mediaPlayer!!.reset()
@@ -1353,6 +1353,7 @@ class TelnyxClient(
                 providedTurn = providedTurn!!,
                 providedStun = providedStun!!
             ).apply {
+
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
@@ -1399,6 +1400,7 @@ class TelnyxClient(
                 this.inviteResponse = inviteResponse
 
             }
+            offerCall.client.playRingtone()
             addToCalls(offerCall)
             offerCall.client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
@@ -1408,7 +1410,6 @@ class TelnyxClient(
                     )
                 )
             )
-            offerCall.client.playRingtone()
         } else {
             Timber.d(
                 "[%s] :: Invalid offer received, missing required parameters [%s]",

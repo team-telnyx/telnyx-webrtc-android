@@ -29,7 +29,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val gson = Gson()
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
             putExtra("metadata", metadata)
         }

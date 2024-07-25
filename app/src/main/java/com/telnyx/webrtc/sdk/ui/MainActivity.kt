@@ -122,6 +122,8 @@ class MainActivity : AppCompatActivity() {
 
         checkPermissions()
         initViews()
+        handleServiceIntent(intent)
+        handleUserLoginState()
         binding.toolbarId.setOnMenuItemClickListener(this::onOptionsItemSelected)
     }
 
@@ -414,7 +416,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         mockInputs()
-        handleUserLoginState()
         getFCMToken()
         observeWsMessage()
 
@@ -557,12 +558,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun connectButtonPressed() {
         binding.progressIndicatorId.visibility = View.VISIBLE
-        if (notificationAcceptHandling == true) {
-            Timber.d("notificationAcceptHandling is true $txPushMetaData")
-            if (txPushMetaData != null) {
-                connectToSocketAndObserve(txPushMetaData)
-            }
-        } else {
+        Timber.d("notificationAcceptHandling is true $txPushMetaData")
+        if (txPushMetaData != null) {
+            connectToSocketAndObserve(txPushMetaData)
+        }
+        else {
             connectToSocketAndObserve()
         }
     }
@@ -800,6 +800,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        Timber.d("onNewIntent ")
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("action", NotificationsService.STOP_ACTION)
+        }
+        serviceIntent.setAction(NotificationsService.STOP_ACTION)
+        startService(serviceIntent)
+
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
@@ -832,12 +839,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        Timber.d("onNewIntent ")
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            putExtra("action", NotificationsService.STOP_ACTION)
-        }
-        serviceIntent.setAction(NotificationsService.STOP_ACTION)
-        startService(serviceIntent)
+        handleServiceIntent(intent)
+    }
+
+    private fun handleServiceIntent(intent: Intent?) {
+
         handleCallNotification(intent)
     }
 

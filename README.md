@@ -251,11 +251,16 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
 
  1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services]
     with broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing. 
-    Play a ringtone when a call is received from push notification using the `RingtoneManager`
-    ``` kotlin
-     val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-     RingtoneManager.getRingtone(applicationContext, notification).play()
-    ```
+     - Play a ringtone when a call is received from push notification using the `RingtoneManager`
+        ``` kotlin
+        val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+         RingtoneManager.getRingtone(applicationContext, notification).play()
+        ```
+     - Make Sure to set these flags for your pendingIntents, so the values get updated anytime when the notification is clicked
+         ``` kotlin
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+       ```
+    
     ### Android 14 Requirements
     In order to receive push notifications on Android 14, you will need to add  the following permissions to your AndroidManifest.xml file and request a few at runtime:
     ``` xml
