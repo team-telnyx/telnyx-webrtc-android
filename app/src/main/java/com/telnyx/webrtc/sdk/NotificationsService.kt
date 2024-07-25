@@ -66,7 +66,7 @@ class NotificationsService : Service() {
         val metadata = intent?.getStringExtra("metadata")
         val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
         telnyxPushMetadata?.let {
-            showNotification(it, metadata!!)
+            showNotification(it)
             playPushRingTone()
 
         }
@@ -96,7 +96,7 @@ class NotificationsService : Service() {
         }
     }
 
-    private fun showNotification(txPushMetaData: PushMetaData, metaData: String) {
+    private fun showNotification(txPushMetaData: PushMetaData) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
