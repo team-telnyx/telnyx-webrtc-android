@@ -41,7 +41,7 @@ import kotlin.concurrent.timerTask
  */
 
 data class CustomHeaders(val name: String, val value: String)
- data class Call(
+data class Call(
     val context: Context,
     val client: TelnyxClient,
     var socket: TxSocket,
@@ -49,19 +49,19 @@ data class CustomHeaders(val name: String, val value: String)
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
     val providedStun: String = Config.DEFAULT_STUN,
-    )  {
+) {
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400
     }
+
     internal var peerConnection: Peer? = null
 
 
     internal var earlySDP = false
 
-    var inviteResponse:InviteResponse? = null
-    var answerResponse:AnswerResponse? = null
-
+    var inviteResponse: InviteResponse? = null
+    var answerResponse: AnswerResponse? = null
     lateinit var callId: UUID
 
     internal var telnyxSessionId: UUID? = null
@@ -85,17 +85,16 @@ data class CustomHeaders(val name: String, val value: String)
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-    fun startDebug(){
+    fun startDebug() {
         Timber.d("Peer connection debug started")
 
         peerConnection?.startTimer()
     }
 
-    fun stopDebug(){
+    fun stopDebug() {
         Timber.d("Peer connection debug stopped")
         peerConnection?.stopTimer()
     }
-
 
 
     /**
@@ -142,7 +141,7 @@ data class CustomHeaders(val name: String, val value: String)
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
     ) {
-      client.acceptCall(callId, destinationNumber, customHeaders)
+        client.acceptCall(callId, destinationNumber, customHeaders)
 
     }
 
@@ -183,7 +182,7 @@ data class CustomHeaders(val name: String, val value: String)
      * @see [Call]
      */
     fun endCall(callId: UUID) {
-       client.endCall(callId)
+        client.endCall(callId)
     }
 
     /**
@@ -218,7 +217,6 @@ data class CustomHeaders(val name: String, val value: String)
     fun getLoudSpeakerStatus(): Boolean {
         return loudSpeakerLiveData.value!!
     }
-
 
 
     /**
@@ -337,8 +335,6 @@ data class CustomHeaders(val name: String, val value: String)
     }
 
 
-
-
     fun JsonArray.toCustomHeaders(): ArrayList<CustomHeaders> {
         val customHeaders = arrayListOf<CustomHeaders>()
         return try {
@@ -353,8 +349,6 @@ data class CustomHeaders(val name: String, val value: String)
         }
 
     }
-
-
 
 
     fun setCallRecovering() {
