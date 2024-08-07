@@ -55,6 +55,7 @@ internal class Peer(
     }
 
     private val rootEglBase: EglBase = EglBase.create()
+    private var isDebugStats = false
 
     internal var debugStatsId = UUID.randomUUID()
 
@@ -173,6 +174,7 @@ internal class Peer(
     }
 
     internal fun startTimer() {
+        isDebugStats = true
         if (!client.debugReportStarted){
             debugStatsId = UUID.randomUUID()
             client.startStats(debugStatsId)
@@ -384,7 +386,9 @@ internal class Peer(
             disconnect()
             peerConnectionFactory.dispose()
         }
-        stopTimer()
+        if (isDebugStats){
+            stopTimer()
+        }
     }
 
     init {

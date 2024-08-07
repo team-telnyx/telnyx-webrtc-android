@@ -1419,6 +1419,10 @@ class TelnyxClient(
 
     }
 
+    fun isSocketConnected(): Boolean {
+        return socket.isConnected
+    }
+
     override fun onRingingReceived(jsonObject: JsonObject) {
         Timber.d(
             "[%s] :: onRingingReceived [%s]",
