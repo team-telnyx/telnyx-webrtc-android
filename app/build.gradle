@@ -12,6 +12,7 @@ localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 android {
     compileSdkVersion 34
     buildToolsVersion "30.0.3"
+    namespace "com.telnyx.webrtc.sdk"
 
     defaultConfig {
         applicationId "com.telnyx.webrtc.sdk"
@@ -59,11 +60,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = '1.8'
     }
     testOptions {
         unitTests.includeAndroidResources = true
@@ -73,6 +74,7 @@ android {
     buildFeatures {
         viewBinding true
         dataBinding true
+        buildConfig = true
     }
 
     packagingOptions {

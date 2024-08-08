@@ -341,6 +341,7 @@ class MainActivity : AppCompatActivity() {
                         SocketMethod.MEDIA.methodName -> {
                             // Ringback tone is streamed to the caller
                             // early Media -  Client Can simulate ringing state
+                            Timber.d("Media Received")
                         }
 
                         SocketMethod.BYE.methodName -> {
