@@ -83,6 +83,7 @@ class TelnyxClient(
     private var providedPort: Int? = null
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
+    private var voiceSDKID: String? = null
 
     internal var debugReportStarted = false
 
@@ -370,6 +371,11 @@ class TelnyxClient(
 
             }
 
+
+            if (voiceSDKID != null){
+                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            }
+
             // Connect to new socket
             socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
 
@@ -518,6 +524,9 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
+            if (voiceSDKID != null){
+                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            }
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
                 if (autoLogin) {
                     credentialLogin(credentialConfig)
@@ -559,6 +568,9 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
+            if (voiceSDKID != null){
+                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            }
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
                 if (autoLogin) {
                     tokenLogin(tokenConfig)
@@ -1357,6 +1369,11 @@ class TelnyxClient(
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
+                val voiceSdkID = params.get("voice_sdk_id")?.asString
+                if (voiceSdkID != null) {
+                    this@TelnyxClient.voiceSDKID = voiceSdkID
+                }
+
                 val callerName = params.get("caller_id_name").asString
                 val callerNumber = params.get("caller_id_number").asString
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
