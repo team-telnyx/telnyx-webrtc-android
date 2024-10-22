@@ -76,11 +76,9 @@ class TxSocket(
 
         client = OkHttpClient.Builder()
             .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
-            .retryOnConnectionFailure(true)
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(25, TimeUnit.SECONDS)
-            .hostnameVerifier(hostnameVerifier = { _, _ -> true })
             .addInterceptor(
                 Interceptor { chain ->
                     val builder = chain.request().newBuilder()
@@ -128,9 +126,9 @@ class TxSocket(
                         "[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName
                     )
+                    isConnected = true
                     onConnected(true)
                     listener.onConnectionEstablished()
-                    isConnected = true
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -317,13 +315,6 @@ class TxSocket(
         if (this::socket.isInitialized) {
             socket.cancel()
             // socket.close(1000, "Websocket connection was asked to close")
-        }
-        if (this::client.isInitialized) {
-            launch(Dispatchers.IO) {
-                client.dispatcher.executorService.shutdown()
-                client.connectionPool.evictAll()
-                client.cache?.close()
-            }
         }
         job.cancel("Socket was destroyed, cancelling attached job")
     }

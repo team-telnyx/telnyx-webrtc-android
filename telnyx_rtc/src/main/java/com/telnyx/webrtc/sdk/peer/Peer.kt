@@ -5,15 +5,30 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.socket.TxSocket
-import org.webrtc.*
+import org.webrtc.AudioSource
+import org.webrtc.AudioTrack
+import org.webrtc.DefaultVideoDecoderFactory
+import org.webrtc.DefaultVideoEncoderFactory
+import org.webrtc.EglBase
+import org.webrtc.IceCandidate
+import org.webrtc.MediaConstraints
+import org.webrtc.PeerConnection
+import org.webrtc.PeerConnectionFactory
+import org.webrtc.SdpObserver
+import org.webrtc.SessionDescription
 import timber.log.Timber
 import java.util.*
+
 
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
@@ -27,15 +42,22 @@ internal class Peer(
     val client: TelnyxClient,
     private val providedTurn: String = DEFAULT_TURN,
     private val providedStun: String = DEFAULT_STUN,
+    private val callId: String = "",
     observer: PeerConnection.Observer
 ) {
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
+        private const val CANDIDATE_LIMIT : Int = 5
+        private const val STATS_INTERVAL : Long = 2000L
+        private const val STATS_INITIAL : Long = 0L
     }
 
     private val rootEglBase: EglBase = EglBase.create()
+    private var isDebugStats = false
+
+    internal var debugStatsId = UUID.randomUUID()
 
 
     private val iceServer = getIceServers()
@@ -133,12 +155,75 @@ internal class Peer(
         localAudioTrack.setVolume(1.0)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
-        peerConnection?.getStats {
-            it.statsMap.forEach { (key, value) ->
-                Timber.tag("Stats").d("Key: $key, Value: $value")
-            }
-        }
     }
+
+    var gson: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val timer = Timer()
+    var mainObject: JsonObject = JsonObject()
+    var audio: JsonObject = JsonObject()
+    var statsData: JsonObject = JsonObject()
+    var inBoundStats: JsonArray = JsonArray()
+    var outBoundStats: JsonArray = JsonArray()
+    var candidateParis: JsonArray = JsonArray()
+
+    internal fun stopTimer() {
+        client.stopStats(debugStatsId)
+        debugStatsId = null
+        mainObject = JsonObject()
+        timer.cancel()
+    }
+
+    internal fun startTimer() {
+        isDebugStats = true
+        if (!client.debugReportStarted){
+            debugStatsId = UUID.randomUUID()
+            client.startStats(debugStatsId)
+        }
+        timer.schedule(object : TimerTask() {
+            override fun run() {
+                mainObject.addProperty("event", "stats")
+                mainObject.addProperty("tag", "stats")
+                mainObject.addProperty("peerId", "stats")
+                mainObject.addProperty("connectionId", callId)
+                peerConnection?.getStats {
+                    it.statsMap.forEach { (key, value) ->
+                        if (value.type == "inbound-rtp") {
+                            val jsonInbound = gson.toJsonTree(value)
+                            inBoundStats.add(jsonInbound)
+                        }
+                        if (value.type == "outbound-rtp") {
+                            val jsonOutbound = gson.toJsonTree(value)
+                            outBoundStats.add(jsonOutbound)
+                        }
+                        if (value.type == "candidate-pair" && candidateParis.size() < CANDIDATE_LIMIT) {
+                            val jsonCandidatePair = gson.toJsonTree(value)
+                            candidateParis.add(jsonCandidatePair)
+                        }
+
+                    }
+                }
+                audio.add("inbound", inBoundStats)
+                audio.add("outbound", outBoundStats)
+                audio.add("candidatePair", candidateParis)
+                statsData.add("audio", audio)
+                mainObject.add("data", statsData)
+                mainObject.addProperty("timestamp", System.currentTimeMillis())
+                if (inBoundStats.size() > 0 && outBoundStats.size() > 0 && candidateParis.size() > 0) {
+                    inBoundStats = JsonArray()
+                    outBoundStats = JsonArray()
+                    candidateParis = JsonArray()
+                    statsData = JsonObject()
+                    audio = JsonObject()
+                    Timber.tag("Stats Inbound").d("Inbound: ${mainObject.toString()}")
+                    if (debugStatsId != null){
+                        client.sendStats(mainObject, debugStatsId)
+                    }
+                }
+
+            }
+        }, STATS_INITIAL, STATS_INTERVAL)
+    }
+
 
     /**
      * Initiates a call, creating an offer with a local SDP
@@ -149,6 +234,7 @@ internal class Peer(
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -191,6 +277,7 @@ internal class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
             optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
 
@@ -298,6 +385,9 @@ internal class Peer(
         if (peerConnection != null) {
             disconnect()
             peerConnectionFactory.dispose()
+        }
+        if (isDebugStats){
+            stopTimer()
         }
     }
 

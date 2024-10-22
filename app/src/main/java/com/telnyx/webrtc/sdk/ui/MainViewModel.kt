@@ -40,14 +40,34 @@ class MainViewModel @Inject constructor(
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
+        credentialConfig: CredentialConfig?,
+        tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
+        Timber.e("initConnection")
         telnyxClient = TelnyxClient(context)
+
         providedServerConfig?.let {
-            telnyxClient?.connect(it, txPushMetaData)
+            telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {
-            telnyxClient?.connect(txPushMetaData = txPushMetaData)
+            if (tokenConfig != null) {
+                telnyxClient?.connect(
+                    txPushMetaData = txPushMetaData,
+                    tokenConfig = tokenConfig,
+                    autoLogin = true
+                )
+            } else {
+                telnyxClient?.connect(
+                    txPushMetaData = txPushMetaData,
+                    credentialConfig = credentialConfig!!,
+                    autoLogin = true
+                )
+            }
         }
+    }
+
+    fun startDebugStats() {
+        currentCall?.startDebug()
     }
 
     fun saveUserData(
@@ -89,10 +109,6 @@ class MainViewModel @Inject constructor(
     fun getIsOnHoldStatus(): LiveData<Boolean>? = currentCall?.getIsOnHoldStatus()
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
-    fun doLoginWithCredentials(credentialConfig: CredentialConfig) {
-        telnyxClient?.credentialLogin(credentialConfig)
-        Timber.e("token_ ${credentialConfig.fcmToken}")
-    }
 
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
@@ -104,7 +120,7 @@ class MainViewModel @Inject constructor(
         destinationNumber: String,
         clientState: String
     ) {
-       val call =  telnyxClient?.newInvite(
+        val call = telnyxClient?.newInvite(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )

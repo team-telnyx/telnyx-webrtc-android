@@ -41,7 +41,6 @@ import kotlin.concurrent.timerTask
  */
 
 data class CustomHeaders(val name: String, val value: String)
-
 data class Call(
     val context: Context,
     val client: TelnyxClient,
@@ -49,8 +48,8 @@ data class Call(
     val sessionId: String,
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
-    val providedStun: String = Config.DEFAULT_STUN
-)  {
+    val providedStun: String = Config.DEFAULT_STUN,
+) {
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400
@@ -58,11 +57,11 @@ data class Call(
 
     internal var peerConnection: Peer? = null
 
+
     internal var earlySDP = false
 
-    var inviteResponse:InviteResponse? = null
-    var answerResponse:AnswerResponse? = null
-
+    var inviteResponse: InviteResponse? = null
+    var answerResponse: AnswerResponse? = null
     lateinit var callId: UUID
 
     internal var telnyxSessionId: UUID? = null
@@ -85,6 +84,18 @@ data class Call(
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
+
+    fun startDebug() {
+        Timber.d("Peer connection debug started")
+
+        peerConnection?.startTimer()
+    }
+
+    fun stopDebug() {
+        Timber.d("Peer connection debug stopped")
+        peerConnection?.stopTimer()
+    }
+
 
     /**
      * Initiates a new call invitation
@@ -130,7 +141,8 @@ data class Call(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
     ) {
-      client.acceptCall(callId, destinationNumber, customHeaders)
+        client.acceptCall(callId, destinationNumber, customHeaders)
+
     }
 
     /**
@@ -170,7 +182,7 @@ data class Call(
      * @see [Call]
      */
     fun endCall(callId: UUID) {
-       client.endCall(callId)
+        client.endCall(callId)
     }
 
     /**
@@ -205,7 +217,6 @@ data class Call(
     fun getLoudSpeakerStatus(): Boolean {
         return loudSpeakerLiveData.value!!
     }
-
 
 
     /**
@@ -324,8 +335,6 @@ data class Call(
     }
 
 
-
-
     fun JsonArray.toCustomHeaders(): ArrayList<CustomHeaders> {
         val customHeaders = arrayListOf<CustomHeaders>()
         return try {
@@ -340,8 +349,6 @@ data class Call(
         }
 
     }
-
-
 
 
     fun setCallRecovering() {
