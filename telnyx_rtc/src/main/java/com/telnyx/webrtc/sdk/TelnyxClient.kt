@@ -9,6 +9,8 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -326,6 +328,7 @@ class TelnyxClient(
         override fun onNetworkAvailable() {
             Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
             // User has been logged in
+            resetGatewayCounters()
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
                 runBlocking { reconnectToSocket() }
                 reconnecting = false
@@ -338,7 +341,16 @@ class TelnyxClient(
                 this@TelnyxClient.javaClass.simpleName
             )
             reconnecting = true
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+
+            Handler(Looper.getMainLooper()).postDelayed(Runnable {
+                if(!ConnectivityHelper.isNetworkEnabled(context)){
+                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+                }else {
+                    //Network is switched here. Either from Wifi to LTE or vice-versa
+                    runBlocking { reconnectToSocket() }
+                    reconnecting = false
+                }
+            },1000)
         }
     }
 
@@ -348,6 +360,12 @@ class TelnyxClient(
      * @see [TelnyxConfig]
      */
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
+
+        //Disconnect active calls for reconnection
+        getActiveCalls()?.forEach { (_, call) ->
+            call?.peerConnection?.disconnect()
+        }
+
         // Create new socket connection
         socketReconnection = TxSocket(
             socket.host_address,
@@ -1133,6 +1151,8 @@ class TelnyxClient(
                 }
             }
 
+
+
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
@@ -1143,7 +1163,7 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
 
-            GatewayState.FAIL_WAIT.state -> {
+            (GatewayState.FAIL_WAIT.state),(GatewayState.DOWN.state) -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Timber.d(
@@ -1369,9 +1389,12 @@ class TelnyxClient(
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
-                val voiceSdkID = params.get("voice_sdk_id")?.asString
+                val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
+                    Timber.d("Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
+                }else {
+                    Timber.e("No Voice SDK ID")
                 }
 
                 val callerName = params.get("caller_id_name").asString
@@ -1391,6 +1414,12 @@ class TelnyxClient(
                         override fun onIceCandidate(p0: IceCandidate?) {
                             super.onIceCandidate(p0)
                             peerConnection?.addIceCandidate(p0)
+                            Timber.d("On IceCandidate Added")
+                        }
+
+                        override fun onRenegotiationNeeded() {
+                            super.onRenegotiationNeeded()
+                            Timber.d("Renegotiation Needed")
                         }
                     }
                 )
@@ -1510,19 +1539,51 @@ class TelnyxClient(
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {
-        val params = jsonObject.getAsJsonObject("params")
-        val callId = UUID.fromString(params.get("callID").asString)
-        val attachCall = calls[callId]
-        attachCall?.apply {
+      /*  val params = jsonObject.getAsJsonObject("params")
+        val callId = UUID.fromString(params.get("callID").asString)*/
+
+        val attachCall = call!!.copy(
+            context = context,
+            client = this,
+            socket = socket,
+            sessionId = sessid,
+            audioManager = audioManager!!,
+            providedTurn = providedTurn!!,
+            providedStun = providedStun!!
+        ).apply {
+
+            val params = jsonObject.getAsJsonObject("params")
+            val offerCallId = UUID.fromString(params.get("callID").asString)
             val remoteSdp = params.get("sdp").asString
+            val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
+            if (voiceSdkID != null) {
+                Timber.d("Voice SDK ID _ $voiceSdkID")
+                this@TelnyxClient.voiceSDKID = voiceSdkID
+            }else {
+                Timber.e("No Voice SDK ID")
+            }
+
+           // val callerName = params.get("caller_id_name").asString
             val callerNumber = params.get("caller_id_number").asString
+            telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
+            telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
+
+            // Set global callID
+            callId = offerCallId
+
 
             peerConnection = Peer(
-                context, client, providedTurn, providedStun, callId.toString(),
+                context, client, providedTurn, providedStun, offerCallId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
                         peerConnection?.addIceCandidate(p0)
+                        Timber.d("On IceCandidate Added")
+                    }
+
+                    override fun onRenegotiationNeeded() {
+                        super.onRenegotiationNeeded()
+                        Timber.d("Renegotiation Needed")
                     }
                 }
             )
@@ -1546,6 +1607,8 @@ class TelnyxClient(
                 Call.ICE_CANDIDATE_DELAY
             )
         }
+
+        calls[attachCall.callId] = attachCall
     }
 
     override fun setCallRecovering() {

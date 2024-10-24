@@ -13,6 +13,8 @@ import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
+import io.ktor.http.*
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
@@ -295,14 +297,9 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
-        if (isConnected) {
-            Timber.tag("VERTO")
-                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
-            socket.send(gson.toJson(dataObject))
-        } else {
-            Timber.tag("VERTO")
-                .d("Message cannot be sent. There is no established WebSocket connection")
-        }
+        Timber.tag("VERTO")
+            .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+        socket.send(gson.toJson(dataObject))
     }
 
     /**
