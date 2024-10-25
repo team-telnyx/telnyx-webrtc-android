@@ -63,6 +63,7 @@ class TelnyxClient(
         const val RETRY_REGISTER_TIME = 3
         const val RETRY_CONNECT_TIME = 3
         const val GATEWAY_RESPONSE_DELAY: Long = 3000
+        const val LOGIN_INCORRECT_CODE = -32001
 
     }
 
@@ -1225,6 +1226,17 @@ class TelnyxClient(
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         Timber.d("[%s] :: onErrorReceived ", errorMessage)
+        val errorCode = jsonObject.get("error").asJsonObject.get("code")?.asString
+
+
+        val activeCall = calls.values.firstOrNull { it.getCallState().value == CallState.ACTIVE }
+
+        //TODO : Remove this if backend fixes the auth error with attach_call
+        if (activeCall != null && LOGIN_INCORRECT_CODE == errorCode?.toIntOrNull()){
+            runBlocking { reconnectToSocket() }
+            reconnecting = false
+            return
+        }
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
