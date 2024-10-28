@@ -113,7 +113,11 @@ class CallTest : BaseTest() {
 
     @Test
     fun `test hold pressed during call`() {
-        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val newCall = Call(mockContext, client, client.socket, "123", audioManager)
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
         newCall.onHoldUnholdPressed(UUID.randomUUID())
         assertEquals(newCall.getIsOnHoldStatus().getOrAwaitValue(), true)
     }
@@ -212,6 +216,10 @@ class CallTest : BaseTest() {
                     port = 14938,
                 )
             )
+            client.socket.connect(client)
+
+            // Sleep to give time to connect
+            Thread.sleep(3000)
 
             call = Mockito.spy(
                 Call(mockContext, client, client.socket, "123", audioManager)
