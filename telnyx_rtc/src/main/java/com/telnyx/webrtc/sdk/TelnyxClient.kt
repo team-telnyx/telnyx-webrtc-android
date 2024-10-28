@@ -63,6 +63,8 @@ class TelnyxClient(
         const val RETRY_REGISTER_TIME = 3
         const val RETRY_CONNECT_TIME = 3
         const val GATEWAY_RESPONSE_DELAY: Long = 3000
+        const val RECONNECT_DELAY: Long = 1000
+
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -349,7 +351,7 @@ class TelnyxClient(
                     runBlocking { reconnectToSocket() }
                     reconnecting = false
                 }
-            },1000)
+            }, RECONNECT_DELAY)
         }
     }
 
