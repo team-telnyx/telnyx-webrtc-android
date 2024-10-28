@@ -13,8 +13,6 @@ import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-import com.telnyx.webrtc.sdk.utilities.encodeBase64
-import io.ktor.http.*
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
@@ -48,7 +46,7 @@ class TxSocket(
     internal var isPing = false
 
     private lateinit var client: OkHttpClient
-    private lateinit var socket: WebSocket
+    private lateinit var webSocket: WebSocket
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -120,7 +118,7 @@ class TxSocket(
 
         Timber.d("request2 : ${request.url.encodedQuery}")
 
-        socket = client.newWebSocket(
+        webSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -299,7 +297,7 @@ class TxSocket(
     internal fun send(dataObject: Any?) = runBlocking {
         Timber.tag("VERTO")
             .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
-        socket.send(gson.toJson(dataObject))
+        webSocket.send(gson.toJson(dataObject))
     }
 
     /**
@@ -309,8 +307,8 @@ class TxSocket(
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
-        if (this::socket.isInitialized) {
-            socket.cancel()
+        if (this::webSocket.isInitialized) {
+            webSocket.cancel()
             // socket.close(1000, "Websocket connection was asked to close")
         }
         job.cancel("Socket was destroyed, cancelling attached job")

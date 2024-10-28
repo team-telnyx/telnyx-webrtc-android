@@ -153,6 +153,10 @@ class CallTest : BaseTest() {
             )
         )
 
+        client.socket.connect(client)
+        Thread.sleep(3000)
+
+
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
