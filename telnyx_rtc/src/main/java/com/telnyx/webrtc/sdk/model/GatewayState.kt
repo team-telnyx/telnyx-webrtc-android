@@ -20,5 +20,7 @@ enum class GatewayState(var state: String) {
     FAILED("FAILED"),
     FAIL_WAIT("FAIL_WAIT"),
     EXPIRED("EXPIRED"),
-    NOREG("NOREG")
+    NOREG("NOREG"),
+    DOWN("DOWN")
+
 }

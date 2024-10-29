@@ -46,7 +46,7 @@ class TxSocket(
     internal var isPing = false
 
     private lateinit var client: OkHttpClient
-    private lateinit var socket: WebSocket
+    private lateinit var webSocket: WebSocket
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -118,7 +118,7 @@ class TxSocket(
 
         Timber.d("request2 : ${request.url.encodedQuery}")
 
-        socket = client.newWebSocket(
+        webSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -295,14 +295,9 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
-        if (isConnected) {
-            Timber.tag("VERTO")
-                .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
-            socket.send(gson.toJson(dataObject))
-        } else {
-            Timber.tag("VERTO")
-                .d("Message cannot be sent. There is no established WebSocket connection")
-        }
+        Timber.tag("VERTO")
+            .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+        webSocket.send(gson.toJson(dataObject))
     }
 
     /**
@@ -312,8 +307,8 @@ class TxSocket(
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
-        if (this::socket.isInitialized) {
-            socket.cancel()
+        if (this::webSocket.isInitialized) {
+            webSocket.cancel()
             // socket.close(1000, "Websocket connection was asked to close")
         }
         job.cancel("Socket was destroyed, cancelling attached job")

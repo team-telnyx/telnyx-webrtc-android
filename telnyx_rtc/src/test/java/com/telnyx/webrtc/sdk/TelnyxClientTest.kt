@@ -183,7 +183,6 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -201,16 +200,19 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
         client.credentialLogin(config)
 
-        Thread.sleep(3000)
+
         Mockito.verify(client.socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
     }
 
     @Test
     fun `login with invalid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -228,6 +230,11 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
+
         client.credentialLogin(config)
 
         val jsonMock = Mockito.mock(JsonObject::class.java)
@@ -240,7 +247,6 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -258,6 +264,10 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
         client.tokenLogin(config)
 
         Thread.sleep(3000)
@@ -270,7 +280,6 @@ class TelnyxClientTest : BaseTest() {
         client = Mockito.spy(TelnyxClient(mockContext))
 
 
-        client.connect(txPushMetaData = null)
         client.socket = Mockito.spy(
             TxSocket(
                 host_address = "rtc.telnyx.com",
@@ -279,7 +288,7 @@ class TelnyxClientTest : BaseTest() {
         )
 
         val config = TokenConfig(
-            anyString(),
+            "",
             "test",
             "00000",
             null,
@@ -287,11 +296,14 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
+
         client.tokenLogin(config)
 
         val jsonMock = Mockito.mock(JsonObject::class.java)
-
-        Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1))
             .send(dataObject = any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onClientReady(jsonMock)
@@ -331,6 +343,10 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
 
         client.credentialLogin(config)
 
@@ -349,8 +365,10 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        client.connect(txPushMetaData = null)
+        client.socket.connect(client)
 
+        // Sleep to give time to connect
+        Thread.sleep(3000)
         val config = CredentialConfig(
             "asdfasass",
             "asdlkfhjalsd",
@@ -366,7 +384,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("No Network Connection")
+            SocketResponse.error("Login Incorrect")
         )
     }
 
