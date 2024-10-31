@@ -834,7 +834,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         Timber.d("onStop")
-        disconnectPressed()
+        //disconnectPressed()
     }
 
     override fun onNewIntent(intent: Intent?) {
