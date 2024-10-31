@@ -389,6 +389,11 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `Check for Prod Env`() {
+       assertEquals(Config.TELNYX_PROD_HOST_ADDRESS,"rtc.telnyx.com")
+    }
+
+    @Test
     fun `Check login successful fires once REGED received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         val sessid = UUID.randomUUID().toString()
