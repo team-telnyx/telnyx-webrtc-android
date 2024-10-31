@@ -32,7 +32,7 @@ open class PeerConnectionObserver : PeerConnection.Observer {
     }
 
     override fun onIceCandidate(p0: IceCandidate?) {
-        Timber.tag("PeerObserver").d("onIceCandidate [%s]", "$p0")
+        Timber.tag("PeerObserver").d("onIceCandidate Generated [%s]", "$p0")
     }
 
     override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
