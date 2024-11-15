@@ -81,6 +81,7 @@ data class Call(
 
     init {
         callStateLiveData.postValue(CallState.CONNECTING)
+
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }

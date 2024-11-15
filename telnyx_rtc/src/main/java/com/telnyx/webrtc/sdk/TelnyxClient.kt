@@ -184,13 +184,13 @@ class TelnyxClient(
                 // reset audio mode to communication
                 speakerState?.let { setSpeakerMode(it) }
 
-
                 callStateLiveData.postValue(CallState.ACTIVE)
+                callStateLiveData.value = CallState.ACTIVE
                 client.callOngoing()
-
             }
         }
         this.addToCalls(acceptCall)
+        Timber.d("Event-Check Active ${ calls[callId]?.getCallState()?.value}")
         return acceptCall
     }
 
@@ -214,6 +214,7 @@ class TelnyxClient(
             val inviteCallId: UUID = UUID.randomUUID()
 
             callId = inviteCallId
+            val call = this
 
             // Create new peer
             peerConnection = Peer(
@@ -221,7 +222,11 @@ class TelnyxClient(
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
-                        peerConnection?.addIceCandidate(p0)
+                        Timber.d("Event-IceCandidate Generated")
+                        if (call.getCallState().value != CallState.ACTIVE){
+                            peerConnection?.addIceCandidate(p0)
+                            Timber.d("Event-IceCandidate Added")
+                        }
                     }
                 }
             )
@@ -311,7 +316,7 @@ class TelnyxClient(
      * @param call, and instance of [Call]
      */
     internal fun addToCalls(call: Call) {
-        calls.getOrPut(call.callId) { call }
+        calls[call.callId] = call
     }
 
     /**
@@ -1274,6 +1279,7 @@ class TelnyxClient(
                     peerConnection?.onRemoteSessionReceived(sdp)
 
                     callStateLiveData.postValue(CallState.ACTIVE)
+                    callStateLiveData.value = CallState.ACTIVE
 
                     val answerResponse = AnswerResponse(
                         UUID.fromString(callId),
@@ -1309,6 +1315,7 @@ class TelnyxClient(
                         )
                     )
                     callStateLiveData.postValue(CallState.ACTIVE)
+                    callStateLiveData.value = CallState.ACTIVE
                 }
 
                 else -> {
@@ -1320,6 +1327,7 @@ class TelnyxClient(
             client.callOngoing()
             client.stopMediaPlayer()
         }
+        addToCalls(answeredCall!!)
 
     }
 
@@ -1405,6 +1413,7 @@ class TelnyxClient(
 
                 // Set global callID
                 callId = offerCallId
+                val call = this
 
                 //retrieve custom headers
                 val customHeaders =
@@ -1414,8 +1423,12 @@ class TelnyxClient(
                     object : PeerConnectionObserver() {
                         override fun onIceCandidate(p0: IceCandidate?) {
                             super.onIceCandidate(p0)
-                            peerConnection?.addIceCandidate(p0)
-                            Timber.d("On IceCandidate Added")
+                            Timber.d("Event-IceCandidate Generated")
+                            Timber.d("Event-IceCandidate ${calls[callId]?.getCallState()?.value}")
+                            if (calls[callId]?.getCallState()?.value != CallState.ACTIVE){
+                                peerConnection?.addIceCandidate(p0)
+                                Timber.d("Event-IceCandidate Added")
+                            }
                         }
 
                         override fun onRenegotiationNeeded() {
@@ -1540,8 +1553,6 @@ class TelnyxClient(
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {
-      /*  val params = jsonObject.getAsJsonObject("params")
-        val callId = UUID.fromString(params.get("callID").asString)*/
 
         val attachCall = call!!.copy(
             context = context,
@@ -1572,14 +1583,16 @@ class TelnyxClient(
             // Set global callID
             callId = offerCallId
 
-
             peerConnection = Peer(
                 context, client, providedTurn, providedStun, offerCallId.toString(),
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
-                        peerConnection?.addIceCandidate(p0)
-                        Timber.d("On IceCandidate Added")
+                        Timber.d("Event-IceCandidate Generated")
+                        if (calls[callId]?.getCallState()?.value != CallState.ACTIVE){
+                            peerConnection?.addIceCandidate(p0)
+                            Timber.d("Event-IceCandidate Added")
+                        }
                     }
 
                     override fun onRenegotiationNeeded() {
@@ -1608,7 +1621,7 @@ class TelnyxClient(
                 Call.ICE_CANDIDATE_DELAY
             )
         }
-
+        attachCall.callStateLiveData.value = CallState.ACTIVE
         calls[attachCall.callId] = attachCall
     }
 
