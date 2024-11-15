@@ -1327,7 +1327,9 @@ class TelnyxClient(
             client.callOngoing()
             client.stopMediaPlayer()
         }
-        addToCalls(answeredCall!!)
+        answeredCall?.let {
+            addToCalls(it)
+        }
 
     }
 
