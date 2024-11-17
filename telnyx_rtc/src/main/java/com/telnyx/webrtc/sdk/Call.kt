@@ -10,25 +10,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
-import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
 import com.telnyx.webrtc.sdk.model.CallState
-import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
-import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
-import com.telnyx.webrtc.sdk.socket.TxSocketListener
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
-import org.jetbrains.annotations.TestOnly
-import org.webrtc.IceCandidate
-import org.webrtc.SessionDescription
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import java.util.*
-import kotlin.concurrent.timerTask
 
 /**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
@@ -67,7 +59,12 @@ data class Call(
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
 
-    internal val callStateLiveData = MutableLiveData(CallState.NEW)
+
+    private val callStateLiveData = MutableLiveData(CallState.NEW)
+
+    private val _callStateFlow = MutableStateFlow(CallState.NEW)
+
+    val callStateFlow: StateFlow<CallState> = _callStateFlow
 
     // Ongoing call options
     // Mute toggle live data
@@ -90,6 +87,11 @@ data class Call(
         Timber.d("Peer connection debug started")
 
         peerConnection?.startTimer()
+    }
+
+    internal fun updateCallState(value: CallState) {
+        callStateLiveData.postValue(value)
+        _callStateFlow.value = value
     }
 
     fun stopDebug() {
@@ -286,6 +288,7 @@ data class Call(
      * @see [CallState]
      * @return [LiveData]
      */
+    @Deprecated("Use `getCallState` instead", ReplaceWith("callStateFlow"))
     fun getCallState(): LiveData<CallState> = callStateLiveData
 
     /**
