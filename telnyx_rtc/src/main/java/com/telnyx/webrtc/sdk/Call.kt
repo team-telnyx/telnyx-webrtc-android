@@ -77,7 +77,7 @@ data class Call(
     private val loudSpeakerLiveData = MutableLiveData(false)
 
     init {
-        callStateLiveData.postValue(CallState.CONNECTING)
+        updateCallState(CallState.CONNECTING)
 
         // Ensure that loudSpeakerLiveData is correct based on possible options provided from client.
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
