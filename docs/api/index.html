@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Telnyx WebRTC Android SDK</title>
+    <link rel="stylesheet" href="template/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>API Reference</h2>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li>
+                <a href="#classes">Classes</a>
+                <ul class="submenu">
+                    <li><a href="#CustomHeaders">CustomHeaders</a></li>
+<li><a href="#TelnyxClient">TelnyxClient</a></li>
+<li><a href="#TelnyxConfig">TelnyxConfig</a></li>
+<li><a href="#TxSocket">TxSocket</a></li>
+<li><a href="#ReceivedMessageBody">ReceivedMessageBody</a></li>
+<li><a href="#ReceivedResult">ReceivedResult</a></li>
+<li><a href="#LoginResponse">LoginResponse</a></li>
+<li><a href="#SendingMessageBody">SendingMessageBody</a></li>
+<li><a href="#BasicUsage">BasicUsage</a></li>
+<li><a href="#PushNotificationHandling">PushNotificationHandling</a></li>
+<li><a href="#AdvancedUsage">AdvancedUsage</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#interfaces">Interfaces</a>
+                <ul class="submenu">
+                    <li><a href="#TxSocketListener">TxSocketListener</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#enums">Enums</a>
+                <ul class="submenu">
+                    <li><a href="#AudioDevice">AudioDevice</a></li>
+<li><a href="#CallState">CallState</a></li>
+<li><a href="#CauseCode">CauseCode</a></li>
+<li><a href="#GatewayState">GatewayState</a></li>
+<li><a href="#LogLevel">LogLevel</a></li>
+<li><a href="#SocketError">SocketError</a></li>
+<li><a href="#SocketMethod">SocketMethod</a></li>
+<li><a href="#SocketStatus">SocketStatus</a></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    <div class="content">
+        <h1>Telnyx WebRTC Android SDK</h1>
+        <section id="overview">
+            <h2>Overview</h2>
+            
+                <div class="doc-block" id="newInvite">
+                    <h3>newInvite</h3>
+                    <div class="doc-content"><p>Initiates a new call invitation
+@param callerName, the name to appear on the invitation
+@param callerNumber, the number to appear on the invitation
+@param destinationNumber, the number or SIP name that will receive the invitation
+@param clientState, the provided client state.
+<div class="see">See also: [Call]</div></p></div>
+                    <pre><code class="language-kotlin">fun newInvite(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>? = null
+    )</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="acceptCall">
+                    <h3>acceptCall</h3>
+                    <div class="doc-content"><p>Accepts an incoming call
+Local user response with both local and remote SDPs
+@param callId, the callId provided with the invitation
+@param destinationNumber, the number or SIP name that will receive the invitation
+<div class="see">See also: [Call]</div></p></div>
+                    <pre><code class="language-kotlin">fun acceptCall(
+        callId: UUID,
+        destinationNumber: String,
+        customHeaders: Map<String, String>? = null
+    )</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="endCall">
+                    <h3>endCall</h3>
+                    <div class="doc-content"><p>Accepts an attach invitation
+Functions the same as the acceptCall but changes the attach param to true
+@param callId, the callId provided with the invitation
+@param destinationNumber, the number or SIP name that will receive the invitation
+<div class="see">See also: [Call]
+/
+    internal fun acceptReattachCall(callId: UUID, destinationNumber: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val sessionDescriptionString =
+            peerConnection?.getLocalDescription()?.description
+        if (sessionDescriptionString == null) {
+            callStateLiveData.postValue(CallState.ERROR)
+        } else {
+            val answerBodyMessage = SendingMessageBody(
+                uuid, SocketMethod.ATTACH.methodName,
+                CallParams(
+                    sessid = sessionId,
+                    sdp = sessionDescriptionString,
+                    dialogParams = CallDialogParams(
+                        attach = true,
+                        callId = callId,
+                        destinationNumber = destinationNumber
+                    )
+                )
+            )
+            socket.send(answerBodyMessage)
+            callStateLiveData.postValue(CallState.ACTIVE)
+        }
+    }</p>
+<p>    /<em></em>
+Ends an ongoing call with a provided callID, the unique UUID belonging to each call</div>@param callId, the callId provided with the invitation
+<div class="see">See also: [Call]</div></p></div>
+                    <pre><code class="language-kotlin">fun endCall(callId: UUID)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="onMuteUnmutePressed">
+                    <h3>onMuteUnmutePressed</h3>
+                    <div class="doc-content"><p>Either mutes or unmutes the [AudioManager] based on the current [muteLiveData] value
+<div class="see">See also: [AudioManager]</div></p></div>
+                    <pre><code class="language-kotlin">fun onMuteUnmutePressed()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="onLoudSpeakerPressed">
+                    <h3>onLoudSpeakerPressed</h3>
+                    <div class="doc-content"><p>Either enables or disables the [AudioManager] loudspeaker mode based on the current [loudSpeakerLiveData] value
+<div class="see">See also: [AudioManager]</div></p></div>
+                    <pre><code class="language-kotlin">fun onLoudSpeakerPressed()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="onHoldUnholdPressed">
+                    <h3>onHoldUnholdPressed</h3>
+                    <div class="doc-content"><p>Either places a call on hold, or unholds a call based on the current [holdLiveData] value
+@param callId, the unique UUID of the call you want to place or remove from hold with the [sendHoldModifier] method
+<div class="see">See also: [sendHoldModifier]</div></p></div>
+                    <pre><code class="language-kotlin">fun onHoldUnholdPressed(callId: UUID)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="dtmf">
+                    <h3>dtmf</h3>
+                    <div class="doc-content"><p>Sends the hold modifier message to Telnyx, placing the specified call on hold or removing it from hold based on a provided holdAction value
+@param callId, unique UUID of the call to modify
+@param holdAction, the modification action to perform
+/
+    private fun sendHoldModifier(callId: UUID, holdAction: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        val modifyMessageBody = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.MODIFY.methodName,
+            params = ModifyParams(
+                sessid = sessionId,
+                action = holdAction,
+                dialogParams = CallDialogParams(
+                    callId = callId,
+                )
+            )
+        )
+        socket.send(modifyMessageBody)
+    }</p>
+<p>    /<em></em>
+Sends Dual-Tone Multi-Frequency tones down the current peer connection.
+<div class="param"><span class="param-name">callId</span>unique UUID of the call to send the DTMF INFO message to</div><div class="param"><span class="param-name">tone</span>This parameter is treated as a series of characters. The characters 0
+through 9, A through D, #, and * generate the associated DTMF tones. Unrecognized characters are ignored.</div></p></div>
+                    <pre><code class="language-kotlin">fun dtmf(callId: UUID, tone: String)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getIsMuteStatus">
+                    <h3>getIsMuteStatus</h3>
+                    <div class="doc-content"><p>Returns call state live data
+<div class="see">See also: [CallState]</div>@return [LiveData]
+/
+    @Deprecated("Use `getCallState` instead", ReplaceWith("callStateFlow"))
+    fun getCallState(): LiveData<CallState> = callStateLiveData</p>
+<p>    /<em></em>
+Returns mute state live data
+@return [LiveData]</p></div>
+                    <pre><code class="language-kotlin">fun getIsMuteStatus(): LiveData<Boolean> = muteLiveData
+
+    /**
+     * Returns hold state live data
+     * @return [LiveData]
+     */
+    fun getIsOnHoldStatus(): LiveData<Boolean> = holdLiveData
+
+    /**
+     * Returns loudspeaker state live data
+     * @return [LiveData]
+     */
+    fun getIsOnLoudSpeakerStatus(): LiveData<Boolean> = loudSpeakerLiveData
+
+    /**
+     * Returns the TelnyxSessionId set as a response
+     * from an invite or ringing socket call
+     * @return [UUID]
+     */
+    fun getTelnyxSessionId(): UUID?</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getTelnyxLegId">
+                    <h3>getTelnyxLegId</h3>
+                    <div class="doc-content"><p>Returns the TelnyxSessionId set as a response
+from an invite or ringing socket call
+@return [UUID]</p></div>
+                    <pre><code class="language-kotlin">fun getTelnyxLegId(): UUID?</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="acceptCall">
+                    <h3>acceptCall</h3>
+                    <div class="doc-content"><p>Build a call containing all required parameters.
+Will return null if there has been no session established (No successful connection and login)
+@return [Call]
+/
+    private fun buildCall(): Call? {
+        if (!BuildConfig.IS_TESTING.get()) {
+            sessid.let {
+                return Call(
+                    context,
+                    this,
+                    socket,
+                    sessid,
+                    audioManager!!,
+                    providedTurn!!,
+                    providedStun!!,
+                )
+            }
+        } else {
+            // We are testing, and will instead return a mocked call.
+            return null
+        }
+    }</p>
+<p>    /* Accepts an incoming call
+Local user response with both local and remote SDPs
+@param callId, the callId provided with the invitation
+@param destinationNumber, the number or SIP name that will receive the invitation
+<div class="see">See also: [Call]</div></p></div>
+                    <pre><code class="language-kotlin">fun acceptCall(
+        callId: UUID,
+        destinationNumber: String,
+        customHeaders: Map<String, String>? = null
+    ): Call</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="endCall">
+                    <h3>endCall</h3>
+                    <div class="doc-content"><p>Ends an ongoing call with a provided callID, the unique UUID belonging to each call
+@param callId, the callId provided with the invitation
+<div class="see">See also: [Call]</div></p></div>
+                    <pre><code class="language-kotlin">fun endCall(callId: UUID)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getRawRingtone">
+                    <h3>getRawRingtone</h3>
+                    <div class="doc-content"><p>Add specified call to the calls MutableMap
+@param call, and instance of [Call]
+/
+    internal fun addToCalls(call: Call) {
+        calls[call.callId] = call
+    }</p>
+<p>    /<em></em>
+Remove specified call from the calls MutableMap
+@param callId, the UUID used to identify a specific
+/
+    internal fun removeFromCalls(callId: UUID) {
+        calls.remove(callId)
+    }</p>
+<p>    private var socketReconnection: TxSocket? = null</p>
+<p>    internal var isNetworkCallbackRegistered = false
+    private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
+        override fun onNetworkAvailable() {
+            Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
+            // User has been logged in
+            resetGatewayCounters()
+            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
+                runBlocking { reconnectToSocket() }
+                reconnecting = false
+            }
+        }</p>
+<p>        override fun onNetworkUnavailable() {
+            Timber.d(
+                "[%s] :: There is no network available",
+                this@TelnyxClient.javaClass.simpleName
+            )
+            reconnecting = true</p>
+<p>            Handler(Looper.getMainLooper()).postDelayed(Runnable {
+                if(!ConnectivityHelper.isNetworkEnabled(context)){
+                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+                }else {
+                    //Network is switched here. Either from Wifi to LTE or vice-versa
+                    runBlocking { reconnectToSocket() }
+                    reconnecting = false
+                }
+            }, RECONNECT_DELAY)
+        }
+    }</p>
+<p>    /<em></em>
+Reconnect to the Telnyx socket using saved Telnyx Config - either Token or Credential based
+<div class="see">See also: [TxSocket]</div><div class="see">See also: [TelnyxConfig]
+/
+    private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {</p>
+<p>        //Disconnect active calls for reconnection
+        getActiveCalls()?.forEach { (_, call) ->
+            call?.peerConnection?.disconnect()
+        }</p>
+<p>        // Create new socket connection
+        socketReconnection = TxSocket(
+            socket.host_address,
+            socket.port
+        )
+        // Cancel old socket coroutines
+        socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
+        // Destroy old socket
+        socket.destroy()
+        launch {
+            // Socket is now the reconnectionSocket
+            socket = socketReconnection!!</p>
+<p>            if (providedHostAddress == null) {
+                providedHostAddress =
+                    if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
+                    else
+                        Config.TELNYX_PROD_HOST_ADDRESS</p>
+<p>            }</p>
+<p>            if (voiceSDKID != null){
+                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            }</p>
+<p>            // Connect to new socket
+            socket.connect(this</div>@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {</p>
+<p>                //We can safely assume that the socket is connected at this point
+                // Login with stored configuration
+                credentialSessionConfig?.let {
+                    credentialLogin(it)
+                } ?: tokenLogin(tokenSessionConfig!!)</p>
+<p>                // Change an ongoing call's socket to the new socket.
+                call?.let { call?.socket = socket }
+            }</p>
+<p>        }
+    }</p>
+<p>    init {
+        if (!BuildConfig.IS_TESTING.get()) {
+            Bugsnag.start(context)
+        }</p>
+<p>        // Generate random UUID for sessid param, convert it to string and set globally
+        sessid = UUID.randomUUID().toString()</p>
+<p>        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socket = TxSocket(
+            host_address = Config.TELNYX_PROD_HOST_ADDRESS,
+            port = Config.TELNYX_PORT
+        )
+        registerNetworkCallback()
+    }</p>
+<p>    private var rawRingtone: Any? = null
+    private var rawRingbackTone: Int? = null</p>
+<p>    /<em></em>
+Return the saved ringtone reference
+@returns [Int]</p></div>
+                    <pre><code class="language-kotlin">fun getRawRingtone(): Any?</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getRawRingbackTone">
+                    <h3>getRawRingbackTone</h3>
+                    <div class="doc-content"><p>Return the saved ringback tone reference
+@returns [Int]</p></div>
+                    <pre><code class="language-kotlin">fun getRawRingbackTone(): Int?</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="connect">
+                    <h3>connect</h3>
+                    <div class="doc-content"><p>Connects to the socket using this client as the listener
+Will respond with 'No Network Connection' if there is no network available
+<div class="see">See also: [TxSocket]</div>@param providedServerConfig, the TxServerConfiguration used to connect to the socket
+@param txPushMetaData, the push metadata used to connect to a call from push
+(Get this from push notification - fcm data payload)
+required fot push calls to work
+/
+    @Deprecated("this telnyxclient.connect is deprecated." +
+            " Use telnyxclient.connect(providedServerConfig,txPushMetaData," +
+            "credential or tokenLogin) instead.")
+    fun connect(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        txPushMetaData: String? = null,
+    ) {</p>
+<p>        socketResponseLiveData =
+            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()</p>
+<p>        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }</p>
+<p>        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )</p>
+<p>        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Timber.d("Provided Host Address: $providedHostAddress")
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {</p>
+<p>            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+        }
+    }</p>
+<p>    /<em></em>
+Connects to the socket using this client as the listener
+Will respond with 'No Network Connection' if there is no network available
+<div class="see">See also: [TxSocket]</div>@param providedServerConfig, the TxServerConfiguration used to connect to the socket
+@param txPushMetaData, the push metadata used to connect to a call from push
+(Get this from push notification - fcm data payload)
+required fot push calls to work
+@param autoLogin, if true, the SDK will automatically log in with
+the provided credentials on connection established
+We recommend setting this to true</p></div>
+                    <pre><code class="language-kotlin">fun connect(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        credentialConfig: CredentialConfig,
+        txPushMetaData: String? = null,
+        autoLogin: Boolean = true,
+    )</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getSocketResponse">
+                    <h3>getSocketResponse</h3>
+                    <div class="doc-content"><p>Sets the callOngoing state to true. This can be used to see if the SDK thinks a call is ongoing.
+/
+    internal fun callOngoing() {
+        socket.callOngoing()
+    }</p>
+<p>    /<em></em>
+Sets the callOngoing state to false if the [calls] MutableMap is empty
+<div class="see">See also: [calls]
+/
+    internal fun callNotOngoing() {
+        if (calls.isEmpty()) {
+            socket.callNotOngoing()
+        }
+    }</p>
+<p>    /<em></em>
+register network state change callback.</div><div class="see">See also: [ConnectivityManager]
+/
+    private fun registerNetworkCallback() {
+        context.let {
+            ConnectivityHelper.registerNetworkStatusCallback(it, networkCallback)
+            isNetworkCallbackRegistered = true
+        }
+    }</p>
+<p>    /<em></em>
+Unregister network state change callback.</div><div class="see">See also: [ConnectivityManager]
+/
+    private fun unregisterNetworkCallback() {
+        if (isNetworkCallbackRegistered) {
+            context.let {
+                ConnectivityHelper.unregisterNetworkStatusCallback(it, networkCallback)
+                isNetworkCallbackRegistered = false
+            }
+        }
+    }</p>
+<p>    /<em></em>
+Returns the socket response in the form of LiveData
+The format of each message is provided in SocketResponse and ReceivedMessageBody</div><div class="see">See also: [SocketResponse]</div><div class="see">See also: [ReceivedMessageBody]</div></p></div>
+                    <pre><code class="language-kotlin">fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
+
+    /**
+     * Returns the  json messages from socket in the form of LiveData used for debugging purposes
+     */
+    fun getWsMessageResponse(): LiveData<JsonObject> = wsMessagesResponseLiveDate
+
+    /**
+     * Returns all active calls that have been stored in our calls MutableMap
+     * The MutableMap is converted into a Map - preventing any changes by the SDK User
+     *
+     * @see [calls]
+     */
+    fun getActiveCalls(): Map<UUID, Call></code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="disablePushNotification">
+                    <h3>disablePushNotification</h3>
+                    <div class="doc-content"><p>Logs the user in with credentials provided via CredentialConfig
+@param config, the CredentialConfig used to log in
+<div class="see">See also: [CredentialConfig]
+/</div>@Deprecated("telnyxclient.credentialLogin is deprecated. Use telnyxclient.connect(..) instead.")
+    fun credentialLogin(config: CredentialConfig) {</p>
+<p>        val uuid: String = UUID.randomUUID().toString()
+        val user = config.sipUser
+        val password = config.sipPassword
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        autoReconnectLogin = config.autoReconnect</p>
+<p>        Config.USERNAME = config.sipUser
+        Config.PASSWORD = config.sipPassword</p>
+<p>        credentialSessionConfig = config</p>
+<p>        setSDKLogLevel(logLevel)</p>
+<p>        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingbackTone = it
+        }</p>
+<p>        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }</p>
+<p>        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")</p>
+<p>        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = null,
+                login = user,
+                passwd = password,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("attach_call" to "true"),
+                sessid = sessid
+            )
+        )
+        Timber.d("Auto login with credentialConfig")</p>
+<p>        socket.send(loginMessage)
+    }</p>
+<p>    /<em></em>
+Disables push notifications for current user
+Takes :
+<div class="param"><span class="param-name">sipUserName</span>: sip username of the current user or</div><div class="param"><span class="param-name">loginToken</span>: fcm token of the device</div><div class="param"><span class="param-name">fcmToken</span>: fcm token of the device
+NB : Push Notifications are enabled by default after login
+returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}</div></p></div>
+                    <pre><code class="language-kotlin">fun disablePushNotification(sipUserName: String?, loginToken: String?, fcmToken: String)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="setAudioOutputDevice">
+                    <h3>setAudioOutputDevice</h3>
+                    <div class="doc-content"><p>Logs the user in with credentials provided via TokenConfig
+@param config, the TokenConfig used to log in
+<div class="see">See also: [TokenConfig]
+/</div>@Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) " +
+            "with autoLogin set to true instead.")
+    fun tokenLogin(config: TokenConfig) {
+        val uuid: String = UUID.randomUUID().toString()
+        val token = config.sipToken
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        autoReconnectLogin = config.autoReconnect</p>
+<p>        tokenSessionConfig = config</p>
+<p>        setSDKLogLevel(logLevel)</p>
+<p>        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }</p>
+<p>        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")</p>
+<p>        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = token,
+                login = null,
+                passwd = null,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("attach_calls" to "true"),
+                sessid = sessid
+            )
+        )
+        socket.send(loginMessage)
+    }</p>
+<p>    internal fun startStats(sessionId: UUID) {
+        debugReportStarted = true
+        val loginMessage = InitiateOrStopStatPrams(
+            type = "debug_report_start",
+            debugReportId = sessionId.toString(),
+        )
+        socket.send(loginMessage)
+    }</p>
+<p>    /<em></em>
+Sends Logged webrtc stats to backend
+@param config, the TokenConfig used to log in
+<div class="see">See also: [TokenConfig]
+/
+    internal fun sendStats(data: JsonObject, sessionId: UUID) {</p>
+<p>        val loginMessage = StatPrams(
+            debugReportId = sessionId.toString(),
+            reportData = data
+        )
+        socket.send(loginMessage)</p>
+<p>    }</p>
+<p>    internal fun stopStats(sessionId: UUID) {
+        debugReportStarted = false
+        val loginMessage = InitiateOrStopStatPrams(
+            debugReportId = sessionId.toString(),
+        )
+        socket.send(loginMessage)
+    }</p>
+<p>    /<em></em>
+Sets the global SDK log level
+Logging is implemented with Timber</div>@param logLevel, the LogLevel specified for the SDK
+<div class="see">See also: [LogLevel]
+/
+    private fun setSDKLogLevel(logLevel: LogLevel) {
+        Timber.uprootAll()
+        Timber.plant(TelnyxLoggingTree(logLevel))
+    }</p>
+<p>    /<em></em>
+Returns a MutableList of available audio devices
+Audio devices are represented by their Int reference ids</div>@return [MutableList] of [Int]
+/
+    private fun getAvailableAudioOutputTypes(): MutableList<Int> {
+        val availableTypes: MutableList<Int> = mutableListOf()
+        audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)?.forEach {
+            availableTypes.add(it.type)
+        }
+        return availableTypes
+    }</p>
+<p>    /<em></em>
+Sets the audio device that the SDK should use
+@param audioDevice, the chosen [AudioDevice] to be used by the SDK
+<div class="see">See also: [AudioDevice]</div></p></div>
+                    <pre><code class="language-kotlin">fun setAudioOutputDevice(audioDevice: AudioDevice)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="startLocalAudioCapture">
+                    <h3>startLocalAudioCapture</h3>
+                    <div class="doc-content"><p>Peer class that represents a peer connection which is required to initiate a call.
+<div class="param"><span class="param-name">context</span>the Context of the application</div><div class="param"><span class="param-name">client</span>the TelnyxClient instance in use.</div><div class="param"><span class="param-name">observer</span>the [PeerConnection.Observer] which observes the the Peer Connection events including ICE candidate or Stream changes, etc.
+/
+internal class Peer(
+    context: Context,
+    val client: TelnyxClient,
+    private val providedTurn: String = DEFAULT_TURN,
+    private val providedStun: String = DEFAULT_STUN,
+    private val callId: String = "",
+    observer: PeerConnection.Observer
+) {</p>
+<p>    companion object {
+        private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
+        private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
+        private const val CANDIDATE_LIMIT : Int = 5
+        private const val STATS_INTERVAL : Long = 2000L
+        private const val STATS_INITIAL : Long = 0L
+    }</p>
+<p>    private val rootEglBase: EglBase = EglBase.create()
+    private var isDebugStats = false</p>
+<p>    internal var debugStatsId = UUID.randomUUID()</p>
+<p>    private val iceServer = getIceServers()</p>
+<p>    /<em></em>
+Retrieves the IceServers built with the provided STUN and TURN servers</div><div class="see">See also: [TxSocket]</div><div class="see">See also: [PeerConnection.IceServer]</div>@return [List] of [PeerConnection.IceServer]
+/
+    private fun getIceServers(): List<PeerConnection.IceServer> {
+        val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
+        Timber.e("start get ice server")
+        iceServers.add(
+            PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
+                PASSWORD
+            ).createIceServer()
+        )
+        iceServers.add(
+            PeerConnection.IceServer.builder(providedTurn).setUsername(USERNAME).setPassword(
+                PASSWORD
+            ).createIceServer()
+        )
+        Timber.e("end get ice server")
+        return iceServers
+    }</p>
+<p>    private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    private var peerConnection: PeerConnection? = null</p>
+<p>    /<em></em>
+Initiates our peer connection factory with the specified options
+<div class="param"><span class="param-name">context</span>the context
+/
+    private fun initPeerConnectionFactory(context: Context) {
+        val options = PeerConnectionFactory.InitializationOptions.builder(context)
+            .setEnableInternalTracer(true)
+            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+            // .setFieldTrials("WebRTC-IntelVP8/Enabled/")
+            .createInitializationOptions()
+        PeerConnectionFactory.initialize(options)
+    }</p>
+<p>    /<em></em>
+creates the PeerConnectionFactory</div><div class="see">See also: [PeerConnectionFactory]</div>@return [PeerConnectionFactory]
+/
+    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
+        return PeerConnectionFactory
+            .builder()
+            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+            .setVideoEncoderFactory(
+                DefaultVideoEncoderFactory(
+                    rootEglBase.eglBaseContext,
+                    true,
+                    true
+                )
+            )
+            .setOptions(
+                PeerConnectionFactory.Options().apply {
+                    disableEncryption = false
+                    disableNetworkMonitor = true
+                }
+            )
+            .createPeerConnectionFactory()
+    }</p>
+<p>    /<em></em>
+Builds the PeerConnection with the provided IceServers from the getIceServers method
+@param observer, the [PeerConnection.Observer]
+<div class="see">See also: [getIceServers]
+/
+    private fun buildPeerConnection(observer: PeerConnection.Observer) =
+        peerConnectionFactory.createPeerConnection(
+            iceServer,
+            observer
+        )</p>
+<p>    /<em></em>
+Starts local audio capture to be used during call</div><div class="see">See also: [AudioSource]</div><div class="see">See also: [AudioTrack]</div></p></div>
+                    <pre><code class="language-kotlin">fun startLocalAudioCapture()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="createOfferForSdp">
+                    <h3>createOfferForSdp</h3>
+                    <div class="doc-content"><p>Initiates a call, creating an offer with a local SDP
+The offer creation is handled with an [SdpObserver]
+@param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+<div class="see">See also: [SdpObserver]
+/
+    private fun PeerConnection.call(sdpObserver: SdpObserver) {
+        val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
+        }</p>
+<p>        createOffer(
+            object : SdpObserver by sdpObserver {
+                override fun onCreateSuccess(desc: SessionDescription?) {
+                    setLocalDescription(
+                        object : SdpObserver {
+                            override fun onSetFailure(p0: String?) {
+                                Timber.tag("Call").d("onSetFailure [%s]", "$p0")
+                            }</p>
+<p>                            override fun onSetSuccess() {
+                                Timber.tag("Call").d("onSetSuccess")
+                            }</p>
+<p>                            override fun onCreateSuccess(p0: SessionDescription?) {
+                                Timber.tag("Call").d("onCreateSuccess")
+                            }</p>
+<p>                            override fun onCreateFailure(p0: String?) {
+                                Timber.tag("Call").d("onCreateFailure [%s]", "$p0")
+                            }
+                        },
+                        desc
+                    )
+                    sdpObserver.onCreateSuccess(desc)
+                }
+            },
+            constraints
+        )
+    }</p>
+<p>    /<em></em>
+Answers a received invitation, creating an answer with a local SDP
+The answer creation is handled with an [SdpObserver]</div>@param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+<div class="see">See also: [SdpObserver]
+/
+    private fun PeerConnection.answer(sdpObserver: SdpObserver) {
+        val constraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
+        }</p>
+<p>        createAnswer(
+            object : SdpObserver by sdpObserver {
+                override fun onCreateSuccess(desc: SessionDescription?) {
+                    setLocalDescription(
+                        object : SdpObserver {
+                            override fun onSetFailure(p0: String?) {
+                                Timber.tag("Answer").d("onSetFailure [%s]", "$p0")
+                            }</p>
+<p>                            override fun onSetSuccess() {
+                                Timber.tag("Answer").d("onSetSuccess")
+                            }</p>
+<p>                            override fun onCreateSuccess(p0: SessionDescription?) {
+                                Timber.tag("Answer").d("onCreateSuccess")
+                            }</p>
+<p>                            override fun onCreateFailure(p0: String?) {
+                                Timber.tag("Answer").d("onCreateFailure [%s]", "$p0")
+                            }
+                        },
+                        desc
+                    )
+                    sdpObserver.onCreateSuccess(desc)
+                }
+            },
+            constraints
+        )
+    }</p>
+<p>    /<em></em>
+Initiates an offer by setting a local SDP</div>@param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+<div class="see">See also: [call]</div></p></div>
+                    <pre><code class="language-kotlin">fun createOfferForSdp(sdpObserver: SdpObserver) = peerConnection?.call(sdpObserver)
+
+    /**
+     * Answers an invitation by setting a local SDP
+     * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
+     * @see [answer]
+     */
+    fun answer(sdpObserver: SdpObserver) = peerConnection?.answer(sdpObserver)
+
+    /**
+     * Sets the local SDP once a remote session has been received
+     * @param sessionDescription, the provided [SessionDescription] that will attempt to be set.
+     * @see [SessionDescription]
+     */
+    fun onRemoteSessionReceived(sessionDescription: SessionDescription)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="addIceCandidate">
+                    <h3>addIceCandidate</h3>
+                    <div class="doc-content"><p>Adds an [IceCandidate] to the [PeerConnection]
+@param iceCandidate, the [IceCandidate] that wil bee added to the [PeerConnection]
+<div class="see">See also: [IceCandidate]</div></p></div>
+                    <pre><code class="language-kotlin">fun addIceCandidate(iceCandidate: IceCandidate?)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="getLocalDescription">
+                    <h3>getLocalDescription</h3>
+                    <div class="doc-content"><p>Returns the current local SDP
+@return [SessionDescription]</p></div>
+                    <pre><code class="language-kotlin">fun getLocalDescription(): SessionDescription?</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="disconnect">
+                    <h3>disconnect</h3>
+                    <div class="doc-content"><p>Closes and disposes of current [PeerConnection]</p></div>
+                    <pre><code class="language-kotlin">fun disconnect()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="onClientReady">
+                    <h3>onClientReady</h3>
+                    <div class="doc-content"><p>Fires once the client is ready and gateway status updates can be received
+@param jsonObject, the socket response in a jsonObject format
+<div class="see">See also: [TxSocket]</div></p></div>
+                    <pre><code class="language-kotlin">fun onClientReady(jsonObject: JsonObject)
+
+    /**
+     * Fires once a Gateway state has been received. These are used to find a verified registration
+     * @param gatewayState, the string representation of the gateway state received from the socket connection
+     * @param sessionId, the string representation of the session ID received from the socket connection
+     * @see [TxSocket]
+     */
+    fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)
+
+    /**
+     * Fires when a socket connection is established
+     * @see [TxSocket]
+     */
+    fun onConnectionEstablished()
+
+    /**
+     * Fires when an error has occurred with the TxSocket
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onErrorReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when the TxSocket has received an indication the a call has ended or been rejected
+     * @param callId, UUID of the call that has ended or been rejected
+     * @see [TxSocket]
+     */
+    fun onByeReceived(callId: UUID)
+
+    /**
+     * Fires when a user has provided an answer to a call attempt
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onAnswerReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when an answer has been provided with additional media
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onMediaReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when the TxSocket has received an invitation to communicate
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onOfferReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires once we receive a ringing socket response, containing Telnyx information
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onRingingReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when a usable IceCandidate has been received
+     * @param iceCandidate, the [IceCandidate] that was received
+     * @see [IceCandidate]
+     */
+    fun onIceCandidateReceived(iceCandidate: IceCandidate)
+
+    /**
+     * Fires when a disablePush response is recieved
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [IceCandidate]
+     */
+    fun onDisablePushReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires once a connection has been reestablished during an ongoing call and a session
+     * is being reattached
+     * @param jsonObject, the socket response in a jsonObject format
+     */
+    fun onAttachReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when network has dropped during an ongoing call. Signifies that the SDK will attempt
+     * to recover once network has returned
+     */
+    fun setCallRecovering()
+
+    fun pingPong()
+    /**
+     * Fires when the socket has disconnected
+     * */
+    fun onDisconnect()
+}</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="connect">
+                    <h3>connect</h3>
+                    <div class="doc-content"><p>Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
+<div class="param"><span class="param-name">listener</span>the [TelnyxClient] used to create an instance of TxSocket that contains our
+relevant listener methods via the [TxSocketListener] interface</div><div class="param"><span class="param-name">providedHostAddress</span>the host address specified when connecting,
+will default to Telnyx Production Host if not specified.</div><div class="param"><span class="param-name">providedPort</span>the port specified when connecting,
+will use default Telnyx Port if not specified.</div><div class="see">See also: [TxSocketListener]</div></p></div>
+                    <pre><code class="language-kotlin">fun connect(
+        listener: TelnyxClient,
+        providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
+        providedPort: Int? = Config.TELNYX_PORT,
+        pushmetaData: PushMetaData? = null,
+        onConnected:(Boolean) -> Unit =</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="unregisterNetworkStatusCallback">
+                    <h3>unregisterNetworkStatusCallback</h3>
+                    <div class="doc-content"><p>Helper for connectivity statuses.
+/
+object ConnectivityHelper {</p>
+<p>    /<em></em>
+Unregister network state change callback.
+<div class="param"><span class="param-name">context</span>the context</div><div class="param"><span class="param-name">callback</span>the network state callback</div><div class="see">See also: [ConnectivityManager]</div></p></div>
+                    <pre><code class="language-kotlin">fun unregisterNetworkStatusCallback(context: Context, callback: NetworkCallback)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="registerNetworkStatusCallback">
+                    <h3>registerNetworkStatusCallback</h3>
+                    <div class="doc-content"><p>Register network state change callback.
+<div class="param"><span class="param-name">context</span>the context</div><div class="param"><span class="param-name">callback</span>the network state callback</div><div class="see">See also: [ConnectivityManager]</div><div class="see">See also: [NetworkCapabilities]</div><div class="see">See also: [NetworkRequest]</div></p></div>
+                    <pre><code class="language-kotlin">fun registerNetworkStatusCallback(context: Context, callback: NetworkCallback)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="isNetworkEnabled">
+                    <h3>isNetworkEnabled</h3>
+                    <div class="doc-content"><p>Get network enabled status.
+@return current network status</p></div>
+                    <pre><code class="language-kotlin">fun isNetworkEnabled(context: Context): Boolean</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="initializeWithCredentials">
+                    <h3>initializeWithCredentials</h3>
+                    <div class="doc-content"><p>Initialize the SDK with credential-based authentication.</p></div>
+                    <pre><code class="language-kotlin">fun initializeWithCredentials()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="initializeWithToken">
+                    <h3>initializeWithToken</h3>
+                    <div class="doc-content"><p>Initialize the SDK with token-based authentication.</p></div>
+                    <pre><code class="language-kotlin">fun initializeWithToken()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="makeCall">
+                    <h3>makeCall</h3>
+                    <div class="doc-content"><p>Make an outbound call.</p></div>
+                    <pre><code class="language-kotlin">fun makeCall()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="handleIncomingCall">
+                    <h3>handleIncomingCall</h3>
+                    <div class="doc-content"><p>Handle an incoming call.</p></div>
+                    <pre><code class="language-kotlin">fun handleIncomingCall(callId: UUID)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="controlCall">
+                    <h3>controlCall</h3>
+                    <div class="doc-content"><p>Control an active call.</p></div>
+                    <pre><code class="language-kotlin">fun controlCall(callId: UUID)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="initializeWithAdvancedConfig">
+                    <h3>initializeWithAdvancedConfig</h3>
+                    <div class="doc-content"><p>Initialize with advanced configuration.</p></div>
+                    <pre><code class="language-kotlin">fun initializeWithAdvancedConfig()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="monitorCallStates">
+                    <h3>monitorCallStates</h3>
+                    <div class="doc-content"><p>Advanced call state monitoring.</p></div>
+                    <pre><code class="language-kotlin">fun monitorCallStates()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="handleMultipleCalls">
+                    <h3>handleMultipleCalls</h3>
+                    <div class="doc-content"><p>Handle multiple concurrent calls.</p></div>
+                    <pre><code class="language-kotlin">fun handleMultipleCalls()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="useCustomHeaders">
+                    <h3>useCustomHeaders</h3>
+                    <div class="doc-content"><p>Example of custom headers usage.</p></div>
+                    <pre><code class="language-kotlin">fun useCustomHeaders()</code></pre>
+                </div>
+            
+        </section>
+        <section id="classes">
+            <h2>Classes</h2>
+            
+                <div class="doc-block" id="CustomHeaders">
+                    <h3>CustomHeaders</h3>
+                    <div class="doc-content"><p>Represents an active call session and provides call control functionality.
+The Call class manages individual WebRTC call sessions and provides methods for
+controlling call features and monitoring call state. Each Call instance represents
+a single call (incoming or outgoing) and maintains its own state.
+Features:
+<ul><li>Call state monitoring (NEW, RINGING, ACTIVE, etc.)</li>
+<li>Audio device control (speaker, microphone)</li>
+<li>Call hold/resume functionality</li>
+<li>DTMF tone transmission</li>
+<li>Custom headers support</li>
+<li>Call statistics and debugging</li></ul>Basic Usage:
+<pre><code class="language-kotlin">// 1. Handle incoming call
+call.acceptCall(
+callId = incomingCallId,
+destinationNumber = "client_name",
+customHeaders = mapOf("X-Custom-Header" to "value")
+)
+// 2. Make outbound call
+call.newInvite(
+callerName = "John Doe",
+callerNumber = "+1234567890",
+destinationNumber = "+1987654321",
+clientState = "",
+customHeaders = mapOf("X-Custom-Header" to "value")
+)
+// 3. Control call features
+call.onMuteUnmutePressed()     // Toggle microphone mute
+call.onLoudSpeakerPressed()    // Toggle speakerphone
+call.onHoldUnholdPressed(callId) // Place call on hold/resume
+call.dtmf(callId, "1234#")     // Send DTMF tones
+// 4. Monitor call state
+call.callStateFlow.collect { state ->
+when (state) {
+CallState.ACTIVE -> // Call is connected
+CallState.HELD -> // Call is on hold
+CallState.DONE -> // Call ended
+// ... handle other states
+}
+}
+// 5. End the call
+call.endCall(callId)</code></pre>
+State Monitoring:
+The class provides two ways to monitor call state:
+<ul><li>Kotlin Flow API (recommended):</li></ul><pre><code class="language-kotlin">// Using Kotlin Coroutines
+lifecycleScope.launch {
+call.callStateFlow.collect { state ->
+// Handle state changes
+}
+}</code></pre>
+<ul><li>LiveData API (legacy):</li></ul><pre><code class="language-kotlin">// Using LiveData
+call.getCallState().observe(lifecycleOwner) { state ->
+// Handle state changes
+}</code></pre>
+<div class="param"><span class="param-name">context</span>Android Context for accessing system services</div><div class="param"><span class="param-name">client</span>The [TelnyxClient] instance that created this call</div><div class="param"><span class="param-name">socket</span>The [TxSocket] instance for WebSocket communication</div><div class="param"><span class="param-name">sessionId</span>Unique session identifier for this call</div><div class="param"><span class="param-name">audioManager</span>Android AudioManager for controlling audio routing</div><div class="param"><span class="param-name">providedTurn</span>Optional custom TURN server URL for WebRTC</div><div class="param"><span class="param-name">providedStun</span>Optional custom STUN server URL for WebRTC</div><div class="see">See also: CallState For possible call states</div><div class="see">See also: TelnyxClient For the main SDK interface</div><div class="see">See also: AudioDevice For audio routing options</div></p></div>
+                    <pre><code class="language-kotlin">data class CustomHeaders(val name: String, val value: String)
+data class Call(
+    val context: Context,
+    val client: TelnyxClient,
+    var socket: TxSocket,
+    val sessionId: String,
+    val audioManager: AudioManager,
+    val providedTurn: String = Config.DEFAULT_TURN,
+    val providedStun: String = Config.DEFAULT_STUN,
+)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="TelnyxClient">
+                    <h3>TelnyxClient</h3>
+                    <div class="doc-content"><p>Main entry point for the Telnyx WebRTC Android SDK.
+The TelnyxClient class provides a high-level interface for WebRTC-based voice calling functionality.
+It manages the lifecycle of calls, handles authentication, and controls audio devices.
+Features:
+<ul><li>SIP-based voice calling (outbound and inbound)</li>
+<li>Multiple authentication methods (credentials or token)</li>
+<li>Push notification support for incoming calls</li>
+<li>Audio device management (speaker, earpiece, bluetooth)</li>
+<li>Call state monitoring and control</li>
+<li>Automatic reconnection handling</li></ul>Basic Usage:
+<pre><code class="language-kotlin">// 1. Initialize the client
+val client = TelnyxClient(context)
+// 2. Configure authentication (using credentials)
+val config = CredentialConfig(
+sipUser = "username",
+sipPassword = "password",
+sipCallerIDName = "John Doe",
+sipCallerIDNumber = "+1234567890",
+fcmToken = "push_token",  // Optional: for push notifications
+logLevel = LogLevel.DEBUG // Optional: for debugging
+)
+// 3. Connect to Telnyx service
+client.connect(config)
+// 4. Make outbound calls
+client.newInvite(
+callerName = "John Doe",
+callerNumber = "+1234567890",
+destinationNumber = "+1987654321",
+clientState = ""
+)
+// 5. Handle incoming calls
+client.acceptCall(callId, destinationNumber)
+// 6. End calls
+client.endCall(callId)</code></pre>
+Push Notification Setup:
+<pre><code class="language-kotlin">// In your FCM service
+override fun onMessageReceived(remoteMessage: RemoteMessage) {
+val pushMetadata = PushMetaData(
+callerName = remoteMessage.data["caller_name"],
+callerNumber = remoteMessage.data["caller_number"],
+callId = remoteMessage.data["call_id"],
+voiceSdkId = remoteMessage.data["voice_sdk_id"]
+)
+client.processCallFromPush(pushMetadata)
+}</code></pre>
+<div class="param"><span class="param-name">context</span>The Android application Context used for audio and network operations</div><div class="see">See also: Call For managing active call sessions</div><div class="see">See also: TelnyxConfig For authentication configuration options</div><div class="see">See also: CallState For possible call states</div><div class="see">See also: AudioDevice For audio routing options</div></p></div>
+                    <pre><code class="language-kotlin">class TelnyxClient(
+    var context: Context,
+) : TxSocketListener</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="TelnyxConfig">
+                    <h3>TelnyxConfig</h3>
+                    <div class="doc-content"><p>Configuration options for authenticating with Telnyx WebRTC services.
+The SDK supports two authentication methods:
+<ul><li>Credential-based (username/password)</li>
+<li>Token-based (JWT)</li></ul>Both methods support additional configuration for:
+<ul><li>Caller ID information</li>
+<li>Push notification tokens</li>
+<li>Custom ringtones</li>
+<li>Logging levels</li>
+<li>Auto-reconnection behavior</li></ul>Example using credentials:
+<pre><code class="language-kotlin">val config = CredentialConfig(
+sipUser = "username",
+sipPassword = "password",
+sipCallerIDName = "John Doe",
+sipCallerIDNumber = "+1234567890",
+fcmToken = "firebase_token",
+ringtone = R.raw.custom_ringtone,
+ringBackTone = R.raw.custom_ringback,
+logLevel = LogLevel.DEBUG,
+autoReconnect = true
+)</code></pre>
+Example using token:
+<pre><code class="language-kotlin">val config = TokenConfig(
+sipToken = "jwt_token",
+sipCallerIDName = "John Doe",
+sipCallerIDNumber = "+1234567890",
+fcmToken = "firebase_token",
+ringtone = Uri.parse("content://media/external/audio/media/123"),
+ringBackTone = R.raw.custom_ringback,
+logLevel = LogLevel.DEBUG
+)</code></pre>
+<div class="see">See also: CredentialConfig For username/password authentication</div><div class="see">See also: TokenConfig For JWT token authentication</div><div class="see">See also: LogLevel For available logging options</div></p></div>
+                    <pre><code class="language-kotlin">sealed class TelnyxConfig
+
+/**
+ * Configuration for username/password-based authentication with Telnyx WebRTC services.
+ *
+ * This configuration method uses SIP credentials (username and password) for authentication.
+ * It's suitable for applications that manage their own user credentials.
+ *
+ * Example with basic settings:
+ * ```kotlin
+ * val config = CredentialConfig(
+ *     sipUser = "username",
+ *     sipPassword = "password",
+ *     sipCallerIDName = "John Doe",
+ *     sipCallerIDNumber = "+1234567890"
+ * )
+ * ```
+ *
+ * Example with all options:
+ * ```kotlin
+ * val config = CredentialConfig(
+ *     sipUser = "username",
+ *     sipPassword = "password",
+ *     sipCallerIDName = "John Doe",
+ *     sipCallerIDNumber = "+1234567890",
+ *     fcmToken = "firebase_token", // For push notifications
+ *     ringtone = R.raw.custom_ring, // Custom ringtone
+ *     ringBackTone = R.raw.ringback, // Custom ringback
+ *     logLevel = LogLevel.DEBUG, // Enhanced logging
+ *     autoReconnect = true // Auto-reconnect on failure
+ * )
+ * ```
+ *
+ * @property sipUser SIP username for authentication
+ * @property sipPassword SIP password for authentication
+ * @property sipCallerIDName Display name for outbound calls
+ * @property sipCallerIDNumber Phone number for outbound calls
+ * @property fcmToken Firebase Cloud Messaging token for push notifications
+ * @property ringtone Custom ringtone (raw resource ID or Uri)
+ * @property ringBackTone Custom ringback tone (raw resource ID)
+ * @property logLevel SDK logging verbosity (default: NONE)
+ * @property autoReconnect Whether to retry failed connections (default: false)
+ *
+ * @see TelnyxConfig
+ * @see TokenConfig
+ * @see LogLevel
+ */
+data class CredentialConfig(
+    val sipUser: String,
+    val sipPassword: String,
+    val sipCallerIDName: String?,
+    val sipCallerIDNumber: String?,
+    val fcmToken: String?,
+    val ringtone: Any?,
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE,
+    val autoReconnect: Boolean = false
+) : TelnyxConfig()
+
+/**
+ * Configuration for JWT token-based authentication with Telnyx WebRTC services.
+ *
+ * This configuration method uses a JWT token for authentication instead of username/password.
+ * It's suitable for applications that use token-based authentication or want to avoid
+ * storing credentials on the device.
+ *
+ * Example with basic settings:
+ * ```kotlin
+ * val config = TokenConfig(
+ *     sipToken = "eyJhbGciOiJIUzI1...", // JWT token
+ *     sipCallerIDName = "John Doe",
+ *     sipCallerIDNumber = "+1234567890"
+ * )
+ * ```
+ *
+ * Example with all options:
+ * ```kotlin
+ * val config = TokenConfig(
+ *     sipToken = "eyJhbGciOiJIUzI1...", // JWT token
+ *     sipCallerIDName = "John Doe",
+ *     sipCallerIDNumber = "+1234567890",
+ *     fcmToken = "firebase_token", // For push notifications
+ *     ringtone = Uri.parse("content://media/ringtone.mp3"),
+ *     ringBackTone = R.raw.ringback,
+ *     logLevel = LogLevel.DEBUG,
+ *     autoReconnect = true
+ * )
+ * ```
+ *
+ * Token Requirements:
+ * The JWT token should be obtained from your backend and should include:
+ * - SIP credentials
+ * - Token expiration
+ * - Appropriate permissions
+ *
+ * @property sipToken JWT token containing SIP credentials
+ * @property sipCallerIDName Display name for outbound calls
+ * @property sipCallerIDNumber Phone number for outbound calls
+ * @property fcmToken Firebase Cloud Messaging token for push notifications
+ * @property ringtone Custom ringtone (raw resource ID or Uri)
+ * @property ringBackTone Custom ringback tone (raw resource ID)
+ * @property logLevel SDK logging verbosity (default: NONE)
+ * @property autoReconnect Whether to retry failed connections (default: true)
+ *
+ * @see TelnyxConfig
+ * @see CredentialConfig
+ * @see LogLevel
+ */
+data class TokenConfig(
+    val sipToken: String,
+    val sipCallerIDName: String?,
+    val sipCallerIDNumber: String?,
+    val fcmToken: String?,
+    val ringtone: Any?,
+    val ringBackTone: Int?,
+    val logLevel: LogLevel = LogLevel.NONE,
+    val autoReconnect: Boolean = true,
+) : TelnyxConfig()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="TxSocket">
+                    <h3>TxSocket</h3>
+                    <div class="doc-content"><p>The socket connection that will send and receive messages related to calls.
+This class will trigger the TxSocketListener methods which can be observed to make use of the application
+<div class="see">See also: TxSocketListener
+<div class="param"><span class="param-name">host_address</span>the host address for the websocket to connect to</div><div class="param"><span class="param-name">port</span>the port that the websocket connection should use</div></div></p></div>
+                    <pre><code class="language-kotlin">class TxSocket(
+    internal var host_address: String,
+    internal var port: Int
+) : CoroutineScope</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="ReceivedMessageBody">
+                    <h3>ReceivedMessageBody</h3>
+                    <div class="doc-content"><p>A data class the represents the structure of every message received via the socket connection
+<div class="param"><span class="param-name">method</span>the Telnyx Message Method - ie. INVITE, BYE, MODIFY, etc.</div><div class="param"><span class="param-name">result</span>the content of the actual message in the structure provided via [ReceivedResult]</div><div class="see">See also: ReceivedResult</div></p></div>
+                    <pre><code class="language-kotlin">data class ReceivedMessageBody(val method: String, val result: ReceivedResult?)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="ReceivedResult">
+                    <h3>ReceivedResult</h3>
+                    <div class="doc-content"><p>Class representations of responses received on the socket connection</p></div>
+                    <pre><code class="language-kotlin">sealed class ReceivedResult
+
+
+
+data class DisablePushResponse(
+    @SerializedName("message")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String
+) : ReceivedResult()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="LoginResponse">
+                    <h3>LoginResponse</h3>
+                    <div class="doc-content"><p>A login response received by the socket connection
+<div class="param"><span class="param-name">sessid</span>the session ID provided after logging in.</div></p></div>
+                    <pre><code class="language-kotlin">data class LoginResponse(
+    @SerializedName("sessid")
+    val sessid: String
+) : ReceivedResult()
+
+
+data class ByeResponse(
+    @SerializedName("sessid")
+    val callId : UUID
+) : ReceivedResult()
+
+/**
+ * A response to an invitation that the user created. Someone has answered your call.
+ *
+ * @param callId a unique UUID that represents each ongoing call.
+ * @param sdp the Session Description Protocol that is received as a part of the answer to the call.
+ */
+data class AnswerResponse(
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("sdp")
+    val sdp: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult()
+
+/**
+ * An invitation response containing the required information
+ *
+ * @param callId a unique UUID that represents each ongoing call.
+ * @param sdp the Session Description Protocol that is received as a part of the answer to the call.
+ * @param callerIdName the name of the person who sent the invitation
+ * @param callerIdNumber the number of the person who sent the invitation
+ * @param sessid the Telnyx Session ID on the socket connection.
+ */
+data class InviteResponse(
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("sdp")
+    val sdp: String,
+    @SerializedName("callerIdName")
+    val callerIdName: String,
+    @SerializedName("callerIdNumber")
+    val callerIdNumber: String,
+    @SerializedName("sessid")
+    val sessid: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult()
+
+data class RingingResponse(
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("callerIdName")
+    val callerIdName: String,
+    @SerializedName("callerIdNumber")
+    val callerIdNumber: String,
+    @SerializedName("sessid")
+    val sessid: String,
+    @SerializedName("custom_headers")
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+) : ReceivedResult()
+
+
+data class MediaResponse(
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("callerIdName")
+    val callerIdName: String,
+    @SerializedName("callerIdNumber")
+    val callerIdNumber: String,
+    @SerializedName("sessid")
+    val sessid: String
+) : ReceivedResult()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="SendingMessageBody">
+                    <h3>SendingMessageBody</h3>
+                    <div class="doc-content"><p>A data class the represents the structure of every message received via the socket connection
+<div class="param"><span class="param-name">id</span>a string ID that identifies each message that is sent</div><div class="param"><span class="param-name">method</span>the Telnyx Message Method - ie. INVITE, BYE, MODIFY, etc.</div><div class="param"><span class="param-name">params</span>the parameters that accompany each message, these are represented in [ParamRequest] and can be Login, Call, Bye or Modify related</div><div class="see">See also: ParamRequest</div></p></div>
+                    <pre><code class="language-kotlin">class SendingMessageBody(val id: String, val method: String, val params: ParamRequest, val jsonrpc: String = "2.0")</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="BasicUsage">
+                    <h3>BasicUsage</h3>
+                    <div class="doc-content"><p>Basic usage examples for the Telnyx WebRTC Android SDK.</p></div>
+                    <pre><code class="language-kotlin">class BasicUsage(
+    private val context: Context,
+    private val lifecycleOwner: LifecycleOwner
+)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="PushNotificationHandling">
+                    <h3>PushNotificationHandling</h3>
+                    <div class="doc-content"><p>Example of handling push notifications for incoming calls.</p></div>
+                    <pre><code class="language-kotlin">class PushNotificationHandling : FirebaseMessagingService()</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="AdvancedUsage">
+                    <h3>AdvancedUsage</h3>
+                    <div class="doc-content"><p>Advanced usage examples for the Telnyx WebRTC Android SDK.</p></div>
+                    <pre><code class="language-kotlin">class AdvancedUsage(
+    private val context: Context,
+    private val lifecycleOwner: LifecycleOwner
+)</code></pre>
+                </div>
+            
+        </section>
+        <section id="interfaces">
+            <h2>Interfaces</h2>
+            
+                <div class="doc-block" id="TxSocketListener">
+                    <h3>TxSocketListener</h3>
+                    <div class="doc-content"><p>TxSocket interface containing the methods that the socket connection will fire</p></div>
+                    <pre><code class="language-kotlin">interface TxSocketListener</code></pre>
+                </div>
+            
+        </section>
+        <section id="enums">
+            <h2>Enums</h2>
+            
+                <div class="doc-block" id="AudioDevice">
+                    <h3>AudioDevice</h3>
+                    <div class="doc-content"><p>Represents the available audio output devices for call audio routing.
+The SDK supports multiple audio routing options to provide flexibility in how
+call audio is played. The routing can be changed during an active call and
+the SDK will handle the transition between audio devices.
+Available Audio Routes:
+<ul><li>Phone Earpiece (Default)</li>
+<li>Built-in earpiece speaker</li>
+<li>Best for private conversations</li>
+<li>Activates proximity sensor</li>
+<li>Loudspeaker</li>
+<li>Device's main speakers</li>
+<li>Suitable for group listening</li>
+<li>Disables proximity sensor</li>
+<li>Bluetooth</li>
+<li>Connected Bluetooth headsets</li>
+<li>Automatic routing when available</li>
+<li>Supports both headsets and car systems</li></ul>Usage Examples:
+<pre><code class="language-kotlin">// 1. Toggle speaker mode
+call.onLoudSpeakerPressed()
+// 2. Check current audio route
+val isLoudSpeaker = call.getLoudSpeakerStatus()
+val isBluetoothActive = audioManager.isBluetoothScoOn
+// 3. Update UI based on audio route
+when {
+isBluetoothActive -> showBluetoothIcon()
+isLoudSpeaker -> showSpeakerIcon()
+else -> showEarpieceIcon()
+}</code></pre>
+Audio Route Selection Logic:
+<ul><li>If Bluetooth headset is connected and selected:</li>
+<li>Audio routes to Bluetooth (BLUETOOTH)</li>
+<li>If speaker mode is active:</li>
+<li>Audio routes to loudspeaker (LOUDSPEAKER)</li>
+<li>Default/fallback:</li>
+<li>Audio routes to earpiece (PHONE_EARPIECE)</li></ul><div class="param"><span class="param-name">code</span>Numerical identifier matching Android's AudioDeviceInfo constants:
+<ul><li>0: Built-in earpiece (TYPE_BUILTIN_EARPIECE)</li>
+<li>7: Bluetooth device (TYPE_BLUETOOTH_SCO)</li>
+<li>99: Loudspeaker (Custom value for speaker mode)</li></ul></div><div class="property"><span class="property-name">BLUETOOTH</span>Routes audio to a connected Bluetooth headset/car system</div><div class="property"><span class="property-name">PHONE_EARPIECE</span>Routes audio to the device's built-in earpiece speaker</div><div class="property"><span class="property-name">LOUDSPEAKER</span>Routes audio to the device's main speakers</div><div class="see">See also: Call.onLoudSpeakerPressed For toggling speaker mode</div><div class="see">See also: Call.getLoudSpeakerStatus For checking speaker status</div></p></div>
+                    <pre><code class="language-kotlin">enum class AudioDevice(var code: Int)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="CallState">
+                    <h3>CallState</h3>
+                    <div class="doc-content"><p>Represents the possible states of a call throughout its lifecycle.
+Call states indicate the current status of a call and help applications
+manage the user interface and call flow. States change in response to
+user actions, network conditions, and remote party actions.
+Normal Call Flow:
+```
+Outbound Call:
+NEW -> CONNECTING -> RINGING -> ACTIVE -> DONE
+Incoming Call:
+NEW -> RINGING -> CONNECTING -> ACTIVE -> DONE
+```
+Special State Transitions:
+```
+Call on Hold:
+ACTIVE -> HELD -> ACTIVE
+Network Issues:
+ANY_STATE -> RECOVERING -> ACTIVE
+or
+ANY_STATE -> RECOVERING -> ERROR
+Call Failure:
+ANY_STATE -> ERROR
+```
+Usage Example:
+<pre><code class="language-kotlin">call.callStateFlow.collect { state ->
+when (state) {
+CallState.NEW -> showCallStarting()
+CallState.RINGING -> playRingback()
+CallState.ACTIVE -> showCallControls()
+CallState.HELD -> showCallOnHold()
+CallState.RECOVERING -> showReconnecting()
+CallState.DONE -> cleanupCall()
+CallState.ERROR -> handleError()
+}
+}</code></pre>
+<div class="property"><span class="property-name">NEW</span>Initial state when call object is created</div><div class="property"><span class="property-name">CONNECTING</span>Establishing WebRTC connection</div><div class="property"><span class="property-name">RECOVERING</span>Attempting to restore connection after network issues</div><div class="property"><span class="property-name">RINGING</span>Call invitation pending (outbound: playing ringback, inbound: playing ringtone)</div><div class="property"><span class="property-name">ACTIVE</span>Call connected with active audio</div><div class="property"><span class="property-name">HELD</span>Call paused (no audio transmission)</div><div class="property"><span class="property-name">DONE</span>Call ended normally</div><div class="property"><span class="property-name">ERROR</span>Call failed (see error details in logs)</div><div class="see">See also: Call For call control methods</div><div class="see">See also: TelnyxClient For call creation</div></p></div>
+                    <pre><code class="language-kotlin">enum class CallState</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="CauseCode">
+                    <h3>CauseCode</h3>
+                    <div class="doc-content"><p>Enum class to represent the different Cause Codes that are received when an invitation is refused
+with a given [code]
+<div class="param"><span class="param-name">code</span>is the numerical representation of the cause, eg. 17 -> USER_BUSY</div><div class="property"><span class="property-name">USER_BUSY</span>This cause is used to indicate that the called party is unable to accept another call because the user busy condition has been encountered.</div><div class="property"><span class="property-name">NORMAL_CLEARING</span>This cause indicates that the call is being cleared because one of the users involved in the call has requested that the call be cleared. Under normal situations, the source of this cause is not the network.</div><div class="property"><span class="property-name">INVALID_GATEWAY</span>This cause indicates that there is an issue with the gateway in use, likely due to an invalid configuration</div><div class="property"><span class="property-name">ORIGINATOR_CANCEL</span>This cause indicates that the user initiating the call cancelled it before it was answered</div></p></div>
+                    <pre><code class="language-kotlin">enum class CauseCode(var code: Int)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="GatewayState">
+                    <h3>GatewayState</h3>
+                    <div class="doc-content"><p>Enum class to represent the different Gateway States that are received when a login attempt is made
+with a given [state]
+<div class="param"><span class="param-name">state</span>is the string value representation of the state.</div></p></div>
+                    <pre><code class="language-kotlin">enum class GatewayState(var state: String)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="LogLevel">
+                    <h3>LogLevel</h3>
+                    <div class="doc-content"><p>Controls the verbosity and filtering of SDK logging output.
+The SDK uses a hierarchical logging system based on Timber, where each level includes
+messages from higher priority levels. This allows for granular control over log output
+for different environments (development, testing, production).
+Log Level Hierarchy:
+```
+Highest Priority
+▼ ERROR (6)   - Critical errors, exceptions
+▼ WARNING (5) - Important warnings
+▼ INFO (4)    - General operation info
+▼ DEBUG (3)   - Detailed debugging
+Lowest Priority
+Special Levels:
+<ul><li>NONE (8)    - No logging (default)</li>
+<li>VERTO (9)   - WebSocket messages only</li>
+<li>ALL (null)  - All log types</li></ul>```
+Usage Examples:
+<pre><code class="language-kotlin">// 1. Basic configuration
+val config = CredentialConfig(
+// ... other options ...
+logLevel = LogLevel.ERROR  // Errors only
+)
+// 2. Development configuration
+val devConfig = CredentialConfig(
+// ... other options ...
+logLevel = LogLevel.DEBUG  // Full debugging
+)
+// 3. Production configuration
+val prodConfig = CredentialConfig(
+// ... other options ...
+logLevel = LogLevel.NONE   // Logging disabled
+)
+// 4. WebSocket debugging
+val debugConfig = CredentialConfig(
+// ... other options ...
+logLevel = LogLevel.VERTO  // WebSocket messages only
+)</code></pre>
+Log Level Contents:
+<ul><li>ERROR</li>
+<li>Connection failures</li>
+<li>Authentication errors</li>
+<li>Call setup failures</li>
+<li>WebRTC errors</li>
+<li>WARNING</li>
+<li>Network quality issues</li>
+<li>Audio device problems</li>
+<li>Non-critical timeouts</li>
+<li>INFO</li>
+<li>Call state changes</li>
+<li>Audio device changes</li>
+<li>Connection status</li>
+<li>DEBUG</li>
+<li>WebRTC statistics</li>
+<li>Detailed call setup</li>
+<li>Network conditions</li>
+<li>VERTO</li>
+<li>Raw WebSocket messages</li>
+<li>SIP signaling</li></ul><div class="param"><span class="param-name">priority</span>Integer priority value matching Android's Log constants</div><div class="property"><span class="property-name">NONE</span>Disables all SDK logging (recommended for production)</div><div class="property"><span class="property-name">ERROR</span>Logs critical errors and exceptions only</div><div class="property"><span class="property-name">WARNING</span>Logs warnings and higher priority messages</div><div class="property"><span class="property-name">DEBUG</span>Logs detailed debugging information</div><div class="property"><span class="property-name">INFO</span>Logs general operational information</div><div class="property"><span class="property-name">VERTO</span>Logs WebSocket protocol messages</div><div class="property"><span class="property-name">ALL</span>Enables all types of logging (most verbose)</div><div class="see">See also: TelnyxLoggingTree For implementation details</div><div class="see">See also: TelnyxConfig For configuration usage</div></p></div>
+                    <pre><code class="language-kotlin">enum class LogLevel(var priority: Int?)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="SocketError">
+                    <h3>SocketError</h3>
+                    <div class="doc-content"><p>Enum class to detail the error responses that the socket connection can receive
+with the given [errorCode]
+<div class="param"><span class="param-name">errorCode</span>is the Telnyx error code representation of the method, eg. Token_Error -> -32000</div><div class="property"><span class="property-name">TOKEN_ERROR</span>there was an issue with a token - either invalid or expired</div><div class="property"><span class="property-name">CREDENTIAL_ERROR</span>there was an issue with the credentials used - likely invalid.</div></p></div>
+                    <pre><code class="language-kotlin">enum class SocketError(var errorCode: Int)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="SocketMethod">
+                    <h3>SocketMethod</h3>
+                    <div class="doc-content"><p>Enum class to detail the Method property of the response from the Telnyx WEBRTC client.
+with the given [methodName]
+<div class="param"><span class="param-name">methodName</span>is the Telnyx representation of the method, eg. telnyx_rtc.answer -> ANSWER</div><div class="property"><span class="property-name">ANSWER</span>the call has been answered by the destination</div><div class="property"><span class="property-name">INVITE</span>send/receive an invitation that can then be answered or rejected</div><div class="property"><span class="property-name">BYE</span>a user has ended the call</div><div class="property"><span class="property-name">MODIFY</span>a modifier that allows the user to hold the call, etc</div><div class="property"><span class="property-name">MEDIA</span>received media from destination, such as a dialtone</div><div class="property"><span class="property-name">MEDIA</span>send information to the destination such as DTMF</div><div class="property"><span class="property-name">LOGIN</span>the response to a login request.</div></p></div>
+                    <pre><code class="language-kotlin">enum class SocketMethod(var methodName: String)</code></pre>
+                </div>
+            
+
+                <div class="doc-block" id="SocketStatus">
+                    <h3>SocketStatus</h3>
+                    <div class="doc-content"><p>Enum class to detail Socket Status messages
+<div class="property"><span class="property-name">ESTABLISHED</span>a connection to the socket has been established</div><div class="property"><span class="property-name">MESSAGERECEIVED</span>the socket has received a message</div><div class="property"><span class="property-name">ERROR</span>the socket has encountered an error</div><div class="property"><span class="property-name">LOADING</span>the socket is loading a connection</div><div class="property"><span class="property-name">DISCONNECT</span>when the socket is disconnect</div></p></div>
+                    <pre><code class="language-kotlin">enum class SocketStatus</code></pre>
+                </div>
+            
+        </section>
+    </div>
+</body>
+</html>
