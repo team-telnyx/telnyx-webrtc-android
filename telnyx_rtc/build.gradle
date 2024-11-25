@@ -67,14 +67,7 @@ publishing {
     }
 }
 
-dokkaHtml {
-    outputDirectory.set(file("../docs"))
-}
-
 android {
-
-
-
     compileSdk 34
 
     defaultConfig {
@@ -131,6 +124,15 @@ android {
     lintOptions {
         abortOnError false
         absolutePaths false
+    }
+}
+
+dokkaHtml {
+    outputDirectory.set(file("../docs"))
+    dokkaSourceSets {
+        main {
+            includes.from("Module.md")
+        }
     }
 }
 
