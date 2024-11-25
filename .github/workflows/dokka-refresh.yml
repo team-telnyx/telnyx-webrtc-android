@@ -1,0 +1,43 @@
+name: API reference refresh on Push
+
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  dokka:
+    name: Generate API documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: gradle
+          
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        
+      - name: Generate documentation with Dokka
+        run: ./gradlew :telnyx_rtc:dokkaHtml
+        
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dokka-documentation
+          path: docs
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs
+          enable_jekyll: false
+          force_orphan: true
+          commit_message: "docs: update API documentation"
