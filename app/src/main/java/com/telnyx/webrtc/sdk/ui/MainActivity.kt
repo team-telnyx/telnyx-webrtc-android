@@ -646,6 +646,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
+        Timber.d("Current call state: ${mainViewModel.currentCall?.getCallState()?.value}")
         if (mainViewModel.currentCall?.getCallState()?.value == CallState.ACTIVE) {
             onReceiveActiveCallView(callId, callerIdNumber)
             return
@@ -701,6 +702,9 @@ class MainActivity : AppCompatActivity() {
             }
             incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
                 onRejectActiveCall(callId)
+            }
+            incomingActiveCallSectionId.holdAndAccept.setOnClickListener {
+                
             }
         }
 
