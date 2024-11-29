@@ -350,6 +350,7 @@ class MainActivity : AppCompatActivity() {
                             callInstanceFragment?.let {
                                 supportFragmentManager.beginTransaction().remove(it).commit()
                             }
+                            mainViewModel.onByeReceived(callId)
                         }
                     }
                 }
@@ -646,7 +647,6 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
-        Timber.d("Current call state: ${mainViewModel.currentCall?.getCallState()?.value}")
         if (mainViewModel.currentCall?.getCallState()?.value == CallState.ACTIVE) {
             onReceiveActiveCallView(callId, callerIdNumber)
             return
@@ -694,7 +694,6 @@ class MainActivity : AppCompatActivity() {
                     isActiveBye = true
                     it.endCall(it.callId)
                 }.also {
-                    mainViewModel.setCurrentCall(callId)
                     onAcceptCall(callId, callerIdNumber)
                 }
 
@@ -704,7 +703,11 @@ class MainActivity : AppCompatActivity() {
                 onRejectActiveCall(callId)
             }
             incomingActiveCallSectionId.holdAndAccept.setOnClickListener {
-                
+                mainViewModel.currentCall?.let {
+                    mainViewModel.onHoldUnholdPressed(it.callId)
+                }.also {
+                    onAcceptCall(callId, callerIdNumber)
+                }
             }
         }
 
