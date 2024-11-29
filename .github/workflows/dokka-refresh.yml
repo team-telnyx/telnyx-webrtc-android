@@ -1,0 +1,25 @@
+name: API reference refresh on Push
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  dokka:
+    name: Generate API documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3.0.2
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v3.5.0
+        with:
+          java-version: '11'
+          distribution: 'zulu'
+          
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        
+      - name: Generate documentation with Dokka
+        run: ./gradlew dokkaHtml
