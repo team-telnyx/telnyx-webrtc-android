@@ -60,7 +60,7 @@ jobs:
 
       - name: Create new branch name for docs
         run: |
-          BRANCH_NAME="docs/update-$(date +'%Y%m%d%H%M%S')"
+          BRANCH_NAME="update/docs-$(date +'%Y%m%d%H%M%S')"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Create Pull Request using GitHub Actions bot
