@@ -49,9 +49,7 @@ internal class Peer(
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
-        private const val CANDIDATE_LIMIT : Int = 5
-        private const val STATS_INTERVAL : Long = 2000L
-        private const val STATS_INITIAL : Long = 0L
+
     }
 
     private val rootEglBase: EglBase = EglBase.create()
@@ -88,7 +86,7 @@ internal class Peer(
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private var peerConnection: PeerConnection? = null
+    internal var peerConnection: PeerConnection? = null
 
     /**
      * Initiates our peer connection factory with the specified options
@@ -157,72 +155,7 @@ internal class Peer(
         peerConnection?.addTrack(localAudioTrack)
     }
 
-    var gson: Gson = GsonBuilder().setPrettyPrinting().create()
-    private val timer = Timer()
-    var mainObject: JsonObject = JsonObject()
-    var audio: JsonObject = JsonObject()
-    var statsData: JsonObject = JsonObject()
-    var inBoundStats: JsonArray = JsonArray()
-    var outBoundStats: JsonArray = JsonArray()
-    var candidateParis: JsonArray = JsonArray()
 
-    internal fun stopTimer() {
-        client.stopStats(debugStatsId)
-        debugStatsId = null
-        mainObject = JsonObject()
-        timer.cancel()
-    }
-
-    internal fun startTimer() {
-        isDebugStats = true
-        if (!client.debugReportStarted){
-            debugStatsId = UUID.randomUUID()
-            client.startStats(debugStatsId)
-        }
-        timer.schedule(object : TimerTask() {
-            override fun run() {
-                mainObject.addProperty("event", "stats")
-                mainObject.addProperty("tag", "stats")
-                mainObject.addProperty("peerId", "stats")
-                mainObject.addProperty("connectionId", callId)
-                peerConnection?.getStats {
-                    it.statsMap.forEach { (key, value) ->
-                        if (value.type == "inbound-rtp") {
-                            val jsonInbound = gson.toJsonTree(value)
-                            inBoundStats.add(jsonInbound)
-                        }
-                        if (value.type == "outbound-rtp") {
-                            val jsonOutbound = gson.toJsonTree(value)
-                            outBoundStats.add(jsonOutbound)
-                        }
-                        if (value.type == "candidate-pair" && candidateParis.size() < CANDIDATE_LIMIT) {
-                            val jsonCandidatePair = gson.toJsonTree(value)
-                            candidateParis.add(jsonCandidatePair)
-                        }
-
-                    }
-                }
-                audio.add("inbound", inBoundStats)
-                audio.add("outbound", outBoundStats)
-                audio.add("candidatePair", candidateParis)
-                statsData.add("audio", audio)
-                mainObject.add("data", statsData)
-                mainObject.addProperty("timestamp", System.currentTimeMillis())
-                if (inBoundStats.size() > 0 && outBoundStats.size() > 0 && candidateParis.size() > 0) {
-                    inBoundStats = JsonArray()
-                    outBoundStats = JsonArray()
-                    candidateParis = JsonArray()
-                    statsData = JsonObject()
-                    audio = JsonObject()
-                    Timber.tag("Stats Inbound").d("Inbound: ${mainObject.toString()}")
-                    if (debugStatsId != null){
-                        client.sendStats(mainObject, debugStatsId)
-                    }
-                }
-
-            }
-        }, STATS_INITIAL, STATS_INTERVAL)
-    }
 
 
     /**
@@ -373,6 +306,15 @@ internal class Peer(
     }
 
     /**
+     * Returns the current remote SDP
+     * @return [SessionDescription]
+     */
+    fun getRemoteDescription(): SessionDescription? {
+        return peerConnection?.remoteDescription
+    }
+
+
+    /**
      * Closes and disposes of current [PeerConnection]
      */
     fun disconnect() {
@@ -387,7 +329,7 @@ internal class Peer(
             peerConnectionFactory.dispose()
         }
         if (isDebugStats){
-            stopTimer()
+            //stopTimer()
         }
     }
 

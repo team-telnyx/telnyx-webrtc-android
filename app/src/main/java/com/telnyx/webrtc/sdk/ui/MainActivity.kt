@@ -696,8 +696,6 @@ class MainActivity : AppCompatActivity() {
                     mainViewModel.setCurrentCall(callId)
                     onAcceptCall(callId, callerIdNumber)
                 }
-
-
             }
             incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
                 onRejectActiveCall(callId)

@@ -86,7 +86,7 @@ data class Call(
     fun startDebug() {
         Timber.d("Peer connection debug started")
 
-        peerConnection?.startTimer()
+      //  peerConnection?.startTimer()
     }
 
     internal fun updateCallState(value: CallState) {
@@ -96,7 +96,7 @@ data class Call(
 
     fun stopDebug() {
         Timber.d("Peer connection debug stopped")
-        peerConnection?.stopTimer()
+       // peerConnection?.stopTimer()
     }
 
 

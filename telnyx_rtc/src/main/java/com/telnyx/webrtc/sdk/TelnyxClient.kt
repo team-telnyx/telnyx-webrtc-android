@@ -23,6 +23,7 @@ import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
@@ -44,6 +45,8 @@ import kotlin.concurrent.timerTask
 class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
+
+    internal var webRTCReporter: WebRTCReporter? = null
 
     enum class RingtoneType {
         RAW,
@@ -219,10 +222,12 @@ class TelnyxClient(
             callId = inviteCallId
             val call = this
 
+
+
             // Create new peer
             peerConnection = Peer(
                 context, client, providedTurn, providedStun, callId.toString(),
-                object : PeerConnectionObserver() {
+                object : PeerConnectionObserver(webRTCReporter!!) {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
                         Timber.d("Event-IceCandidate Generated")
@@ -235,6 +240,9 @@ class TelnyxClient(
                     }
                 }
             )
+
+            webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
+
 
             peerConnection?.startLocalAudioCapture()
             peerConnection?.createOfferForSdp(AppSdpObserver())
@@ -841,38 +849,7 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
-    internal fun startStats(sessionId: UUID) {
-        debugReportStarted = true
-        val loginMessage = InitiateOrStopStatPrams(
-            type = "debug_report_start",
-            debugReportId = sessionId.toString(),
-        )
-        socket.send(loginMessage)
-    }
 
-    /**
-     * Sends Logged webrtc stats to backend
-     *
-     * @param config, the TokenConfig used to log in
-     * @see [TokenConfig]
-     */
-    internal fun sendStats(data: JsonObject, sessionId: UUID) {
-
-        val loginMessage = StatPrams(
-            debugReportId = sessionId.toString(),
-            reportData = data
-        )
-        socket.send(loginMessage)
-
-    }
-
-    internal fun stopStats(sessionId: UUID) {
-        debugReportStarted = false
-        val loginMessage = InitiateOrStopStatPrams(
-            debugReportId = sessionId.toString(),
-        )
-        socket.send(loginMessage)
-    }
 
     /**
      * Sets the global SDK log level
@@ -1420,12 +1397,14 @@ class TelnyxClient(
                 callId = offerCallId
                 val call = this
 
+
+
                 //retrieve custom headers
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
                 peerConnection = Peer(
                     context, client, providedTurn, providedStun, offerCallId.toString(),
-                    object : PeerConnectionObserver() {
+                    object : PeerConnectionObserver(webRTCReporter!!) {
                         override fun onIceCandidate(p0: IceCandidate?) {
                             super.onIceCandidate(p0)
                             Timber.d("Event-IceCandidate Generated")
@@ -1443,6 +1422,7 @@ class TelnyxClient(
                         }
                     }
                 )
+                webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
 
                 peerConnection?.startLocalAudioCapture()
 
@@ -1589,9 +1569,10 @@ class TelnyxClient(
             // Set global callID
             callId = offerCallId
 
+
             peerConnection = Peer(
                 context, client, providedTurn, providedStun, offerCallId.toString(),
-                object : PeerConnectionObserver() {
+                object : PeerConnectionObserver(webRTCReporter!!) {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
                         Timber.d("Event-IceCandidate Generated")
@@ -1609,6 +1590,7 @@ class TelnyxClient(
                     }
                 }
             )
+            webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
 
             peerConnection?.startLocalAudioCapture()
 

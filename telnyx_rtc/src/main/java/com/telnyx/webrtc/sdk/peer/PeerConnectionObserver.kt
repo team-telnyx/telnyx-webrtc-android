@@ -4,6 +4,9 @@
 
 package com.telnyx.webrtc.sdk.peer
 
+import com.telnyx.webrtc.sdk.stats.StatsData
+import com.telnyx.webrtc.sdk.stats.PeerStatsType
+import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
@@ -14,9 +17,10 @@ import timber.log.Timber
 /**
  * Class that represents and implements the WEBRTC events including ICE, Track, Stream an Signal change events.
  */
-open class PeerConnectionObserver : PeerConnection.Observer {
+internal open class PeerConnectionObserver(private val statsManager: WebRTCReporter) : PeerConnection.Observer {
     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
         Timber.tag("PeerObserver").d("onSignalingChange [%s]", "$p0")
+        statsManager.statsDataFlow.value = StatsData.PeerEvent(PeerStatsType.SIGNALING_CHANGE,"$p0")
     }
 
     override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
@@ -33,6 +37,7 @@ open class PeerConnectionObserver : PeerConnection.Observer {
 
     override fun onIceCandidate(p0: IceCandidate?) {
         Timber.tag("PeerObserver").d("onIceCandidate Generated [%s]", "$p0")
+        statsManager.statsDataFlow.value = StatsData.PeerEvent(PeerStatsType.ON_ICE_CANDIDATE,p0)
     }
 
     override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
@@ -57,5 +62,6 @@ open class PeerConnectionObserver : PeerConnection.Observer {
 
     override fun onAddTrack(p0: RtpReceiver?, p1: Array<out MediaStream>?) {
         Timber.tag("PeerObserver").d("onAddTrack [%s] [%s]", "$p0", "$p1")
+        statsManager.statsDataFlow.value = StatsData.PeerEvent(PeerStatsType.ON_ADD_TRACK,p1)
     }
 }
