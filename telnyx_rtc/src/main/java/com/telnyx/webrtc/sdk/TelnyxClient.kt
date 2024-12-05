@@ -91,7 +91,7 @@ class TelnyxClient(
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
 
-    internal var debugReportStarted = false
+    private var isDebug = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -226,22 +226,12 @@ class TelnyxClient(
 
             // Create new peer
             peerConnection = Peer(
-                context, client, providedTurn, providedStun, callId.toString(),
-                object : PeerConnectionObserver(webRTCReporter!!) {
-                    override fun onIceCandidate(p0: IceCandidate?) {
-                        super.onIceCandidate(p0)
-                        Timber.d("Event-IceCandidate Generated")
-                        if (call.callStateFlow.value != CallState.ACTIVE) {
-                            peerConnection?.let { connection ->
-                                connection.addIceCandidate(p0)
-                                Timber.d("Event-IceCandidate Added")
-                            }
-                        }
-                    }
+                context, client, providedTurn, providedStun, callId).also {
+                if (isDebug) {
+                    webRTCReporter = WebRTCReporter(socket,callId.toString(),it)
+                    webRTCReporter?.startStats(callId)
                 }
-            )
-
-            webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
+            }
 
 
             peerConnection?.startLocalAudioCapture()
@@ -704,6 +694,8 @@ class TelnyxClient(
 
         credentialSessionConfig = config
 
+        isDebug = config.debug
+
         setSDKLogLevel(logLevel)
 
         config.ringtone?.let {
@@ -822,6 +814,8 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
+
+        isDebug = config.debug
 
         setSDKLogLevel(logLevel)
 
@@ -1403,26 +1397,12 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
                 peerConnection = Peer(
-                    context, client, providedTurn, providedStun, offerCallId.toString(),
-                    object : PeerConnectionObserver(webRTCReporter!!) {
-                        override fun onIceCandidate(p0: IceCandidate?) {
-                            super.onIceCandidate(p0)
-                            Timber.d("Event-IceCandidate Generated")
-                            if (calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                                peerConnection?.let { connection ->
-                                    connection.addIceCandidate(p0)
-                                    Timber.d("Event-IceCandidate Added")
-                                }
-                            }
-                        }
-
-                        override fun onRenegotiationNeeded() {
-                            super.onRenegotiationNeeded()
-                            Timber.d("Renegotiation Needed")
+                    context, client, providedTurn, providedStun, offerCallId).also {
+                        if (isDebug) {
+                            webRTCReporter = WebRTCReporter(socket, callId.toString(), it)
+                            webRTCReporter?.startStats(callId)
                         }
                     }
-                )
-                webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
 
                 peerConnection?.startLocalAudioCapture()
 
@@ -1571,26 +1551,12 @@ class TelnyxClient(
 
 
             peerConnection = Peer(
-                context, client, providedTurn, providedStun, offerCallId.toString(),
-                object : PeerConnectionObserver(webRTCReporter!!) {
-                    override fun onIceCandidate(p0: IceCandidate?) {
-                        super.onIceCandidate(p0)
-                        Timber.d("Event-IceCandidate Generated")
-                        if (calls[callId]?.callStateFlow?.value != CallState.ACTIVE) {
-                            peerConnection?.let { connection ->
-                                connection.addIceCandidate(p0)
-                                Timber.d("Event-IceCandidate Added")
-                            }
-                        }
-                    }
-
-                    override fun onRenegotiationNeeded() {
-                        super.onRenegotiationNeeded()
-                        Timber.d("Renegotiation Needed")
+                context, client, providedTurn, providedStun, offerCallId).also {
+                    if (isDebug) {
+                        webRTCReporter = WebRTCReporter(socket, callId.toString(), it)
+                        webRTCReporter?.startStats(callId)
                     }
                 }
-            )
-            webRTCReporter = WebRTCReporter(socket,callId.toString(),peerConnection!!)
 
             peerConnection?.startLocalAudioCapture()
 

@@ -6,6 +6,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.peer.Peer
+import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.verto.send.InitiateOrStopStatPrams
 import com.telnyx.webrtc.sdk.verto.send.StatPrams
@@ -73,6 +74,7 @@ internal class WebRTCReporter(val socket: TxSocket, val connectionId: String, va
             debugReportId = sessionId.toString(),
         )
         socket.send(loginMessage)
+        peer.peerConnectionObserver = PeerConnectionObserver(this)
     }
 
     /**

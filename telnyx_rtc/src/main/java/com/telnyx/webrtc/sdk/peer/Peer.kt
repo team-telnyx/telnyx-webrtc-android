@@ -14,14 +14,17 @@ import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
+import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
@@ -34,16 +37,13 @@ import java.util.*
  * Peer class that represents a peer connection which is required to initiate a call.
  *
  * @param context the Context of the application
- * @param client the TelnyxClient instance in use.
- * @param observer the [PeerConnection.Observer] which observes the the Peer Connection events including ICE candidate or Stream changes, etc.
  */
 internal class Peer(
     context: Context,
     val client: TelnyxClient,
     private val providedTurn: String = DEFAULT_TURN,
     private val providedStun: String = DEFAULT_STUN,
-    private val callId: String = "",
-    observer: PeerConnection.Observer
+    private val callId: UUID
 ) {
 
     companion object {
@@ -88,6 +88,55 @@ internal class Peer(
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     internal var peerConnection: PeerConnection? = null
 
+    internal var peerConnectionObserver: PeerConnectionObserver? = null
+
+    private val observer = object : PeerConnection.Observer {
+        override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+            peerConnectionObserver?.onSignalingChange(p0)
+        }
+
+        override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+            peerConnectionObserver?.onIceConnectionChange(p0)
+        }
+
+        override fun onIceConnectionReceivingChange(p0: Boolean) {
+            peerConnectionObserver?.onIceConnectionReceivingChange(p0)
+        }
+
+        override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
+            peerConnectionObserver?.onIceGatheringChange(p0)
+        }
+
+        override fun onIceCandidate(p0: IceCandidate?) {
+            Timber.d("Event-IceCandidate Generated")
+            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                addIceCandidate(p0)
+                Timber.d("Event-IceCandidate Added")
+            }
+            peerConnectionObserver?.onIceCandidate(p0)
+        }
+
+        override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+            peerConnectionObserver?.onIceCandidatesRemoved(p0)
+        }
+
+        override fun onAddStream(p0: MediaStream?) {
+            peerConnectionObserver?.onAddStream(p0)
+        }
+
+        override fun onRemoveStream(p0: MediaStream?) {
+            peerConnectionObserver?.onRemoveStream(p0)
+        }
+
+        override fun onDataChannel(p0: DataChannel?) {
+            peerConnectionObserver?.onDataChannel(p0)
+        }
+
+        override fun onRenegotiationNeeded() {
+            peerConnectionObserver?.onRenegotiationNeeded()
+        }
+    }
+
     /**
      * Initiates our peer connection factory with the specified options
      * @param context the context
@@ -128,10 +177,9 @@ internal class Peer(
 
     /**
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
-     * @param observer, the [PeerConnection.Observer]
      * @see [getIceServers]
      */
-    private fun buildPeerConnection(observer: PeerConnection.Observer) =
+    private fun buildPeerConnection() =
         peerConnectionFactory.createPeerConnection(
             iceServer,
             observer
@@ -335,6 +383,6 @@ internal class Peer(
 
     init {
         initPeerConnectionFactory(context)
-        peerConnection = buildPeerConnection(observer)
+        peerConnection = buildPeerConnection()
     }
 }

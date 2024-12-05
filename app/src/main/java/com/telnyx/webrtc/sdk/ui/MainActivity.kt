@@ -36,6 +36,7 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.sdk.App
+import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
@@ -222,7 +223,8 @@ class MainActivity : AppCompatActivity() {
                 userManager.fcmToken,
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
                 R.raw.ringback_tone,
-                LogLevel.ALL
+                LogLevel.ALL,
+                debug = BuildConfig.IS_STATS_DEBUG_MODE
             )
             credentialConfig = loginConfig
         } else {
@@ -240,7 +242,8 @@ class MainActivity : AppCompatActivity() {
                             fcmToken,
                             ringtone,
                             ringBackTone,
-                            LogLevel.ALL
+                            LogLevel.ALL,
+                            debug = BuildConfig.IS_STATS_DEBUG_MODE
                         )
                         tokenConfig = loginConfig
                     }
@@ -259,7 +262,8 @@ class MainActivity : AppCompatActivity() {
                             fcmToken,
                             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
                             ringBackTone,
-                            LogLevel.ALL
+                            LogLevel.ALL,
+                            debug = BuildConfig.IS_STATS_DEBUG_MODE
                         )
                         credentialConfig = loginConfig
                     }
@@ -272,7 +276,7 @@ class MainActivity : AppCompatActivity() {
             mainViewModel.initConnection(
                 applicationContext,
                 null,
-                credentialConfig = credentialConfig!!,
+                credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
                 txPushMetaData
             )
