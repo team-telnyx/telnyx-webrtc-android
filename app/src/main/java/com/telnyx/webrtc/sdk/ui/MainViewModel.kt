@@ -149,7 +149,7 @@ class MainViewModel @Inject constructor(
             if (currentCall != null) {
                 telnyxClient?.endCall(currentCall?.callId!!)
             }
-            //dev note - do we need it???
+            //ToDo(Rad): do we need this
             currentCall?.endCall(currentCall?.callId!!)
         }
 
