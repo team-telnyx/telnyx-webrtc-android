@@ -20,7 +20,6 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
-import org.slf4j.Logger
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -33,8 +32,7 @@ class MainViewModel @Inject constructor(
     private var telnyxClient: TelnyxClient? = null
 
     var currentCall: Call? = null
-    private var previousCall: Call? = null
-
+    private val holdedCalls = mutableSetOf<Call>()
     private var calls: Map<UUID, Call> = mapOf()
 
     fun initConnection(
@@ -98,8 +96,11 @@ class MainViewModel @Inject constructor(
         calls = telnyxClient?.getActiveCalls()!!
         Log.e("setCall Previous", currentCall?.callId.toString())
         Log.e("setCall Current", callId.toString())
+        
         if (calls.size > 1) {
-            previousCall = currentCall
+            currentCall?.let {
+                holdedCalls.add(it)
+            }
         }
         currentCall = calls[callId]!!
     }
@@ -148,15 +149,29 @@ class MainViewModel @Inject constructor(
             if (currentCall != null) {
                 telnyxClient?.endCall(currentCall?.callId!!)
             }
+            //ToDo(Rad): do we need this
             currentCall?.endCall(currentCall?.callId!!)
         }
-        previousCall?.let {
+
+        holdedCalls.lastOrNull()?.let {
             currentCall = it
+
+            if (currentCall?.getIsOnHoldStatus()?.value == true)
+                onHoldUnholdPressed(currentCall?.callId!!)
+
+            holdedCalls.remove(it)
         }
     }
 
     fun onHoldUnholdPressed(callId: UUID) {
         currentCall?.onHoldUnholdPressed(callId)
+        currentCall?.let {
+            if (it.getIsOnHoldStatus().value == true)
+                holdedCalls.add(it)
+
+            if (it.getIsOnHoldStatus().value == false)
+                holdedCalls.remove(it)
+        }
     }
 
     fun onMuteUnmutePressed() {
@@ -180,5 +195,12 @@ class MainViewModel @Inject constructor(
 
     fun changeAudioOutput(audioDevice: AudioDevice) {
         telnyxClient?.setAudioOutputDevice(audioDevice)
+    }
+
+    fun onByeReceived(callId: UUID) {
+        Timber.d("onByeReceived $callId")
+        holdedCalls.firstOrNull { it.callId == callId }?.let {
+            holdedCalls.remove(it)
+        }
     }
 }

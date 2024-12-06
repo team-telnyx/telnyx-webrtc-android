@@ -350,6 +350,7 @@ class MainActivity : AppCompatActivity() {
                             callInstanceFragment?.let {
                                 supportFragmentManager.beginTransaction().remove(it).commit()
                             }
+                            mainViewModel.onByeReceived(callId)
                         }
                     }
                 }
@@ -693,7 +694,6 @@ class MainActivity : AppCompatActivity() {
                     isActiveBye = true
                     it.endCall(it.callId)
                 }.also {
-                    mainViewModel.setCurrentCall(callId)
                     onAcceptCall(callId, callerIdNumber)
                 }
 
@@ -701,6 +701,13 @@ class MainActivity : AppCompatActivity() {
             }
             incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
                 onRejectActiveCall(callId)
+            }
+            incomingActiveCallSectionId.holdAndAccept.setOnClickListener {
+                mainViewModel.currentCall?.let {
+                    mainViewModel.onHoldUnholdPressed(it.callId)
+                }.also {
+                    onAcceptCall(callId, callerIdNumber)
+                }
             }
         }
 
