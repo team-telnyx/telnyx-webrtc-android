@@ -10,17 +10,28 @@ import java.util.*
 data class StatsEvent(
     val event: String,
     val tag: String,
+    val peerId: String,
     val connectionId:String,
-    val data: JsonObject,
-    val timestamp: String =  getIso8601Timestamp()
+    val data: JsonObject? = null,
+    val timestamp: String =  getIso8601Timestamp(),
+    val dataString: String? = null,
+    val statsData: JsonObject? = null
     ) {
     fun toJson(): JsonObject {
         val json = JsonObject()
-        json.addProperty("timestamp", timestamp)
         json.addProperty("event", event)
-        json.addProperty("connectionId", connectionId)
         json.addProperty("tag", tag)
-        json.add("data", data)
+        json.addProperty("peerId", peerId)
+        json.addProperty("connectionId", connectionId)
+        dataString?.let {
+            json.addProperty("data", dataString)
+        } ?: run {
+            json.add("data", data)
+        }
+        statsData?.let {
+            json.add("statsObject", it)
+        }
+        json.addProperty("timestamp", timestamp)
         return json
     }
 }

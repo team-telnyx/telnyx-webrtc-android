@@ -225,13 +225,12 @@ class TelnyxClient(
 
 
             // Create new peer
-            peerConnection = Peer(
-                context, client, providedTurn, providedStun, callId).also {
-                if (isDebug) {
-                    webRTCReporter = WebRTCReporter(socket,callId.toString(),it)
-                    webRTCReporter?.startStats(callId)
+            peerConnection = Peer(context, client, providedTurn, providedStun, callId).also {
+                    if (isDebug) {
+                        webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                        webRTCReporter?.startStats()
+                    }
                 }
-            }
 
 
             peerConnection?.startLocalAudioCapture()
@@ -302,6 +301,10 @@ class TelnyxClient(
                 )
             )
             updateCallState(CallState.DONE)
+
+            if (isDebug)
+                webRTCReporter?.stopStats(callId)
+
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -1229,6 +1232,10 @@ class TelnyxClient(
             )
 
             updateCallState(CallState.DONE)
+
+            if (isDebug)
+                webRTCReporter?.stopStats(callId)
+
             client.removeFromCalls(callId)
             client.callNotOngoing()
             resetCallOptions()
@@ -1396,13 +1403,12 @@ class TelnyxClient(
                 //retrieve custom headers
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
-                peerConnection = Peer(
-                    context, client, providedTurn, providedStun, offerCallId).also {
-                        if (isDebug) {
-                            webRTCReporter = WebRTCReporter(socket, callId.toString(), it)
-                            webRTCReporter?.startStats(callId)
+                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+                            if (isDebug) {
+                                webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                                webRTCReporter?.startStats()
+                            }
                         }
-                    }
 
                 peerConnection?.startLocalAudioCapture()
 
@@ -1550,13 +1556,12 @@ class TelnyxClient(
             callId = offerCallId
 
 
-            peerConnection = Peer(
-                context, client, providedTurn, providedStun, offerCallId).also {
-                    if (isDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId.toString(), it)
-                        webRTCReporter?.startStats(callId)
+            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+                        if (isDebug) {
+                            webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                            webRTCReporter?.startStats()
+                        }
                     }
-                }
 
             peerConnection?.startLocalAudioCapture()
 

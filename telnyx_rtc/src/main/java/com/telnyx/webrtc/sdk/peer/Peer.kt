@@ -58,7 +58,7 @@ internal class Peer(
     internal var debugStatsId = UUID.randomUUID()
 
 
-    private val iceServer = getIceServers()
+    val iceServer = getIceServers()
 
     /**
      * Retrieves the IceServers built with the provided STUN and TURN servers
