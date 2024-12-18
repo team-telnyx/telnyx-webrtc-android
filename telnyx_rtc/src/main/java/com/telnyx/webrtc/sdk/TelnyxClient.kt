@@ -566,14 +566,14 @@ class TelnyxClient(
 
 
     /**
-     * Connects to the socket using this client as the listener
+     * Connects to the socket by credential and using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
-     *
+     * @param credentialConfig, represents a SIP user for login - credential based
      * @param autoLogin, if true, the SDK will automatically log in with
      * the provided credentials on connection established
      * We recommend setting this to true
@@ -623,6 +623,20 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Connects to the socket by token and using this client as the listener
+     * Will respond with 'No Network Connection' if there is no network available
+     * @see [TxSocket]
+     * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
+     * @param txPushMetaData, the push metadata used to connect to a call from push
+     * (Get this from push notification - fcm data payload)
+     * required fot push calls to work
+     * @param tokenConfig, represents a SIP user for login - token based
+     * @param autoLogin, if true, the SDK will automatically log in with
+     * the provided credentials on connection established
+     * We recommend setting this to true
+     *
+     */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         tokenConfig: TokenConfig,
