@@ -46,7 +46,6 @@ data class Call(
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400L
         const val ICE_CANDIDATE_PERIOD: Long = 400L
-        const val ICE_CANDIDATE_ANSWER_DELAY: Long = 0L
     }
 
     internal var peerConnection: Peer? = null
