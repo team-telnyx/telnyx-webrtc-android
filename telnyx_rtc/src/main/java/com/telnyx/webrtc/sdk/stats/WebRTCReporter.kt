@@ -263,6 +263,8 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                             }
                             else -> {
                                 val dataMap = value.members.apply {
+                                    this["id"] = value.id
+                                    this["timestamp"] = value.timestampUs / 1000.0
                                     this["type"] = value.type
                                 }
 
