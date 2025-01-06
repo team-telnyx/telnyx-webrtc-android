@@ -110,7 +110,7 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
-    private val iceCandidateTimer = Timer()
+    private var iceCandidateTimer:Timer? = null
 
     internal var debugReportStarted = false
 
@@ -205,7 +205,8 @@ class TelnyxClient(
             if (sessionDescriptionString == null) {
                 updateCallState(CallState.ERROR)
             } else {
-                iceCandidateTimer.schedule(
+                iceCandidateTimer = Timer()
+                iceCandidateTimer?.schedule(
                     timerTask {
                         if (iceCandidateList.size > 0) {
                             // set localInfo and ice candidate and able to create correct offer
@@ -302,7 +303,8 @@ class TelnyxClient(
             peerConnection?.startLocalAudioCapture()
             peerConnection?.createOfferForSdp(AppSdpObserver())
 
-            iceCandidateTimer.schedule(
+            iceCandidateTimer = Timer()
+            iceCandidateTimer?.schedule(
                 timerTask {
                     if (iceCandidateList.size > 0) {
                         // set localInfo and ice candidate and able to create correct offer
@@ -339,7 +341,7 @@ class TelnyxClient(
     }
 
     private fun resetIceCandidateTimer() {
-        iceCandidateTimer.cancel()
+        iceCandidateTimer?.cancel()
         iceCandidateList.clear()
     }
 
