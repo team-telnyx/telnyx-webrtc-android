@@ -47,7 +47,7 @@ class TelnyxClient(
 
     /**
      * Enum class that defines the type of ringtone resource.
-     * 
+     *
      * @property RAW The ringtone is a raw resource in the app
      * @property URI The ringtone is referenced by a URI
      */
@@ -61,7 +61,7 @@ class TelnyxClient(
     * */
     /**
      * Enum class that defines the current audio output mode.
-     * 
+     *
      * @property SPEAKER Audio output through the device's loudspeaker
      * @property EARPIECE Audio output through the device's earpiece
      * @property UNASSIGNED No specific audio output mode assigned
@@ -78,16 +78,20 @@ class TelnyxClient(
     companion object {
         /** Number of times to retry registration */
         const val RETRY_REGISTER_TIME = 3
+
         /** Number of times to retry connection */
         const val RETRY_CONNECT_TIME = 3
+
         /** Delay in milliseconds before gateway response timeout */
         const val GATEWAY_RESPONSE_DELAY: Long = 3000
+
         /** Delay in milliseconds before attempting to reconnect */
         const val RECONNECT_DELAY: Long = 1000
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
+    private val iceCandidateList: MutableList<String> = mutableListOf()
 
     private var reconnecting = false
 
@@ -106,6 +110,7 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
+    private var iceCandidateTimer:Timer? = null
 
     internal var debugReportStarted = false
 
@@ -136,9 +141,10 @@ class TelnyxClient(
 
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
+
     /**
      * Processes an incoming call notification from a push message.
-     * 
+     *
      * @param metaData The push notification metadata containing call information
      */
     private fun processCallFromPush(metaData: PushMetaData) {
@@ -199,23 +205,36 @@ class TelnyxClient(
             if (sessionDescriptionString == null) {
                 updateCallState(CallState.ERROR)
             } else {
-                val answerBodyMessage = SendingMessageBody(
-                    uuid, SocketMethod.ANSWER.methodName,
-                    CallParams(
-                        sessid = sessionId,
-                        sdp = sessionDescriptionString,
-                        dialogParams = CallDialogParams(
-                            callId = callId,
-                            destinationNumber = destinationNumber,
-                            customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
-                        )
-                    )
+                iceCandidateTimer = Timer()
+                iceCandidateTimer?.schedule(
+                    timerTask {
+                        if (iceCandidateList.size > 0) {
+                            // set localInfo and ice candidate and able to create correct offer
+                            val answerBodyMessage = SendingMessageBody(
+                                uuid, SocketMethod.ANSWER.methodName,
+                                CallParams(
+                                    sessid = sessionId,
+                                    sdp = sessionDescriptionString,
+                                    dialogParams = CallDialogParams(
+                                        callId = callId,
+                                        destinationNumber = destinationNumber,
+                                        customHeaders = customHeaders?.toCustomHeaders()
+                                            ?: arrayListOf()
+                                    )
+                                )
+                            )
+                            updateCallState(CallState.ACTIVE)
+                            socket.send(answerBodyMessage)
+                            resetIceCandidateTimer()
+                        } else {
+                            Timber.d("Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                        }
+                    },
+                    Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
                 )
-                updateCallState(CallState.ACTIVE)
-                socket.send(answerBodyMessage)
                 client.stopMediaPlayer()
                 // reset audio mode to communication
-                speakerState.let { setSpeakerMode(it) }
+                setSpeakerMode(speakerState)
 
                 // callStateLiveData.value = CallState.ACTIVE
                 client.callOngoing()
@@ -223,9 +242,6 @@ class TelnyxClient(
         }
 
         this.addToCalls(acceptCall)
-        Timber.d("Event-Check Active ${calls[callId]?.callStateFlow?.value}")
-        Timber.d("Event-Check2 Active ${ calls[callId]?.getCallState()?.value}")
-
         return acceptCall
     }
 
@@ -267,53 +283,68 @@ class TelnyxClient(
                 object : PeerConnectionObserver() {
                     override fun onIceCandidate(p0: IceCandidate?) {
                         super.onIceCandidate(p0)
-                        Timber.d("Event-IceCandidate Generated")
+                        Timber.d("Event-IceCandidate Generated ")
+                        p0?.let {
+                            if (!it.serverUrl.isNullOrEmpty()) { // Host has empty serverUrl
+                                iceCandidateList.add(it.serverUrl)
+                            }
+                        }
                         if (call.callStateFlow.value != CallState.ACTIVE) {
                             peerConnection?.let { connection ->
                                 connection.addIceCandidate(p0)
-                                Timber.d("Event-IceCandidate Added")
+                                Timber.d("Event-IceCandidate Added ${p0}")
                             }
                         }
                     }
                 }
             )
 
+
             peerConnection?.startLocalAudioCapture()
             peerConnection?.createOfferForSdp(AppSdpObserver())
 
-            val iceCandidateTimer = Timer()
-            iceCandidateTimer.schedule(
+            iceCandidateTimer = Timer()
+            iceCandidateTimer?.schedule(
                 timerTask {
-                    // set localInfo and ice candidate and able to create correct offer
-                    val inviteMessageBody = SendingMessageBody(
-                        id = uuid,
-                        method = SocketMethod.INVITE.methodName,
-                        params = CallParams(
-                            sessid = sessionId,
-                            sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                            dialogParams = CallDialogParams(
-                                callerIdName = callerName,
-                                callerIdNumber = callerNumber,
-                                clientState = clientState.encodeBase64(),
-                                callId = inviteCallId,
-                                destinationNumber = destinationNumber,
-                                customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                    if (iceCandidateList.size > 0) {
+                        // set localInfo and ice candidate and able to create correct offer
+                        val inviteMessageBody = SendingMessageBody(
+                            id = uuid,
+                            method = SocketMethod.INVITE.methodName,
+                            params = CallParams(
+                                sessid = sessionId,
+                                sdp = peerConnection?.getLocalDescription()?.description.toString(),
+                                dialogParams = CallDialogParams(
+                                    callerIdName = callerName,
+                                    callerIdNumber = callerNumber,
+                                    clientState = clientState.encodeBase64(),
+                                    callId = inviteCallId,
+                                    destinationNumber = destinationNumber,
+                                    customHeaders = customHeaders?.toCustomHeaders()
+                                        ?: arrayListOf()
+                                )
                             )
                         )
-                    )
-                    socket.send(inviteMessageBody)
+                        socket.send(inviteMessageBody)
+                        resetIceCandidateTimer()
+                    } else {
+                        Timber.d("Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                    }
                 },
-                Call.ICE_CANDIDATE_DELAY
+                Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
             )
-
             client.callOngoing()
             client.playRingBackTone()
         }
         this.addToCalls(inviteCall)
-
         return inviteCall
-
     }
+
+    private fun resetIceCandidateTimer() {
+        iceCandidateTimer?.cancel()
+        iceCandidateList.clear()
+    }
+
 
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
@@ -361,6 +392,7 @@ class TelnyxClient(
             answerResponse = null
             inviteResponse = null
         }
+        resetIceCandidateTimer()
     }
 
     /**
@@ -401,9 +433,9 @@ class TelnyxClient(
             reconnecting = true
 
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
-                if(!ConnectivityHelper.isNetworkEnabled(context)){
+                if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
-                }else {
+                } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
                     reconnecting = false
@@ -448,8 +480,13 @@ class TelnyxClient(
             }
 
 
-            if (voiceSDKID != null){
-                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
             }
 
             // Connect to new socket
@@ -521,12 +558,14 @@ class TelnyxClient(
      * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
-     * required fot push calls to work
+     * required for push calls to work
      *
      */
-    @Deprecated("this telnyxclient.connect is deprecated." +
-            " Use telnyxclient.connect(providedServerConfig,txPushMetaData," +
-            "credential or tokenLogin) instead.")
+    @Deprecated(
+        "this telnyxclient.connect is deprecated." +
+                " Use telnyxclient.connect(providedServerConfig,txPushMetaData," +
+                "credential or tokenLogin) instead."
+    )
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String? = null,
@@ -610,8 +649,13 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null){
-                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
             }
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
                 if (autoLogin) {
@@ -668,8 +712,13 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Timber.d("Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null){
-                pushMetaData = PushMetaData(callerName = "", callerNumber = "", callId = "", voiceSdkId = voiceSDKID)
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
             }
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
                 if (autoLogin) {
@@ -875,8 +924,10 @@ class TelnyxClient(
      * @param config, the TokenConfig used to log in
      * @see [TokenConfig]
      */
-    @Deprecated("telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) " +
-            "with autoLogin set to true instead.")
+    @Deprecated(
+        "telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) " +
+                "with autoLogin set to true instead."
+    )
     fun tokenLogin(config: TokenConfig) {
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
@@ -1234,7 +1285,6 @@ class TelnyxClient(
             }
 
 
-
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
@@ -1245,7 +1295,7 @@ class TelnyxClient(
                 socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
             }
 
-            (GatewayState.FAIL_WAIT.state),(GatewayState.DOWN.state) -> {
+            (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Timber.d(
@@ -1336,7 +1386,7 @@ class TelnyxClient(
             peerConnection?.release()
             byeCall.endCall(callId)
         }
-
+        resetIceCandidateTimer()
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
@@ -1478,7 +1528,7 @@ class TelnyxClient(
                 if (voiceSdkID != null) {
                     Timber.d("Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
-                }else {
+                } else {
                     Timber.e("No Voice SDK ID")
                 }
 
@@ -1501,6 +1551,11 @@ class TelnyxClient(
                             super.onIceCandidate(p0)
                             Timber.d("Event-IceCandidate Generated")
                             if (calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                                p0?.let {
+                                    if (!it.serverUrl.isNullOrEmpty()) { // Host has empty serverUrl
+                                        iceCandidateList.add(it.serverUrl)
+                                    }
+                                }
                                 peerConnection?.let { connection ->
                                     connection.addIceCandidate(p0)
                                     Timber.d("Event-IceCandidate Added")
@@ -1648,11 +1703,11 @@ class TelnyxClient(
             if (voiceSdkID != null) {
                 Timber.d("Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
-            }else {
+            } else {
                 Timber.e("No Voice SDK ID")
             }
 
-           // val callerName = params.get("caller_id_name").asString
+            // val callerName = params.get("caller_id_name").asString
             val callerNumber = params.get("caller_id_number").asString
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
