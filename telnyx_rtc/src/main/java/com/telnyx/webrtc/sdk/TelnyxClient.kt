@@ -303,7 +303,7 @@ class TelnyxClient(
             updateCallState(CallState.DONE)
 
             if (isDebug)
-                webRTCReporter?.stopStats(callId)
+                webRTCReporter?.stopStats()
 
             client.removeFromCalls(callId)
             client.callNotOngoing()
@@ -1234,7 +1234,7 @@ class TelnyxClient(
             updateCallState(CallState.DONE)
 
             if (isDebug)
-                webRTCReporter?.stopStats(callId)
+                webRTCReporter?.stopStats()
 
             client.removeFromCalls(callId)
             client.callNotOngoing()
