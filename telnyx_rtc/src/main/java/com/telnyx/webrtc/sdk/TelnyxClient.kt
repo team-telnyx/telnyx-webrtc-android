@@ -48,6 +48,12 @@ class TelnyxClient(
 
     internal var webRTCReporter: WebRTCReporter? = null
 
+    /**
+     * Enum class that defines the type of ringtone resource.
+     * 
+     * @property RAW The ringtone is a raw resource in the app
+     * @property URI The ringtone is referenced by a URI
+     */
     enum class RingtoneType {
         RAW,
         URI
@@ -56,18 +62,31 @@ class TelnyxClient(
     /*
     * Add Later: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
     * */
+    /**
+     * Enum class that defines the current audio output mode.
+     * 
+     * @property SPEAKER Audio output through the device's loudspeaker
+     * @property EARPIECE Audio output through the device's earpiece
+     * @property UNASSIGNED No specific audio output mode assigned
+     */
     enum class SpeakerMode {
         SPEAKER,
         EARPIECE,
         UNASSIGNED
     }
 
+    /**
+     * Companion object containing constant values used throughout the client.
+     */
     companion object {
+        /** Number of times to retry registration */
         const val RETRY_REGISTER_TIME = 3
+        /** Number of times to retry connection */
         const val RETRY_CONNECT_TIME = 3
+        /** Delay in milliseconds before gateway response timeout */
         const val GATEWAY_RESPONSE_DELAY: Long = 3000
+        /** Delay in milliseconds before attempting to reconnect */
         const val RECONNECT_DELAY: Long = 1000
-
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -120,6 +139,11 @@ class TelnyxClient(
 
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
+    /**
+     * Processes an incoming call notification from a push message.
+     * 
+     * @param metaData The push notification metadata containing call information
+     */
     private fun processCallFromPush(metaData: PushMetaData) {
         Log.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
@@ -157,6 +181,14 @@ class TelnyxClient(
     * @param destinationNumber, the number or SIP name that will receive the invitation
     * @see [Call]
     */
+    /**
+     * Accepts an incoming call invitation.
+     *
+     * @param callId The unique identifier of the incoming call
+     * @param destinationNumber The phone number or SIP address that received the call
+     * @param customHeaders Optional custom SIP headers to include in the response
+     * @return The [Call] instance representing the accepted call
+     */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
@@ -200,6 +232,16 @@ class TelnyxClient(
         return acceptCall
     }
 
+    /**
+     * Creates a new outgoing call invitation.
+     *
+     * @param callerName The name of the caller to display
+     * @param callerNumber The phone number of the caller
+     * @param destinationNumber The phone number or SIP address to call
+     * @param clientState Additional state information to pass with the call
+     * @param customHeaders Optional custom SIP headers to include with the call
+     * @return A new [Call] instance representing the outgoing call
+     */
     fun newInvite(
         callerName: String,
         callerNumber: String,
@@ -274,6 +316,11 @@ class TelnyxClient(
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
      * @param callId, the callId provided with the invitation
      * @see [Call]
+     */
+    /**
+     * Ends an active call.
+     *
+     * @param callId The unique identifier of the call to end
      */
     fun endCall(callId: UUID) {
         val endCall = calls[callId]
@@ -446,6 +493,11 @@ class TelnyxClient(
      * Return the saved ringtone reference
      * @returns [Int]
      */
+    /**
+     * Gets the currently configured ringtone resource.
+     *
+     * @return The ringtone resource reference, or null if none is set
+     */
     fun getRawRingtone(): Any? {
         return rawRingtone
     }
@@ -453,6 +505,11 @@ class TelnyxClient(
     /**
      * Return the saved ringback tone reference
      * @returns [Int]
+     */
+    /**
+     * Gets the currently configured ringback tone resource.
+     *
+     * @return The ringback tone resource reference, or null if none is set
      */
     fun getRawRingbackTone(): Int? {
         return rawRingbackTone
@@ -510,14 +567,14 @@ class TelnyxClient(
 
 
     /**
-     * Connects to the socket using this client as the listener
+     * Connects to the socket by credential and using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
      * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
      * required fot push calls to work
-     *
+     * @param credentialConfig, represents a SIP user for login - credential based
      * @param autoLogin, if true, the SDK will automatically log in with
      * the provided credentials on connection established
      * We recommend setting this to true
@@ -567,6 +624,20 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Connects to the socket by token and using this client as the listener
+     * Will respond with 'No Network Connection' if there is no network available
+     * @see [TxSocket]
+     * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
+     * @param txPushMetaData, the push metadata used to connect to a call from push
+     * (Get this from push notification - fcm data payload)
+     * required fot push calls to work
+     * @param tokenConfig, represents a SIP user for login - token based
+     * @param autoLogin, if true, the SDK will automatically log in with
+     * the provided credentials on connection established
+     * We recommend setting this to true
+     *
+     */
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         tokenConfig: TokenConfig,

@@ -103,6 +103,9 @@ interface TxSocketListener {
      */
     fun setCallRecovering()
 
+    /**
+     * Fires when a ping message is received from the server, requiring a pong response
+     */
     fun pingPong()
     /**
      * Fires when the socket has disconnected

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Call</title>
+    <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async="async"></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+</head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+                    <a class="library-name--link" href="../../../index.html">
+                            telnyx_rtc
+                    </a>
+            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":telnyx_rtc:dokkaHtml/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageIds="telnyx_rtc::com.telnyx.webrtc.sdk/Call///PointingToDeclaration//-606012762">
+  <div class="breadcrumbs"><a href="../../../index.html">telnyx_rtc</a><span class="delimiter">/</span><a href="../index.html">com.telnyx.webrtc.sdk</a><span class="delimiter">/</span><span class="current">Call</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Call</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="index.html">Call</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>client<span class="token operator">: </span><a href="../-telnyx-client/index.html">TelnyxClient</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">var </span>socket<span class="token operator">: </span><a href="../../com.telnyx.webrtc.sdk.socket/-tx-socket/index.html">TxSocket</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>sessionId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>audioManager<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/media/AudioManager.html">AudioManager</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>providedTurn<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>Config.DEFAULT_TURN<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>providedStun<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>Config.DEFAULT_STUN</span></span><span class="token punctuation">)</span></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-1500244509%2FConstructors%2F-606012762" anchor-label="Call" id="-1500244509%2FConstructors%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-call.html"><span><span>Call</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1500244509%2FConstructors%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">client<span class="token operator">: </span><a href="../-telnyx-client/index.html">TelnyxClient</a><span class="token punctuation">, </span></span><span class="parameter ">socket<span class="token operator">: </span><a href="../../com.telnyx.webrtc.sdk.socket/-tx-socket/index.html">TxSocket</a><span class="token punctuation">, </span></span><span class="parameter ">sessionId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">audioManager<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/media/AudioManager.html">AudioManager</a><span class="token punctuation">, </span></span><span class="parameter ">providedTurn<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>Config.DEFAULT_TURN<span class="token punctuation">, </span></span><span class="parameter ">providedStun<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator"> = </span>Config.DEFAULT_STUN</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="1741034158%2FClasslikes%2F-606012762" anchor-label="Companion" id="1741034158%2FClasslikes%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-companion/index.html"><span><span>Companion</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1741034158%2FClasslikes%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">object </span><a href="-companion/index.html">Companion</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-366790892%2FProperties%2F-606012762" anchor-label="answerResponse" id="-366790892%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="answer-response.html"><span>answer</span><wbr></wbr><span><span>Response</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-366790892%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">var </span><a href="answer-response.html">answerResponse</a><span class="token operator">: </span><a href="../../com.telnyx.webrtc.sdk.verto.receive/-answer-response/index.html">AnswerResponse</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-181013828%2FProperties%2F-606012762" anchor-label="audioManager" id="-181013828%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="audio-manager.html"><span>audio</span><wbr></wbr><span><span>Manager</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-181013828%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="audio-manager.html">audioManager</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/media/AudioManager.html">AudioManager</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-643223462%2FProperties%2F-606012762" anchor-label="callId" id="-643223462%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="call-id.html"><span>call</span><wbr></wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-643223462%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">lateinit </span><span class="token keyword">var </span><a href="call-id.html">callId</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1185371418%2FProperties%2F-606012762" anchor-label="callStateFlow" id="-1185371418%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="call-state-flow.html"><span>call</span><wbr></wbr><span>State</span><wbr></wbr><span><span>Flow</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1185371418%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="call-state-flow.html">callStateFlow</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/StateFlow///PointingToDeclaration/">StateFlow</span><span class="token operator">&lt;</span><a href="../../com.telnyx.webrtc.sdk.model/-call-state/index.html">CallState</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="901401832%2FProperties%2F-606012762" anchor-label="client" id="901401832%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="client.html"><span><span>client</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="901401832%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="client.html">client</a><span class="token operator">: </span><a href="../-telnyx-client/index.html">TelnyxClient</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-59317992%2FProperties%2F-606012762" anchor-label="context" id="-59317992%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="context.html"><span><span>context</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-59317992%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="context.html">context</a><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-37511895%2FProperties%2F-606012762" anchor-label="inviteResponse" id="-37511895%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="invite-response.html"><span>invite</span><wbr></wbr><span><span>Response</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-37511895%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">var </span><a href="invite-response.html">inviteResponse</a><span class="token operator">: </span><a href="../../com.telnyx.webrtc.sdk.verto.receive/-invite-response/index.html">InviteResponse</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1632715574%2FProperties%2F-606012762" anchor-label="providedStun" id="1632715574%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="provided-stun.html"><span>provided</span><wbr></wbr><span><span>Stun</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1632715574%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="provided-stun.html">providedStun</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-813761325%2FProperties%2F-606012762" anchor-label="providedTurn" id="-813761325%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="provided-turn.html"><span>provided</span><wbr></wbr><span><span>Turn</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-813761325%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="provided-turn.html">providedTurn</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1211371574%2FProperties%2F-606012762" anchor-label="sessionId" id="1211371574%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="session-id.html"><span>session</span><wbr></wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1211371574%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="session-id.html">sessionId</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="796528192%2FProperties%2F-606012762" anchor-label="socket" id="796528192%2FProperties%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="socket.html"><span><span>socket</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="796528192%2FProperties%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">var </span><a href="socket.html">socket</a><span class="token operator">: </span><a href="../../com.telnyx.webrtc.sdk.socket/-tx-socket/index.html">TxSocket</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-596963653%2FFunctions%2F-606012762" anchor-label="acceptCall" id="-596963653%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="accept-call.html"><span>accept</span><wbr></wbr><span><span>Call</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-596963653%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="accept-call.html"><span class="token function">acceptCall</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">callId<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a><span class="token punctuation">, </span></span><span class="parameter ">destinationNumber<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">customHeaders<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-map/index.html">Map</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Accepts an incoming call Local user response with both local and remote SDPs</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-486622988%2FFunctions%2F-606012762" anchor-label="dtmf" id="-486622988%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="dtmf.html"><span><span>dtmf</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-486622988%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="dtmf.html"><span class="token function">dtmf</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">callId<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a><span class="token punctuation">, </span></span><span class="parameter ">tone<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Sends Dual-Tone Multi-Frequency tones down the current peer connection.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1903770035%2FFunctions%2F-606012762" anchor-label="endCall" id="1903770035%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="end-call.html"><span>end</span><wbr></wbr><span><span>Call</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1903770035%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="end-call.html"><span class="token function">endCall</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">callId<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Ends an ongoing call with a provided callID, the unique UUID belonging to each call</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1583693226%2FFunctions%2F-606012762" anchor-label="getCallState" id="-1583693226%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-call-state.html"><span>get</span><wbr></wbr><span>Call</span><wbr></wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1583693226%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-call-state.html"><span class="token function"><strike>getCallState</strike></span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/LiveData.html">LiveData</a><span class="token operator">&lt;</span><a href="../../com.telnyx.webrtc.sdk.model/-call-state/index.html">CallState</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns call state live data</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1656895900%2FFunctions%2F-606012762" anchor-label="getIsMuteStatus" id="1656895900%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-is-mute-status.html"><span>get</span><wbr></wbr><span>Is</span><wbr></wbr><span>Mute</span><wbr></wbr><span><span>Status</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1656895900%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-is-mute-status.html"><span class="token function">getIsMuteStatus</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/LiveData.html">LiveData</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns mute state live data</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-510089897%2FFunctions%2F-606012762" anchor-label="getIsOnHoldStatus" id="-510089897%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-is-on-hold-status.html"><span>get</span><wbr></wbr><span>Is</span><wbr></wbr><span>On</span><wbr></wbr><span>Hold</span><wbr></wbr><span><span>Status</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-510089897%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-is-on-hold-status.html"><span class="token function">getIsOnHoldStatus</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/LiveData.html">LiveData</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns hold state live data</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2041233005%2FFunctions%2F-606012762" anchor-label="getIsOnLoudSpeakerStatus" id="-2041233005%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-is-on-loud-speaker-status.html"><span>get</span><wbr></wbr><span>Is</span><wbr></wbr><span>On</span><wbr></wbr><span>Loud</span><wbr></wbr><span>Speaker</span><wbr></wbr><span><span>Status</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2041233005%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-is-on-loud-speaker-status.html"><span class="token function">getIsOnLoudSpeakerStatus</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/LiveData.html">LiveData</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Returns loudspeaker state live data</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="148519434%2FFunctions%2F-606012762" anchor-label="getLoudSpeakerStatus" id="148519434%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-loud-speaker-status.html"><span>get</span><wbr></wbr><span>Loud</span><wbr></wbr><span>Speaker</span><wbr></wbr><span><span>Status</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="148519434%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-loud-speaker-status.html"><span class="token function">getLoudSpeakerStatus</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="271263698%2FFunctions%2F-606012762" anchor-label="getTelnyxLegId" id="271263698%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-telnyx-leg-id.html"><span>get</span><wbr></wbr><span>Telnyx</span><wbr></wbr><span>Leg</span><wbr></wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="271263698%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-telnyx-leg-id.html"><span class="token function">getTelnyxLegId</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Returns the TelnyxSessionId set as a response from an invite or ringing socket call</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-400940214%2FFunctions%2F-606012762" anchor-label="getTelnyxSessionId" id="-400940214%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-telnyx-session-id.html"><span>get</span><wbr></wbr><span>Telnyx</span><wbr></wbr><span>Session</span><wbr></wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-400940214%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="get-telnyx-session-id.html"><span class="token function">getTelnyxSessionId</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Returns the TelnyxSessionId set as a response from an invite or ringing socket call</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1506617021%2FFunctions%2F-606012762" anchor-label="newInvite" id="1506617021%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="new-invite.html"><span>new</span><wbr></wbr><span><span>Invite</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1506617021%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="new-invite.html"><span class="token function">newInvite</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">callerName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">callerNumber<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">destinationNumber<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">clientState<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">customHeaders<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-map/index.html">Map</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Initiates a new call invitation</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-818175584%2FFunctions%2F-606012762" anchor-label="onHoldUnholdPressed" id="-818175584%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-hold-unhold-pressed.html"><span>on</span><wbr></wbr><span>Hold</span><wbr></wbr><span>Unhold</span><wbr></wbr><span><span>Pressed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-818175584%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-hold-unhold-pressed.html"><span class="token function">onHoldUnholdPressed</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">callId<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/UUID.html">UUID</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Either places a call on hold, or unholds a call based on the current <span data-unresolved-link="com.telnyx.webrtc.sdk/Call/holdLiveData/#/PointingToDeclaration/">holdLiveData</span> value</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="385915647%2FFunctions%2F-606012762" anchor-label="onLoudSpeakerPressed" id="385915647%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-loud-speaker-pressed.html"><span>on</span><wbr></wbr><span>Loud</span><wbr></wbr><span>Speaker</span><wbr></wbr><span><span>Pressed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="385915647%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-loud-speaker-pressed.html"><span class="token function">onLoudSpeakerPressed</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Either enables or disables the <a href="https://developer.android.com/reference/kotlin/android/media/AudioManager.html">AudioManager</a> loudspeaker mode based on the current <span data-unresolved-link="com.telnyx.webrtc.sdk/Call/loudSpeakerLiveData/#/PointingToDeclaration/">loudSpeakerLiveData</span> value</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1001602545%2FFunctions%2F-606012762" anchor-label="onMuteUnmutePressed" id="-1001602545%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-mute-unmute-pressed.html"><span>on</span><wbr></wbr><span>Mute</span><wbr></wbr><span>Unmute</span><wbr></wbr><span><span>Pressed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1001602545%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-mute-unmute-pressed.html"><span class="token function">onMuteUnmutePressed</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Either mutes or unmutes the <a href="https://developer.android.com/reference/kotlin/android/media/AudioManager.html">AudioManager</a> based on the current <span data-unresolved-link="com.telnyx.webrtc.sdk/Call/muteLiveData/#/PointingToDeclaration/">muteLiveData</span> value</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1671519447%2FFunctions%2F-606012762" anchor-label="setCallRecovering" id="-1671519447%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-call-recovering.html"><span>set</span><wbr></wbr><span>Call</span><wbr></wbr><span><span>Recovering</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1671519447%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="set-call-recovering.html"><span class="token function">setCallRecovering</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-520695454%2FFunctions%2F-606012762" anchor-label="startDebug" id="-520695454%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="start-debug.html"><span>start</span><wbr></wbr><span><span>Debug</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-520695454%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="start-debug.html"><span class="token function">startDebug</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="670532374%2FFunctions%2F-606012762" anchor-label="stopDebug" id="670532374%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stop-debug.html"><span>stop</span><wbr></wbr><span><span>Debug</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="670532374%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="stop-debug.html"><span class="token function">stopDebug</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1608996678%2FFunctions%2F-606012762" anchor-label="toCustomHeaders" id="-1608996678%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="to-custom-headers.html"><span>to</span><wbr></wbr><span>Custom</span><wbr></wbr><span><span>Headers</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1608996678%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">fun </span><span data-unresolved-link="com.google.gson/JsonArray///PointingToDeclaration/">JsonArray</span><span class="token punctuation">.</span><a href="to-custom-headers.html"><span class="token function">toCustomHeaders</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/ArrayList.html">ArrayList</a><span class="token operator">&lt;</span><a href="../-custom-headers/index.html">CustomHeaders</a><span class="token operator">&gt;</span></div><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-map/index.html">Map</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="to-custom-headers.html"><span class="token function">toCustomHeaders</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/java/util/ArrayList.html">ArrayList</a><span class="token operator">&lt;</span><a href="../-custom-headers/index.html">CustomHeaders</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
