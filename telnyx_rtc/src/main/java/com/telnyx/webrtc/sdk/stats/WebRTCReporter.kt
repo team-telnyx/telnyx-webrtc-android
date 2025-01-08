@@ -380,11 +380,6 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
             add("rtcpMuxPolicy", gson.toJsonTree("require"))
         }
         val data = JsonObject().apply {
-            /*put("candidate", iceCandidate.toString())
-            put("sdpMLineIndex", iceCandidate.sdpMLineIndex.toString())
-            put("sdpMid", iceCandidate.sdpMid)
-            // TODO check if the usernameFragment is the right value android iceCandidate does not have it
-            put("usernameFragment", iceCandidate.serverUrl)*/
             add("options", gson.toJsonTree(options))
             add("peerConfiguration", gson.toJsonTree(peerConfiguration))
         }
