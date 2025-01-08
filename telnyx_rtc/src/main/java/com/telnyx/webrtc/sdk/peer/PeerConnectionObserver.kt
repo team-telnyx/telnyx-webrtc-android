@@ -18,7 +18,7 @@ import timber.log.Timber
  * Class that represents and implements the WEBRTC events including ICE, Track, Stream an Signal change events.
  */
 
-open class PeerConnectionObserver(private val statsManager: WebRTCReporter) : PeerConnection.Observer {
+internal open class PeerConnectionObserver(private val statsManager: WebRTCReporter) : PeerConnection.Observer {
 
     /**
      * Called when the signaling state of the PeerConnection changes.
