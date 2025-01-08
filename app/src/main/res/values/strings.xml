@@ -16,8 +16,9 @@
     <string name="reject">Reject</string>
     <string name="answer">Answer</string>
     <string name="incoming_call">Incoming Call</string>
-    <string name="end_and_accept">And and Accept</string>
+    <string name="end_and_accept">End and Accept</string>
     <string name="reject_incoming">Reject Incoming</string>
+    <string name="hold_and_accept">Hold and Accept</string>
 
     <string name="end">End</string>
 

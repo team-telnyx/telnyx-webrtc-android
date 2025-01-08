@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>PeerConnectionObserver</title>
+    <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async="async"></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+</head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+                    <a class="library-name--link" href="../../../index.html">
+                            telnyx_rtc
+                    </a>
+            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":telnyx_rtc:dokkaHtml/release">androidJvm</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageIds="telnyx_rtc::com.telnyx.webrtc.sdk.peer/PeerConnectionObserver///PointingToDeclaration//-606012762">
+  <div class="breadcrumbs"><a href="../../../index.html">telnyx_rtc</a><span class="delimiter">/</span><a href="../index.html">com.telnyx.webrtc.sdk.peer</a><span class="delimiter">/</span><span class="current">PeerConnectionObserver</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Peer</span><wbr></wbr><span>Connection</span><wbr></wbr><span><span>Observer</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">class </span><a href="index.html">PeerConnectionObserver</a> : <span data-unresolved-link="org.webrtc/PeerConnection.Observer///PointingToDeclaration/">PeerConnection.Observer</span></div><p class="paragraph">Class that represents and implements the WEBRTC events including ICE, Track, Stream an Signal change events.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-1966641067%2FConstructors%2F-606012762" anchor-label="PeerConnectionObserver" id="-1966641067%2FConstructors%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-peer-connection-observer.html"><span>Peer</span><wbr></wbr><span>Connection</span><wbr></wbr><span><span>Observer</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1966641067%2FConstructors%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-492209469%2FFunctions%2F-606012762" anchor-label="onAddStream" id="-492209469%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-add-stream.html"><span>on</span><wbr></wbr><span>Add</span><wbr></wbr><span><span>Stream</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-492209469%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-add-stream.html"><span class="token function">onAddStream</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/MediaStream///PointingToDeclaration/">MediaStream</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when a new media stream has been added to the connection.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1765789268%2FFunctions%2F-606012762" anchor-label="onAddTrack" id="-1765789268%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-add-track.html"><span>on</span><wbr></wbr><span>Add</span><wbr></wbr><span><span>Track</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1765789268%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-add-track.html"><span class="token function">onAddTrack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/RtpReceiver///PointingToDeclaration/">RtpReceiver</span><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">p1<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-array/index.html">Array</a><span class="token operator">&lt;</span><span class="token keyword">out </span><span data-unresolved-link="org.webrtc/MediaStream///PointingToDeclaration/">MediaStream</span><span class="token operator">&gt;</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when a new track has been added to the connection.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1672532517%2FFunctions%2F-606012762" anchor-label="onConnectionChange" id="-1672532517%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#-1672532517%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span>Connection</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1672532517%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#-1672532517%2FFunctions%2F-606012762"><span class="token function">onConnectionChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/PeerConnection.PeerConnectionState///PointingToDeclaration/">PeerConnection.PeerConnectionState</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1306126320%2FFunctions%2F-606012762" anchor-label="onDataChannel" id="1306126320%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-data-channel.html"><span>on</span><wbr></wbr><span>Data</span><wbr></wbr><span><span>Channel</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1306126320%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-data-channel.html"><span class="token function">onDataChannel</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/DataChannel///PointingToDeclaration/">DataChannel</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when a new data channel has been created on the connection.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2022410844%2FFunctions%2F-606012762" anchor-label="onIceCandidate" id="-2022410844%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-ice-candidate.html"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span><span>Candidate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2022410844%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-ice-candidate.html"><span class="token function">onIceCandidate</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/IceCandidate///PointingToDeclaration/">IceCandidate</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when a new ICE candidate has been generated.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1790309806%2FFunctions%2F-606012762" anchor-label="onIceCandidateError" id="-1790309806%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#-1790309806%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Candidate</span><wbr></wbr><span><span>Error</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1790309806%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#-1790309806%2FFunctions%2F-606012762"><span class="token function">onIceCandidateError</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/IceCandidateErrorEvent///PointingToDeclaration/">IceCandidateErrorEvent</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1744046267%2FFunctions%2F-606012762" anchor-label="onIceCandidatesRemoved" id="-1744046267%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-ice-candidates-removed.html"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Candidates</span><wbr></wbr><span><span>Removed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1744046267%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-ice-candidates-removed.html"><span class="token function">onIceCandidatesRemoved</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-array/index.html">Array</a><span class="token operator">&lt;</span><span class="token keyword">out </span><span data-unresolved-link="org.webrtc/IceCandidate///PointingToDeclaration/">IceCandidate</span><span class="token operator">&gt;</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when ICE candidates have been removed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1356453299%2FFunctions%2F-606012762" anchor-label="onIceConnectionChange" id="-1356453299%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-ice-connection-change.html"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Connection</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1356453299%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-ice-connection-change.html"><span class="token function">onIceConnectionChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/PeerConnection.IceConnectionState///PointingToDeclaration/">PeerConnection.IceConnectionState</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when the ICE connection state changes.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1421222570%2FFunctions%2F-606012762" anchor-label="onIceConnectionReceivingChange" id="1421222570%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-ice-connection-receiving-change.html"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Connection</span><wbr></wbr><span>Receiving</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1421222570%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-ice-connection-receiving-change.html"><span class="token function">onIceConnectionReceivingChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when the ICE connection receiving state changes.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-824581153%2FFunctions%2F-606012762" anchor-label="onIceGatheringChange" id="-824581153%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-ice-gathering-change.html"><span>on</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Gathering</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-824581153%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-ice-gathering-change.html"><span class="token function">onIceGatheringChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/PeerConnection.IceGatheringState///PointingToDeclaration/">PeerConnection.IceGatheringState</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when the ICE gathering state changes.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="921250472%2FFunctions%2F-606012762" anchor-label="onRemoveStream" id="921250472%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-remove-stream.html"><span>on</span><wbr></wbr><span>Remove</span><wbr></wbr><span><span>Stream</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="921250472%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-remove-stream.html"><span class="token function">onRemoveStream</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/MediaStream///PointingToDeclaration/">MediaStream</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when a media stream has been removed from the connection.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2040978610%2FFunctions%2F-606012762" anchor-label="onRemoveTrack" id="2040978610%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#2040978610%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span>Remove</span><wbr></wbr><span><span>Track</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2040978610%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#2040978610%2FFunctions%2F-606012762"><span class="token function">onRemoveTrack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/RtpReceiver///PointingToDeclaration/">RtpReceiver</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1755903211%2FFunctions%2F-606012762" anchor-label="onRenegotiationNeeded" id="1755903211%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-renegotiation-needed.html"><span>on</span><wbr></wbr><span>Renegotiation</span><wbr></wbr><span><span>Needed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1755903211%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-renegotiation-needed.html"><span class="token function">onRenegotiationNeeded</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when the connection needs to be renegotiated. This can happen when media streams or data channels are added or removed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1572475317%2FFunctions%2F-606012762" anchor-label="onSelectedCandidatePairChanged" id="1572475317%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#1572475317%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span>Selected</span><wbr></wbr><span>Candidate</span><wbr></wbr><span>Pair</span><wbr></wbr><span><span>Changed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1572475317%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#1572475317%2FFunctions%2F-606012762"><span class="token function">onSelectedCandidatePairChanged</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/CandidatePairChangeEvent///PointingToDeclaration/">CandidatePairChangeEvent</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1813720083%2FFunctions%2F-606012762" anchor-label="onSignalingChange" id="-1813720083%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-signaling-change.html"><span>on</span><wbr></wbr><span>Signaling</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1813720083%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="on-signaling-change.html"><span class="token function">onSignalingChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/PeerConnection.SignalingState///PointingToDeclaration/">PeerConnection.SignalingState</span><span class="token operator">?</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Called when the signaling state of the PeerConnection changes.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="68133588%2FFunctions%2F-606012762" anchor-label="onStandardizedIceConnectionChange" id="68133588%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#68133588%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span>Standardized</span><wbr></wbr><span>Ice</span><wbr></wbr><span>Connection</span><wbr></wbr><span><span>Change</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="68133588%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#68133588%2FFunctions%2F-606012762"><span class="token function">onStandardizedIceConnectionChange</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/PeerConnection.IceConnectionState///PointingToDeclaration/">PeerConnection.IceConnectionState</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-534132959%2FFunctions%2F-606012762" anchor-label="onTrack" id="-534132959%2FFunctions%2F-606012762" data-filterable-set=":telnyx_rtc:dokkaHtml/release"></a>
+          <div class="table-row" data-filterable-current=":telnyx_rtc:dokkaHtml/release" data-filterable-set=":telnyx_rtc:dokkaHtml/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="index.html#-534132959%2FFunctions%2F-606012762"><span>on</span><wbr></wbr><span><span>Track</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-534132959%2FFunctions%2F-606012762"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":telnyx_rtc:dokkaHtml/release"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">fun </span><a href="index.html#-534132959%2FFunctions%2F-606012762"><span class="token function">onTrack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">p0<span class="token operator">: </span><span data-unresolved-link="org.webrtc/RtpTransceiver///PointingToDeclaration/">RtpTransceiver</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2024 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

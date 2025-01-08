@@ -15,6 +15,11 @@ import com.google.gson.reflect.TypeToken
 import timber.log.Timber
 import java.nio.charset.StandardCharsets
 
+/**
+ * Encodes a string to Base64 format.
+ * 
+ * @return The Base64 encoded string using UTF-8 charset
+ */
 fun String.encodeBase64(): String {
     return String(
         android.util.Base64.encode(this.toByteArray(), android.util.Base64.DEFAULT),
@@ -22,6 +27,11 @@ fun String.encodeBase64(): String {
     )
 }
 
+/**
+ * Converts any object to its JSON string representation.
+ * 
+ * @return A JSON string representation of the object, or an empty string if conversion fails
+ */
 fun Any.toJsonString(): String {
     return try {
         GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(this)
@@ -31,6 +41,12 @@ fun Any.toJsonString(): String {
     }
 }
 
+/**
+ * Parses a JSON string into an object of type T.
+ * 
+ * @param T The type to parse the JSON string into
+ * @return The parsed object of type T, or null if parsing fails
+ */
 inline fun <reified T> String.parseObject(): T? {
     return try {
         Gson().fromJson(this, object : TypeToken<T>() {}.type)
@@ -40,6 +56,11 @@ inline fun <reified T> String.parseObject(): T? {
     }
 }
 
+/**
+ * Decodes a Base64 encoded string back to its original form.
+ * 
+ * @return The decoded string using UTF-8 charset
+ */
 fun String.decodeBase64(): String {
     return String(
         android.util.Base64.decode(this, android.util.Base64.DEFAULT),
