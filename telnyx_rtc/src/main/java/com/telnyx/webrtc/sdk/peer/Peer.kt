@@ -43,7 +43,8 @@ internal class Peer(
     val client: TelnyxClient,
     private val providedTurn: String = DEFAULT_TURN,
     private val providedStun: String = DEFAULT_STUN,
-    private val callId: UUID
+    private val callId: UUID,
+    val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
 
     companion object {
@@ -113,6 +114,21 @@ internal class Peer(
                 addIceCandidate(p0)
                 Timber.d("Event-IceCandidate Added")
             }
+
+            Timber.d("Event-IceCandidate Generated ")
+            p0?.let {
+                if (!it.serverUrl.isNullOrEmpty()) { // Host has empty serverUrl
+                    onIceCandidateAdd?.invoke(it.serverUrl)
+                    //iceCandidateList.add(it.serverUrl)
+                }
+            }
+            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                peerConnection?.let { connection ->
+                    connection.addIceCandidate(p0)
+                    Timber.d("Event-IceCandidate Added ${p0}")
+                }
+            }
+
             peerConnectionObserver?.onIceCandidate(p0)
         }
 
