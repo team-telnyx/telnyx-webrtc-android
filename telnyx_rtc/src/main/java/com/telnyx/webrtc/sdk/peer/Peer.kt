@@ -14,14 +14,17 @@ import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
+import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
@@ -34,24 +37,20 @@ import java.util.*
  * Peer class that represents a peer connection which is required to initiate a call.
  *
  * @param context the Context of the application
- * @param client the TelnyxClient instance in use.
- * @param observer the [PeerConnection.Observer] which observes the the Peer Connection events including ICE candidate or Stream changes, etc.
  */
 internal class Peer(
     context: Context,
     val client: TelnyxClient,
     private val providedTurn: String = DEFAULT_TURN,
     private val providedStun: String = DEFAULT_STUN,
-    private val callId: String = "",
-    observer: PeerConnection.Observer
+    private val callId: UUID,
+    val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
-        private const val CANDIDATE_LIMIT : Int = 5
-        private const val STATS_INTERVAL : Long = 2000L
-        private const val STATS_INITIAL : Long = 0L
+
     }
 
     private val rootEglBase: EglBase = EglBase.create()
@@ -60,7 +59,7 @@ internal class Peer(
     internal var debugStatsId = UUID.randomUUID()
 
 
-    private val iceServer = getIceServers()
+    val iceServer = getIceServers()
 
     /**
      * Retrieves the IceServers built with the provided STUN and TURN servers
@@ -88,7 +87,71 @@ internal class Peer(
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
-    private var peerConnection: PeerConnection? = null
+    internal var peerConnection: PeerConnection? = null
+
+    internal var peerConnectionObserver: PeerConnectionObserver? = null
+
+    private val observer = object : PeerConnection.Observer {
+        override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+            peerConnectionObserver?.onSignalingChange(p0)
+        }
+
+        override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+            peerConnectionObserver?.onIceConnectionChange(p0)
+        }
+
+        override fun onIceConnectionReceivingChange(p0: Boolean) {
+            peerConnectionObserver?.onIceConnectionReceivingChange(p0)
+        }
+
+        override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
+            peerConnectionObserver?.onIceGatheringChange(p0)
+        }
+
+        override fun onIceCandidate(p0: IceCandidate?) {
+            Timber.d("Event-IceCandidate Generated")
+            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                addIceCandidate(p0)
+                Timber.d("Event-IceCandidate Added")
+            }
+
+            Timber.d("Event-IceCandidate Generated ")
+            p0?.let {
+                if (!it.serverUrl.isNullOrEmpty()) { // Host has empty serverUrl
+                    onIceCandidateAdd?.invoke(it.serverUrl)
+                    //iceCandidateList.add(it.serverUrl)
+                }
+            }
+            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                peerConnection?.let { connection ->
+                    connection.addIceCandidate(p0)
+                    Timber.d("Event-IceCandidate Added ${p0}")
+                }
+            }
+
+            peerConnectionObserver?.onIceCandidate(p0)
+        }
+
+        override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+            peerConnectionObserver?.onIceCandidatesRemoved(p0)
+        }
+
+        override fun onAddStream(p0: MediaStream?) {
+            peerConnectionObserver?.onAddStream(p0)
+        }
+
+        override fun onRemoveStream(p0: MediaStream?) {
+            peerConnectionObserver?.onRemoveStream(p0)
+        }
+
+        override fun onDataChannel(p0: DataChannel?) {
+            peerConnectionObserver?.onDataChannel(p0)
+        }
+
+        override fun onRenegotiationNeeded() {
+            peerConnectionObserver?.onRenegotiationNeeded()
+        }
+    }
 
     /**
      * Initiates our peer connection factory with the specified options
@@ -130,10 +193,9 @@ internal class Peer(
 
     /**
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
-     * @param observer, the [PeerConnection.Observer]
      * @see [getIceServers]
      */
-    private fun buildPeerConnection(observer: PeerConnection.Observer) =
+    private fun buildPeerConnection() =
         peerConnectionFactory.createPeerConnection(
             iceServer,
             observer
@@ -157,72 +219,7 @@ internal class Peer(
         peerConnection?.addTrack(localAudioTrack)
     }
 
-    var gson: Gson = GsonBuilder().setPrettyPrinting().create()
-    private val timer = Timer()
-    var mainObject: JsonObject = JsonObject()
-    var audio: JsonObject = JsonObject()
-    var statsData: JsonObject = JsonObject()
-    var inBoundStats: JsonArray = JsonArray()
-    var outBoundStats: JsonArray = JsonArray()
-    var candidateParis: JsonArray = JsonArray()
 
-    internal fun stopTimer() {
-        client.stopStats(debugStatsId)
-        debugStatsId = null
-        mainObject = JsonObject()
-        timer.cancel()
-    }
-
-    internal fun startTimer() {
-        isDebugStats = true
-        if (!client.debugReportStarted){
-            debugStatsId = UUID.randomUUID()
-            client.startStats(debugStatsId)
-        }
-        timer.schedule(object : TimerTask() {
-            override fun run() {
-                mainObject.addProperty("event", "stats")
-                mainObject.addProperty("tag", "stats")
-                mainObject.addProperty("peerId", "stats")
-                mainObject.addProperty("connectionId", callId)
-                peerConnection?.getStats {
-                    it.statsMap.forEach { (key, value) ->
-                        if (value.type == "inbound-rtp") {
-                            val jsonInbound = gson.toJsonTree(value)
-                            inBoundStats.add(jsonInbound)
-                        }
-                        if (value.type == "outbound-rtp") {
-                            val jsonOutbound = gson.toJsonTree(value)
-                            outBoundStats.add(jsonOutbound)
-                        }
-                        if (value.type == "candidate-pair" && candidateParis.size() < CANDIDATE_LIMIT) {
-                            val jsonCandidatePair = gson.toJsonTree(value)
-                            candidateParis.add(jsonCandidatePair)
-                        }
-
-                    }
-                }
-                audio.add("inbound", inBoundStats)
-                audio.add("outbound", outBoundStats)
-                audio.add("candidatePair", candidateParis)
-                statsData.add("audio", audio)
-                mainObject.add("data", statsData)
-                mainObject.addProperty("timestamp", System.currentTimeMillis())
-                if (inBoundStats.size() > 0 && outBoundStats.size() > 0 && candidateParis.size() > 0) {
-                    inBoundStats = JsonArray()
-                    outBoundStats = JsonArray()
-                    candidateParis = JsonArray()
-                    statsData = JsonObject()
-                    audio = JsonObject()
-                    Timber.tag("Stats Inbound").d("Inbound: ${mainObject.toString()}")
-                    if (debugStatsId != null){
-                        client.sendStats(mainObject, debugStatsId)
-                    }
-                }
-
-            }
-        }, STATS_INITIAL, STATS_INTERVAL)
-    }
 
 
     /**
@@ -373,6 +370,15 @@ internal class Peer(
     }
 
     /**
+     * Returns the current remote SDP
+     * @return [SessionDescription]
+     */
+    fun getRemoteDescription(): SessionDescription? {
+        return peerConnection?.remoteDescription
+    }
+
+
+    /**
      * Closes and disposes of current [PeerConnection]
      */
     fun disconnect() {
@@ -387,12 +393,12 @@ internal class Peer(
             peerConnectionFactory.dispose()
         }
         if (isDebugStats){
-            stopTimer()
+            //stopTimer()
         }
     }
 
     init {
         initPeerConnectionFactory(context)
-        peerConnection = buildPeerConnection(observer)
+        peerConnection = buildPeerConnection()
     }
 }
