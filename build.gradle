@@ -35,7 +35,7 @@ allprojects {
     }
 
     configurations.all {
-        resolutionStrategy.force 'org.objenesis:objenesis:3.3'
+        resolutionStrategy.force 'org.objenesis:objenesis:3.4'
     }
 }
 
