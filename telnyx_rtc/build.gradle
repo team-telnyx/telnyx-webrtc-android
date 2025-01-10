@@ -198,7 +198,7 @@ dependencies {
 
 
     //BugSnag:
-    implementation "com.bugsnag:bugsnag-android:5.+"
+    implementation "com.bugsnag:bugsnag-android:6.+"
 
 
     // Firebase
