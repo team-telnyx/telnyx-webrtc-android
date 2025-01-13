@@ -1,6 +1,6 @@
 ## Push Notification App Setup
 
-The portal setup is complete. Now when firebase is properly integrated into your application, you will be able to retrieve a token with a method such as this:
+If the portal setup is complete and when firebase is properly integrated into your application, you will be able to retrieve a token with a method such as this:
 
 ```
 private fun getFCMToken() {
