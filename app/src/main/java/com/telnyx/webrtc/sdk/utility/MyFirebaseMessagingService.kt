@@ -16,8 +16,6 @@ import timber.log.Timber
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
-
-
     /**
      * Called when message is received.
      *
@@ -40,24 +38,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 putExtra("action", NotificationsService.STOP_ACTION)
             }
             serviceIntent.setAction(NotificationsService.STOP_ACTION)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            }else {
-                startService(serviceIntent)
-            }
+            startMessagingService(serviceIntent)
             return
-        }else{
-            Timber.d("No Missed Call")
         }
 
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
             putExtra("metadata", metadata)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        }else {
-            startService(serviceIntent)
-        }
+        startMessagingService(serviceIntent)
     }
 
 
@@ -81,12 +69,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("sendRegistrationTokenToServer($token)")
     }
 
-    /**
-     * Create and show a simple notification containing the received FCM message.
-     *
-     * @param messageBody FCM message body received.
-     */
-    private fun sendNotification(messageBody: String) {
+    private fun startMessagingService(serviceIntent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
     }
 
     companion object {
