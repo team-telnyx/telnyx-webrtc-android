@@ -74,3 +74,22 @@ You are now ready to receive push notifications via Firebase Messaging Service.
            android:foregroundServiceType="phoneCall"
            android:exported="true" />
    ```
+   ### Handling Missed Call Notifications
+   The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
+   ``` kotlin
+        const val Missed_Call = "Missed call!"
+        val params = remoteMessage.data
+        val objects = JSONObject(params as Map<*, *>)
+        val metadata = objects.getString("metadata")
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call) // 
+
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+                putExtra("action", NotificationsService.STOP_ACTION)
+            }
+            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            startMessagingService(serviceIntent)
+            return
+        }
+   ```

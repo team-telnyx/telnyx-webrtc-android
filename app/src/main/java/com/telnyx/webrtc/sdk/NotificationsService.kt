@@ -146,8 +146,8 @@ class NotificationsService : Service() {
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
-            .setContentTitle("Incoming Call")
-            .setContentText("Incoming call from: ")
+            .setContentTitle("Incoming Call : ${txPushMetaData.callerName}")
+            .setContentText("Incoming call from: ${txPushMetaData.callerNumber} ")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(pendingIntent)
             .setSound(customSoundUri)
