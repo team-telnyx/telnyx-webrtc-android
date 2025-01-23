@@ -172,7 +172,7 @@ dependencies {
     implementation deps.material
     implementation deps.constraint_layout
 
-    implementation "io.getstream:stream-webrtc-android:1.1.2"
+    implementation("com.telnyx.webrtc.lib:library:1.0")
 
     implementation deps.gson
     implementation deps.retrofit.runtime

@@ -5,7 +5,7 @@
 package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.JsonObject
-import org.webrtc.IceCandidate
+import com.telnyx.webrtc.lib.IceCandidate
 import java.util.*
 
 /**

@@ -4,8 +4,8 @@
 
 package com.telnyx.webrtc.sdk
 
-import org.webrtc.SdpObserver
-import org.webrtc.SessionDescription
+import com.telnyx.webrtc.lib.SdpObserver
+import com.telnyx.webrtc.lib.SessionDescription
 import timber.log.Timber
 
 /**

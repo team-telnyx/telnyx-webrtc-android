@@ -30,8 +30,8 @@ import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
-import org.webrtc.IceCandidate
-import org.webrtc.SessionDescription
+import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.SessionDescription
 import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
