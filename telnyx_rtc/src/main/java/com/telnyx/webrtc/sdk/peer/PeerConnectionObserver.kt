@@ -7,11 +7,11 @@ package com.telnyx.webrtc.sdk.peer
 import com.telnyx.webrtc.sdk.stats.StatsData
 import com.telnyx.webrtc.sdk.stats.WebRTCStatsEvent
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
-import org.webrtc.DataChannel
-import org.webrtc.IceCandidate
-import org.webrtc.MediaStream
-import org.webrtc.PeerConnection
-import org.webrtc.RtpReceiver
+import com.telnyx.webrtc.lib.DataChannel
+import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.MediaStream
+import com.telnyx.webrtc.lib.PeerConnection
+import com.telnyx.webrtc.lib.RtpReceiver
 import timber.log.Timber
 
 /**

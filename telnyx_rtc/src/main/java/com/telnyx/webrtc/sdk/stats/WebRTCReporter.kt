@@ -17,9 +17,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.webrtc.IceCandidate
-import org.webrtc.PeerConnection
-import org.webrtc.RTCStats
+import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.PeerConnection
+import com.telnyx.webrtc.lib.RTCStats
 import timber.log.Timber
 import java.util.*
 

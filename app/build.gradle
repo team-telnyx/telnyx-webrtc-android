@@ -104,8 +104,6 @@ dependencies {
 
     implementation deps.dialpad
 
-    implementation "io.getstream:stream-webrtc-android:1.0.0"
-
     implementation deps.gson
     implementation deps.retrofit.runtime
     implementation deps.retrofit.gson
