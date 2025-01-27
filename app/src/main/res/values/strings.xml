@@ -2,9 +2,11 @@
     <string name="app_name">Telnyx WebRTC</string>
     <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
     <string name="connect">connect</string>
-    <string name="socket">Socket:</string>
-    <string name="session_id">Session ID:</string>
+    <string name="socket">Socket</string>
+    <string name="session_id">Session ID</string>
+    <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
+    <string name="dash">-</string>
     <string name="session_pending">-</string>
     <string name="call">call</string>
     <string name="sip_username">SIP Username</string>
@@ -42,5 +44,15 @@
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>
+    <string name="login_info">Please confirm details below and click ‘Connect’ to make a call.</string>
+    <string name="home_info">Enter a destination (phone number or SIP user) to initiate your call.</string>
+    <string name="profile">Profile</string>
+    <string name="switch_profile">Switch Profile</string>
+    <string name="existing_profiles">Existing profiles</string>
+    <string name="close_button_dessc">close button</string>
+    <string name="add_new_profile">Add new profile</string>
+    <string name="cancel">Cancel</string>
+    <string name="username">Username</string>
+    <string name="token">Token</string>
 
 </resources>
