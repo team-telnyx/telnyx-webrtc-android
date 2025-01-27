@@ -89,57 +89,18 @@
         app:layout_constraintStart_toEndOf="@id/guideline_start"
         app:layout_constraintTop_toBottomOf="@id/call_state_text" />
 
-    <include
-        android:id="@+id/login_section_id"
-        layout="@layout/include_login_section"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_small"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
-
-    <include
-        android:id="@+id/call_control_section_id"
-        layout="@layout/include_call_control_section"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_medium"
-        android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
-
-    <include
-        android:id="@+id/incoming_call_section_id"
-        layout="@layout/include_incoming_call_section"
-        android:layout_width="0dp"
-        android:layout_height="360dp"
-        android:layout_marginTop="@dimen/spacing_medium"
-        android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
-
-    <include
-        android:id="@+id/incoming_active_call_section_id"
-        layout="@layout/include_incoming_activel_section"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_medium"
-        android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value" />
-
     <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/fragment_call_instance"
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_medium"
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/spacing_small"
+        app:defaultNavHost="true"
+        app:layout_constraintBottom_toTopOf="@id/guideline_bottom"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value"/>
+        app:layout_constraintTop_toBottomOf="@+id/call_state_text_value"
+        app:navGraph="@navigation/nav_graph" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start"
