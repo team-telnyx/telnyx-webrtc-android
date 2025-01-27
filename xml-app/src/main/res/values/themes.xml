@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.TelnyxAndroidWebRTCSDK" parent="Theme.MaterialComponents.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryVariant</item>
+        <item name="colorSecondary">@color/colorSecondary</item>
+        <item name="android:colorBackground">@color/background_color</item>
+        <item name="android:textColor">@color/mainTextColor</item>
+    </style>
+
+    <style name="Theme.TelnyxAndroidWebRTCSDK" parent="Base.Theme.TelnyxAndroidWebRTCSDK" />
+</resources>
