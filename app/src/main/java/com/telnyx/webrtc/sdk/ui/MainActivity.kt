@@ -73,10 +73,7 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    private lateinit var callControlView: View
-    private lateinit var incomingCallView: View
-    private lateinit var loginSectionView: View
+    private lateinit var navController: NavController
     var callStateTextValue: TextView? = null
 
     @Inject
@@ -101,12 +98,12 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
-
         setContentView(view)
+        
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
+
         binding.apply {
-            callControlView = callControlSectionId.callControlView
-            incomingCallView = incomingActiveCallSectionId.incomingView
-            loginSectionView = loginSectionId.loginSectionView
             this@MainActivity.callStateTextValue = callStateTextValue
         }
 
@@ -119,7 +116,6 @@ class MainActivity : AppCompatActivity() {
         updateEnvText(isDev)
 
         FirebaseApp.initializeApp(this)
-
 
         checkPermissions()
         initViews()
