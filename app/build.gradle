@@ -101,6 +101,10 @@ dependencies {
     implementation deps.appcompat
     implementation deps.material
     implementation deps.constraint_layout
+    
+    // Navigation
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.7.6'
+    implementation 'androidx.navigation:navigation-ui-ktx:2.7.6'
 
     // SDK:
     implementation project(':telnyx_rtc')

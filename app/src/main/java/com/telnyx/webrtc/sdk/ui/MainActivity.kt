@@ -73,27 +73,13 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    private lateinit var callControlView: View
-    private lateinit var incomingCallView: View
-    private lateinit var loginSectionView: View
-    var callStateTextValue: TextView? = null
+    private lateinit var navController: NavController
+    private lateinit var appBarConfiguration: AppBarConfiguration
 
     @Inject
     lateinit var userManager: UserManager
-    private var invitationSent: Boolean = false
     private lateinit var mainViewModel: MainViewModel
-    private var fcmToken: String? = null
     private var isDev = false
-    private var isAutomaticLogin = false
-    private var wsMessageList: ArrayList<String>? = null
-    private var credentialConfig: CredentialConfig? = null
-    private var tokenConfig: TokenConfig? = null
-
-    // Notification handling
-    private var notificationAcceptHandling: Boolean? = null
-    private var txPushMetaData: String? = null
-    private var isActiveBye = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -101,14 +87,15 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
-
         setContentView(view)
-        binding.apply {
-            callControlView = callControlSectionId.callControlView
-            incomingCallView = incomingActiveCallSectionId.incomingView
-            loginSectionView = loginSectionId.loginSectionView
-            this@MainActivity.callStateTextValue = callStateTextValue
-        }
+        
+        // Set up navigation
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
+        appBarConfiguration = AppBarConfiguration(
+            setOf(R.id.loginFragment, R.id.homeFragment)
+        )
+        setupActionBarWithNavController(navController, appBarConfiguration)
 
         binding.toolbarId.setOnMenuItemClickListener {
             onOptionsItemSelected(it)
@@ -119,7 +106,6 @@ class MainActivity : AppCompatActivity() {
         updateEnvText(isDev)
 
         FirebaseApp.initializeApp(this)
-
 
         checkPermissions()
         initViews()
@@ -132,6 +118,10 @@ class MainActivity : AppCompatActivity() {
         Timber.d("onCreateOptionsMenu")
         menuInflater.inflate(R.menu.actionbar_menu, menu)
         return true
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }
 
 
@@ -159,11 +149,7 @@ class MainActivity : AppCompatActivity() {
                 if (wsMessageList == null) {
                     wsMessageList = ArrayList()
                 }
-                val instanceFragment = WsMessageFragment.newInstance(wsMessageList)
-                supportFragmentManager.beginTransaction()
-                    .replace(android.R.id.content, instanceFragment)
-                    .addToBackStack(null)
-                    .commitAllowingStateLoss()
+                navController.navigate(R.id.action_home_to_wsMessage)
                 true
             }
 

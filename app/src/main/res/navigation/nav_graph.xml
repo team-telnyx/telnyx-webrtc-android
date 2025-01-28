@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.telnyx.webrtc.sdk.ui.login.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_login_to_home"
+            app:destination="@id/homeFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.telnyx.webrtc.sdk.ui.home.HomeFragment"
+        android:label="Home"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_home_to_callInstance"
+            app:destination="@id/callInstanceFragment" />
+        <action
+            android:id="@+id/action_home_to_wsMessage"
+            app:destination="@id/wsMessageFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/callInstanceFragment"
+        android:name="com.telnyx.webrtc.sdk.ui.CallInstanceFragment"
+        android:label="Call"
+        tools:layout="@layout/fragment_call_instance" />
+
+    <fragment
+        android:id="@+id/wsMessageFragment"
+        android:name="com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment"
+        android:label="Messages"
+        tools:layout="@layout/fragment_ws_message" />
+
+</navigation>
