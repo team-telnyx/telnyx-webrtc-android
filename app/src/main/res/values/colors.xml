@@ -10,11 +10,5 @@
     <color name="telnyx_green">#31b886</color>
     <color name="reject_red">#ff4d4f</color>
     <color name="answer_blue">#1890ff</color>
-    <color name="portal_blue">#3434EF</color>
     <color name="dark_matter">#1D2241</color>
-    <color name="background_color">#FEFDF5</color>
-    <color name="colorPrimary">#1D1D1D</color>
-    <color name="colorSecondary">#E6E3D3</color>
-    <color name="colorPrimaryVariant">#525252</color>
-    <color name="mainTextColor">#272727</color>
 </resources>
