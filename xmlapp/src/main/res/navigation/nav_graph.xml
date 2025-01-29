@@ -12,13 +12,13 @@
         tools:layout="@layout/fragment_login">
         <action
             android:id="@+id/action_loginFragment_to_loginBottomSheetFragment"
-            app:destination="@id/loginBottomSheetFragment" />
+            app:destination="@id/homeFragment" />
     </fragment>
 
-    <dialog
-        android:id="@+id/loginBottomSheetFragment"
-        android:name="org.telnyx.webrtc.xmlapp.login.LoginBottomSheetFragment"
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="org.telnyx.webrtc.xmlapp.home.HomeFragment"
         android:label="Login Options"
-        tools:layout="@layout/fragment_login_bottom_sheet" />
+        tools:layout="@layout/fragment_home" />
 
 </navigation>

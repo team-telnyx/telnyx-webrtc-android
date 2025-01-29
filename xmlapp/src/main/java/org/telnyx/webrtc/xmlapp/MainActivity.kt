@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity() {
             setOf(R.id.loginFragment)
         )
 
-        setupActionBarWithNavController(navController, appBarConfiguration)
     }
 
     override fun onSupportNavigateUp(): Boolean {

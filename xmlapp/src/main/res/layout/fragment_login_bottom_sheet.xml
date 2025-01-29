@@ -34,12 +34,24 @@
 
     </RelativeLayout>
 
+    <include
+        android:id="@+id/credentialGroup"
+        layout="@layout/credentials_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_marginTop="@dimen/spacing_normal"
+        app:layout_constraintTop_toBottomOf="@+id/outlinedButton"
+        />
+
+
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/allProfiles"
         android:layout_marginTop="@dimen/spacing_tiny"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/headerInfo"/>
+        app:layout_constraintTop_toBottomOf="@+id/credentialGroup"/>
 
     <Button
         android:id="@+id/outlinedButton"
@@ -50,7 +62,7 @@
         android:layout_marginTop="@dimen/spacing_normal"
         app:icon="@drawable/ic_add"
         style="@style/AddProfileButton"
-        app:layout_constraintTop_toBottomOf="@+id/allProfiles"
+        app:layout_constraintTop_toBottomOf="@+id/headerInfo"
         app:layout_constraintStart_toStartOf="parent"
         />
 

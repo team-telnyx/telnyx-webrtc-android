@@ -109,44 +109,7 @@
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/loginTypeSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="@style/SubText"
-            android:text="@string/token_login"
-            android:layout_marginTop="@dimen/spacing_small"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/sessionInfo"
-            />
 
-        <LinearLayout
-            android:id="@+id/sessionSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginTop="10dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/loginTypeSwitch">
-
-
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                style="@style/SubText"
-                android:layout_marginStart="8dp"
-                android:text="@string/off"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
-
-
-        </LinearLayout>
 
         <RelativeLayout
             android:id="@+id/profileInfo"
@@ -154,7 +117,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_normal"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/sessionSwitch">
+            app:layout_constraintTop_toBottomOf="@+id/sessionInfo">
 
             <TextView
                 android:id="@+id/profileLabel"

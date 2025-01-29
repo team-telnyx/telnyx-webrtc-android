@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="IconButton" parent="Widget.MaterialComponents.ExtendedFloatingActionButton.Icon">
+    <style name="IconButton" parent="Widget.MaterialComponents.Button.Icon">
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
 
         <!-- Adjust padding with insets -->
-        <item name="android:insetTop">2dp</item>
-        <item name="android:insetBottom">2dp</item>
-        <item name="android:insetLeft">4dp</item>
-        <item name="android:insetRight">4dp</item>
-        <item name="android:textSize">12sp</item>
 
         <item name="strokeColor">@color/colorPrimary</item>
 
@@ -31,7 +27,7 @@
     </style>
 
     <style name="AddProfileButton" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="shapeAppearanceOverlay">@style/RoundedCornersShape</item>
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
 
         <item name="backgroundTint">@color/colorSecondary</item>
 
@@ -49,7 +45,7 @@
     </style>
 
     <style name="CustomPrimaryButton" parent="Widget.MaterialComponents.Button">
-        <item name="shapeAppearanceOverlay">@style/RoundedCornersShape</item>
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
         <item name="android:insetTop">2dp</item>
         <item name="android:insetBottom">2dp</item>
         <item name="android:insetLeft">4dp</item>
@@ -58,7 +54,7 @@
     </style>
 
     <style name="CustomOutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
-        <item name="shapeAppearanceOverlay">@style/RoundedCornersShape</item>
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
 
         <!-- Adjust padding with insets -->
         <item name="android:insetTop">2dp</item>

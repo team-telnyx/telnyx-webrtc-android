@@ -13,6 +13,9 @@ class LoginFragment : Fragment() {
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
 
+    private lateinit var loginBottomSheetFragment: LoginBottomSheetFragment
+
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -24,7 +27,7 @@ class LoginFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        loginBottomSheetFragment = LoginBottomSheetFragment()
         setupViews()
         setupListeners()
     }
@@ -33,29 +36,26 @@ class LoginFragment : Fragment() {
         // Initial view setup
         binding.apply {
             // Set initial profile ID
-            profileInfo.profileId.text = "xd34343"
+            profileId.text = "xd34343"
         }
     }
 
     private fun setupListeners() {
         binding.apply {
             // Switch profile button click
-            profileInfo.outlinedButton.setOnClickListener {
-                findNavController().navigate(R.id.action_loginFragment_to_loginBottomSheetFragment)
+            outlinedButton.setOnClickListener {
+                if (!loginBottomSheetFragment.isAdded) {
+                    loginBottomSheetFragment.show(requireActivity().supportFragmentManager, "loginBottomSheetFragment")
+                }
             }
 
             // Connect button click
             connect.setOnClickListener {
-                // TODO: Implement connection logic
+                findNavController().navigate(R.id.action_loginFragment_to_loginBottomSheetFragment)
+
             }
 
-            // Session switch toggle
-            sessionSwitch.getChildAt(0).setOnClickListener { switchView ->
-                if (switchView is com.google.android.material.switchmaterial.SwitchMaterial) {
-                    val textView = sessionSwitch.getChildAt(1) as android.widget.TextView
-                    textView.text = if (switchView.isChecked) getString(R.string.on) else getString(R.string.off)
-                }
-            }
+
         }
     }
 

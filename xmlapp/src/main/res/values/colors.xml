@@ -10,4 +10,7 @@
     <color name="colorSecondary">#E6E3D3</color>
     <color name="colorPrimaryVariant">#525252</color>
     <color name="mainTextColor">#272727</color>
+    <color name="portal_blue">#3434EF</color>
+    <color name="colorTransparent">#00FFFFFF</color>
+
 </resources>
