@@ -17,8 +17,8 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="org.telnyx.webrtc.xmlapp.home.HomeFragment"
+        android:name="org.telnyx.webrtc.xmlapp.home.HomeCallFragment"
         android:label="Login Options"
-        tools:layout="@layout/fragment_home" />
+        tools:layout="@layout/fragment_home_call" />
 
 </navigation>
