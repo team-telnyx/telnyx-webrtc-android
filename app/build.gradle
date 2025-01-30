@@ -10,14 +10,12 @@ def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
 android {
-    compileSdkVersion 34
-    buildToolsVersion "30.0.3"
     namespace = "com.telnyx.webrtc.sdk"
 
     defaultConfig {
         applicationId "com.telnyx.webrtc.sdk"
         minSdkVersion 23
-        targetSdkVersion 34
+        targetSdkVersion 35
         versionCode 1
         versionName "1.0"
 
