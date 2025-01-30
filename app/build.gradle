@@ -16,6 +16,7 @@ android {
         applicationId "com.telnyx.webrtc.sdk"
         minSdkVersion 23
         targetSdkVersion 35
+        compileSdk 35
         versionCode 1
         versionName "1.0"
 
