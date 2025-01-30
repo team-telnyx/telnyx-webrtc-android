@@ -36,3 +36,5 @@ class ProfileListAdapter(private val profileList: List<Profile>) :
 }
 
 data class Profile(val name: String, val email: String)
+
+
