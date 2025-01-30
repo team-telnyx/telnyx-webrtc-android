@@ -50,6 +50,4 @@ class HomeCallFragment : Fragment() {
         _binding = null
     }
 
-
-
 }
