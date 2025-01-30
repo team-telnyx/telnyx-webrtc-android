@@ -33,7 +33,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         binding.apply {
             // Set up RecyclerView
             allProfiles.layoutManager = LinearLayoutManager(requireContext())
-            // TODO: Set up adapter for profiles
+
         }
     }
 
@@ -46,12 +46,10 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
             // Add new profile button click
             outlinedButton.setOnClickListener {
-                // TODO: Implement add new profile logic
             }
 
             // Confirm button click
             connect.setOnClickListener {
-                // TODO: Implement profile selection confirmation
                 dismiss()
             }
 
@@ -66,4 +64,5 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         super.onDestroyView()
         _binding = null
     }
+
 }
