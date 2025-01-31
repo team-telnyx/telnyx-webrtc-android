@@ -1,7 +1,7 @@
 build:
   maxIssues: 300
   excludeCorrectable: false
-  weights:
+  weights:https://github.com/team-telnyx/telnyx-webrtc-android/blob/WEBRTC-2361_XML/telnyx_rtc/config/detekt.yml
   # complexity: 2
   # LongParameterList: 1
   # style: 1
@@ -11,7 +11,7 @@ config:
   validation: true
   warningsAsErrors: false
   # when writing own rules with new properties, exclude the property path e.g.: 'my_rule_set,.*>.*>[my_property]'
-  excludes: ['**/compose_app/**']
+  excludes: ''
 processors:
   active: true
   exclude:
