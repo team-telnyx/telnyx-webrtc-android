@@ -1,0 +1,60 @@
+<resources>
+    <string name="app_name">Telnyx WebRTC</string>
+    <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
+    <string name="connect">connect</string>
+    <string name="socket">Socket</string>
+    <string name="session_id">Session ID</string>
+    <string name="destination">Destination</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="dash">-</string>
+    <string name="session_pending">-</string>
+    <string name="call">call</string>
+    <string name="sip_username">SIP Username</string>
+    <string name="password">Password</string>
+    <string name="caller_id_name">Caller ID Name</string>
+    <string name="caller_id_number">Caller ID Number</string>
+    <string name="decline">Decline</string>
+    <string name="phone_number">Enter a phone number</string>
+    <string name="reject">Reject</string>
+    <string name="answer">Answer</string>
+    <string name="incoming_call">Incoming Call</string>
+    <string name="end_and_accept">End and Accept</string>
+    <string name="reject_incoming">Reject Incoming</string>
+    <string name="hold_and_accept">Hold and Accept</string>
+
+    <string name="end">End</string>
+
+    <string name="telnyx_notification_channel_description">Telnyx WebRTC call notification</string>
+    <string name="telnyx_notification_channel_id" translatable="false">telnyx_channel</string>
+    <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
+    <string name="message_subscribe_failed">Failed to subscribe to topic</string>
+    <string name="message_subscribed">Subscribed to topic</string>
+    <string name="connected">Connected</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="login_token">Login Token</string>
+    <string name="token_login">Token login</string>
+    <string name="off">Off</string>
+    <string name="on">On</string>
+    <string name="audio_settings">Audio Output Device</string>
+    <string name="call_state">Call State:</string>
+    <string name="show_wsmessages">WsMessages</string>
+    <string name="clear_wsmessages">Clear WsMessages</string>
+    <string name="share_wsmessages">Share WsMessages</string>
+    <string name="empty_wsmessages">Oops! No logs are available currently. Please check after some time!</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>
+    <string name="login_info">Please confirm details below and click ‘Connect’ to make a call.</string>
+    <string name="home_info">Enter a destination (phone number or SIP user) to initiate your call.</string>
+    <string name="profile">Profile</string>
+    <string name="switch_profile">Switch Profile</string>
+    <string name="existing_profiles">Existing profiles</string>
+    <string name="close_button_dessc">close button</string>
+    <string name="add_new_profile">Add new profile</string>
+    <string name="cancel">Cancel</string>
+    <string name="username">Username</string>
+    <string name="token">Token</string>
+    <string name="sign_in">Sign In</string>
+    <string name="delete">delete</string>
+
+</resources>

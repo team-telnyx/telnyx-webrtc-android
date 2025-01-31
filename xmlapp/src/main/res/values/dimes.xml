@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- spacing, used as reference for everything else -->
+    <dimen name="spacing_mega">256dp</dimen>
+    <dimen name="spacing_hugest">128dp</dimen>
+    <dimen name="spacing_huge">56dp</dimen>
+    <dimen name="spacing_large">48dp</dimen>
+    <dimen name="spacing_medium">32dp</dimen>
+    <dimen name="spacing_normal">24dp</dimen>
+    <dimen name="spacing_small">16dp</dimen>
+    <dimen name="spacing_tiny">8dp</dimen>
+    <dimen name="spacing_mega_tiny">4dp</dimen>
+
+    <!-- font sizes -->
+    <dimen name="font_huge">34sp</dimen>
+    <dimen name="font_larger">24sp</dimen>
+    <dimen name="font_large">18sp</dimen>
+    <dimen name="font_normal">16sp</dimen>
+    <dimen name="font_small">12sp</dimen>
+    <dimen name="font_button">14sp</dimen>
+    <dimen name="font_title">20sp</dimen>
+
+    <!-- default spacing for guidelines -->
+    <dimen name="guideline_start">@dimen/spacing_normal</dimen>
+    <dimen name="guideline_end">@dimen/spacing_normal</dimen>
+    <dimen name="guideline_top">@dimen/spacing_normal</dimen>
+    <dimen name="guideline_bottom">@dimen/spacing_small</dimen>
+
+    <!-- button -->
+    <dimen name="button_padding_start_end">@dimen/spacing_normal</dimen>
+    <dimen name="button_padding_top_bottom">@dimen/spacing_small</dimen>
+    <dimen name="button_icon_margin">8dp</dimen>
+
+    <dimen name="match_constraint">0dp</dimen>
+    <dimen name="no_padding">0dp</dimen>
+</resources>
