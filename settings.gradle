@@ -1,4 +1,0 @@
-include ':telnyx_rtc'
-include ':app'
-rootProject.name = "Telnyx Android WebRTC SDK"
-include ':xmlapp'
