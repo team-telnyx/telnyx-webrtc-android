@@ -25,12 +25,7 @@ fun MediumTextBold(
     textSize: TextUnit = 16.sp,
     color: Color = MaterialTheme.colorScheme.onSurface,
     textAlign: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = TextUnit.Unspecified,
-    fontWeight: FontWeight = FontWeight.Medium,
-    fontStyle: FontStyle? = null,
     style: TextStyle = LocalTextStyle.current,
-    maxLines: Int = Int.MAX_VALUE,
-    textDecoration: TextDecoration? = null
 ) {
     Text(
         text ?: "",
@@ -38,13 +33,8 @@ fun MediumTextBold(
         textAlign = textAlign,
         color = color,
         fontSize = textSize,
-        fontWeight = fontWeight,
-        lineHeight = lineHeight,
-        fontStyle = fontStyle,
-        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
         style = style,
-        textDecoration = textDecoration
     )
 }
 
@@ -55,10 +45,7 @@ fun MediumTextBold(
     textSize: TextUnit = 16.sp,
     color: Color = MaterialTheme.colorScheme.onSurface,
     textAlign: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = TextUnit.Unspecified,
     fontWeight: FontWeight = FontWeight.Medium,
-    fontStyle: FontStyle? = null,
-    maxLines: Int = Int.MAX_VALUE
 ) {
     Text(
         text,
@@ -67,9 +54,6 @@ fun MediumTextBold(
         color = color,
         fontSize = textSize,
         fontWeight = fontWeight,
-        lineHeight = lineHeight,
-        fontStyle = fontStyle,
-        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis
     )
 }
@@ -81,9 +65,7 @@ fun TextHeader(
     textSize: TextUnit = 18.sp,
     color: Color = MaterialTheme.colorScheme.onSurface,
     textAlign: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = TextUnit.Unspecified,
     fontWeight: FontWeight = FontWeight.Medium,
-    fontStyle: FontStyle? = null
 ) {
     Text(
         text ?: "",
@@ -92,8 +74,6 @@ fun TextHeader(
         color = color,
         fontSize = textSize,
         fontWeight = fontWeight,
-        lineHeight = lineHeight,
-        fontStyle = fontStyle,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )

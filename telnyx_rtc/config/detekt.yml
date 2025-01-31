@@ -2,6 +2,7 @@ build:
   maxIssues: 300
   excludeCorrectable: false
   weights:
+  excludes: '**/compose_app/**'
   # complexity: 2
   # LongParameterList: 1
   # style: 1
