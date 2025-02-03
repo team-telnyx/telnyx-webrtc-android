@@ -1,0 +1,17 @@
+<!-- res/drawable/circle_state.xml -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Enabled state: Green -->
+    <item android:state_enabled="true">
+        <shape android:shape="oval">
+            <solid android:color="#099B76" /> <!-- Green color -->
+            <size android:width="12dp" android:height="12dp" />
+        </shape>
+    </item>
+    <!-- Disabled state: Red -->
+    <item android:state_enabled="false">
+        <shape android:shape="oval">
+            <solid android:color="#D40000" /> <!-- Red color -->
+            <size android:width="12dp" android:height="12dp" />
+        </shape>
+    </item>
+</selector>
