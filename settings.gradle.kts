@@ -28,6 +28,7 @@ dependencyResolutionManagement {
 rootProject.name = "Telnyx Android WebRTC SDK"
 
 include(":telnyx_rtc")
+include(":telnyx_common")
 include(":app")
 include(":xmlapp")
 include(":compose_app")

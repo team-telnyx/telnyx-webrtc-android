@@ -104,6 +104,9 @@ dependencies {
     // SDK:
     implementation project(':telnyx_rtc')
 
+    //Common
+    implementation project(':telnyx_common')
+
     implementation deps.dialpad
 
     implementation "io.getstream:stream-webrtc-android:1.0.0"
