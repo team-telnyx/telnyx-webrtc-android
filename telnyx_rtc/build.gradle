@@ -10,7 +10,6 @@ plugins {
 }
 
 apply plugin: 'maven-publish'
-apply plugin: 'com.bugsnag.android.gradle'
 
 def getVersionName = { ->
     return "1.3.5"
@@ -137,12 +136,10 @@ dokkaHtml {
 }
 
 detekt {
-    buildUponDefaultConfig = true // preconfigure defaults
-    allRules = false // activate all available (even unstable) rules.
+    buildUponDefaultConfig = true
+    allRules = false
     config = files("$projectDir/config/detekt.yml")
-    // point to your custom config defining rules to run, overwriting default behavior
     baseline = file("$projectDir/config/baseline.xml")
-    // a way of suppressing issues before introducing detekt
 
     reports {
         html.enabled = true // observe findings in your browser with structure and code snippets
@@ -194,12 +191,6 @@ dependencies {
     implementation deps.ktor.okhttp
     implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
     testImplementation deps.ktor.client_test
-
-
-
-    //BugSnag:
-    implementation "com.bugsnag:bugsnag-android:5.+"
-
 
     // Firebase
     implementation platform(deps.firebasebom)

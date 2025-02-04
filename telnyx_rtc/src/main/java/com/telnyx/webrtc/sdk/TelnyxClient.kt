@@ -15,12 +15,10 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
-import com.bugsnag.android.Bugsnag
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
-import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
@@ -504,10 +502,6 @@ class TelnyxClient(
     }
 
     init {
-        if (!BuildConfig.IS_TESTING.get()) {
-            Bugsnag.start(context)
-        }
-
         // Generate random UUID for sessid param, convert it to string and set globally
         sessid = UUID.randomUUID().toString()
 
