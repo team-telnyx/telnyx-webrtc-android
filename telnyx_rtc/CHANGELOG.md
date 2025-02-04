@@ -1,3 +1,16 @@
+## [1.4.4](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/v1.4.4) (2023-02-04)
+
+### Enhancement
+
+- Add Debug Stats ability by passing bool to Connection allowing you to see stats of calls in portal
+- Remove BugSnag from SDK to reduce size as it is no longer required
+
+## [1.4.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/v1.4.3) (2023-01-22)
+
+### Bug Fixing
+
+- Fix missing STUN or TURN Candidates in SDP
+
 ## [1.4.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/v1.4.2) (2023-11-18)
 
 ### Enhancement
