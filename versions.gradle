@@ -21,7 +21,6 @@ versions.dexter = "6.2.2"
 versions.googleservices = "4.3.8"
 versions.firebasebom = "28.2.1"
 versions.hilt = "2.48"
-versions.bugsnag = "7.+"
 versions.dialpad = "3.0.0"
 
 
@@ -46,7 +45,6 @@ deps.dexter = "com.karumi:dexter:$versions.dexter"
 deps.firebasebom = "com.google.firebase:firebase-bom:$versions.firebasebom"
 deps.firebase_analytics = "com.google.firebase:firebase-analytics-ktx"
 deps.firebase_messaging = "com.google.firebase:firebase-messaging-ktx"
-deps.bugsnag = "com.bugsnag:bugsnag-android-gradle-plugin:$versions.bugsnag"
 
 def kotlin = [:]
 kotlin.plugin = "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"

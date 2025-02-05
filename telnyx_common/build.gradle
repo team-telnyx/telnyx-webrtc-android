@@ -46,6 +46,8 @@ dependencies {
 
     api project(':telnyx_rtc')
 
+    implementation deps.gson
+
     implementation 'androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0'
 
 }
