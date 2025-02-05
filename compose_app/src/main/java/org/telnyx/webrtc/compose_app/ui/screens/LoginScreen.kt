@@ -3,12 +3,10 @@ package org.telnyx.webrtc.compose_app.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -28,10 +25,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,15 +36,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.telnyx.webrtc.sdk.CredentialConfig
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.ui.TelnyxViewModel
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
-import org.telnyx.webrtc.compose_app.ui.theme.Dimens.borderStrokeTransparent
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
@@ -58,19 +55,24 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedTextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(padding: PaddingValues) {
+fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
 
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
-
+    val currentConfig by telnyxViewModel.currentConfig.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing), bottomBar = {
         RoundedOutlinedButton(
             text = stringResource(R.string.connect),
             modifier = Modifier.fillMaxWidth()
         ) {
-
+            telnyxViewModel.credentialLogin(
+                context,
+                credentialConfig = currentConfig!!,
+                txPushMetaData = null
+            )
         }
     }) {
         Column(
@@ -79,21 +81,28 @@ fun LoginScreen(padding: PaddingValues) {
         ) {
             Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
 
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.telnyx_logo),
                     contentDescription = stringResource(id = R.string.app_name),
-                    modifier = Modifier.padding(Dimens.smallPadding).size(width = 200.dp, height = Dimens.size100dp)
+                    modifier = Modifier
+                        .padding(Dimens.smallPadding)
+                        .size(width = 200.dp, height = Dimens.size100dp)
                 )
             }
 
             MediumTextBold(text = stringResource(id = R.string.login_info))
             ConnectionState(state = false)
             SessionItem(sessionId = "123456")
-            ProfileSwitcher(profileName = "xde343434"){
+            ProfileSwitcher(profileName = currentConfig?.sipUser ?: "No Profile") {
                 showBottomSheet = true
             }
         }
+
+        //BottomSheet
         if (showBottomSheet) {
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
@@ -103,47 +112,94 @@ fun LoginScreen(padding: PaddingValues) {
                 containerColor = Color.White,
                 sheetState = sheetState
             ) {
-                LoginBottomSheetContent()
-            }
-        }
+                var isAddProfile by remember { mutableStateOf(false) }
 
+                Column(
+                    modifier = Modifier.padding(Dimens.mediumSpacing),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+                ) {
 
-    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MediumTextBold(
+                            text = stringResource(id = R.string.existing_profiles),
+                            modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                        )
+                        IconButton(onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                            }.invokeOnCompletion {
+                                if (!sheetState.isVisible) {
+                                    showBottomSheet = false
+                                }
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_close),
+                                contentDescription = stringResource(id = R.string.close_button_dessc)
+                            )
+                        }
+                    }
 
-}
+                    val context = LocalContext.current
+                    val credentialConfigList by telnyxViewModel.credentialConfigList.collectAsState()
 
-@Composable
-fun LoginBottomSheetContent(onDismiss: () -> Unit = {}) {
+                    AnimatedContent(isAddProfile) { addProfile ->
+                        when (addProfile) {
+                            true -> {
+                                CredentialTokenView(
+                                    fcmToken = "",
+                                    onSave = { credentialConfig, tokenConfig ->
+                                        credentialConfig?.apply {
+                                            telnyxViewModel.addCredentialConfig(this)
+                                        }
 
-    var isAddProfile by remember { mutableStateOf(false) }
+                                        tokenConfig?.apply {
+                                            //
+                                        }
+                                        isAddProfile = !isAddProfile
+                                    },
+                                    onDismiss = {
+                                        isAddProfile = !isAddProfile
+                                    }
+                                )
+                            }
 
-    Column(
-        modifier = Modifier.padding(Dimens.mediumSpacing),
-        verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-    ) {
+                            false -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
+                                    RoundSmallButton(
+                                        text = stringResource(id = R.string.add_new_profile),
+                                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.height(30.dp),
+                                        textSize = 12.sp
+                                    ) {
+                                        isAddProfile = !isAddProfile
+                                    }
+                                    ProfileListView(credentialConfigList,telnyxViewModel)
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            MediumTextBold(
-                text = stringResource(id = R.string.existing_profiles),
-                modifier = Modifier.fillMaxWidth(fraction = 0.9f)
-            )
-            IconButton(onClick = { /*TODO*/ }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_close),
-                    contentDescription = stringResource(id = R.string.close_button_dessc)
-                )
-            }
-        }
+                                    PosNegButton(
+                                        positiveText = stringResource(id = R.string.confirm),
+                                        negativeText = stringResource(id = R.string.Cancel),
+                                        onPositiveClick = {
+                                            scope.launch {
+                                                sheetState.hide()
+                                            }.invokeOnCompletion {
+                                                showBottomSheet = false
+                                            }
+                                        },
+                                        onNegativeClick = {
+                                            scope.launch {
+                                                sheetState.hide()
+                                            }.invokeOnCompletion {
+                                                showBottomSheet = false
+                                            }
+                                        })
+                                }
 
-
-        AnimatedContent(isAddProfile) { addProfile ->
-            when(addProfile){
-                true -> {
-                    CredentialTokenView()
-                }
-                false -> {
-                    ProfileListView() {
-                        isAddProfile = !isAddProfile
+                            }
+                        }
                     }
                 }
             }
@@ -152,30 +208,36 @@ fun LoginBottomSheetContent(onDismiss: () -> Unit = {}) {
 
 }
 
+
 @Composable
-fun ProfileListView(onAddNewProfile: () -> Unit) {
+fun ProfileListView(
+    profileList: List<CredentialConfig> = emptyList(),
+    telnyxViewModel: TelnyxViewModel
+) {
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
-        RoundSmallButton (
-            text = stringResource(id = R.string.add_new_profile),
-            backgroundColor = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.height(30.dp),
-            textSize = 12.sp
-        ) {
-            onAddNewProfile()
-        }
+
+        var currentSipId by remember { mutableStateOf("") }
+
         LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
-            items(2) {
-                ProfileItem()
+            profileList.forEach { item ->
+                item {
+                    ProfileItem(item, selected = currentSipId == item.sipUser,
+                        onItemSelected = {
+                            currentSipId = it.sipUser
+                            telnyxViewModel.setCurrentConfig(it)
+                        },
+                        onEdit = {
+
+                        },
+                        onDelete = {
+
+                        }
+                    )
+                }
             }
         }
 
-        PosNegButton(
-            positiveText = stringResource(id = R.string.confirm),
-            negativeText = stringResource(id = R.string.Cancel),
-            onPositiveClick = {},
-            onNegativeClick = {
 
-            })
     }
 }
 
@@ -205,13 +267,21 @@ fun PosNegButton(
 
 
 @Composable
-fun ProfileItem() {
+fun ProfileItem(
+    item: CredentialConfig,
+    selected: Boolean = false,
+    onItemSelected: (CredentialConfig) -> Unit,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.background)
-            .padding(horizontal = Dimens.mediumPadding)
-        ,
+            .background(color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent)
+            .clickable {
+                onItemSelected(item)
+            }
+            .padding(horizontal = Dimens.mediumPadding),
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -219,7 +289,7 @@ fun ProfileItem() {
             imageVector = Icons.Default.Person,
             contentDescription = stringResource(id = R.string.profile)
         )
-        RegularText(text = stringResource(id = R.string.profile), modifier = Modifier.weight(1f))
+        RegularText(text = item.sipUser, modifier = Modifier.weight(1f))
         IconButton(onClick = {
 
         }) {
@@ -236,7 +306,7 @@ fun ProfileItem() {
 
 
 @Composable
-fun ProfileSwitcher(profileName: String,onProfileSwitch: () -> Unit = {}) {
+fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
     Column {
         RegularText(text = stringResource(id = R.string.profile))
         Row(
@@ -244,7 +314,12 @@ fun ProfileSwitcher(profileName: String,onProfileSwitch: () -> Unit = {}) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             RegularText(text = profileName)
-            RoundSmallButton(modifier = Modifier.height(30.dp), backgroundColor = MaterialTheme.colorScheme.secondary,text = stringResource(R.string.switch_profile), textSize = 8.sp) {
+            RoundSmallButton(
+                modifier = Modifier.height(30.dp),
+                backgroundColor = MaterialTheme.colorScheme.secondary,
+                text = stringResource(R.string.switch_profile),
+                textSize = 8.sp
+            ) {
                 onProfileSwitch()
             }
         }
@@ -271,7 +346,10 @@ fun ConnectionState(state: Boolean) {
             Box(
                 modifier = Modifier
                     .size(Dimens.size12dp)
-                    .background(color = if (state) Color.Green else Color.Red, shape = shape100Percent)
+                    .background(
+                        color = if (state) Color.Green else Color.Red,
+                        shape = shape100Percent
+                    )
             )
             RegularText(
                 text = if (state) stringResource(id = R.string.connected) else stringResource(

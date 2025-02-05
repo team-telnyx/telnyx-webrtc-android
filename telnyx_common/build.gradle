@@ -44,7 +44,7 @@ dependencies {
     implementation deps.kotlin.stdlib
     implementation deps.androidx_core
 
-    implementation project(':telnyx_rtc')
+    api project(':telnyx_rtc')
 
     implementation 'androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0'
 

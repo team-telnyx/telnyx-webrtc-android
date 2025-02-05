@@ -1,10 +1,13 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import android.media.RingtoneManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,15 +18,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.TokenConfig
+import com.telnyx.webrtc.sdk.model.LogLevel
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
-import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedTextButton
 
 
 @Composable
-fun CredentialTokenView() {
+fun CredentialTokenView(
+    fcmToken: String,
+    onSave: (CredentialConfig?, TokenConfig?) -> Unit,
+    onDismiss: () -> Unit
+) {
     var isTokenState by remember { mutableStateOf(false) }
 
     var sipToken by remember { mutableStateOf("") }
@@ -34,10 +43,9 @@ fun CredentialTokenView() {
     var callerIdNumber by remember { mutableStateOf("") }
 
 
-
-
     Column(
-        verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
+        verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
+        modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
 
 
@@ -46,7 +54,11 @@ fun CredentialTokenView() {
         }
 
         if (!isTokenState) {
-            OutlinedEdiText(text = sipUsername, hint = "Sip Username", modifier = Modifier.fillMaxWidth()) { value ->
+            OutlinedEdiText(
+                text = sipUsername,
+                hint = "Sip Username",
+                modifier = Modifier.fillMaxWidth()
+            ) { value ->
                 sipUsername = value
             }
             OutlinedEdiText(
@@ -58,16 +70,28 @@ fun CredentialTokenView() {
                 sipPassword = value
             }
         } else {
-            OutlinedEdiText(text = sipToken, hint = "Token",modifier = Modifier.fillMaxWidth()) { value ->
+            OutlinedEdiText(
+                text = sipToken,
+                hint = "Token",
+                modifier = Modifier.fillMaxWidth()
+            ) { value ->
                 sipToken = value
             }
         }
 
-        OutlinedEdiText(text = callerIdName, hint = "Caller ID Name",modifier = Modifier.fillMaxWidth()) { value ->
+        OutlinedEdiText(
+            text = callerIdName,
+            hint = "Caller ID Name",
+            modifier = Modifier.fillMaxWidth()
+        ) { value ->
             callerIdName = value
         }
 
-        OutlinedEdiText(text = callerIdNumber, hint = "Caller ID Number",modifier = Modifier.fillMaxWidth()) { value ->
+        OutlinedEdiText(
+            text = callerIdNumber,
+            hint = "Caller ID Number",
+            modifier = Modifier.fillMaxWidth()
+        ) { value ->
             callerIdNumber = value
         }
 
@@ -75,13 +99,41 @@ fun CredentialTokenView() {
             PosNegButton(
                 positiveText = stringResource(id = R.string.save),
                 negativeText = stringResource(id = R.string.Cancel),
-                onPositiveClick = { },
-                onNegativeClick = { }
+                onPositiveClick = {
+                    if (!isTokenState) {
+                        onSave(
+                            CredentialConfig(
+                                sipUsername,
+                                sipPassword,
+                                callerIdName,
+                                callerIdNumber,
+                                fcmToken,
+                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
+                                R.raw.ringback_tone,
+                                LogLevel.ALL,
+                                debug = true
+                            ), null
+                        )
+                    } else {
+                        onSave(
+                            null,
+                            TokenConfig(
+                                sipToken,
+                                callerIdName,
+                                callerIdNumber,
+                                fcmToken,
+                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
+                                R.raw.ringback_tone,
+                                LogLevel.ALL,
+                                debug = true
+                            )
+                        )
+                    }
+                },
+                onNegativeClick = onDismiss
             )
         }
     }
-
-
 
 
 }
