@@ -145,12 +145,11 @@ class TelecomCallService : Service() {
             }
 
             is TelecomCall.Registered -> {
-                // Update the call state.
                 // For this sample it means start/stop the audio loop
                 if (call.isActive && !call.isOnHold && !call.isMuted && hasMicPermission()) {
                     if (audioJob == null || audioJob?.isActive == false) {
                         audioJob = scope.launch {
-                            AudioLoopSource.openAudioLoop()
+                            print("Audio loop started");
                         }
                     }
                 } else {
