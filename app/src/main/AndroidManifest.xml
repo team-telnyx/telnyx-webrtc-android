@@ -73,6 +73,5 @@
             android:foregroundServiceType="phoneCall"
             android:name=".NotificationsService"
             />
-
     </application>
 </manifest>
