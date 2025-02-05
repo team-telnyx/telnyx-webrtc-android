@@ -15,9 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.SendToMobile
 import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons..
-import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.ArrowDropUp
+import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Mic
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.PhonePaused
-import androidx.compose.material.icons.rounded.SendToMobile
 import androidx.compose.material.icons.rounded.SpeakerPhone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -206,7 +206,6 @@ private fun OngoingCallActions(
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.M)
 @Composable
 private fun IncomingCallActions(onCallAction: (TelecomCallAction) -> Unit) {
     Row(
@@ -411,7 +410,7 @@ private fun getEndpointIcon(type: @CallEndpointCompat.Companion.EndpointType Int
     return when (type) {
         TYPE_BLUETOOTH -> Icons.Rounded.BluetoothAudio
         TYPE_SPEAKER -> Icons.Rounded.SpeakerPhone
-        TYPE_STREAMING -> Icons.Rounded.SendToMobile
+        TYPE_STREAMING -> Icons.AutoMirrored.Rounded.SendToMobile
         TYPE_WIRED_HEADSET -> Icons.Rounded.Headphones
         else -> Icons.Rounded.Phone
     }
