@@ -41,6 +41,13 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".utility.telecom.call.TelecomCallActivity"
+            android:launchMode="singleInstance"
+            android:exported="true"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"/>
+
         <service
             android:name=".utility.MyFirebaseMessagingService"
             android:priority="10000"
@@ -66,6 +73,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="telnyx_channel" />
+
+        <service android:name=".utility.telecom.call.TelecomCallService"
+            android:exported="false"/>
+
+        <receiver android:name=".utility.telecom.call.TelecomCallBroadcast"
+            android:exported="true"/>
 
         <service
             android:enabled="true"

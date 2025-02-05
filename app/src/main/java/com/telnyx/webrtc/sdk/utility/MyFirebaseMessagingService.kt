@@ -70,11 +70,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun startMessagingService(serviceIntent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
+        startForegroundService(serviceIntent)
     }
 
     companion object {

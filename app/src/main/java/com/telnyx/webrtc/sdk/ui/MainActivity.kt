@@ -9,15 +9,12 @@ import android.Manifest.permission.INTERNET
 import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
 import android.app.Dialog
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
@@ -25,17 +22,16 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.gson.Gson
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.telnyx.webrtc.sdk.App
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
@@ -51,11 +47,11 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
-import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
@@ -98,7 +94,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view: View = binding.root
-//        setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
 
@@ -177,6 +172,7 @@ class MainActivity : AppCompatActivity() {
         return this.let {
             val audioOutputList = arrayOf("Phone", "Bluetooth", "Loud Speaker")
             val builder = AlertDialog.Builder(this)
+
             // Set default to phone
             mainViewModel.changeAudioOutput(AudioDevice.PHONE_EARPIECE)
             builder.setTitle("Select Audio Output")
@@ -361,11 +357,6 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onLoading() {
                     Timber.i("Loading...")
-                }
-
-                override fun onChanged(value: SocketResponse<ReceivedMessageBody>) {
-                    super.onChanged(value)
-                    // Do Nothing
                 }
 
                 override fun onError(message: String?) {
@@ -572,10 +563,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun doLogin(isAuto: Boolean) {
-
-    }
-
     private fun getFCMToken() {
         var token = ""
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -651,7 +638,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
-        if (mainViewModel.currentCall?.getCallState()?.value == CallState.ACTIVE) {
+        if (mainViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE) {
             onReceiveActiveCallView(callId, callerIdNumber)
             return
         }
@@ -852,9 +839,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleServiceIntent(intent: Intent?) {
-
         handleCallNotification(intent)
     }
+}
 
-
+private fun Context.launchCall(action: String, name: String, uri: Uri) {
+    startService(
+        Intent(this, TelecomCallService::class.java).apply {
+            this.action = action
+            putExtra(TelecomCallService.EXTRA_NAME, name)
+            putExtra(TelecomCallService.EXTRA_URI, uri)
+        },
+    )
 }
