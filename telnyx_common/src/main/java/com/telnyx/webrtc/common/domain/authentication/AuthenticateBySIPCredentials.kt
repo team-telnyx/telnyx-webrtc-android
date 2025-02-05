@@ -2,7 +2,9 @@ package com.telnyx.webrtc.common.domain.authentication
 
 import android.content.Context
 import androidx.lifecycle.LiveData
+import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
@@ -17,6 +19,11 @@ class AuthenticateBySIPCredentials(private val context: Context) {
             credentialConfig,
             txPushMetaData,
             autoLogin)
+
+        ProfileManager.saveProfile(context,Profile(sipUsername = credentialConfig.sipUser,
+            sipPass = credentialConfig.sipPassword,
+            callerIdName = credentialConfig.sipCallerIDName,
+            callerIdNumber = credentialConfig.sipCallerIDNumber))
 
         return telnyxClient.getSocketResponse()
     }
