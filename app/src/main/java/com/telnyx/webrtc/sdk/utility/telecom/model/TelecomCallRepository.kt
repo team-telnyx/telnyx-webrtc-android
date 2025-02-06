@@ -8,6 +8,7 @@ import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlResult
 import androidx.core.telecom.CallControlScope
 import androidx.core.telecom.CallsManager
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelnyxCallManager
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.*
 
 /**
  * The central repository that keeps track of the current call and allows to register new calls.
@@ -23,7 +25,10 @@ import kotlinx.coroutines.launch
  *
  * @see registerCall
  */
-class TelecomCallRepository(private val callsManager: CallsManager) {
+class TelecomCallRepository(
+    private val callsManager: CallsManager,
+    private val telnyxCallManager: TelnyxCallManager
+) {
 
     companion object {
         var instance: TelecomCallRepository? = null
@@ -31,9 +36,9 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
 
         /**
          * This does not illustrate best practices for instantiating classes in Android but for
-         * simplicity we use this create method to create a singleton with the CallsManager class.
+         * simplicity we use this create method to create a singleton with the CallsManager and TelnyxCallManager class.
          */
-        fun create(context: Context): TelecomCallRepository {
+        fun create(context: Context, telnyxCallManager: TelnyxCallManager): TelecomCallRepository {
             Log.d("MPB", "New instance")
             check(instance == null) {
                 "CallRepository instance already created"
@@ -48,9 +53,7 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
                 )
             }
 
-            return TelecomCallRepository(
-                callsManager = callsManager,
-            ).also {
+            return TelecomCallRepository(callsManager, telnyxCallManager).also {
                 instance = it
             }
         }
@@ -64,7 +67,12 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
      * Register a new call with the provided attributes.
      * Use the [currentCall] StateFlow to receive status updates and process call related actions.
      */
-    suspend fun registerCall(displayName: String, address: Uri, isIncoming: Boolean) {
+    suspend fun registerCall(
+        displayName: String,
+        address: Uri,
+        isIncoming: Boolean,
+        telnyxCallId: UUID
+    ) {
         // For simplicity we don't support multiple calls
         check(_currentCall.value !is TelecomCall.Registered) {
             "There cannot be more than one call at the same time."
@@ -104,6 +112,7 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
                 // Update the state to registered with default values while waiting for Telecom updates
                 _currentCall.value = TelecomCall.Registered(
                     id = getCallId(),
+                    telnyxCallId = telnyxCallId,
                     isActive = false,
                     isOnHold = false,
                     callAttributes = attributes,
@@ -237,14 +246,29 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
     }
 
     private suspend fun CallControlScope.doDisconnect(action: TelecomCallAction.Disconnect) {
+        // 1) Telecom-level disconnect
         disconnect(action.cause)
         onIsCallDisconnected(action.cause)
+
+        // 2) Also kill your Telnyx call
+        val telnyxId = (_currentCall.value as? TelecomCall.Registered)?.telnyxCallId
+        if (telnyxId != null) {
+            telnyxCallManager.endCallByID(telnyxId)
+        } else {
+            telnyxCallManager.endCall()
+        }
     }
 
     private suspend fun CallControlScope.doAnswer() {
         when (answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)) {
             is CallControlResult.Success -> {
                 onIsCallAnswered(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)
+
+                val telnyxId = (_currentCall.value as? TelecomCall.Registered)?.telnyxCallId
+                if (telnyxId != null) {
+                    //ToDo: This is a placeholder, you should use the real destination number
+                    telnyxCallManager.acceptCall(telnyxId, "00000")
+                }
             }
 
             is CallControlResult.Error -> {
@@ -264,7 +288,7 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
      *  TIP: We would check the connection/call state to see if we can answer a call
      *  Example you may need to wait for another call to hold.
      **/
-    val onIsCallAnswered: suspend(type: Int) -> Unit = {
+    val onIsCallAnswered: suspend (type: Int) -> Unit = {
         updateCurrentCall {
             copy(isActive = true, isOnHold = false)
         }
@@ -300,7 +324,8 @@ class TelecomCallRepository(private val callsManager: CallsManager) {
         updateCurrentCall {
             copy(
                 errorCode = null,
-                isOnHold = true)
+                isOnHold = true
+            )
         }
     }
 }

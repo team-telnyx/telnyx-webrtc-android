@@ -39,7 +39,6 @@ import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_DESTINATION_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_PASSWORD
 import com.telnyx.webrtc.sdk.MOCK_USERNAME
-import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
@@ -422,29 +421,13 @@ class MainActivity : AppCompatActivity() {
         }
         binding.callControlSectionId.apply {
             callButtonId.setOnClickListener {
-                mainViewModel.sendInvite(
-                    userManager.callerIdName,
-                    userManager.callerIdNumber,
-                    callInputId.text.toString(),
-                    "Sample Client State"
-                )
-
                 val context = applicationContext
-                /* context.launchCall(
-                     action = TelecomCallService.ACTION_OUTGOING_CALL,
-                     name = "Bob",
-                     uri = Uri.parse("tel:54321"),
-                 )
-                 */
-
                 context.launchCall(
-                    action = TelecomCallService.ACTION_INCOMING_CALL,
-                    name = "Alice",
-                    uri = Uri.parse("tel:12345"),
+                    TelecomCallService.ACTION_OUTGOING_CALL,
+                    userManager.callerIdName,
+                    Uri.parse("tel:${callInputId.text}"),
+                    UUID.randomUUID().toString()
                 )
-
-                callButtonId.visibility = View.GONE
-                cancelCallButtonId.visibility = View.VISIBLE
             }
         }
         binding.callControlSectionId.apply {
@@ -810,7 +793,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        Timber.d("onNewIntent ")
+        /*Timber.d("onNewIntent ")
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
             putExtra("action", NotificationsService.STOP_ACTION)
         }
@@ -832,7 +815,7 @@ class MainActivity : AppCompatActivity() {
                 Timber.d("Call rejected from notification")
             }
             connectButtonPressed()
-        }
+        }*/
     }
 
     override fun onResume() {
@@ -855,12 +838,13 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private fun Context.launchCall(action: String, name: String, uri: Uri) {
+private fun Context.launchCall(action: String, name: String, uri: Uri, callId: String) {
     startService(
         Intent(this, TelecomCallService::class.java).apply {
             this.action = action
             putExtra(TelecomCallService.EXTRA_NAME, name)
             putExtra(TelecomCallService.EXTRA_URI, uri)
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId)
         },
     )
 }

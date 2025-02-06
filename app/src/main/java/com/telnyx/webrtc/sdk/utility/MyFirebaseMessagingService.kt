@@ -5,11 +5,13 @@
 package com.telnyx.webrtc.sdk.utility
 
 import android.content.Intent
+import android.net.Uri
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.telnyx.webrtc.sdk.NotificationsService
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import org.json.JSONObject
 import timber.log.Timber
+import java.util.*
 
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
@@ -30,20 +32,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val metadata = objects.getString("metadata")
         val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
-        if (isMissedCall) {
+        //ToDo(Oliver Zimmerman) handle missed call with Telecom Service Later
+        /*if (isMissedCall) {
             Timber.d("Missed Call")
             val serviceIntent = Intent(this, NotificationsService::class.java).apply {
                 putExtra("action", NotificationsService.STOP_ACTION)
             }
             serviceIntent.setAction(NotificationsService.STOP_ACTION)
-            startMessagingService(serviceIntent)
+            startForegroundService(serviceIntent)
             return
-        }
+        }*/
 
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            putExtra("metadata", metadata)
+        val callerDisplayName = objects.getString("caller_display_name") ?: "Unknown Caller"
+        val phoneNumber = objects.getString("phone_number") ?: "Unknown Number"
+        val telnyxCallIdString = objects.getString("telnyxCallId")
+
+        val incomingIntent = Intent(this, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_INCOMING_CALL
+            putExtra(TelecomCallService.EXTRA_NAME, callerDisplayName)
+            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", phoneNumber, null))
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, telnyxCallIdString)
         }
-        startMessagingService(serviceIntent)
+        startForegroundService(incomingIntent)
     }
 
 
@@ -66,19 +76,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("sendRegistrationTokenToServer($token)")
     }
 
-    private fun startMessagingService(serviceIntent: Intent) {
-        startForegroundService(serviceIntent)
-    }
 
     companion object {
-        const val ANSWER_REQUEST_CODE = 0
-        const val REJECT_REQUEST_CODE = 1
-
-        const val TX_PUSH_METADATA = "tx_push_metadata"
         const val MISSED_CALL = "Missed call!"
-
-        const val EXT_KEY_DO_ACTION = "ext_key_do_action"
-        const val ACT_ANSWER_CALL = "answer"
-        const val ACT_REJECT_CALL = "reject"
     }
 }

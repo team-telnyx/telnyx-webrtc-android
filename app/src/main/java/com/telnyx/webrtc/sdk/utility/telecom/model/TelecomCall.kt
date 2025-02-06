@@ -5,6 +5,7 @@ import android.telecom.DisconnectCause
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallEndpointCompat
 import kotlinx.coroutines.channels.Channel
+import java.util.*
 
 /**
  * Custom representation of a call state.
@@ -22,6 +23,7 @@ sealed class TelecomCall {
      */
     data class Registered(
         val id: ParcelUuid,
+        val telnyxCallId: UUID?,
         val callAttributes: CallAttributesCompat,
         val isActive: Boolean,
         val isOnHold: Boolean,
