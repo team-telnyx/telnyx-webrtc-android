@@ -10,7 +10,6 @@ import android.media.AudioManager
 import android.media.RingtoneManager
 import android.os.Build
 import android.telecom.DisconnectCause
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -26,7 +25,6 @@ import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
  *
  * @see updateCallNotification
  */
-@RequiresApi(Build.VERSION_CODES.O)
 class TelecomCallNotificationManager(private val context: Context) {
 
     internal companion object {

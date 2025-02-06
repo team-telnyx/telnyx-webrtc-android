@@ -2,10 +2,8 @@ package com.telnyx.webrtc.sdk.utility.telecom.model
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.telecom.DisconnectCause
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlResult
 import androidx.core.telecom.CallControlScope
@@ -25,7 +23,6 @@ import kotlinx.coroutines.launch
  *
  * @see registerCall
  */
-@RequiresApi(Build.VERSION_CODES.O)
 class TelecomCallRepository(private val callsManager: CallsManager) {
 
     companion object {

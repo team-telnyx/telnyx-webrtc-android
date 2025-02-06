@@ -1,10 +1,8 @@
 package com.telnyx.webrtc.sdk.utility.telecom.call
 
 import android.Manifest
-import android.os.Build
 import android.telecom.DisconnectCause
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,7 +68,6 @@ import kotlinx.coroutines.delay
  *
  * Note: this only contains UI logic. All the telecom related actions are in [TelecomCallRepository]
  */
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 internal fun TelecomCallScreen(repository: TelecomCallRepository, onCallFinished: () -> Unit) {
     // Collect the current call state and update UI
@@ -117,7 +114,6 @@ private fun NoCallScreen() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun CallScreen(
     name: String,
@@ -158,7 +154,6 @@ private fun CallScreen(
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun OngoingCallActions(
     isActive: Boolean,
@@ -269,7 +264,6 @@ private fun CallInfoCard(name: String, info: String, isActive: Boolean) {
 /**
  * Displays the call controls based on the current call attributes
  */
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun CallControls(
@@ -388,7 +382,6 @@ private fun CallControls(
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun CallEndPointItem(
     endPoint: CallEndpointCompat,

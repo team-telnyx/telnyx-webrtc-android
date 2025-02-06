@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -140,7 +141,6 @@ class MainViewModel @Inject constructor(
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {
         telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
     }
-
 
     fun endCall(callId: UUID? = null) {
         callId?.let {

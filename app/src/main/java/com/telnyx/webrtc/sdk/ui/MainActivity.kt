@@ -428,6 +428,21 @@ class MainActivity : AppCompatActivity() {
                     callInputId.text.toString(),
                     "Sample Client State"
                 )
+
+                val context = applicationContext
+                /* context.launchCall(
+                     action = TelecomCallService.ACTION_OUTGOING_CALL,
+                     name = "Bob",
+                     uri = Uri.parse("tel:54321"),
+                 )
+                 */
+
+                context.launchCall(
+                    action = TelecomCallService.ACTION_INCOMING_CALL,
+                    name = "Alice",
+                    uri = Uri.parse("tel:12345"),
+                )
+
                 callButtonId.visibility = View.GONE
                 cancelCallButtonId.visibility = View.VISIBLE
             }
@@ -557,8 +572,7 @@ class MainActivity : AppCompatActivity() {
         Timber.d("notificationAcceptHandling is true $txPushMetaData")
         if (txPushMetaData != null) {
             connectToSocketAndObserve(txPushMetaData)
-        }
-        else {
+        } else {
             connectToSocketAndObserve()
         }
     }
@@ -812,7 +826,6 @@ class MainActivity : AppCompatActivity() {
                 // Handle Answer
                 notificationAcceptHandling = true
                 Timber.d("Call answered from notification")
-
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
                 // Handle Reject
                 notificationAcceptHandling = false

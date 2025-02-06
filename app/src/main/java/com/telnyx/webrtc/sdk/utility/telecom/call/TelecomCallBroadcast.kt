@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.annotation.RequiresApi
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
@@ -12,7 +11,6 @@ import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 /**
  * A simple BroadcastReceiver that routes the call notification actions to the TelecomCallRepository
  */
-@RequiresApi(Build.VERSION_CODES.O)
 class TelecomCallBroadcast : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {

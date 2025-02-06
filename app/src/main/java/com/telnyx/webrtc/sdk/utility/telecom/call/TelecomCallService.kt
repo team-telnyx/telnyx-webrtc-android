@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
-import androidx.annotation.RequiresApi
 import androidx.core.content.PermissionChecker
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
@@ -36,7 +35,6 @@ import kotlinx.coroutines.launch
  * calls can consume significant memory, although that would require more complex setup to make it
  * work across multiple process.
  */
-@RequiresApi(Build.VERSION_CODES.O)
 class TelecomCallService : Service() {
 
     companion object {
