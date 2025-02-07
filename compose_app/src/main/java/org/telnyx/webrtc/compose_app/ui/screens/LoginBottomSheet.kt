@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
@@ -29,8 +30,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 @Composable
 fun CredentialTokenView(
-    fcmToken: String,
-    onSave: (CredentialConfig?, TokenConfig?) -> Unit,
+    onSave: (Profile) -> Unit,
     onDismiss: () -> Unit
 ) {
     var isTokenState by remember { mutableStateOf(false) }
@@ -102,30 +102,21 @@ fun CredentialTokenView(
                 onPositiveClick = {
                     if (!isTokenState) {
                         onSave(
-                            CredentialConfig(
-                                sipUsername,
-                                sipPassword,
-                                callerIdName,
-                                callerIdNumber,
-                                fcmToken,
-                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
-                                R.raw.ringback_tone,
-                                LogLevel.ALL,
-                                debug = true
-                            ), null
+                            Profile(
+                                sipUsername = sipUsername,
+                                sipPass = sipPassword,
+                                callerIdName = callerIdName,
+                                callerIdNumber = callerIdNumber,
+                                isUserLogin = true
+                            ),
                         )
                     } else {
                         onSave(
-                            null,
-                            TokenConfig(
-                                sipToken,
-                                callerIdName,
-                                callerIdNumber,
-                                fcmToken,
-                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
-                                R.raw.ringback_tone,
-                                LogLevel.ALL,
-                                debug = true
+                            Profile(
+                                sipToken = sipToken,
+                                callerIdName = callerIdName,
+                                callerIdNumber = callerIdNumber,
+                                isUserLogin = true
                             )
                         )
                     }

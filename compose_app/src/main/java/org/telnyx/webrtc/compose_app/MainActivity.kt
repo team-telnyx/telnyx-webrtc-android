@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
 
-        viewModel.getFCMToken()
+        viewModel.initProfile(this)
 
         enableEdgeToEdge()
         setContent {

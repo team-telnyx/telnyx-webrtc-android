@@ -1,5 +1,6 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.CredentialConfig
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
@@ -60,7 +62,7 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
-    val currentConfig by telnyxViewModel.currentConfig.collectAsState()
+    val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     val context = LocalContext.current
 
     Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing), bottomBar = {
@@ -68,11 +70,15 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
             text = stringResource(R.string.connect),
             modifier = Modifier.fillMaxWidth()
         ) {
-            telnyxViewModel.credentialLogin(
-                context,
-                credentialConfig = currentConfig!!,
-                txPushMetaData = null
-            )
+            if (currentConfig != null) {
+                telnyxViewModel.credentialLogin(
+                    context,
+                    profile = currentConfig!!,
+                    txPushMetaData = null
+                )
+            }else{
+                Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
+            }
         }
     }) {
         Column(
@@ -97,7 +103,7 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
             MediumTextBold(text = stringResource(id = R.string.login_info))
             ConnectionState(state = false)
             SessionItem(sessionId = "123456")
-            ProfileSwitcher(profileName = currentConfig?.sipUser ?: "No Profile") {
+            ProfileSwitcher(profileName = currentConfig?.sipUsername ?: "No Profile") {
                 showBottomSheet = true
             }
         }
@@ -150,14 +156,9 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
                         when (addProfile) {
                             true -> {
                                 CredentialTokenView(
-                                    fcmToken = "",
-                                    onSave = { credentialConfig, tokenConfig ->
-                                        credentialConfig?.apply {
+                                    onSave = { profile ->
+                                        profile.apply {
                                             telnyxViewModel.addCredentialConfig(this)
-                                        }
-
-                                        tokenConfig?.apply {
-                                            //
                                         }
                                         isAddProfile = !isAddProfile
                                     },
@@ -211,7 +212,7 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
 
 @Composable
 fun ProfileListView(
-    profileList: List<CredentialConfig> = emptyList(),
+    profileList: List<Profile> = emptyList(),
     telnyxViewModel: TelnyxViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
@@ -221,9 +222,9 @@ fun ProfileListView(
         LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
             profileList.forEach { item ->
                 item {
-                    ProfileItem(item, selected = currentSipId == item.sipUser,
+                    ProfileItem(item, selected = currentSipId == item.sipUsername,
                         onItemSelected = {
-                            currentSipId = it.sipUser
+                            currentSipId = it.sipUsername ?: ""
                             telnyxViewModel.setCurrentConfig(it)
                         },
                         onEdit = {
@@ -268,9 +269,9 @@ fun PosNegButton(
 
 @Composable
 fun ProfileItem(
-    item: CredentialConfig,
+    item: Profile,
     selected: Boolean = false,
-    onItemSelected: (CredentialConfig) -> Unit,
+    onItemSelected: (Profile) -> Unit,
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {}
 ) {
@@ -289,7 +290,7 @@ fun ProfileItem(
             imageVector = Icons.Default.Person,
             contentDescription = stringResource(id = R.string.profile)
         )
-        RegularText(text = item.sipUser, modifier = Modifier.weight(1f))
+        RegularText(text = item.sipUsername, modifier = Modifier.weight(1f))
         IconButton(onClick = {
 
         }) {

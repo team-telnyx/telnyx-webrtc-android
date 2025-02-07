@@ -6,11 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TokenConfig
-import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
@@ -19,14 +20,13 @@ import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.RingingResponse
-import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.util.toCredentialConfig
 import timber.log.Timber
 import java.io.IOException
 
@@ -53,46 +53,37 @@ class TelnyxViewModel : ViewModel() {
 
     var fcmToken: String? = null
 
-    private val _credentialConfigList = MutableStateFlow<List<CredentialConfig>>(
-        listOf(
-            CredentialConfig(
-                sipUser = "",
-                sipPassword = "",
-                sipCallerIDName = "",
-                sipCallerIDNumber = "",
-                fcmToken = "",
-                ringtone = "",
-                ringBackTone = R.raw.ringback_tone,
-                logLevel = com.telnyx.webrtc.sdk.model.LogLevel.ALL
-            )
-        )
+    private val _profileListState = MutableStateFlow<List<Profile>>(
+        emptyList()
     )
-    val credentialConfigList: StateFlow<List<CredentialConfig>> = _credentialConfigList
+    val credentialConfigList: StateFlow<List<Profile>> = _profileListState
 
-    private val _currentConfig = MutableStateFlow<CredentialConfig?>(null)
-    val currentConfig: StateFlow<CredentialConfig?>  = _currentConfig
+    private val _currentProfile = MutableStateFlow<Profile?>(null)
+    val currentProfile: StateFlow<Profile?>  = _currentProfile
 
-    fun setCurrentConfig(credentialConfig: CredentialConfig) {
-        _currentConfig.value = credentialConfig
+    fun setCurrentConfig(profile: Profile) {
+        _currentProfile.value = profile
     }
 
 
-    fun addCredentialConfig(credentialConfig: CredentialConfig) {
-        val list = _credentialConfigList.value.toMutableList()
+
+
+    fun addCredentialConfig(credentialConfig: Profile) {
+        val list = _profileListState.value.toMutableList()
         list.add(credentialConfig)
-        _credentialConfigList.value = list
+        _profileListState.value = list
     }
 
 
     fun credentialLogin(
         viewContext: Context,
-        credentialConfig: CredentialConfig,
+        profile: Profile,
         txPushMetaData: String?,
         autoLogin: Boolean = true
     ) {
         viewModelScope.launch {
             AuthenticateBySIPCredentials(context = viewContext).invoke(
-                credentialConfig,
+                profile.toCredentialConfig(fcmToken ?: ""),
                 txPushMetaData,
                 autoLogin
             ).asFlow().collectLatest { response ->
@@ -101,7 +92,18 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun getFCMToken() {
+    fun initProfile(context: Context) {
+        getProfiles(context)
+        getFCMToken()
+    }
+
+    private fun getProfiles(context: Context) {
+        ProfileManager.getProfilesList(context).let {
+            _profileListState.value = it
+        }
+    }
+
+    private fun getFCMToken() {
         var token = ""
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {

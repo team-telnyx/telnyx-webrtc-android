@@ -1,8 +1,14 @@
 package com.telnyx.webrtc.common.model
 
-data class Profile(var isUserLogin: Boolean = false,
-        val sipUsername: String,
-        val sipPass: String,
-        val callerIdName: String?,
-        val callerIdNumber: String?,
-        var isDev: Boolean = false)
+data class Profile(
+        val sipUsername: String? = null,
+        val sipPass: String? = null,
+        val sipToken: String? = null,
+        val callerIdName: String? = null,
+        val callerIdNumber: String? = null,
+        var isUserLogin: Boolean = false,
+        var isDev: Boolean = false) {
+    fun isToken(): Boolean {
+        return sipToken?.trim()?.isNotEmpty() ?: false
+    }
+}
