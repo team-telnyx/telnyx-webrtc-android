@@ -17,7 +17,7 @@ import java.util.*
  */
 class TelnyxCommon private constructor() {
     private var sharedPreferences: SharedPreferences? = null
-    private val SHARED_PREFERENCES_KEY = "TelnyxCommonSharedPreferences"
+    private val sharedPreferencesKey = "TelnyxCommonSharedPreferences"
 
     private var telnyxClient: TelnyxClient? = null
 
@@ -80,7 +80,7 @@ class TelnyxCommon private constructor() {
     internal fun getSharedPreferences(context: Context): SharedPreferences {
         return sharedPreferences ?: synchronized(this) {
             sharedPreferences ?: context.getSharedPreferences(
-                SHARED_PREFERENCES_KEY,
+                sharedPreferencesKey,
                 Context.MODE_PRIVATE
             ).also { sharedPreferences = it }
         }
