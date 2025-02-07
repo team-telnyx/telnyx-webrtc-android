@@ -7,7 +7,7 @@ import java.util.*
  * Class responsible for handling the bye received event.
  *
  */
-class OnByeReceived() {
+class OnByeReceived {
 
     /**
      * Ends the call with the specified call ID.
