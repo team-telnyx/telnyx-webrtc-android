@@ -19,7 +19,7 @@ object ProfileManager {
      * @return List of profiles.
      */
     fun getProfilesList(context: Context): List<Profile> {
-        val sharedPreferences = TelnyxCommon.getSharedPreferences(context)
+        val sharedPreferences = TelnyxCommon.getInstance().getSharedPreferences(context)
         val gson = Gson()
         return sharedPreferences.getString(LIST_OF_PROFILES, null)?.let { json ->
             val type = object : TypeToken<List<Profile>>() {}.type
@@ -36,7 +36,7 @@ object ProfileManager {
      * @param profile The profile to save.
      */
     fun saveProfile(context: Context, profile: Profile) {
-        val sharedPreferences = TelnyxCommon.getSharedPreferences(context)
+        val sharedPreferences = TelnyxCommon.getInstance().getSharedPreferences(context)
 
         val listOfProfiles = getProfilesList(context).toMutableList()
 
@@ -70,7 +70,7 @@ object ProfileManager {
      * @return True if the profile was deleted, false otherwise.
      */
     fun deleteProfileBySipUsername(context: Context, sipUsername: String): Boolean {
-        val sharedPreferences = TelnyxCommon.getSharedPreferences(context)
+        val sharedPreferences = TelnyxCommon.getInstance().getSharedPreferences(context)
 
         val listOfProfiles = getProfilesList(context).toMutableList()
 

@@ -18,7 +18,7 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 class AuthenticateBySIPCredentials(private val context: Context) {
 
     operator fun invoke(credentialConfig: CredentialConfig, txPushMetaData: String? = null, autoLogin: Boolean = true): LiveData<SocketResponse<ReceivedMessageBody>> {
-        val telnyxClient = TelnyxCommon.getTelnyxClient(context)
+        val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
 
         telnyxClient.connect(TxServerConfiguration(),
             credentialConfig,

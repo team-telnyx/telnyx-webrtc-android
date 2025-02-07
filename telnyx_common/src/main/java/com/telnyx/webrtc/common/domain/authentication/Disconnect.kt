@@ -15,7 +15,7 @@ class Disconnect(private val context: Context) {
      * Disconnects the current session and updates the profile status.
      */
     operator fun invoke() {
-        TelnyxCommon.getTelnyxClient(context).onDisconnect()
+        TelnyxCommon.getInstance().getTelnyxClient(context).onDisconnect()
         ProfileManager.getLoggedProfile(context)?.let { loggedProfile ->
             val disconnectedProfile = loggedProfile.copy(isUserLogin = false)
             ProfileManager.saveProfile(context, disconnectedProfile)

@@ -16,7 +16,7 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 class AuthenticateByToken(private val context: Context) {
 
     operator fun invoke(tokenConfig: TokenConfig, txPushMetaData: String? = null, autoLogin: Boolean = true): LiveData<SocketResponse<ReceivedMessageBody>> {
-        val telnyxClient = TelnyxCommon.getTelnyxClient(context)
+        val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
 
         telnyxClient.connect(TxServerConfiguration(),
             tokenConfig,
