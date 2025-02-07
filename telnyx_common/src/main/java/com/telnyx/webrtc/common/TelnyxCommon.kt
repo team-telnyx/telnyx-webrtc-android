@@ -89,4 +89,5 @@ class TelnyxCommon private constructor() {
     private fun updateHoldedCalls() {
         _holdedCalls.value = telnyxClient?.getActiveCalls()?.entries?.filter { it.value.getIsOnHoldStatus().value == true }?.map { it.value } ?: emptyList()
     }
+
 }

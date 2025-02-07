@@ -6,7 +6,6 @@ buildscript {
     val androidGradlePluginVersion = "8.6.1"
     val googlePlayServicesVersion = "4.3.15"
     val hiltVersion = "2.48"
-    val bugsnagVersion = "7.+"
     repositories {
         google()
         mavenCentral()
@@ -18,13 +17,11 @@ buildscript {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlinx:kover:0.5.1")
         classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.21.0")
-        classpath("com.bugsnag:bugsnag-android-gradle-plugin:7.+")
         classpath("org.jetbrains.dokka:dokka-gradle-plugin:1.9.20")
         classpath("com.android.tools.build:gradle:$androidGradlePluginVersion")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("com.google.gms:google-services:$googlePlayServicesVersion")
         classpath("com.google.dagger:hilt-android-gradle-plugin:$hiltVersion")
-        classpath("com.bugsnag:bugsnag-android-gradle-plugin:$bugsnagVersion")
     }
 }
 

@@ -20,6 +20,7 @@ object ProfileManager {
      */
     fun getProfilesList(context: Context): List<Profile> {
         val sharedPreferences = TelnyxCommon.getInstance().getSharedPreferences(context)
+
         val gson = Gson()
         return sharedPreferences.getString(LIST_OF_PROFILES, null)?.let { json ->
             val type = object : TypeToken<List<Profile>>() {}.type
@@ -28,6 +29,7 @@ object ProfileManager {
             emptyList<Profile>()
         }
     }
+
 
     /**
      * Saves a profile to shared preferences.
