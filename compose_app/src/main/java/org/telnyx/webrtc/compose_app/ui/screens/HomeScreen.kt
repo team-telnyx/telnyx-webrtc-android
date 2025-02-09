@@ -42,9 +42,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.sdk.CredentialConfig
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.TelnyxViewModel
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
@@ -55,9 +58,17 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedTextButton
 
+
+@Serializable
+object LoginScreenNav
+@Serializable
+object CallScreenNav
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
+fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
+
+    val navController = rememberNavController()
 
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
@@ -65,47 +76,66 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     val context = LocalContext.current
 
-    Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing), bottomBar = {
-        RoundedOutlinedButton(
-            text = stringResource(R.string.connect),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (currentConfig != null) {
-                telnyxViewModel.credentialLogin(
-                    context,
-                    profile = currentConfig!!,
-                    txPushMetaData = null
-                )
-            }else{
-                Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
+    Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
+        topBar = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
+            ) {
+                Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.telnyx_logo),
+                        contentDescription = stringResource(id = R.string.app_name),
+                        modifier = Modifier
+                            .padding(Dimens.smallPadding)
+                            .size(width = 200.dp, height = Dimens.size100dp)
+                    )
+                }
+
+                MediumTextBold(text = stringResource(id = R.string.login_info))
+                ConnectionState(state = false)
+                SessionItem(sessionId = "123456")
             }
-        }
-    }) {
+        },
+        bottomBar = {
+            RoundedOutlinedButton(
+                text = stringResource(R.string.connect),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (currentConfig != null) {
+                    telnyxViewModel.credentialLogin(
+                        context,
+                        profile = currentConfig!!,
+                        txPushMetaData = null
+                    )
+                } else {
+                    Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }) {
         Column(
-            modifier = Modifier.padding(bottom = it.calculateBottomPadding()),
+            modifier = Modifier.padding(bottom = it.calculateBottomPadding(), top = it.calculateTopPadding()),
             verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
         ) {
+
             Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.telnyx_logo),
-                    contentDescription = stringResource(id = R.string.app_name),
-                    modifier = Modifier
-                        .padding(Dimens.smallPadding)
-                        .size(width = 200.dp, height = Dimens.size100dp)
-                )
+            NavHost(navController = navController, startDestination = CallScreenNav){
+                composable<LoginScreenNav> {
+                    ProfileSwitcher(profileName = currentConfig?.sipUsername ?: "No Profile") {
+                        showBottomSheet = true
+                    }
+                }
+                composable<CallScreenNav> {
+                    CallScreen(telnyxViewModel)
+                }
             }
 
-            MediumTextBold(text = stringResource(id = R.string.login_info))
-            ConnectionState(state = false)
-            SessionItem(sessionId = "123456")
-            ProfileSwitcher(profileName = currentConfig?.sipUsername ?: "No Profile") {
-                showBottomSheet = true
-            }
+
         }
 
         //BottomSheet
@@ -178,7 +208,7 @@ fun LoginScreen(telnyxViewModel: TelnyxViewModel) {
                                     ) {
                                         isAddProfile = !isAddProfile
                                     }
-                                    ProfileListView(credentialConfigList,telnyxViewModel)
+                                    ProfileListView(credentialConfigList, telnyxViewModel)
 
                                     PosNegButton(
                                         positiveText = stringResource(id = R.string.confirm),

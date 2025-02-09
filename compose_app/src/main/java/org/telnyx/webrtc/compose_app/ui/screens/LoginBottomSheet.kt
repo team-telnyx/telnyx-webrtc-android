@@ -1,6 +1,7 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
 import android.media.RingtoneManager
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.telnyx.webrtc.common.model.Profile
@@ -34,6 +36,7 @@ fun CredentialTokenView(
     onDismiss: () -> Unit
 ) {
     var isTokenState by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     var sipToken by remember { mutableStateOf("") }
 
@@ -100,6 +103,10 @@ fun CredentialTokenView(
                 positiveText = stringResource(id = R.string.save),
                 negativeText = stringResource(id = R.string.Cancel),
                 onPositiveClick = {
+                    if (sipUsername.isEmpty() || sipPassword.isEmpty()) {
+                        Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                        return@PosNegButton
+                    }
                     if (!isTokenState) {
                         onSave(
                             Profile(

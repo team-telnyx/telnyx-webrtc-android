@@ -8,6 +8,8 @@ val colorSecondary = Color(0xFFE6E3D3)
 val background_color = Color(0xFFFEFDF5)
 val surface = Color(0xFFFFFBFE)
 val primaryContainer = Color(0xFFFFFBFE)
+val telnyxGreen = Color(0xFF14F0B8)
+val callRed = Color(0xFFEB0000)
 
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
