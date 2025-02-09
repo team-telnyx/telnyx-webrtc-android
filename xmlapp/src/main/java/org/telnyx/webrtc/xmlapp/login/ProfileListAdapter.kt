@@ -2,18 +2,27 @@ package org.telnyx.webrtc.xmlapp.login
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.telnyx.webrtc.common.model.Profile
 import org.telnyx.webrtc.xmlapp.databinding.ProfileListBinding
 
-class ProfileListAdapter(private val profileList: List<Profile>) :
-    RecyclerView.Adapter<ProfileListAdapter.ProfileViewHolder>() {
+enum class ProfileAction {
+    DELETE_PROFILE,
+    EDIT_PROFILE,
+    SELECT_PROFILE
+}
+
+class ProfileListAdapter(private val onClick: (Profile,ProfileAction) -> Unit) :
+    ListAdapter<Profile, ProfileListAdapter.ProfileViewHolder>(ProfileDiffCallback()) {
 
     // ViewHolder class
     class ProfileViewHolder(val binding: ProfileListBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(profile: Profile) {
-            binding.profileName.text = profile.name
+            binding.profileName.text = profile.sipUsername
         }
     }
 
@@ -27,14 +36,28 @@ class ProfileListAdapter(private val profileList: List<Profile>) :
     }
 
     override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
-        val profile = profileList[position]
+        val profile = getItem(position) // Use getItem() to retrieve the item at the given position
+        holder.binding.root.setOnClickListener {
+            onClick(profile,ProfileAction.SELECT_PROFILE)
+        }
+        holder.binding.deleteProfile.setOnClickListener {
+            onClick(profile,ProfileAction.DELETE_PROFILE)
+        }
+        holder.binding.editProfile.setOnClickListener {
+            onClick(profile,ProfileAction.EDIT_PROFILE)
+        }
         holder.bind(profile)
     }
-
-    override fun getItemCount() = profileList.size
-
 }
 
-data class Profile(val name: String, val email: String)
+class ProfileDiffCallback : DiffUtil.ItemCallback<Profile>() {
+    override fun areItemsTheSame(oldItem: Profile, newItem: Profile): Boolean {
+        // Use a unique identifier to determine if two items are the same
+        return oldItem.sipUsername == newItem.sipUsername
+    }
 
-
+    override fun areContentsTheSame(oldItem: Profile, newItem: Profile): Boolean {
+        // Check if the contents of the items are the same
+        return oldItem == newItem
+    }
+}

@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.compose_app.ui
+package com.telnyx.webrtc.common
 
 import android.content.Context
 import android.util.Log
@@ -6,11 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
-import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -26,8 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.telnyx.webrtc.compose_app.util.toCredentialConfig
 import timber.log.Timber
+import util.toCredentialConfig
 import java.io.IOException
 
 
@@ -56,7 +54,7 @@ class TelnyxViewModel : ViewModel() {
     private val _profileListState = MutableStateFlow<List<Profile>>(
         emptyList()
     )
-    val credentialConfigList: StateFlow<List<Profile>> = _profileListState
+    val profileList: StateFlow<List<Profile>> = _profileListState
 
     private val _currentProfile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?>  = _currentProfile
@@ -65,13 +63,26 @@ class TelnyxViewModel : ViewModel() {
         _currentProfile.value = profile
     }
 
+    fun setupProfileList(context: Context) {
+        _profileListState.value = ProfileManager.getProfilesList(context)
+    }
 
 
-
-    fun addCredentialConfig(credentialConfig: Profile) {
+    fun addProfile(context: Context,profile: Profile) {
         val list = _profileListState.value.toMutableList()
-        list.add(credentialConfig)
+        list.add(profile)
         _profileListState.value = list
+        ProfileManager.saveProfile(context,profile)
+    }
+
+    fun deleteProfile(context: Context,profile: Profile) {
+        profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
+        profile.sipToken?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
+        refreshProfileList(context)
+    }
+
+    private fun refreshProfileList(context: Context) {
+        _profileListState.value = ProfileManager.getProfilesList(context)
     }
 
 

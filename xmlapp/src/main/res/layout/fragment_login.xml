@@ -9,115 +9,18 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:padding="24dp"
         >
 
 
-        <ImageView
-            android:id="@+id/imageView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="60dp"
-            android:src="@drawable/telnyx_logo"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-
-
-        <TextView
-            android:id="@+id/loginInfo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="60dp"
-            style="@style/HeaderText"
-            android:text="@string/login_info"
-            app:layout_constraintTop_toBottomOf="@+id/imageView"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <TextView
-            android:id="@+id/socketLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="@style/SubText"
-            android:text="@string/socket"
-            android:layout_marginTop="24dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-            />
-
-        <LinearLayout
-            android:id="@+id/socketStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginTop="10dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/socketLabel">
-
-
-            <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:background="@drawable/status_circle"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                style="@style/SubText"
-                android:layout_marginStart="8dp"
-                android:text="@string/disconnected"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
-
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/sessionInfo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="@dimen/spacing_small"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/socketStatus">
-
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                style="@style/SubText"
-                android:text="@string/session_id"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                style="@style/SubText"
-                android:layout_marginTop="@dimen/spacing_tiny"
-                android:text="@string/dash"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
-
-
-        </LinearLayout>
-
-
-
         <RelativeLayout
             android:id="@+id/profileInfo"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_normal"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/sessionInfo">
+            app:layout_constraintTop_toTopOf="parent">
 
             <TextView
                 android:id="@+id/profileLabel"
@@ -133,10 +36,10 @@
                 style="@style/SubTextDeep"
                 android:layout_marginTop="@dimen/spacing_tiny"
                 android:layout_below="@+id/profileLabel"
-                android:text="xd34343"/>
+                android:text="@string/no_profile_selected"/>
 
             <Button
-                android:id="@+id/outlinedButton"
+                android:id="@+id/switchProfile"
                 android:layout_width="wrap_content"
                 android:layout_height="28dp"
                 android:layout_marginStart="@dimen/spacing_normal"
@@ -158,6 +61,7 @@
             android:text="@string/connect"
             android:textAllCaps="false"
             android:padding="1dp"
+            android:layout_marginTop="@dimen/spacing_large"
             app:layout_constraintTop_toBottomOf="@+id/profileInfo"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"

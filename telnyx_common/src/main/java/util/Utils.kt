@@ -1,11 +1,11 @@
-package org.telnyx.webrtc.compose_app.util
+package util
 
 import android.media.RingtoneManager
+import com.telnyx.webrtc.common.R
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
-import org.telnyx.webrtc.compose_app.R
 
 fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
     return CredentialConfig(

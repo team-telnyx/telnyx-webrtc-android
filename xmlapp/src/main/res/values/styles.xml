@@ -26,6 +26,17 @@
         <!-- Apply the smaller text appearance -->
     </style>
 
+    <style name="IconControlButton" parent="Widget.Material3.Button.IconButton">
+        <item name="shapeAppearanceOverlay">?attr/materialIconButtonStyle</item>
+
+        <!-- Adjust padding with insets -->
+        <item name="android:paddingHorizontal">16dp</item>
+
+
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
     <style name="AddProfileButton" parent="Widget.MaterialComponents.Button.TextButton">
         <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
 

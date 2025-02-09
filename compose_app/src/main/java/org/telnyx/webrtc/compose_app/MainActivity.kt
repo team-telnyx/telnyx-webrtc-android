@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.google.firebase.FirebaseApp
-import org.telnyx.webrtc.compose_app.ui.TelnyxViewModel
+import com.telnyx.webrtc.common.TelnyxViewModel
 import org.telnyx.webrtc.compose_app.ui.screens.HomeScreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 
@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TelnyxAndroidWebRTCSDKTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    innerPadding.calculateTopPadding()
                     HomeScreen(telnyxViewModel = viewModel)
                 }
             }
