@@ -163,6 +163,9 @@ class TelnyxViewModel : ViewModel() {
                     SocketMethod.LOGIN.methodName -> {
                         // Use Client Ready
                         val sessionId = (data.result as LoginResponse).sessid
+                        sessionId.let {
+                            Timber.d("Session ID: $sessionId")
+                        }
                     }
 
                     SocketMethod.INVITE.methodName -> {

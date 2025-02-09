@@ -101,6 +101,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun validateProfile(): Boolean {
+        var isValid = true
         credentialsBinding.apply {
             val sipToken = tokenTextField.text.toString()
             val sipUser = usernameTextField.text.toString()
@@ -109,20 +110,20 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             if (sessionSwitch.isChecked) {
                 if (sipToken.isEmpty()) {
                     tokenTextField.error = getString(R.string.error_empty_field)
-                    return false
+                    isValid = false
                 }
             } else {
                 if (sipUser.isEmpty()) {
                     usernameTextField.error = getString(R.string.error_empty_field)
-                    return false
+                    isValid = false
                 }
                 if (sipPass.isEmpty()) {
                     passwordTextField.error = getString(R.string.error_empty_field)
-                    return false
+                    isValid = false
                 }
             }
         }
-        return true
+        return isValid
     }
 
     private fun setupRecyclerView() {
