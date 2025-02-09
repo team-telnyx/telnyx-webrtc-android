@@ -45,11 +45,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.R
-import org.telnyx.webrtc.compose_app.ui.TelnyxViewModel
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
@@ -179,8 +179,7 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
                         }
                     }
 
-                    val context = LocalContext.current
-                    val credentialConfigList by telnyxViewModel.credentialConfigList.collectAsState()
+                    val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
                     AnimatedContent(isAddProfile) { addProfile ->
                         when (addProfile) {
@@ -188,7 +187,7 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
                                 CredentialTokenView(
                                     onSave = { profile ->
                                         profile.apply {
-                                            telnyxViewModel.addCredentialConfig(this)
+                                            telnyxViewModel.addProfile(context,profile)
                                         }
                                         isAddProfile = !isAddProfile
                                     },
