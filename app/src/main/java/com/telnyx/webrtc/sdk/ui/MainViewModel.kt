@@ -5,6 +5,8 @@
 package com.telnyx.webrtc.sdk.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
@@ -17,6 +19,7 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -126,15 +129,35 @@ class MainViewModel @Inject constructor(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )
+        
+        // Start TelecomCallService for outgoing call
+        val intent = Intent(context, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_OUTGOING_CALL
+            putExtra(TelecomCallService.EXTRA_NAME, callerName)
+            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", destinationNumber, null))
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, call?.callId.toString())
+        }
+        context.startService(intent)
+        
         setCurrentCall(call?.callId!!)
     }
 
-    fun acceptCall(callId: UUID, destinationNumber: String) {
+    fun acceptCall(callId: UUID, destinationNumber: String, callerName: String? = null) {
         telnyxClient?.acceptCall(
             callId,
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
+        
+        // Start TelecomCallService for incoming call
+        val intent = Intent(context, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_INCOMING_CALL
+            putExtra(TelecomCallService.EXTRA_NAME, callerName ?: "Unknown Caller")
+            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", destinationNumber, null))
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+        }
+        context.startService(intent)
+        
         startDebugStats()
     }
 
@@ -150,9 +173,15 @@ class MainViewModel @Inject constructor(
             if (currentCall != null) {
                 telnyxClient?.endCall(currentCall?.callId!!)
             }
-            //ToDo(Rad): do we need this
             currentCall?.endCall(currentCall?.callId!!)
         }
+
+        // Update TelecomCallService about call end
+        val intent = Intent(context, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_UPDATE_CALL
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, (callId ?: currentCall?.callId).toString())
+        }
+        context.startService(intent)
 
         holdedCalls.lastOrNull()?.let {
             currentCall = it

@@ -145,36 +145,83 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     when (data?.method) {
                         SocketMethod.INVITE.methodName -> {
-                            //NOOP
+                            // Handle incoming call invitation
+                            data.params?.let { params ->
+                                val callerName = params.callerIdName ?: "Unknown Caller"
+                                val callerNumber = params.callerIdNumber ?: "Unknown Number"
+                                val callId = params.callId?.let { UUID.fromString(it) }
+                                
+                                if (callId != null) {
+                                    // Start TelecomCallService for incoming call
+                                    val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                                        action = TelecomCallService.ACTION_INCOMING_CALL
+                                        putExtra(TelecomCallService.EXTRA_NAME, callerName)
+                                        putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", callerNumber, null))
+                                        putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                                    }
+                                    requireContext().startService(intent)
+                                }
+                            }
                         }
                         SocketMethod.RINGING.methodName -> {
-
+                            // Update UI for ringing state
+                            binding.apply {
+                                // You could show a "Ringing..." text or animation here
+                            }
                         }
                         SocketMethod.MEDIA.methodName -> {
-
+                            // Media state changed, update TelecomCallService
+                            val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                                action = TelecomCallService.ACTION_UPDATE_CALL
+                                putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                            }
+                            requireContext().startService(intent)
                         }
                         SocketMethod.BYE.methodName -> {
-
+                            // Call ended, update TelecomCallService
+                            val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                                action = TelecomCallService.ACTION_UPDATE_CALL
+                                putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                            }
+                            requireContext().startService(intent)
+                            
+                            // Also update UI
+                            binding.callTimerId.stop()
+                            parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit()
                         }
                     }
                 }
 
                 override fun onConnectionEstablished() {
-                    //NOOP
+                    // Connection established, update TelecomCallService
+                    val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                        action = TelecomCallService.ACTION_UPDATE_CALL
+                        putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                    }
+                    requireContext().startService(intent)
                 }
 
                 override fun onLoading() {
-                    //NOOP
+                    // Show loading state in UI if needed
                 }
 
                 override fun onError(message: String?) {
-                    //NOOP
+                    // Handle error, possibly end call and update TelecomCallService
+                    val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                        action = TelecomCallService.ACTION_UPDATE_CALL
+                        putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                    }
+                    requireContext().startService(intent)
                 }
 
                 override fun onSocketDisconnect() {
-                    //NOOP
+                    // Handle disconnect, update TelecomCallService
+                    val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
+                        action = TelecomCallService.ACTION_UPDATE_CALL
+                        putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
+                    }
+                    requireContext().startService(intent)
                 }
-
             })
     }
 
