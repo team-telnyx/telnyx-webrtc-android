@@ -8,10 +8,21 @@
         android:id="@+id/profile_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:layout_constraintEnd_toStartOf="@+id/deleteProfile"
+        app:layout_constraintEnd_toStartOf="@+id/editProfile"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="@+id/deleteProfile"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/editProfile"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/delete"
+        android:src="@drawable/baseline_edit_24"
+        android:background="@drawable/circular_background"
+        app:layout_constraintEnd_toStartOf="@+id/deleteProfile"
+        app:layout_constraintTop_toTopOf="parent"
+        />
 
 
     <ImageButton

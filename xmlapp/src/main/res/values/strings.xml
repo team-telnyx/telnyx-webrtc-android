@@ -56,5 +56,10 @@
     <string name="token">Token</string>
     <string name="sign_in">Sign In</string>
     <string name="delete">delete</string>
+    <string name="credentials_login">Credential Login</string>
+    <string name="save">Save</string>
+    <string name="error_empty_field">Empty Field</string>
+    <string name="confirm">Confirm</string>
+    <string name="no_profile_selected">No Profile\n</string>
 
 </resources>

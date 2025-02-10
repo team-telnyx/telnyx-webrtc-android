@@ -10,9 +10,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = colorPrimary,
+    secondary = colorSecondary,
+    tertiary = colorPrimaryVariant,
+    background = background_color,
+    surface =surface,
+    primaryContainer = primaryContainer
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -20,9 +23,10 @@ private val LightColorScheme = lightColorScheme(
     secondary = colorSecondary,
     tertiary = colorPrimaryVariant,
     background = background_color,
+    surface =surface,
+    primaryContainer = primaryContainer
     /* Other default colors to override
 
-    surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
@@ -39,12 +43,9 @@ fun TelnyxAndroidWebRTCSDKTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
 
-        darkTheme -> DarkColorScheme
+
+        darkTheme -> LightColorScheme
         else -> LightColorScheme
     }
 
