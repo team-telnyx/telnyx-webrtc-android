@@ -79,12 +79,5 @@
 
         <receiver android:name=".utility.telecom.call.TelecomCallBroadcast"
             android:exported="true"/>
-
-        <service
-            android:enabled="true"
-            android:exported="true"
-            android:foregroundServiceType="phoneCall"
-            android:name=".NotificationsService"
-            />
     </application>
 </manifest>

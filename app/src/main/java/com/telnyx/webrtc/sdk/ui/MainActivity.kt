@@ -22,7 +22,6 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
@@ -44,12 +43,10 @@ import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
-import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
-import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
@@ -57,7 +54,6 @@ import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
-import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import java.io.IOException
@@ -314,9 +310,10 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.INVITE.methodName -> {
                             val inviteResponse = data.result as InviteResponse
-                            onReceiveCallView(
-                                inviteResponse.callId,
-                                inviteResponse.callerIdNumber
+                            showIncomingCall(
+                                inviteResponse.callerIdName,
+                                inviteResponse.callerIdNumber,
+                                inviteResponse.callId
                             )
                         }
 
@@ -421,12 +418,10 @@ class MainActivity : AppCompatActivity() {
         }
         binding.callControlSectionId.apply {
             callButtonId.setOnClickListener {
-                val context = applicationContext
-                context.launchCall(
-                    TelecomCallService.ACTION_OUTGOING_CALL,
+                placeOutgoingCall(
                     userManager.callerIdName,
-                    Uri.parse("tel:${callInputId.text}"),
-                    UUID.randomUUID().toString()
+                    callInputId.text.toString(),
+                    UUID.randomUUID()
                 )
             }
         }
@@ -634,7 +629,8 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
+    //ToDo(Oli): Verify that we no longer need this. Connection Service should be handling this now
+    /*private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
         if (mainViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE) {
             onReceiveActiveCallView(callId, callerIdNumber)
             return
@@ -669,9 +665,9 @@ class MainActivity : AppCompatActivity() {
 
             }
         }
-    }
+    }*/
 
-    private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
+    /*private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
         binding.apply {
             callControlSectionId.root.visibility = View.GONE
             incomingActiveCallSectionId.root.visibility = View.VISIBLE
@@ -729,7 +725,7 @@ class MainActivity : AppCompatActivity() {
 
 
         mainViewModel.endCall(callId)
-    }
+    }*/
 
     private fun checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -845,6 +841,36 @@ private fun Context.launchCall(action: String, name: String, uri: Uri, callId: S
             putExtra(TelecomCallService.EXTRA_NAME, name)
             putExtra(TelecomCallService.EXTRA_URI, uri)
             putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId)
+        },
+    )
+}
+
+private fun Context.placeOutgoingCall(
+    displayName: String,
+    phoneNumber: String,
+    telnyxCallId: UUID
+) {
+    startService(
+        Intent(this, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_OUTGOING_CALL
+            putExtra(TelecomCallService.EXTRA_NAME, displayName)
+            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", phoneNumber, null))
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, telnyxCallId.toString())
+        },
+    )
+}
+
+private fun Context.showIncomingCall(
+    displayName: String,
+    phoneNumber: String,
+    telnyxCallId: UUID
+) {
+    startService(
+        Intent(this, TelecomCallService::class.java).apply {
+            action = TelecomCallService.ACTION_INCOMING_CALL
+            putExtra(TelecomCallService.EXTRA_NAME, displayName)
+            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", phoneNumber, null))
+            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, telnyxCallId.toString())
         },
     )
 }
