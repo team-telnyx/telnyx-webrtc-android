@@ -22,9 +22,15 @@ class TelecomCallActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val telnyxCallManager = TelnyxCallManager(applicationContext)
+
         // The repo contains all the call logic and communication with the Telecom SDK.
         val repository =
-            TelecomCallRepository.instance ?: TelecomCallRepository.create(applicationContext)
+            TelecomCallRepository.instance ?: TelecomCallRepository.create(
+                applicationContext,
+                telnyxCallManager
+            )
 
         // Set the right flags for a call type activity.
         setupCallActivity()

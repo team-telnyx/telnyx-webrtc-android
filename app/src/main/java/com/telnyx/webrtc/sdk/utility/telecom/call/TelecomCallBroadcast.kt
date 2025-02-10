@@ -16,7 +16,11 @@ class TelecomCallBroadcast : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         // Get the action or skip if none
         val action = intent.getTelecomCallAction() ?: return
-        val repo = TelecomCallRepository.instance ?: TelecomCallRepository.create(context)
+        val telnyxCallManager = TelnyxCallManager(context)
+        val repo = TelecomCallRepository.instance ?: TelecomCallRepository.create(
+            context,
+            telnyxCallManager
+        )
         val call = repo.currentCall.value
 
         if (call is TelecomCall.Registered) {

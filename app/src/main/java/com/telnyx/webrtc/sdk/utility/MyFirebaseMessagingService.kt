@@ -32,6 +32,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val metadata = objects.getString("metadata")
         val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
+        if (isMissedCall) {
+            return
+        }
+
         //ToDo(Oliver Zimmerman) handle missed call with Telecom Service Later
         /*if (isMissedCall) {
             Timber.d("Missed Call")
@@ -43,9 +47,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }*/
 
-        val callerDisplayName = objects.getString("caller_display_name") ?: "Unknown Caller"
-        val phoneNumber = objects.getString("phone_number") ?: "Unknown Number"
-        val telnyxCallIdString = objects.getString("telnyxCallId")
+        val metadataObject = JSONObject(metadata)
+        val callerDisplayName = metadataObject.getString("caller_name") ?: "Unknown Caller"
+        val phoneNumber = metadataObject.getString("caller_number") ?: "Unknown Number"
+        val telnyxCallIdString = metadataObject.getString("call_id")
 
         val incomingIntent = Intent(this, TelecomCallService::class.java).apply {
             action = TelecomCallService.ACTION_INCOMING_CALL
