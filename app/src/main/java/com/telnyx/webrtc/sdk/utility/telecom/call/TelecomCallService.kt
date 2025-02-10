@@ -84,7 +84,8 @@ class TelecomCallService : Service() {
             return START_NOT_STICKY
         }
 
-        val telnyxCallIdString = intent.getStringExtra(EXTRA_TELNYX_CALL_ID)!!
+        val telnyxCallIdString =
+            intent.getStringExtra(EXTRA_TELNYX_CALL_ID) ?: UUID.randomUUID().toString()
         when (intent.action) {
             ACTION_INCOMING_CALL -> registerCall(
                 intent = intent,
