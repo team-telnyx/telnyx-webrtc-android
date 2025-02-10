@@ -8,6 +8,8 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
 import android.media.AudioManager
 import android.media.RingtoneManager
 import android.net.Uri
@@ -73,23 +75,21 @@ class TelecomCallService : Service() {
             )
 
         // Create notification channel for Android O and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Telnyx Call Service",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Keeps the call active when the screen is locked"
-                setSound(null, null)
-                enableVibration(false)
-            }
-
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Telnyx Call Service",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Keeps the call active when the screen is locked"
+            setSound(null, null)
+            enableVibration(false)
         }
 
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+
         // Start as a foreground service with a persistent notification
-        startForeground(NOTIFICATION_ID, createNotification())
+        startForeground(NOTIFICATION_ID, createNotification(), FOREGROUND_SERVICE_TYPE_PHONE_CALL)
 
         // Observe call status updates once the call is registered and update the service
         telecomRepository.currentCall

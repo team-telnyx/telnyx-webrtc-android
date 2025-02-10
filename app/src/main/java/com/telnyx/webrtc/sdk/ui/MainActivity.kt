@@ -24,6 +24,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
@@ -432,7 +433,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.callControlSectionId.apply {
             cancelCallButtonId.setOnClickListener {
-                mainViewModel.endCall()
+                mainViewModel.endCall(applicationContext)
                 callButtonId.visibility = View.VISIBLE
                 cancelCallButtonId.visibility = View.GONE
             }
@@ -710,14 +711,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         launchCallInstance(callId)
-        mainViewModel.acceptCall(callId, destinationNumber)
+        mainViewModel.acceptCall(applicationContext, callId, destinationNumber)
 
     }
 
     private fun onRejectActiveCall(callId: UUID) {
         // Reject call and make call control section visible
         binding.incomingActiveCallSectionId.root.visibility = View.GONE
-        mainViewModel.endCall(callId)
+        mainViewModel.endCall(applicationContext, callId)
     }
 
     private fun onRejectCall(callId: UUID) {
@@ -728,7 +729,7 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-        mainViewModel.endCall(callId)
+        mainViewModel.endCall(applicationContext, callId)
     }
 
     private fun checkPermissions() {

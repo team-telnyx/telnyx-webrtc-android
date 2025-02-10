@@ -10,6 +10,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import androidx.test.core.app.ApplicationProvider.getApplicationContext
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
@@ -120,6 +121,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun sendInvite(
+        context: Context,
         callerName: String,
         callerNumber: String,
         destinationNumber: String,
@@ -129,7 +131,7 @@ class MainViewModel @Inject constructor(
             callerName, callerNumber, destinationNumber,
             clientState, mapOf(Pair("X-test", "123456"))
         )
-        
+        // get context
         // Start TelecomCallService for outgoing call
         val intent = Intent(context, TelecomCallService::class.java).apply {
             action = TelecomCallService.ACTION_OUTGOING_CALL
@@ -142,7 +144,7 @@ class MainViewModel @Inject constructor(
         setCurrentCall(call?.callId!!)
     }
 
-    fun acceptCall(callId: UUID, destinationNumber: String, callerName: String? = null) {
+    fun acceptCall(context: Context, callId: UUID, destinationNumber: String, callerName: String? = null) {
         telnyxClient?.acceptCall(
             callId,
             destinationNumber,
@@ -165,7 +167,7 @@ class MainViewModel @Inject constructor(
         telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
     }
 
-    fun endCall(callId: UUID? = null) {
+    fun endCall(context: Context, callId: UUID? = null) {
         callId?.let {
             telnyxClient?.endCall(callId)
         } ?: run {

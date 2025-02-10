@@ -4,9 +4,11 @@
 
 package com.telnyx.webrtc.sdk.ui
 
+import android.content.Intent
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.media.ToneGenerator.*
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.LayoutInflater
@@ -19,6 +21,7 @@ import com.davidmiguel.numberkeyboard.NumberKeyboardListener
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.databinding.FragmentCallInstanceBinding
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import com.telnyx.webrtc.sdk.verto.receive.*
 import timber.log.Timber
 import java.util.*
@@ -127,7 +130,9 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
     }
 
     private fun onEndCall() {
-        mainViewModel.endCall(callId!!)
+        mainViewModel.endCall(
+            requireContext(), callId!!
+        )
         binding.callTimerId.stop()
         parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit();
     }
@@ -145,49 +150,45 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
                 override fun onMessageReceived(data: ReceivedMessageBody?) {
                     when (data?.method) {
                         SocketMethod.INVITE.methodName -> {
-                            // Handle incoming call invitation
-                            data.params?.let { params ->
-                                val callerName = params.callerIdName ?: "Unknown Caller"
-                                val callerNumber = params.callerIdNumber ?: "Unknown Number"
-                                val callId = params.callId?.let { UUID.fromString(it) }
-                                
-                                if (callId != null) {
-                                    // Start TelecomCallService for incoming call
-                                    val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
-                                        action = TelecomCallService.ACTION_INCOMING_CALL
-                                        putExtra(TelecomCallService.EXTRA_NAME, callerName)
-                                        putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", callerNumber, null))
-                                        putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
-                                    }
-                                    requireContext().startService(intent)
-                                }
-                            }
+                            // NOOP - already in call state
                         }
+
                         SocketMethod.RINGING.methodName -> {
                             // Update UI for ringing state
                             binding.apply {
                                 // You could show a "Ringing..." text or animation here
                             }
                         }
+
                         SocketMethod.MEDIA.methodName -> {
                             // Media state changed, update TelecomCallService
-                            val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
-                                action = TelecomCallService.ACTION_UPDATE_CALL
-                                putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
-                            }
+                            val intent =
+                                Intent(requireContext(), TelecomCallService::class.java).apply {
+                                    action = TelecomCallService.ACTION_UPDATE_CALL
+                                    putExtra(
+                                        TelecomCallService.EXTRA_TELNYX_CALL_ID,
+                                        callId.toString()
+                                    )
+                                }
                             requireContext().startService(intent)
                         }
+
                         SocketMethod.BYE.methodName -> {
                             // Call ended, update TelecomCallService
-                            val intent = Intent(requireContext(), TelecomCallService::class.java).apply {
-                                action = TelecomCallService.ACTION_UPDATE_CALL
-                                putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId.toString())
-                            }
+                            val intent =
+                                Intent(requireContext(), TelecomCallService::class.java).apply {
+                                    action = TelecomCallService.ACTION_UPDATE_CALL
+                                    putExtra(
+                                        TelecomCallService.EXTRA_TELNYX_CALL_ID,
+                                        callId.toString()
+                                    )
+                                }
                             requireContext().startService(intent)
-                            
+
                             // Also update UI
                             binding.callTimerId.stop()
-                            parentFragmentManager.beginTransaction().remove(this@CallInstanceFragment).commit()
+                            parentFragmentManager.beginTransaction()
+                                .remove(this@CallInstanceFragment).commit()
                         }
                     }
                 }
@@ -252,30 +253,39 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
             0 -> {
                 toneGenerator.startTone(TONE_DTMF_0, 500)
             }
+
             1 -> {
                 toneGenerator.startTone(TONE_DTMF_1, 500)
             }
+
             2 -> {
                 toneGenerator.startTone(TONE_DTMF_2, 500)
             }
+
             3 -> {
                 toneGenerator.startTone(TONE_DTMF_3, 500)
             }
+
             4 -> {
                 toneGenerator.startTone(TONE_DTMF_4, 500)
             }
+
             5 -> {
                 toneGenerator.startTone(TONE_DTMF_5, 500)
             }
+
             6 -> {
                 toneGenerator.startTone(TONE_DTMF_6, 500)
             }
+
             7 -> {
                 toneGenerator.startTone(TONE_DTMF_7, 500)
             }
+
             8 -> {
                 toneGenerator.startTone(TONE_DTMF_8, 500)
             }
+
             9 -> {
                 toneGenerator.startTone(TONE_DTMF_9, 500)
             }
@@ -284,6 +294,6 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
     }
 
     override fun onRightAuxButtonClicked() {
-       binding.dialpadSectionId.root.visibility = View.INVISIBLE
+        binding.dialpadSectionId.root.visibility = View.INVISIBLE
     }
 }
