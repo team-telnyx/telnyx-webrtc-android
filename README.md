@@ -249,7 +249,7 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
 
 ## Best Practices
 
- 1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services]
+ 1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type [Foreground Service](https://developer.android.com/develop/background-work/services/foreground-services)
     with broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing. 
      - Play a ringtone when a call is received from push notification using the `RingtoneManager`
         ``` kotlin
