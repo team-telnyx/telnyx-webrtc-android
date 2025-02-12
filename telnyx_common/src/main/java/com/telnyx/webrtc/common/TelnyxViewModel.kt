@@ -8,7 +8,14 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.authentication.Disconnect
+import com.telnyx.webrtc.common.domain.call.AcceptCall
+import com.telnyx.webrtc.common.domain.call.EndCurrentAndUnholdLast
+import com.telnyx.webrtc.common.domain.call.HoldCurrentAndAcceptIncoming
+import com.telnyx.webrtc.common.domain.call.OnByeReceived
+import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -27,6 +34,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import util.toCredentialConfig
 import java.io.IOException
+import java.util.*
 
 
 sealed class TelnyxSocketEvent {
@@ -41,6 +49,10 @@ sealed class TelnyxSocketEvent {
 
 }
 
+sealed class TelnyxSessionState {
+    data class ClientLogged(val message: LoginResponse): TelnyxSessionState()
+    data object ClientDisconnected: TelnyxSessionState()
+}
 
 
 class TelnyxViewModel : ViewModel() {
@@ -49,6 +61,10 @@ class TelnyxViewModel : ViewModel() {
         MutableStateFlow(TelnyxSocketEvent.InitState)
     val uiState: StateFlow<TelnyxSocketEvent> = _uiState.asStateFlow()
 
+    private val _sessionsState: MutableStateFlow<TelnyxSessionState> =
+        MutableStateFlow(TelnyxSessionState.ClientDisconnected)
+    val sessionsState: StateFlow<TelnyxSessionState> = _sessionsState.asStateFlow()
+
     var fcmToken: String? = null
 
     private val _profileListState = MutableStateFlow<List<Profile>>(
@@ -56,11 +72,15 @@ class TelnyxViewModel : ViewModel() {
     )
     val profileList: StateFlow<List<Profile>> = _profileListState
 
+    val currentCall: Call?
+        get() = TelnyxCommon.getInstance().currentCall
+
     private val _currentProfile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?>  = _currentProfile
 
-    fun setCurrentConfig(profile: Profile) {
+    fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
+        ProfileManager.saveProfile(context, profile)
     }
 
     fun setupProfileList(context: Context) {
@@ -144,6 +164,12 @@ class TelnyxViewModel : ViewModel() {
         autoLogin
     ).asFlow()
 
+    fun disconnect(viewContext: Context) {
+        viewModelScope.launch {
+            Disconnect(viewContext).invoke()
+        }
+    }
+
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.status) {
             SocketStatus.ESTABLISHED -> {
@@ -166,6 +192,7 @@ class TelnyxViewModel : ViewModel() {
                         sessionId.let {
                             Timber.d("Session ID: $sessionId")
                         }
+                        _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
                     }
 
                     SocketMethod.INVITE.methodName -> {
@@ -191,7 +218,11 @@ class TelnyxViewModel : ViewModel() {
                     }
 
                     SocketMethod.BYE.methodName -> {
-                        _uiState.value = TelnyxSocketEvent.OnCallEnded(data.result as ByeResponse)
+                        val byeRespone = data.result as ByeResponse
+                        viewModelScope.launch {
+                            OnByeReceived().invoke(byeRespone.callId)
+                        }
+                        _uiState.value = TelnyxSocketEvent.OnCallEnded(byeRespone)
                     }
                 }
             }
@@ -205,9 +236,59 @@ class TelnyxViewModel : ViewModel() {
             }
 
             SocketStatus.DISCONNECT -> {
-
+                Timber.i("Disconnect...")
+                _sessionsState.value = TelnyxSessionState.ClientDisconnected
+                _uiState.value = TelnyxSocketEvent.InitState
             }
         }
     }
 
+    fun sendInvite(
+        viewContext: Context,
+        destinationNumber: String
+    ) {
+        viewModelScope.launch {
+            ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
+                Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
+                SendInvite(viewContext).invoke(
+                    currentProfile.callerIdName ?: "",
+                    currentProfile.callerIdNumber ?: "",
+                    destinationNumber,
+                    "Sample Client State",
+                    mapOf(Pair("X-test", "123456"))
+                )
+            }
+
+        }
+    }
+
+    fun endCall(
+        viewContext: Context) {
+        viewModelScope.launch {
+            currentCall?.let { currentCall ->
+                EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
+            }
+        }
+    }
+
+    fun answerCall(
+        viewContext: Context,
+        callId: UUID,
+        callerIdNumber: String
+    ) {
+        viewModelScope.launch {
+            currentCall?.let {
+                HoldCurrentAndAcceptIncoming(viewContext).invoke(
+                    callId,
+                    callerIdNumber,
+                    mapOf(Pair("X-test", "123456")))
+            } ?: run {
+                AcceptCall(viewContext).invoke(
+                    callId,
+                    callerIdNumber,
+                    mapOf(Pair("X-test", "123456")))
+            }
+
+        }
+    }
 }

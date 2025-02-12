@@ -63,11 +63,13 @@
 
 
             <View
+                android:id="@+id/socketStatusIcon"
                 android:layout_width="8dp"
                 android:layout_height="8dp"
-                android:background="@drawable/status_circle"/>
+                android:background="@drawable/status_circle" />
 
             <TextView
+                android:id="@+id/socketStatusInfo"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 style="@style/SubText"
@@ -100,6 +102,7 @@
                 />
 
             <TextView
+                android:id="@+id/sessionId"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 style="@style/SubText"
