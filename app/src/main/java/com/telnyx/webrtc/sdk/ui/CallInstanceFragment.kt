@@ -2,7 +2,7 @@
  * Copyright © 2021 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.sdk.ui
+/*package com.telnyx.webrtc.sdk.ui
 
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -239,4 +239,4 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
     override fun onRightAuxButtonClicked() {
        binding.dialpadSectionId.root.visibility = View.INVISIBLE
     }
-}
+}*/

@@ -84,22 +84,10 @@ data class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-    fun startDebug() {
-        Timber.d("Peer connection debug started")
-
-      //  peerConnection?.startTimer()
-    }
-
     internal fun updateCallState(value: CallState) {
         callStateLiveData.postValue(value)
         _callStateFlow.value = value
     }
-
-    fun stopDebug() {
-        Timber.d("Peer connection debug stopped")
-       // peerConnection?.stopTimer()
-    }
-
 
     /**
      * Initiates a new call invitation

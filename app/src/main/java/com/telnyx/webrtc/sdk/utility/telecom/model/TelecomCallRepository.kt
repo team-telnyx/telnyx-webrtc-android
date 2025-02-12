@@ -78,6 +78,11 @@ class TelecomCallRepository(
             "There cannot be more than one call at the same time."
         }
 
+        if (!isIncoming) {
+            // If it's an outgoing call, we need to create a new call in the Telnyx stack
+            telnyxCallManager.sendInvite(callerName = displayName, callerNumber = "00000", destinationNumber = address.schemeSpecificPart)
+        }
+
         // Create the call attributes
         val attributes = CallAttributesCompat(
             displayName = displayName,
@@ -182,6 +187,7 @@ class TelecomCallRepository(
                     when (val result = setInactive()) {
                         is CallControlResult.Success -> {
                             onIsCallInactive()
+                            telnyxCallManager.onHoldUnhold()
                         }
 
                         is CallControlResult.Error -> {
@@ -207,11 +213,10 @@ class TelecomCallRepository(
                 }
 
                 is TelecomCallAction.ToggleMute -> {
-                    // We cannot programmatically mute the telecom stack. Instead we just update
-                    // the state of the call and this will start/stop audio capturing.
                     updateCurrentCall {
                         copy(isMuted = !isMuted)
                     }
+                    telnyxCallManager.onMuteUnmute()
                 }
             }
         }

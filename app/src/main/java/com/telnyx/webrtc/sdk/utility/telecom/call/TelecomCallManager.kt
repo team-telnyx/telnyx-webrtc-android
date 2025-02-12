@@ -1,6 +1,8 @@
 package com.telnyx.webrtc.sdk.utility.telecom.call
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -25,10 +27,13 @@ class TelnyxCallManager(
     private var telnyxClient: TelnyxClient? = null
     private var currentCall: Call? = null
 
-    // Observables or LiveData/StateFlows for call states
-    // e.g. a StateFlow for Mute, OnHold, etc.
+
     private val _callState = MutableStateFlow(CallState.NEW)
     val callState: StateFlow<CallState> = _callState
+
+    init {
+        telnyxClient = TelnyxClient(context)
+    }
 
     fun initConnection(
         serverConfig: TxServerConfiguration?,
@@ -58,6 +63,12 @@ class TelnyxCallManager(
             )
         }
         observeTelnyxSocket()
+    }
+
+    fun observeSocketResponse() {
+        telnyxClient?.getSocketResponse()?.observeForever { socketResponse ->
+            handleSocketResponse(socketResponse)
+        }
     }
 
     private fun observeTelnyxSocket() {
@@ -102,7 +113,7 @@ class TelnyxCallManager(
             customHeaders = mapOf("X-test" to "123456")
         )
         currentCall = newCall
-        // Possibly start tracking states, attach observers, etc.
+        // Start tracking states, attach observers, etc.
         listenToCallState(newCall)
     }
 
@@ -148,8 +159,12 @@ class TelnyxCallManager(
     }
 
     private fun listenToCallState(call: Call?) {
-        call?.getCallState()?.observeForever { newState ->
-            _callState.value = newState
+        call?.let {
+            Handler(Looper.getMainLooper()).post {
+                it.getCallState().observeForever { newState ->
+                    _callState.value = newState
+                }
+            }
         }
     }
 

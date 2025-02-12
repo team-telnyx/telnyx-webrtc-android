@@ -20,38 +20,44 @@ import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
  */
 class TelecomCallActivity : ComponentActivity() {
 
+    private lateinit var telnyxCallManager: TelnyxCallManager
+    private lateinit var repository: TelecomCallRepository
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val telnyxCallManager = TelnyxCallManager(applicationContext)
+        telnyxCallManager = TelnyxCallManager(applicationContext)
 
-        // The repo contains all the call logic and communication with the Telecom SDK.
-        val repository =
-            TelecomCallRepository.instance ?: TelecomCallRepository.create(
-                applicationContext,
-                telnyxCallManager
-            )
+        // Possibly initConnection(...) if needed
+         telnyxCallManager.observeSocketResponse()
 
-        // Set the right flags for a call type activity.
+        // The central place for the system call
+        repository = TelecomCallRepository.instance
+            ?: TelecomCallRepository.create(applicationContext, telnyxCallManager)
+
         setupCallActivity()
 
         setContent {
             MaterialTheme {
                 Surface(
-                    Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 ) {
-                    // Show the in-call screen
-                    TelecomCallScreen(repository) {
-                        // If we receive that the called finished, finish the activity
-                        finishAndRemoveTask()
-                        Log.d("TelecomCallActivity", "Call finished. Finishing activity")
-                    }
+                    // A single "container" composable that picks the relevant data from the repository
+                    // and passes it to TelecomCallScreen or something similar.
+                    UnifiedCallUI(
+                        repository = repository,
+                        telnyxCallManager = telnyxCallManager,
+                        onCallFinished = {
+                            finishAndRemoveTask()
+                            Log.d("TelecomCallActivity", "Call finished. Finishing activity")
+                        }
+                    )
                 }
             }
         }
     }
+
 
     override fun onResume() {
         super.onResume()
@@ -73,3 +79,4 @@ class TelecomCallActivity : ComponentActivity() {
         getSystemService<KeyguardManager>()?.requestDismissKeyguard(this, null)
     }
 }
+

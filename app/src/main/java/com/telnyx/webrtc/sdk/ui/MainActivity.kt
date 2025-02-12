@@ -215,7 +215,7 @@ class MainActivity : AppCompatActivity() {
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
                 R.raw.ringback_tone,
                 LogLevel.ALL,
-                debug = BuildConfig.IS_STATS_DEBUG_MODE
+                debug = false
             )
             credentialConfig = loginConfig
         } else {
@@ -254,7 +254,7 @@ class MainActivity : AppCompatActivity() {
                             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), // or ringtone,
                             ringBackTone,
                             LogLevel.ALL,
-                            debug = BuildConfig.IS_STATS_DEBUG_MODE
+                            debug = false
                         )
                         credentialConfig = loginConfig
                     }
@@ -319,7 +319,8 @@ class MainActivity : AppCompatActivity() {
 
                         SocketMethod.ANSWER.methodName -> {
                             val callId = (data.result as AnswerResponse).callId
-                            launchCallInstance(callId)
+                            //ToDo(Oliver) Do we need to launch call instance here?
+                            //launchCallInstance(callId)
                             binding.apply {
                                 callControlSectionId.callButtonId.visibility =
                                     View.VISIBLE
@@ -342,10 +343,6 @@ class MainActivity : AppCompatActivity() {
                         SocketMethod.BYE.methodName -> {
                             onByeReceivedViews()
                             val callId = (data.result as ByeResponse).callId
-                            val callInstanceFragment = callInstanceFragments[callId]
-                            callInstanceFragment?.let {
-                                supportFragmentManager.beginTransaction().remove(it).commit()
-                            }
                             mainViewModel.onByeReceived(callId)
                         }
                     }
@@ -427,7 +424,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.callControlSectionId.apply {
             cancelCallButtonId.setOnClickListener {
-                mainViewModel.endCall()
+               // mainViewModel.endCall()
                 callButtonId.visibility = View.VISIBLE
                 cancelCallButtonId.visibility = View.GONE
             }
@@ -605,16 +602,6 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-    }
-
-    private val callInstanceFragments = mutableMapOf<UUID, CallInstanceFragment>()
-    private fun launchCallInstance(callId: UUID) {
-        mainViewModel.setCurrentCall(callId)
-        val callInstanceFragment = CallInstanceFragment.newInstance(callId.toString())
-        callInstanceFragments[callId] = callInstanceFragment
-        supportFragmentManager.beginTransaction()
-            .add(R.id.fragment_call_instance, callInstanceFragment)
-            .commit()
     }
 
     private fun onByeReceivedViews() {

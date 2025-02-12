@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.content.PermissionChecker
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
+import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -124,7 +125,7 @@ class TelecomCallService : Service() {
         scope.launch {
             if (incoming) {
                 // Play ringtone for incoming calls
-                print("Play ringtone?");
+                print("Play ringtone?")
             }
 
             launch {
@@ -137,12 +138,11 @@ class TelecomCallService : Service() {
                 )
             }
 
-            //ToDo(Oli: Remove this)
-            /*if (!incoming) {
+            if (!incoming) {
                 (telecomRepository.currentCall.value as? TelecomCall.Registered)?.processAction(
                     TelecomCallAction.Activate,
                 )
-            }*/
+            }
         }
     }
 

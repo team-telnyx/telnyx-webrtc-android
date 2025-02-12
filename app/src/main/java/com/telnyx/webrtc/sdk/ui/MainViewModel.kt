@@ -65,10 +65,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun startDebugStats() {
-        currentCall?.startDebug()
-    }
-
     fun saveUserData(
         userName: String,
         password: String,
@@ -135,58 +131,12 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
-        startDebugStats()
     }
 
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {
         telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
     }
 
-    fun endCall(callId: UUID? = null) {
-        callId?.let {
-            telnyxClient?.endCall(callId)
-        } ?: run {
-            Timber.e("Run End call $callId")
-            if (currentCall != null) {
-                telnyxClient?.endCall(currentCall?.callId!!)
-            }
-            //ToDo(Rad): do we need this
-            currentCall?.endCall(currentCall?.callId!!)
-        }
-
-        holdedCalls.lastOrNull()?.let {
-            currentCall = it
-
-            if (currentCall?.getIsOnHoldStatus()?.value == true)
-                onHoldUnholdPressed(currentCall?.callId!!)
-
-            holdedCalls.remove(it)
-        }
-    }
-
-    fun onHoldUnholdPressed(callId: UUID) {
-        currentCall?.onHoldUnholdPressed(callId)
-        currentCall?.let {
-            if (it.getIsOnHoldStatus().value == true)
-                holdedCalls.add(it)
-
-            if (it.getIsOnHoldStatus().value == false)
-                holdedCalls.remove(it)
-        }
-    }
-
-    fun onMuteUnmutePressed() {
-        currentCall?.onMuteUnmutePressed()
-    }
-
-    fun onLoudSpeakerPressed() {
-        Timber.e("onLoudSpeakerPressed ${currentCall?.callId}")
-        currentCall?.onLoudSpeakerPressed()
-    }
-
-    fun dtmfPressed(callId: UUID, tone: String) {
-        currentCall?.dtmf(callId, tone)
-    }
 
     fun disconnect() {
         Log.d("MainViewModel", "disconnect")
