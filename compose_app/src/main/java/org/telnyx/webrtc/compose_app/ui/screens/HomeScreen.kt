@@ -58,6 +58,7 @@ import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
+import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
@@ -264,7 +265,8 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
-                color = Color.White
+                color = telnyxGreen,
+                trackColor = Color.White
             )
         }
     }

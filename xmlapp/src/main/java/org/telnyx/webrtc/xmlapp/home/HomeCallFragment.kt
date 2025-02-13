@@ -1,6 +1,7 @@
 package org.telnyx.webrtc.xmlapp.home
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -9,10 +10,12 @@ import android.widget.Toast
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.button.MaterialButton
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import java.util.*
 
@@ -48,7 +51,7 @@ class HomeCallFragment : Fragment() {
         }
 
         binding.mute.setOnClickListener {
-            // Handle mute button click
+            telnyxViewModel.currentCall?.onMuteUnmutePressed()
         }
 
         binding.endCall.setOnClickListener {
@@ -56,7 +59,7 @@ class HomeCallFragment : Fragment() {
         }
 
         binding.loudSpeaker.setOnClickListener {
-            // Handle speaker button click
+            telnyxViewModel.currentCall?.onLoudSpeakerPressed()
         }
 
         binding.callReject.setOnClickListener {
@@ -85,10 +88,7 @@ class HomeCallFragment : Fragment() {
                         onCallActive()
                     }
                     is TelnyxSocketEvent.OnCallEnded -> {
-                        if (telnyxViewModel.currentCall != null)
-                            onCallActive()
-                        else
-                            onIdle()
+                        onIdle()
                     }
                     is TelnyxSocketEvent.OnRinging -> {
                         onCallActive()
@@ -122,7 +122,17 @@ class HomeCallFragment : Fragment() {
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber)
-            onCallActive()
+            registerObservers()
+        }
+    }
+
+    private fun registerObservers() {
+        telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observe(viewLifecycleOwner) { loudSpeakerOn ->
+            (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_off_24 else R.drawable.speaker_24)
+        }
+
+        telnyxViewModel.currentCall?.getIsMuteStatus()?.observe(viewLifecycleOwner) { muteOn ->
+            (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_24 else R.drawable.mute_off_24)
         }
     }
 

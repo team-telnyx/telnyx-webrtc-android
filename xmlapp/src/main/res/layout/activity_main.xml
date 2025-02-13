@@ -134,4 +134,27 @@
         app:layout_constraintStart_toStartOf="parent"
         app:navGraph="@navigation/nav_graph" />
 
+    <LinearLayout
+        android:id="@+id/progressIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/colorSecondary"
+        android:alpha="0.5"
+        android:gravity="center_horizontal|center_vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="invisible">
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            app:indicatorColor="@color/telnyx_green"
+            app:indicatorSize="48dp"
+            app:trackColor="@color/white"
+            app:trackThickness="4dp" />
+
+    </LinearLayout>
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

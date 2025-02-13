@@ -1,6 +1,7 @@
 package org.telnyx.webrtc.xmlapp
 
 import android.os.Bundle
+import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -12,6 +13,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 
@@ -65,6 +67,12 @@ class MainActivity : AppCompatActivity() {
                         binding.sessionId.text = getString(R.string.dash)
                     }
                 }
+            }
+        }
+
+        lifecycleScope.launch {
+            telnyxViewModel.isLoading.collect { isLoading ->
+                binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
     }
