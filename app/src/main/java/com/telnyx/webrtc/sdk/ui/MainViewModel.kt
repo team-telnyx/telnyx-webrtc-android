@@ -35,16 +35,16 @@ class MainViewModel @Inject constructor(
     private val holdedCalls = mutableSetOf<Call>()
     private var calls: Map<UUID, Call> = mapOf()
 
+    fun initTelnyxClient(context: Context) {
+        telnyxClient = TelnyxClient(context)
+    }
+
     fun initConnection(
-        context: Context,
         providedServerConfig: TxServerConfiguration?,
         credentialConfig: CredentialConfig?,
         tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
-        Timber.e("initConnection")
-        telnyxClient = TelnyxClient(context)
-
         providedServerConfig?.let {
             telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {

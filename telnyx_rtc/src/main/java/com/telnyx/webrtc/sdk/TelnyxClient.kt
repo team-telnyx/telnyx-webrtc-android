@@ -563,8 +563,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
     ) {
 
-        socketResponseLiveData =
-            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -617,8 +616,7 @@ class TelnyxClient(
         autoLogin: Boolean = true,
     ) {
 
-        socketResponseLiveData =
-            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -680,8 +678,7 @@ class TelnyxClient(
         autoLogin: Boolean = true,
     ) {
 
-        socketResponseLiveData =
-            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
