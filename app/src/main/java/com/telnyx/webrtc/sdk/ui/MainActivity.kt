@@ -551,7 +551,7 @@ class MainActivity : AppCompatActivity() {
     private fun listenLoginTypeSwitch() {
         binding.loginSectionId.tokenLoginSwitch.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                binding.loginSectionId.loginSectionView.visibility = View.GONE
+                binding.loginSectionId.loginCredentialId.credentialLoginView.visibility = View.GONE
                 binding.loginSectionId.loginTokenId.loginTokenSectionView.visibility = View.VISIBLE
             } else {
                 binding.loginSectionId.loginCredentialId.credentialLoginView.visibility =
