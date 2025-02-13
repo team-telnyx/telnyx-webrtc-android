@@ -41,7 +41,7 @@ sealed class TelnyxSocketEvent {
     data object OnClientReady : TelnyxSocketEvent()
     data class OnClientError(val message: String) : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
-    data class OnCallAnswered(val message: AnswerResponse) : TelnyxSocketEvent()
+    data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
     data class OnCallEnded(val message: ByeResponse) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
@@ -64,6 +64,9 @@ class TelnyxViewModel : ViewModel() {
     private val _sessionsState: MutableStateFlow<TelnyxSessionState> =
         MutableStateFlow(TelnyxSessionState.ClientDisconnected)
     val sessionsState: StateFlow<TelnyxSessionState> = _sessionsState.asStateFlow()
+
+    private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     var fcmToken: String? = null
 
@@ -112,6 +115,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?,
         autoLogin: Boolean = true
     ) {
+        _isLoading.value = true
         viewModelScope.launch {
             AuthenticateBySIPCredentials(context = viewContext).invoke(
                 profile.toCredentialConfig(fcmToken ?: ""),
@@ -193,6 +197,7 @@ class TelnyxViewModel : ViewModel() {
                             Timber.d("Session ID: $sessionId")
                         }
                         _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
+                        _isLoading.value = false
                     }
 
                     SocketMethod.INVITE.methodName -> {
@@ -203,7 +208,7 @@ class TelnyxViewModel : ViewModel() {
 
                     SocketMethod.ANSWER.methodName -> {
                         _uiState.value =
-                            TelnyxSocketEvent.OnCallAnswered(data.result as AnswerResponse)
+                            TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
                     }
 
                     SocketMethod.RINGING.methodName -> {
@@ -221,8 +226,11 @@ class TelnyxViewModel : ViewModel() {
                         val byeRespone = data.result as ByeResponse
                         viewModelScope.launch {
                             OnByeReceived().invoke(byeRespone.callId)
+
+                            _uiState.value = currentCall?.let {
+                                TelnyxSocketEvent.OnCallAnswered(it.callId)
+                            } ?: TelnyxSocketEvent.OnCallEnded(byeRespone)
                         }
-                        _uiState.value = TelnyxSocketEvent.OnCallEnded(byeRespone)
                     }
                 }
             }
@@ -289,6 +297,8 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")))
             }
 
+            _uiState.value =
+                TelnyxSocketEvent.OnCallAnswered(callId)
         }
     }
 }
