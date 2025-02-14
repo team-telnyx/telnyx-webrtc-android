@@ -12,6 +12,7 @@ import com.telnyx.webrtc.common.domain.authentication.Disconnect
 import com.telnyx.webrtc.common.domain.call.AcceptCall
 import com.telnyx.webrtc.common.domain.call.EndCurrentAndUnholdLast
 import com.telnyx.webrtc.common.domain.call.HoldCurrentAndAcceptIncoming
+import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
 import com.telnyx.webrtc.common.domain.call.OnByeReceived
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.model.Profile
@@ -299,6 +300,20 @@ class TelnyxViewModel : ViewModel() {
 
             _uiState.value =
                 TelnyxSocketEvent.OnCallAnswered(callId)
+        }
+    }
+
+    fun holdUnholdCurrentCall(viewContext: Context,) {
+        viewModelScope.launch {
+            currentCall?.let {
+                HoldUnholdCall(viewContext).invoke(it)
+            }
+        }
+    }
+
+    fun dtmfPressed(key: String) {
+        currentCall?.let { call ->
+            call.dtmf(call.callId, key)
         }
     }
 }

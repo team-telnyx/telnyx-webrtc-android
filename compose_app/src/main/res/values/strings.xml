@@ -61,5 +61,5 @@
     <string name="credential_login">Credential Login</string>
     <string name="confirm">Confirm</string>
     <string name="save">Save</string>
-
+    <string name="dtmf_dialpad">DTMF Dialpad</string>
 </resources>

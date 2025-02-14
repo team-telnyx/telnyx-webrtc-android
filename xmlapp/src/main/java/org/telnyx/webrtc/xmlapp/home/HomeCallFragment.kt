@@ -1,5 +1,7 @@
 package org.telnyx.webrtc.xmlapp.home
 
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Bundle
 import android.util.Log
 import androidx.fragment.app.Fragment
@@ -17,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
+import org.telnyx.webrtc.xmlapp.login.DialpadFragment
 import java.util.*
 
 
@@ -27,6 +30,8 @@ class HomeCallFragment : Fragment() {
 
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
 
+    private lateinit var dialpadFragment: DialpadFragment
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -36,6 +41,8 @@ class HomeCallFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        dialpadFragment = DialpadFragment()
 
         setupUI()
         bindEvents()
@@ -68,6 +75,19 @@ class HomeCallFragment : Fragment() {
 
         binding.disconnect.setOnClickListener {
             telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
+        }
+
+        binding.hold.setOnClickListener {
+            telnyxViewModel.holdUnholdCurrentCall(this@HomeCallFragment.requireContext())
+        }
+
+        binding.dialpad.setOnClickListener {
+            if (!dialpadFragment.isAdded) {
+                dialpadFragment.show(
+                    requireActivity().supportFragmentManager,
+                    "dialpadFragment"
+                )
+            }
         }
     }
 
@@ -133,6 +153,10 @@ class HomeCallFragment : Fragment() {
 
         telnyxViewModel.currentCall?.getIsMuteStatus()?.observe(viewLifecycleOwner) { muteOn ->
             (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_24 else R.drawable.mute_off_24)
+        }
+
+        telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observe(viewLifecycleOwner) { onHold ->
+            (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.play_24 else R.drawable.pause_24)
         }
     }
 

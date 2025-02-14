@@ -83,42 +83,77 @@
             android:layout_height="wrap_content"
             android:padding="@dimen/spacing_tiny"
             android:layout_marginTop="@dimen/spacing_normal"
-            android:orientation="horizontal"
-            android:gravity="center"
+            android:orientation="vertical"
             app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
             android:visibility="invisible">
 
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/mute"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/colorSecondary"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/mute_24"
-                />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/spacing_tiny"
+                android:gravity="center"
+                android:orientation="horizontal">
 
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/mute"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/mute_24"
+                    />
 
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/endCall"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/reject_red"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/baseline_call_end_24"
-                app:iconTint="@color/white"
-                />
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/loudSpeaker"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/speaker_24"
+                    />
 
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/loudSpeaker"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/colorSecondary"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/speaker_24"
-                />
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/hold"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/pause_24"
+                    />
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/dialpad"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/dialpad_24"
+                    />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_normal"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/endCall"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/reject_red"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/baseline_call_end_24"
+                    app:iconTint="@color/white"
+                    />
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -165,8 +200,7 @@
             android:text="@string/disconnect"
             android:textAllCaps="false"
             android:padding="1dp"
-            android:layout_marginTop="@dimen/spacing_large"
-            app:layout_constraintTop_toBottomOf="@+id/callIncomingView"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             style="@style/CustomPrimaryButton"

@@ -62,5 +62,5 @@
     <string name="error_empty_field">Empty Field</string>
     <string name="confirm">Confirm</string>
     <string name="no_profile_selected">No Profile\n</string>
-
+    <string name="dtmf_dialpad">DTMF Dialpad</string>
 </resources>
