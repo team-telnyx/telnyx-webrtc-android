@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package org.telnyx.webrtc.xmlapp.login
 
 import android.media.AudioManager
@@ -52,7 +54,7 @@ class DialpadFragment: BottomSheetDialogFragment(), NumberKeyboardListener {
     }
 
     override fun onLeftAuxButtonClicked() {
-
+        //NOOP
     }
 
     override fun onNumberClicked(number: Int) {
