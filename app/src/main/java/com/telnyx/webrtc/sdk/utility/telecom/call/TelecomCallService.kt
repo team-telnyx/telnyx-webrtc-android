@@ -11,6 +11,7 @@ import androidx.core.content.PermissionChecker
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.util.*
+import javax.inject.Inject
 
 
 /**
@@ -34,6 +36,7 @@ import java.util.*
  * calls can consume significant memory, although that would require more complex setup to make it
  * work across multiple process.
  */
+@AndroidEntryPoint
 class TelecomCallService : Service() {
 
     companion object {
@@ -45,21 +48,19 @@ class TelecomCallService : Service() {
         internal const val ACTION_UPDATE_CALL = "update_call"
     }
 
+    @Inject
+    lateinit var telnyxCallManager: TelecomCallManager
+
     private lateinit var notificationManager: TelecomCallNotificationManager
-    private lateinit var telecomRepository: TelecomCallRepository
-    private lateinit var telnyxCallManager: TelnyxCallManager
+
+    @Inject
+    lateinit var telecomRepository: TelecomCallRepository
 
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
-        telnyxCallManager = TelnyxCallManager(applicationContext)
         notificationManager = TelecomCallNotificationManager(applicationContext)
-        telecomRepository =
-            TelecomCallRepository.instance ?: TelecomCallRepository.create(
-                applicationContext,
-                telnyxCallManager
-            )
 
         // Observe call status updates once the call is registered and update the service
         telecomRepository.currentCall
@@ -150,14 +151,14 @@ class TelecomCallService : Service() {
      * Update our calling service based on the call state. Here is where you would update the
      * connection socket, the notification, etc...
      */
-    @SuppressLint("MissingPermission")
     private fun updateServiceState(call: TelecomCall) {
         // Update the call notification
         notificationManager.updateCallNotification(call)
 
         when (call) {
             is TelecomCall.None -> {
-                // Stop any call tasks, in this demo we stop the audio loop
+                // Stop service and clean resources
+                stopSelf()
             }
 
             is TelecomCall.Registered -> {

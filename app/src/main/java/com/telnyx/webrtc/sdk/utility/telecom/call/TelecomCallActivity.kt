@@ -13,28 +13,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.getSystemService
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * This activity is used to launch the incoming or ongoing call. It uses special flags to be able
  * to be launched in the lockscreen and as a full-screen notification.
  */
+@AndroidEntryPoint
 class TelecomCallActivity : ComponentActivity() {
 
-    private lateinit var telnyxCallManager: TelnyxCallManager
-    private lateinit var repository: TelecomCallRepository
+    @Inject
+    lateinit var telnyxCallManager: TelecomCallManager
+
+    @Inject
+    lateinit var repository: TelecomCallRepository
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        telnyxCallManager = TelnyxCallManager(applicationContext)
-
         // Possibly initConnection(...) if needed
          telnyxCallManager.observeSocketResponse()
-
-        // The central place for the system call
-        repository = TelecomCallRepository.instance
-            ?: TelecomCallRepository.create(applicationContext, telnyxCallManager)
 
         setupCallActivity()
 

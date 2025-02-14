@@ -265,7 +265,6 @@ class MainActivity : AppCompatActivity() {
         Timber.d("Connect to Socket and Observe")
         if (!isDev) {
             mainViewModel.initConnection(
-                applicationContext,
                 null,
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -273,7 +272,6 @@ class MainActivity : AppCompatActivity() {
             )
         } else {
             mainViewModel.initConnection(
-                applicationContext,
                 TxServerConfiguration(host = "rtcdev.telnyx.com"),
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -424,7 +422,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.callControlSectionId.apply {
             cancelCallButtonId.setOnClickListener {
-               // mainViewModel.endCall()
+                // mainViewModel.endCall()
                 callButtonId.visibility = View.VISIBLE
                 cancelCallButtonId.visibility = View.GONE
             }

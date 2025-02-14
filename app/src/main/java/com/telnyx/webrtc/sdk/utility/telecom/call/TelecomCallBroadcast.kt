@@ -7,20 +7,32 @@ import android.os.Build
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
+import dagger.hilt.EntryPoint
+import dagger.hilt.EntryPoints
+import dagger.hilt.InstallIn
+import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.components.SingletonComponent
 
 /**
  * A simple BroadcastReceiver that routes the call notification actions to the TelecomCallRepository
  */
 class TelecomCallBroadcast : BroadcastReceiver() {
 
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface TelecomCallBroadcastEntryPoint {
+        fun telecomCallRepository(): TelecomCallRepository
+    }
+
+
     override fun onReceive(context: Context, intent: Intent) {
         // Get the action or skip if none
         val action = intent.getTelecomCallAction() ?: return
-        val telnyxCallManager = TelnyxCallManager(context)
-        val repo = TelecomCallRepository.instance ?: TelecomCallRepository.create(
-            context,
-            telnyxCallManager
-        )
+        val entryPoint = EntryPoints
+            .get(context.applicationContext, TelecomCallBroadcastEntryPoint::class.java)
+
+        val repo = entryPoint.telecomCallRepository()
         val call = repo.currentCall.value
 
         if (call is TelecomCall.Registered) {

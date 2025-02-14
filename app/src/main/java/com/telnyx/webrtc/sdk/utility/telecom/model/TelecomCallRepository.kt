@@ -8,7 +8,7 @@ import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlResult
 import androidx.core.telecom.CallControlScope
 import androidx.core.telecom.CallsManager
-import com.telnyx.webrtc.sdk.utility.telecom.call.TelnyxCallManager
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallManager
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * The central repository that keeps track of the current call and allows to register new calls.
@@ -25,39 +27,11 @@ import java.util.*
  *
  * @see registerCall
  */
-class TelecomCallRepository(
+@Singleton
+class TelecomCallRepository @Inject constructor(
     private val callsManager: CallsManager,
-    private val telnyxCallManager: TelnyxCallManager
+    private val telnyxCallManager: TelecomCallManager
 ) {
-
-    companion object {
-        var instance: TelecomCallRepository? = null
-            private set
-
-        /**
-         * This does not illustrate best practices for instantiating classes in Android but for
-         * simplicity we use this create method to create a singleton with the CallsManager and TelnyxCallManager class.
-         */
-        fun create(context: Context, telnyxCallManager: TelnyxCallManager): TelecomCallRepository {
-            Log.d("MPB", "New instance")
-            check(instance == null) {
-                "CallRepository instance already created"
-            }
-
-            // Create the Jetpack Telecom entry point
-            val callsManager = CallsManager(context).apply {
-                // Register with the telecom interface with the supported capabilities
-                registerAppWithTelecom(
-                    capabilities = CallsManager.CAPABILITY_SUPPORTS_CALL_STREAMING and
-                            CallsManager.CAPABILITY_SUPPORTS_VIDEO_CALLING,
-                )
-            }
-
-            return TelecomCallRepository(callsManager, telnyxCallManager).also {
-                instance = it
-            }
-        }
-    }
 
     // Keeps track of the current TelecomCall state
     private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.None)
@@ -80,7 +54,11 @@ class TelecomCallRepository(
 
         if (!isIncoming) {
             // If it's an outgoing call, we need to create a new call in the Telnyx stack
-            telnyxCallManager.sendInvite(callerName = displayName, callerNumber = "00000", destinationNumber = address.schemeSpecificPart)
+            telnyxCallManager.sendInvite(
+                callerName = displayName,
+                callerNumber = "00000",
+                destinationNumber = address.schemeSpecificPart
+            )
         }
 
         // Create the call attributes

@@ -16,7 +16,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-
     const val SHARED_PREFERENCES_KEY = "TelnyxSharedPreferences"
 
     @Singleton
@@ -27,6 +26,4 @@ object AppModule {
             Context.MODE_PRIVATE
         )
     }
-
-
 }

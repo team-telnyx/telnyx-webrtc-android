@@ -14,25 +14,25 @@ import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import timber.log.Timber
 import java.util.*
+import javax.inject.Inject
 
 /**
  * A simple manager to wrap the TelnyxClient and track the active call state.
  * This might live inside TelecomCallService or be a separate file
  * that TelecomCallService creates and holds a reference to.
  */
-class TelnyxCallManager(
-    private val context: Context
+class TelecomCallManager @Inject constructor(
+    private val telnyxClient: TelnyxClient
 ) {
-    private var telnyxClient: TelnyxClient? = null
     private var currentCall: Call? = null
-
 
     private val _callState = MutableStateFlow(CallState.NEW)
     val callState: StateFlow<CallState> = _callState
 
     init {
-        telnyxClient = TelnyxClient(context)
+        observeTelnyxSocket()
     }
 
     fun initConnection(
@@ -41,39 +41,36 @@ class TelnyxCallManager(
         tokenConfig: TokenConfig?,
         pushMetaData: String?
     ) {
-        telnyxClient = TelnyxClient(context)
         if (serverConfig != null && credentialConfig != null) {
-            telnyxClient?.connect(
+            telnyxClient.connect(
                 serverConfig,
                 credentialConfig,
                 pushMetaData,
                 autoLogin = true
             )
         } else if (tokenConfig != null) {
-            telnyxClient?.connect(
+            telnyxClient.connect(
                 tokenConfig = tokenConfig,
                 txPushMetaData = pushMetaData,
                 autoLogin = true
             )
         } else if (credentialConfig != null) {
-            telnyxClient?.connect(
+            telnyxClient.connect(
                 credentialConfig = credentialConfig,
                 txPushMetaData = pushMetaData,
                 autoLogin = true
             )
         }
-        observeTelnyxSocket()
     }
 
     fun observeSocketResponse() {
-        telnyxClient?.getSocketResponse()?.observeForever { socketResponse ->
+        telnyxClient.getSocketResponse().observeForever { socketResponse ->
             handleSocketResponse(socketResponse)
         }
     }
 
     private fun observeTelnyxSocket() {
-        // Observe the TelnyxClient LiveData or callbacks
-        telnyxClient?.getSocketResponse()?.observeForever { socketResponse ->
+        telnyxClient.getSocketResponse().observeForever { socketResponse ->
             handleSocketResponse(socketResponse)
         }
     }
@@ -81,31 +78,30 @@ class TelnyxCallManager(
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.data?.method) {
             SocketMethod.LOGIN.methodName -> {
-                // Logged in, ready to handle calls
+                Timber.i("CallManager: Logged in")
             }
             SocketMethod.INVITE.methodName -> {
-                // If you need to handle “incoming invites” directly in Telnyx
-                // (But presumably you are using the Telecom approach now)
+                Timber.i("CallManager: Incoming call")
             }
             SocketMethod.ANSWER.methodName -> {
-                // The other side answered, etc.
+                Timber.i("CallManager: Call answered")
             }
             SocketMethod.BYE.methodName -> {
+                Timber.i("CallManager: Call ended")
                 // The call ended from the remote side
-                // Mark our state as ended
                 _callState.value = CallState.DONE
                 currentCall = null
+                // End the call from telecom side
             }
         }
     }
 
-    // Example: dial an outgoing call on Telnyx
     fun sendInvite(
         callerName: String,
         callerNumber: String,
         destinationNumber: String
     ) {
-        val newCall = telnyxClient?.newInvite(
+        val newCall = telnyxClient.newInvite(
             callerName,
             callerNumber,
             destinationNumber,
@@ -113,31 +109,28 @@ class TelnyxCallManager(
             customHeaders = mapOf("X-test" to "123456")
         )
         currentCall = newCall
-        // Start tracking states, attach observers, etc.
         listenToCallState(newCall)
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
-        // In a single-call scenario, we can just assume currentCall
-        telnyxClient?.acceptCall(
+        telnyxClient.acceptCall(
             callId,
             destinationNumber,
             customHeaders = mapOf("X-testAndroid" to "123456")
         )
-        // update your flows, e.g.
         _callState.value = CallState.ACTIVE
     }
 
     fun endCall() {
         currentCall?.let { c ->
-            telnyxClient?.endCall(c.callId)
+            telnyxClient.endCall(c.callId)
             _callState.value = CallState.DONE
             currentCall = null
         }
     }
 
     fun endCallByID(callId: UUID) {
-        telnyxClient?.endCall(callId)
+        telnyxClient.endCall(callId)
         _callState.value = CallState.DONE
         currentCall = null
     }
@@ -168,8 +161,7 @@ class TelnyxCallManager(
         }
     }
 
-    // If you want to tear down everything
     fun disconnect() {
-        telnyxClient?.onDisconnect()
+        telnyxClient.onDisconnect()
     }
 }

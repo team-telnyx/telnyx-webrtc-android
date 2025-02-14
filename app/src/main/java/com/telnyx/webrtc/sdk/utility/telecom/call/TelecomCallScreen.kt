@@ -64,7 +64,7 @@ import kotlin.time.Duration.Companion.seconds
 @Composable
 fun UnifiedCallUI(
     repository: TelecomCallRepository,
-    telnyxCallManager: TelnyxCallManager,
+    telnyxCallManager: TelecomCallManager,
     onCallFinished: () -> Unit
 ) {
     // Observe the current Telecom call
@@ -133,7 +133,7 @@ fun UnifiedCallUI(
  */
 @Composable
 fun TelecomCallScreen(
-    manager: TelnyxCallManager,
+    manager: TelecomCallManager,
     callId: UUID,
     displayName: String,
     phoneNumber: String,
