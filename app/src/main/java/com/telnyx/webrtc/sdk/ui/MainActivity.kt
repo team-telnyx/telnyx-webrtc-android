@@ -265,9 +265,9 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
+        observeSocketResponses()
         if (!isDev) {
             mainViewModel.initConnection(
-                applicationContext,
                 null,
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -275,7 +275,6 @@ class MainActivity : AppCompatActivity() {
             )
         } else {
             mainViewModel.initConnection(
-                applicationContext,
                 TxServerConfiguration(host = "rtcdev.telnyx.com"),
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -283,15 +282,15 @@ class MainActivity : AppCompatActivity() {
             )
 
         }
-        observeSocketResponses()
     }
 
     private fun observeSocketResponses() {
+        mainViewModel.initTelnyxClient(this)
         mainViewModel.getSocketResponse()?.observe(
             this,
             object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
-                    Timber.d("OnConMan")
+                    Timber.d("Connection Established")
 
                 }
 
