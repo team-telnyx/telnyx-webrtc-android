@@ -113,11 +113,12 @@ class TelecomCallManager @Inject constructor(
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
-        telnyxClient.acceptCall(
+        val acceptedCall = telnyxClient.acceptCall(
             callId,
             destinationNumber,
             customHeaders = mapOf("X-testAndroid" to "123456")
         )
+        currentCall = acceptedCall
         _callState.value = CallState.ACTIVE
     }
 

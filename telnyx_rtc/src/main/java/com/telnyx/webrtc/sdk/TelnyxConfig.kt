@@ -31,7 +31,7 @@ sealed class TelnyxConfig
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
- * @property debug whether or not send client debug reports
+ * @property debug whether or not to send client debug reports
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -57,7 +57,7 @@ data class CredentialConfig(
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
- * @property debug whether or not send client debug reports
+ * @property debug whether or not to send client debug reports
  */
 data class TokenConfig(
     val sipToken: String,

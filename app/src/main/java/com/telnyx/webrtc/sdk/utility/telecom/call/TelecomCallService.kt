@@ -13,6 +13,7 @@ import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
@@ -38,6 +39,8 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class TelecomCallService : Service() {
+
+    private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         internal const val EXTRA_NAME: String = "extra_name"
@@ -129,7 +132,7 @@ class TelecomCallService : Service() {
                 print("Play ringtone?")
             }
 
-            launch {
+            callScope.launch {
                 // Register the call with the Telecom stack
                 telecomRepository.registerCall(
                     displayName = name,

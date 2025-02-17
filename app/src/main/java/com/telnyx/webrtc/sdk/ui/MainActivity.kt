@@ -82,9 +82,7 @@ class MainActivity : AppCompatActivity() {
     private var tokenConfig: TokenConfig? = null
 
     // Notification handling
-    private var notificationAcceptHandling: Boolean? = null
     private var txPushMetaData: String? = null
-    private var isActiveBye = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
