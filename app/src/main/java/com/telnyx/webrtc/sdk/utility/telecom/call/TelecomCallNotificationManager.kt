@@ -59,6 +59,9 @@ class TelecomCallNotificationManager(private val context: Context) {
         // Update or dismiss notification
         when (call) {
             TelecomCall.None, is TelecomCall.Unregistered -> {
+                //ToDo How do we call this cancel after we have answered?
+                // Is the trick perhaps not to call notification cancelled but to make sure that when we end call we end it for the service as well?  Make sure that is happening
+                // I imagine it's like check that we're doing the repo call as well
                 notificationManager.cancel(TELECOM_NOTIFICATION_ID)
             }
 

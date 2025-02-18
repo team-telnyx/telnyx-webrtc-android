@@ -182,7 +182,8 @@ fun TelecomCallScreen(
                         isCallActive.value = true
                     },
                     onReject = {
-                        manager.endCallByID(callId)
+                        manager.endCall()
+                        onCallFinished()
                     }
                 )
             } else {
