@@ -120,6 +120,10 @@ class TelecomCallNotificationManager(private val context: Context) {
             .setSmallIcon(R.drawable.ic_round_call_24)
             .setOngoing(true)
             .setStyle(callStyle)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(Notification.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false)
 
         if (call.isOnHold) {
             builder.addAction(

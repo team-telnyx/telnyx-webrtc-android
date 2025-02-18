@@ -1,5 +1,6 @@
 package com.telnyx.webrtc.sdk.utility.telecom.call
 
+import android.annotation.SuppressLint
 import android.os.SystemClock
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -93,6 +94,7 @@ fun UnifiedCallUI(
                 displayName = displayName.toString(),
                 phoneNumber = phoneNumber,
                 isIncoming = isIncoming,
+                onCallFinished = onCallFinished
             )
         }
     }
@@ -138,15 +140,13 @@ fun TelecomCallScreen(
     displayName: String,
     phoneNumber: String,
     isIncoming: Boolean,
+    onCallFinished: () -> Unit
 ) {
 
     val telnyxCallState by produceState(CallState.NEW) {
         manager.callState.collect { value = it }
     }
 
-    // We'll store local states for Mute/Hold/Speaker, if your TelnyxCall object
-    // doesn't already have LiveData for them.
-    // Or you can store them in TelnyxCallManager if you prefer.
     var isMuted by remember { mutableStateOf(false) }
     var isOnHold by remember { mutableStateOf(false) }
     var isSpeakerOn by remember { mutableStateOf(false) }
@@ -163,10 +163,6 @@ fun TelecomCallScreen(
         }
     }
 
-    // If isIncoming = true and we haven't answered yet, show "Incoming" UI (Answer/Reject).
-    // Once answered, set isCallActive = true.
-    // For an outgoing call, we can set isCallActive immediately or after some condition.
-
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize()) {
             // Top half: call info + timer
@@ -182,12 +178,10 @@ fun TelecomCallScreen(
             if (isIncoming && !isCallActive.value) {
                 IncomingCallActions(
                     onAnswer = {
-                        // Manager logic: acceptCall
                         manager.acceptCall(callId, phoneNumber)
                         isCallActive.value = true
                     },
                     onReject = {
-                        // Manager logic: endCall
                         manager.endCallByID(callId)
                     }
                 )
@@ -199,7 +193,7 @@ fun TelecomCallScreen(
                     isSpeakerOn = isSpeakerOn,
                     onMuteToggle = {
                         isMuted = !isMuted
-                        manager.onMuteUnmute() // manager toggles actual Telnyx media
+                        manager.onMuteUnmute()
                     },
                     onHoldToggle = {
                         isOnHold = !isOnHold
@@ -213,7 +207,8 @@ fun TelecomCallScreen(
                         manager.dtmfPressed(digit)
                     },
                     onEndCall = {
-                        manager.endCallByID(callId)
+                        manager.endCall()
+                        onCallFinished()
                     }
                 )
             }
@@ -225,6 +220,7 @@ fun TelecomCallScreen(
  * Displays basic call info (displayName, phoneNumber), plus a simple call timer
  * if isActive == true. Also shows the Telnyx callState if desired.
  */
+@SuppressLint("DefaultLocale")
 @Composable
 private fun CallInfoSection(
     displayName: String,

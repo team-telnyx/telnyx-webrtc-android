@@ -28,7 +28,7 @@ class MainViewModel @Inject constructor(
     private val telnyxClient: TelnyxClient
 ) : ViewModel() {
 
-    private val holdedCalls = mutableSetOf<Call>()
+    private val heldCalls = mutableSetOf<Call>()
 
     fun initConnection(
         providedServerConfig: TxServerConfiguration?,
@@ -96,8 +96,8 @@ class MainViewModel @Inject constructor(
 
     fun onByeReceived(callId: UUID) {
         Timber.d("onByeReceived $callId")
-        holdedCalls.firstOrNull { it.callId == callId }?.let {
-            holdedCalls.remove(it)
+        heldCalls.firstOrNull { it.callId == callId }?.let {
+            heldCalls.remove(it)
         }
     }
 }

@@ -40,7 +40,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class TelecomCallService : Service() {
 
-    private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         internal const val EXTRA_NAME: String = "extra_name"
@@ -60,6 +59,7 @@ class TelecomCallService : Service() {
     lateinit var telecomRepository: TelecomCallRepository
 
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob())
+    private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
@@ -92,19 +92,25 @@ class TelecomCallService : Service() {
         val telnyxCallIdString =
             intent.getStringExtra(EXTRA_TELNYX_CALL_ID) ?: UUID.randomUUID().toString()
         when (intent.action) {
-            ACTION_INCOMING_CALL -> registerCall(
-                intent = intent,
-                incoming = true,
-                telnyxCallId = telnyxCallIdString
-            )
+            ACTION_INCOMING_CALL -> {
+                registerCall(
+                    intent = intent,
+                    incoming = true,
+                    telnyxCallId = telnyxCallIdString
+                )
+            }
 
-            ACTION_OUTGOING_CALL -> registerCall(
-                intent = intent,
-                incoming = false,
-                telnyxCallId = telnyxCallIdString
-            )
+            ACTION_OUTGOING_CALL -> {
+                registerCall(
+                    intent = intent,
+                    incoming = false,
+                    telnyxCallId = telnyxCallIdString
+                )
+            }
 
-            ACTION_UPDATE_CALL -> updateServiceState(telecomRepository.currentCall.value)
+            ACTION_UPDATE_CALL -> {
+                updateServiceState(telecomRepository.currentCall.value)
+            }
 
             else -> throw IllegalArgumentException("Unknown action")
         }
@@ -182,5 +188,4 @@ class TelecomCallService : Service() {
             this,
             Manifest.permission.RECORD_AUDIO,
         ) == PermissionChecker.PERMISSION_GRANTED
-
 }

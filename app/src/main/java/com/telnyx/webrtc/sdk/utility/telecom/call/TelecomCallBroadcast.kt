@@ -45,7 +45,7 @@ class TelecomCallBroadcast : BroadcastReceiver() {
     }
 
     /**
-     * Get the [TelecomCallAction] parcelable object from the intent bundle.
+     * Get the [TelecomCallAction] parcelable object from the intent bundlex.
      */
     private fun Intent.getTelecomCallAction() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
