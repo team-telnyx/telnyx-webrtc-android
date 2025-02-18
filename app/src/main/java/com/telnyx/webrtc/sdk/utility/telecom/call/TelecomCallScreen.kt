@@ -2,6 +2,7 @@ package com.telnyx.webrtc.sdk.utility.telecom.call
 
 import android.annotation.SuppressLint
 import android.os.SystemClock
+import android.telecom.DisconnectCause
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_STREAMING
 import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_WIRED_HEADSET
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
+import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import kotlinx.coroutines.delay
 import java.util.*
@@ -90,6 +92,7 @@ fun UnifiedCallUI(
             // Now call our new TelecomCallScreen that uses the TelnyxCallManager
             TelecomCallScreen(
                 manager = telnyxCallManager,
+                repository = repository,
                 callId = telnyxCallId,
                 displayName = displayName.toString(),
                 phoneNumber = phoneNumber,
@@ -136,6 +139,7 @@ fun UnifiedCallUI(
 @Composable
 fun TelecomCallScreen(
     manager: TelecomCallManager,
+    repository: TelecomCallRepository,
     callId: UUID,
     displayName: String,
     phoneNumber: String,
@@ -178,11 +182,13 @@ fun TelecomCallScreen(
             if (isIncoming && !isCallActive.value) {
                 IncomingCallActions(
                     onAnswer = {
-                        manager.acceptCall(callId, phoneNumber)
+                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        call?.processAction(TelecomCallAction.Answer)
                         isCallActive.value = true
                     },
                     onReject = {
-                        manager.endCall()
+                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.REJECTED)))
                         onCallFinished()
                     }
                 )
@@ -194,21 +200,26 @@ fun TelecomCallScreen(
                     isSpeakerOn = isSpeakerOn,
                     onMuteToggle = {
                         isMuted = !isMuted
-                        manager.onMuteUnmute()
+                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        call?.processAction(TelecomCallAction.ToggleMute(isMuted))
                     },
                     onHoldToggle = {
                         isOnHold = !isOnHold
-                        manager.onHoldUnhold()
+                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        call?.processAction(TelecomCallAction.Hold)
                     },
                     onSpeakerToggle = {
                         isSpeakerOn = !isSpeakerOn
-                        manager.onSpeakerToggle()
+                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        call?.processAction(TelecomCallAction.ToggleSpeaker(isSpeakerOn))
                     },
                     onSendDtmf = { digit ->
-                        manager.dtmfPressed(digit)
+                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        call?.processAction(TelecomCallAction.DTMF(digit))
                     },
                     onEndCall = {
-                        manager.endCall()
+                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.LOCAL)))
                         onCallFinished()
                     }
                 )

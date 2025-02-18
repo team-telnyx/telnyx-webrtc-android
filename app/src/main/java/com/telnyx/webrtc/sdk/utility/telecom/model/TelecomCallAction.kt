@@ -29,8 +29,11 @@ sealed interface TelecomCallAction : Parcelable {
     data class ToggleMute(val isMute: Boolean) : TelecomCallAction
 
     @Parcelize
-    data class SwitchAudioEndpoint(val endpointId: ParcelUuid) : TelecomCallAction
+    data class ToggleSpeaker(val isSpeaker: Boolean) : TelecomCallAction
 
     @Parcelize
-    data class TransferCall(val endpointId: ParcelUuid) : TelecomCallAction
+    data class DTMF(val digit: String) : TelecomCallAction
+
+    @Parcelize
+    data class SwitchAudioEndpoint(val endpointId: ParcelUuid) : TelecomCallAction
 }

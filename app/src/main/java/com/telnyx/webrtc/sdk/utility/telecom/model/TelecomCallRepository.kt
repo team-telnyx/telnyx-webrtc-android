@@ -151,16 +151,6 @@ class TelecomCallRepository @Inject constructor(
                     doSwitchEndpoint(action)
                 }
 
-                is TelecomCallAction.TransferCall -> {
-                    val call = _currentCall.value as? TelecomCall.Registered
-                    val endpoints = call?.availableCallEndpoints?.firstOrNull {
-                        it.identifier == action.endpointId
-                    }
-                    requestEndpointChange(
-                        endpoint = endpoints ?: return@collect,
-                    )
-                }
-
                 TelecomCallAction.Hold -> {
                     when (val result = setInactive()) {
                         is CallControlResult.Success -> {
@@ -195,6 +185,14 @@ class TelecomCallRepository @Inject constructor(
                         copy(isMuted = !isMuted)
                     }
                     telnyxCallManager.onMuteUnmute()
+                }
+
+                is TelecomCallAction.DTMF -> {
+                    telnyxCallManager.dtmfPressed(action.digit)
+                }
+
+                is TelecomCallAction.ToggleSpeaker -> {
+                    telnyxCallManager.onSpeakerToggle()
                 }
             }
         }

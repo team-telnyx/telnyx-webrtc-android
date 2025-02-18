@@ -10,6 +10,7 @@ import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,12 +28,13 @@ class TelecomCallManager @Inject constructor(
     private val telnyxClient: TelnyxClient
 ) {
     private var currentCall: Call? = null
+    private var currentInvite: InviteResponse? = null
 
     private val _callState = MutableStateFlow(CallState.NEW)
     val callState: StateFlow<CallState> = _callState
 
     init {
-        observeTelnyxSocket()
+        observeSocketResponse()
     }
 
     fun initConnection(
@@ -69,12 +71,6 @@ class TelecomCallManager @Inject constructor(
         }
     }
 
-    private fun observeTelnyxSocket() {
-        telnyxClient.getSocketResponse().observeForever { socketResponse ->
-            handleSocketResponse(socketResponse)
-        }
-    }
-
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.data?.method) {
             SocketMethod.LOGIN.methodName -> {
@@ -82,6 +78,8 @@ class TelecomCallManager @Inject constructor(
             }
             SocketMethod.INVITE.methodName -> {
                 Timber.i("CallManager: Incoming call")
+                _callState.value = CallState.NEW
+                currentInvite = response.data?.result as InviteResponse
             }
             SocketMethod.ANSWER.methodName -> {
                 Timber.i("CallManager: Call answered")
@@ -127,6 +125,10 @@ class TelecomCallManager @Inject constructor(
             telnyxClient.endCall(c.callId)
             _callState.value = CallState.DONE
             currentCall = null
+        } ?: currentInvite?.let { invite ->
+            telnyxClient.endCall(invite.callId)
+            _callState.value = CallState.DONE
+            currentInvite = null
         }
     }
 

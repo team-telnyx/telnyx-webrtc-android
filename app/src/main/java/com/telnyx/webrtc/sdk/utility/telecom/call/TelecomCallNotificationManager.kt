@@ -126,7 +126,6 @@ class TelecomCallNotificationManager(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(Notification.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(false)
 
         if (call.isOnHold) {
             builder.addAction(
