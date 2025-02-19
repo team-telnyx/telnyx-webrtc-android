@@ -98,6 +98,10 @@ fun UnifiedCallUI(
                 onCallFinished = onCallFinished
             )
         }
+
+        TelecomCall.Idle -> {
+            print("Idle")
+        }
     }
 }
 

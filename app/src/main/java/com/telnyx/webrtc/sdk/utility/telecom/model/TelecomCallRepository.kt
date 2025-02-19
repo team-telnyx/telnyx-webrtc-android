@@ -7,14 +7,19 @@ import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlResult
 import androidx.core.telecom.CallControlScope
 import androidx.core.telecom.CallsManager
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallManager
+import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
+import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,8 +38,39 @@ class TelecomCallRepository @Inject constructor(
 ) {
 
     // Keeps track of the current TelecomCall state
-    private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.None)
+    private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.Idle)
     val currentCall = _currentCall.asStateFlow()
+
+    init {
+        telnyxCallManager.getSocketResponse().observeForever { response ->
+            handleSocketResponse(response)
+        }
+    }
+
+    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
+        when (response.data?.method) {
+            SocketMethod.LOGIN.methodName -> {
+                Timber.i("Repository: Logged in")
+            }
+            SocketMethod.INVITE.methodName -> {
+                // For incoming invites, update the state accordingly.
+                Timber.i("Repository: Incoming call")
+            }
+            SocketMethod.ANSWER.methodName -> {
+                // When an invite you’ve sent is answered:
+                Timber.i("Repository: Call answered")
+                if (_currentCall.value is TelecomCall.Registered) {
+                    _currentCall.update { (it as TelecomCall.Registered).copy(isActive = true) }
+                }
+            }
+            SocketMethod.BYE.methodName -> {
+                Timber.i("Repository: Call ended")
+                if (_currentCall.value is TelecomCall.Registered) {
+                    _currentCall.update { TelecomCall.None }
+                }
+            }
+        }
+    }
 
     fun getCurrentRegisteredCall(): TelecomCall.Registered? {
         return _currentCall.value as? TelecomCall.Registered
@@ -109,6 +145,13 @@ class TelecomCallRepository @Inject constructor(
                     availableCallEndpoints = emptyList(),
                     actionSource = actionSource,
                 )
+
+                if (!isIncoming) {
+                    launch {
+                        val call = _currentCall.value as? TelecomCall.Registered
+                        call?.processAction(TelecomCallAction.Activate)
+                    }
+                }
 
                 launch {
                     currentCallEndpoint.collect {
@@ -217,7 +260,6 @@ class TelecomCallRepository @Inject constructor(
     }
 
     private suspend fun CallControlScope.doSwitchEndpoint(action: TelecomCallAction.SwitchAudioEndpoint) {
-        // TODO once availableCallEndpoints is a state flow we can just get the value
         val endpoints = (_currentCall.value as TelecomCall.Registered).availableCallEndpoints
 
         // Switch to the given endpoint or fallback to the best possible one.
@@ -281,10 +323,16 @@ class TelecomCallRepository @Inject constructor(
 
     /**
      * Can the call perform a disconnect
+     * Move call to unregistered which will stop service
+     * Then move call to None state.
      */
     val onIsCallDisconnected: suspend (cause: DisconnectCause) -> Unit = {
         updateCurrentCall {
             TelecomCall.Unregistered(id, callAttributes, it)
+        }
+        delay(1000)
+        updateCurrentCall {
+            TelecomCall.None
         }
     }
 

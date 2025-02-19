@@ -314,9 +314,6 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         SocketMethod.ANSWER.methodName -> {
-                            val callId = (data.result as AnswerResponse).callId
-                            //ToDo(Oliver) Do we need to launch call instance here?
-                            //launchCallInstance(callId)
                             binding.apply {
                                 callControlSectionId.callButtonId.visibility =
                                     View.VISIBLE
@@ -815,17 +812,6 @@ class MainActivity : AppCompatActivity() {
     private fun handleServiceIntent(intent: Intent?) {
         handleCallNotification(intent)
     }
-}
-
-private fun Context.launchCall(action: String, name: String, uri: Uri, callId: String) {
-    startService(
-        Intent(this, TelecomCallService::class.java).apply {
-            this.action = action
-            putExtra(TelecomCallService.EXTRA_NAME, name)
-            putExtra(TelecomCallService.EXTRA_URI, uri)
-            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, callId)
-        },
-    )
 }
 
 private fun Context.placeOutgoingCall(

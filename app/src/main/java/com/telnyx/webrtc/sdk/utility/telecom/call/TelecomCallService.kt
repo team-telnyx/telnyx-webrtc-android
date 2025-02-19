@@ -81,6 +81,8 @@ class TelecomCallService : Service() {
         super.onDestroy()
         // Remove notification and clean resources
         scope.cancel()
+        //ToDo this is new we need to confirm this as well 
+        callScope.cancel()
         notificationManager.updateCallNotification(TelecomCall.None)
     }
 
@@ -148,11 +150,7 @@ class TelecomCallService : Service() {
                 )
             }
 
-            if (!incoming) {
-                (telecomRepository.currentCall.value as? TelecomCall.Registered)?.processAction(
-                    TelecomCallAction.Activate,
-                )
-            }
+
         }
     }
 
@@ -161,31 +159,29 @@ class TelecomCallService : Service() {
      * connection socket, the notification, etc...
      */
     private fun updateServiceState(call: TelecomCall) {
-        // Update the call notification
+        // Always update the notification.
         notificationManager.updateCallNotification(call)
 
         when (call) {
-            is TelecomCall.None -> {
-                // Stop service and clean resources
-                stopSelf()
-            }
-
-            is TelecomCall.Registered -> {
-
-            }
-
+            // ToDo we are checking why this is unregistered after ending a call we started.
+            // Also should it matter if we're creating a new service each time? Like why do we stopSelf?
             is TelecomCall.Unregistered -> {
-                // Stop service and clean resources
+                // The call has ended; we can now stop the service.
                 stopSelf()
+            }
+            is TelecomCall.Registered -> {
+                // Active call – do nothing.
+            }
+            is TelecomCall.Idle -> {
+                // Idle state means no active call yet,
+                // so do NOT stop the service.
+            }
+
+            TelecomCall.None -> {
+                // No call in the stack
             }
         }
     }
 
     override fun onBind(intent: Intent): IBinder? = null
-
-    private fun hasMicPermission() =
-        PermissionChecker.checkSelfPermission(
-            this,
-            Manifest.permission.RECORD_AUDIO,
-        ) == PermissionChecker.PERMISSION_GRANTED
 }

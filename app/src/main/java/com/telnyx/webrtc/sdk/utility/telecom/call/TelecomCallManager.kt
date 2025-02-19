@@ -71,6 +71,8 @@ class TelecomCallManager @Inject constructor(
         }
     }
 
+    fun getSocketResponse() = telnyxClient.getSocketResponse()
+
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.data?.method) {
             SocketMethod.LOGIN.methodName -> {
@@ -89,7 +91,6 @@ class TelecomCallManager @Inject constructor(
                 // The call ended from the remote side
                 _callState.value = CallState.DONE
                 currentCall = null
-                // End the call from telecom side
             }
         }
     }
