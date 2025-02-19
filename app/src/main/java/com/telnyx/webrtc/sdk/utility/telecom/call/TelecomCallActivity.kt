@@ -33,7 +33,6 @@ class TelecomCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Possibly initConnection(...) if needed
          telnyxCallManager.observeSocketResponse()
 
         setupCallActivity()
