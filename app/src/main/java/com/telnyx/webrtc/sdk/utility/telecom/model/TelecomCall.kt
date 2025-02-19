@@ -13,11 +13,6 @@ import java.util.*
 sealed class TelecomCall {
 
     /**
-     * Represents that the service is active but no call is currently in progress.
-     */
-    data object Idle : TelecomCall()
-
-    /**
      * There is no current or past calls in the stack
      */
     data object None : TelecomCall()

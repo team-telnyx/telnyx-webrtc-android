@@ -38,7 +38,7 @@ class TelecomCallRepository @Inject constructor(
 ) {
 
     // Keeps track of the current TelecomCall state
-    private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.Idle)
+    private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.None)
     val currentCall = _currentCall.asStateFlow()
 
     init {
@@ -53,7 +53,6 @@ class TelecomCallRepository @Inject constructor(
                 Timber.i("Repository: Logged in")
             }
             SocketMethod.INVITE.methodName -> {
-                // For incoming invites, update the state accordingly.
                 Timber.i("Repository: Incoming call")
             }
             SocketMethod.ANSWER.methodName -> {
@@ -329,10 +328,6 @@ class TelecomCallRepository @Inject constructor(
     val onIsCallDisconnected: suspend (cause: DisconnectCause) -> Unit = {
         updateCurrentCall {
             TelecomCall.Unregistered(id, callAttributes, it)
-        }
-        delay(1000)
-        updateCurrentCall {
-            TelecomCall.None
         }
     }
 

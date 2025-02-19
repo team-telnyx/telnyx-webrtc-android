@@ -81,7 +81,6 @@ class TelecomCallService : Service() {
         super.onDestroy()
         // Remove notification and clean resources
         scope.cancel()
-        //ToDo this is new we need to confirm this as well 
         callScope.cancel()
         notificationManager.updateCallNotification(TelecomCall.None)
     }
@@ -163,23 +162,13 @@ class TelecomCallService : Service() {
         notificationManager.updateCallNotification(call)
 
         when (call) {
-            // ToDo we are checking why this is unregistered after ending a call we started.
-            // Also should it matter if we're creating a new service each time? Like why do we stopSelf?
             is TelecomCall.Unregistered -> {
                 // The call has ended; we can now stop the service.
                 stopSelf()
-            }
-            is TelecomCall.Registered -> {
-                // Active call – do nothing.
-            }
-            is TelecomCall.Idle -> {
-                // Idle state means no active call yet,
-                // so do NOT stop the service.
+            } else -> {
+                // Do nothing
             }
 
-            TelecomCall.None -> {
-                // No call in the stack
-            }
         }
     }
 

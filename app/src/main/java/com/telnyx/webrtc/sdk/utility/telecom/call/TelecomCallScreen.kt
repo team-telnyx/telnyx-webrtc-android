@@ -98,16 +98,12 @@ fun UnifiedCallUI(
                 onCallFinished = onCallFinished
             )
         }
-
-        TelecomCall.Idle -> {
-            print("Idle")
-        }
     }
 }
 
 /**
  * A Jetpack Compose screen that replicates the "in-call" UI from CallInstanceFragment,
- * but now calls methods on [TelnyxCallManager] directly for all call actions:
+ * but now calls methods on [TelecomCallManager] directly for all call actions:
  * - acceptCall (if needed),
  * - mute/unmute,
  * - hold/unhold,

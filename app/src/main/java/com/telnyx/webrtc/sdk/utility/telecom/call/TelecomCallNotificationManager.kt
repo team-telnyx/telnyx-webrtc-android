@@ -66,10 +66,6 @@ class TelecomCallNotificationManager(private val context: Context) {
                 val notification = createNotification(call)
                 notificationManager.notify(TELECOM_NOTIFICATION_ID, notification)
             }
-
-            TelecomCall.Idle -> {
-                print("Idle state")
-            }
         }
     }
 
