@@ -1,6 +1,5 @@
 package com.telnyx.webrtc.sdk.utility.telecom.model
 
-import android.content.Context
 import android.net.Uri
 import android.telecom.DisconnectCause
 import android.util.Log
@@ -36,6 +35,10 @@ class TelecomCallRepository @Inject constructor(
     // Keeps track of the current TelecomCall state
     private val _currentCall: MutableStateFlow<TelecomCall> = MutableStateFlow(TelecomCall.None)
     val currentCall = _currentCall.asStateFlow()
+
+    fun getCurrentRegisteredCall(): TelecomCall.Registered? {
+        return _currentCall.value as? TelecomCall.Registered
+    }
 
     /**
      * Register a new call with the provided attributes.
@@ -87,6 +90,7 @@ class TelecomCallRepository @Inject constructor(
                 onIsCallActive,
                 onIsCallInactive
             ) {
+
                 // Consume the actions to interact with the call inside the scope
                 launch {
                     processCallActions(actionSource.consumeAsFlow())

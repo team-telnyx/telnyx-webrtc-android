@@ -87,13 +87,11 @@ fun UnifiedCallUI(
             val phoneNumber = call.callAttributes.address.schemeSpecificPart ?: "Unknown Number"
             val displayName = call.callAttributes.displayName
             val isIncoming = call.isIncoming()
-            val telnyxCallId = call.telnyxCallId ?: UUID.randomUUID()
 
             // Now call our new TelecomCallScreen that uses the TelnyxCallManager
             TelecomCallScreen(
                 manager = telnyxCallManager,
                 repository = repository,
-                callId = telnyxCallId,
                 displayName = displayName.toString(),
                 phoneNumber = phoneNumber,
                 isIncoming = isIncoming,
@@ -140,7 +138,6 @@ fun UnifiedCallUI(
 fun TelecomCallScreen(
     manager: TelecomCallManager,
     repository: TelecomCallRepository,
-    callId: UUID,
     displayName: String,
     phoneNumber: String,
     isIncoming: Boolean,
@@ -148,7 +145,14 @@ fun TelecomCallScreen(
 ) {
 
     val telnyxCallState by produceState(CallState.NEW) {
-        manager.callState.collect { value = it }
+        manager.callState.collect {
+            value = it
+            if (it == CallState.DONE) {
+                val call = repository.getCurrentRegisteredCall()
+                call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.REMOTE)))
+                onCallFinished()
+            }
+        }
     }
 
     var isMuted by remember { mutableStateOf(false) }
@@ -182,12 +186,12 @@ fun TelecomCallScreen(
             if (isIncoming && !isCallActive.value) {
                 IncomingCallActions(
                     onAnswer = {
-                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.Answer)
                         isCallActive.value = true
                     },
                     onReject = {
-                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.REJECTED)))
                         onCallFinished()
                     }
@@ -200,25 +204,25 @@ fun TelecomCallScreen(
                     isSpeakerOn = isSpeakerOn,
                     onMuteToggle = {
                         isMuted = !isMuted
-                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.ToggleMute(isMuted))
                     },
                     onHoldToggle = {
                         isOnHold = !isOnHold
-                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.Hold)
                     },
                     onSpeakerToggle = {
                         isSpeakerOn = !isSpeakerOn
-                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.ToggleSpeaker(isSpeakerOn))
                     },
                     onSendDtmf = { digit ->
-                        val call = (repository.currentCall.value as? TelecomCall.Registered)
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.DTMF(digit))
                     },
                     onEndCall = {
-                        val call = repository.currentCall.value as? TelecomCall.Registered
+                        val call = repository.getCurrentRegisteredCall()
                         call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.LOCAL)))
                         onCallFinished()
                     }
