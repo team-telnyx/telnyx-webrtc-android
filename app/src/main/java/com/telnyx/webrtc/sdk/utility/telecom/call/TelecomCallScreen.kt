@@ -95,6 +95,7 @@ fun UnifiedCallUI(
                 displayName = displayName.toString(),
                 phoneNumber = phoneNumber,
                 isIncoming = isIncoming,
+                isActive = call.isActive,
                 onCallFinished = onCallFinished
             )
         }
@@ -141,6 +142,7 @@ fun TelecomCallScreen(
     displayName: String,
     phoneNumber: String,
     isIncoming: Boolean,
+    isActive: Boolean,
     onCallFinished: () -> Unit
 ) {
 
@@ -159,8 +161,9 @@ fun TelecomCallScreen(
     var isOnHold by remember { mutableStateOf(false) }
     var isSpeakerOn by remember { mutableStateOf(false) }
 
+    val isCallActive = remember { mutableStateOf(isActive) }
+
     // A simple timer for "call duration," starts once the user "answers" or if isIncoming = false
-    val isCallActive = remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableLongStateOf(0L) }
     val startTime = remember { SystemClock.elapsedRealtime() }
 

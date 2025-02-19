@@ -118,6 +118,7 @@ class TelecomCallManager @Inject constructor(
             customHeaders = mapOf("X-testAndroid" to "123456")
         )
         currentCall = acceptedCall
+        listenToCallState(currentCall)
         _callState.value = CallState.ACTIVE
     }
 
