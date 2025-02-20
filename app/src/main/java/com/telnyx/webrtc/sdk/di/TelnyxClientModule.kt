@@ -2,6 +2,7 @@ package com.telnyx.webrtc.sdk.di
 
 import android.content.Context
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallManager
 import dagger.Module
 import dagger.Provides
@@ -22,8 +23,9 @@ object TelnyxClientModule {
     @Singleton
     @Provides
     fun provideTelecomCallManager(
-        telnyxClient: TelnyxClient
+        telnyxClient: TelnyxClient,
+        userManager: UserManager,
     ): TelecomCallManager {
-        return TelecomCallManager(telnyxClient)
+        return TelecomCallManager(telnyxClient, userManager)
     }
 }

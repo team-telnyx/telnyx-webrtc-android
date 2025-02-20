@@ -1,15 +1,11 @@
 package com.telnyx.webrtc.sdk.utility.telecom.call
 
-import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
-import androidx.core.content.PermissionChecker
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
-import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +44,8 @@ class TelecomCallService : Service() {
         internal const val ACTION_INCOMING_CALL = "incoming_call"
         internal const val ACTION_OUTGOING_CALL = "outgoing_call"
         internal const val ACTION_UPDATE_CALL = "update_call"
+        internal const val PUSH_METADATA = "push_metadata"
+        internal const val ACCEPT_CALL = "accept_call"
     }
 
     @Inject
@@ -60,6 +58,7 @@ class TelecomCallService : Service() {
 
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob())
     private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var fromPush = false
 
     override fun onCreate() {
         super.onCreate()
@@ -92,6 +91,7 @@ class TelecomCallService : Service() {
 
         val telnyxCallIdString =
             intent.getStringExtra(EXTRA_TELNYX_CALL_ID) ?: UUID.randomUUID().toString()
+
         when (intent.action) {
             ACTION_INCOMING_CALL -> {
                 registerCall(
@@ -133,10 +133,15 @@ class TelecomCallService : Service() {
             intent.getParcelableExtra(EXTRA_URI)!!
         }
 
+        val pushMetadata = intent.getStringExtra(PUSH_METADATA)
+
         scope.launch {
-            if (incoming) {
-                // Play ringtone for incoming calls
-                print("Play ringtone?")
+            // Check if push metadata is present - if so this is from a push notification and we need to connect on the socket
+            pushMetadata?.let { metadata ->
+                telnyxCallManager.initConnection(metadata)
+                fromPush = true
+            } ?: run {
+                fromPush = false
             }
 
             callScope.launch {
@@ -148,10 +153,9 @@ class TelecomCallService : Service() {
                     telnyxCallId = UUID.fromString(telnyxCallId),
                 )
             }
-
-
         }
     }
+
 
     /**
      * Update our calling service based on the call state. Here is where you would update the
@@ -159,13 +163,15 @@ class TelecomCallService : Service() {
      */
     private fun updateServiceState(call: TelecomCall) {
         // Always update the notification.
-        notificationManager.updateCallNotification(call)
+        notificationManager.updateCallNotification(call, fromPush)
 
         when (call) {
             is TelecomCall.Unregistered -> {
                 // The call has ended; we can now stop the service.
                 stopSelf()
-            } else -> {
+            }
+
+            else -> {
                 // Do nothing
             }
 

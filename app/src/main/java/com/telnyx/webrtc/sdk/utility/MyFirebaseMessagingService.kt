@@ -11,8 +11,6 @@ import com.google.firebase.messaging.RemoteMessage
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
 import org.json.JSONObject
 import timber.log.Timber
-import java.util.*
-
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -36,17 +34,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        //ToDo(Oliver Zimmerman) handle missed call with Telecom Service Later
-        /*if (isMissedCall) {
-            Timber.d("Missed Call")
-            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-                putExtra("action", NotificationsService.STOP_ACTION)
-            }
-            serviceIntent.setAction(NotificationsService.STOP_ACTION)
-            startForegroundService(serviceIntent)
-            return
-        }*/
-
         val metadataObject = JSONObject(metadata)
         val callerDisplayName = metadataObject.getString("caller_name") ?: "Unknown Caller"
         val phoneNumber = metadataObject.getString("caller_number") ?: "Unknown Number"
@@ -57,6 +44,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(TelecomCallService.EXTRA_NAME, callerDisplayName)
             putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", phoneNumber, null))
             putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, telnyxCallIdString)
+            putExtra(TelecomCallService.PUSH_METADATA, metadata)
         }
         startForegroundService(incomingIntent)
     }

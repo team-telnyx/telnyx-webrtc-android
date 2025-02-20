@@ -1,20 +1,23 @@
 package com.telnyx.webrtc.sdk.utility.telecom.call
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
-import com.telnyx.webrtc.sdk.TokenConfig
+import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
-import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -25,49 +28,53 @@ import javax.inject.Inject
  * that TelecomCallService creates and holds a reference to.
  */
 class TelecomCallManager @Inject constructor(
-    private val telnyxClient: TelnyxClient
+    private val telnyxClient: TelnyxClient,
+    private val userManager: UserManager
 ) {
     private var currentCall: Call? = null
     private var currentInvite: InviteResponse? = null
+
+    // This is used to track if a push notification was received while the app was in the background - if this is true then we are waiting for a subsequent socket invite after accepting / declining the push notification
+    private var pendingPushInvitation = false
+    private var acceptPushCall: Boolean? = null
 
     private val _callState = MutableStateFlow(CallState.NEW)
     val callState: StateFlow<CallState> = _callState
 
     init {
-        observeSocketResponse()
-    }
-
-    fun initConnection(
-        serverConfig: TxServerConfiguration?,
-        credentialConfig: CredentialConfig?,
-        tokenConfig: TokenConfig?,
-        pushMetaData: String?
-    ) {
-        if (serverConfig != null && credentialConfig != null) {
-            telnyxClient.connect(
-                serverConfig,
-                credentialConfig,
-                pushMetaData,
-                autoLogin = true
-            )
-        } else if (tokenConfig != null) {
-            telnyxClient.connect(
-                tokenConfig = tokenConfig,
-                txPushMetaData = pushMetaData,
-                autoLogin = true
-            )
-        } else if (credentialConfig != null) {
-            telnyxClient.connect(
-                credentialConfig = credentialConfig,
-                txPushMetaData = pushMetaData,
-                autoLogin = true
-            )
+        CoroutineScope(Dispatchers.IO).launch {
+            observeSocketResponse()
         }
     }
 
-    fun observeSocketResponse() {
-        telnyxClient.getSocketResponse().observeForever { socketResponse ->
-            handleSocketResponse(socketResponse)
+    suspend fun initConnection(
+        pushMetaData: String
+    ) {
+        pendingPushInvitation = true
+        val loginConfig = CredentialConfig(
+            sipUser = userManager.sipUsername,
+            sipPassword = userManager.sipPass,
+            sipCallerIDName = userManager.callerIdNumber,
+            sipCallerIDNumber = userManager.callerIdNumber,
+            fcmToken = userManager.fcmToken,
+            ringtone = null,
+            ringBackTone = null,
+            logLevel = LogLevel.ALL,
+            debug = false,
+        )
+        telnyxClient.connect(
+            credentialConfig = loginConfig,
+            txPushMetaData = pushMetaData,
+            autoLogin = true
+        )
+        observeSocketResponse()
+    }
+
+    suspend fun observeSocketResponse() {
+        withContext(Dispatchers.Main) {
+            telnyxClient.getSocketResponse().observeForever { socketResponse ->
+                handleSocketResponse(socketResponse)
+            }
         }
     }
 
@@ -78,14 +85,28 @@ class TelecomCallManager @Inject constructor(
             SocketMethod.LOGIN.methodName -> {
                 Timber.i("CallManager: Logged in")
             }
+
             SocketMethod.INVITE.methodName -> {
                 Timber.i("CallManager: Incoming call")
                 _callState.value = CallState.NEW
                 currentInvite = response.data?.result as InviteResponse
+                if (pendingPushInvitation && currentInvite != null) {
+                    // We received a push notification while the app was in the background and are waiting for the socket invite
+                    pendingPushInvitation = false
+                    when (acceptPushCall) {
+                        true -> acceptCall(currentInvite?.callId!!, currentInvite?.callerIdNumber!!)
+                        false -> endCall()
+                        null -> // Do nothing
+                            Timber.i("CallManager: Waiting for user to accept / decline call")
+                    }
+                    acceptPushCall = null
+                }
             }
+
             SocketMethod.ANSWER.methodName -> {
                 Timber.i("CallManager: Call answered")
             }
+
             SocketMethod.BYE.methodName -> {
                 Timber.i("CallManager: Call ended")
                 // The call ended from the remote side
@@ -112,6 +133,12 @@ class TelecomCallManager @Inject constructor(
     }
 
     fun acceptCall(callId: UUID, destinationNumber: String) {
+        if (pendingPushInvitation) {
+            // There is no socket invite to accept yet. We are waiting for the socket invite to come in after accepting / declining the push notification
+            acceptPushCall = true
+            return
+        }
+
         val acceptedCall = telnyxClient.acceptCall(
             callId,
             destinationNumber,
@@ -123,6 +150,11 @@ class TelecomCallManager @Inject constructor(
     }
 
     fun endCall() {
+        if (pendingPushInvitation) {
+            // There is no socket invite to accept yet. We are waiting for the socket invite to come in after accepting / declining the push notification
+            acceptPushCall = false
+            return
+        }
         currentCall?.let { c ->
             telnyxClient.endCall(c.callId)
             _callState.value = CallState.DONE
@@ -135,6 +167,11 @@ class TelecomCallManager @Inject constructor(
     }
 
     fun endCallByID(callId: UUID) {
+        if (pendingPushInvitation) {
+            // There is no socket invite to accept yet. We are waiting for the socket invite to come in after accepting / declining the push notification
+            acceptPushCall = false
+            return
+        }
         telnyxClient.endCall(callId)
         _callState.value = CallState.DONE
         currentCall = null

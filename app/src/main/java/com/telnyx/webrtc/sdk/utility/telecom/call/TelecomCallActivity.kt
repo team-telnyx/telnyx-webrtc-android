@@ -12,8 +12,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.getSystemService
+import androidx.lifecycle.lifecycleScope
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService.Companion.ACCEPT_CALL
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -33,7 +36,12 @@ class TelecomCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-         telnyxCallManager.observeSocketResponse()
+        lifecycleScope.launch {
+            telnyxCallManager.observeSocketResponse()
+        }
+
+        // If accepted via the push notification - pass this to automatically accept the call from UI when we launch
+        val acceptCall = intent.getBooleanExtra(ACCEPT_CALL, false)
 
         setupCallActivity()
 
@@ -47,6 +55,7 @@ class TelecomCallActivity : ComponentActivity() {
                     UnifiedCallUI(
                         repository = repository,
                         telnyxCallManager = telnyxCallManager,
+                        acceptCall = acceptCall,
                         onCallFinished = {
                             finishAndRemoveTask()
                             Log.d("TelecomCallActivity", "Call finished. Finishing activity")

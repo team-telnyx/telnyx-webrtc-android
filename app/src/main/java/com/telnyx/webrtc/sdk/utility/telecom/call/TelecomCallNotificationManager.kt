@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.PermissionChecker
 import com.telnyx.webrtc.sdk.R
+import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService.Companion.ACCEPT_CALL
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 
@@ -42,7 +43,7 @@ class TelecomCallNotificationManager(private val context: Context) {
     /**
      * Updates, creates or dismisses a CallStyle notification based on the given [TelecomCall]
      */
-    fun updateCallNotification(call: TelecomCall) {
+    fun updateCallNotification(call: TelecomCall, fromPush: Boolean = false) {
         // If notifications are not granted, skip it.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             PermissionChecker.checkSelfPermission(
@@ -140,18 +141,35 @@ class TelecomCallNotificationManager(private val context: Context) {
      * we can directly pass them as extra parameters in the bundle.
      */
     private fun getPendingIntent(action: TelecomCallAction): PendingIntent {
-        val callIntent = Intent(context, TelecomCallBroadcast::class.java)
-        callIntent.putExtra(
-            TELECOM_NOTIFICATION_ACTION,
-            action,
-        )
+        return when (action) {
+            is TelecomCallAction.Answer -> {
+                val intent = Intent(context, TelecomCallActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra(ACCEPT_CALL, true)
+                }
+                PendingIntent.getActivity(
+                    context,
+                    action.hashCode(),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
 
-        return PendingIntent.getBroadcast(
-            context,
-            callIntent.hashCode(),
-            callIntent,
-            PendingIntent.FLAG_IMMUTABLE,
-        )
+            else -> {
+                val callIntent = Intent(context, TelecomCallBroadcast::class.java)
+                callIntent.putExtra(
+                    TELECOM_NOTIFICATION_ACTION,
+                    action,
+                )
+
+                return PendingIntent.getBroadcast(
+                    context,
+                    callIntent.hashCode(),
+                    callIntent,
+                    PendingIntent.FLAG_IMMUTABLE,
+                )
+            }
+        }
     }
 
     private fun createNotificationChannels() {

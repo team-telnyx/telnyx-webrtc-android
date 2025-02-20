@@ -36,7 +36,7 @@ class MainViewModel @Inject constructor(
         tokenConfig: TokenConfig?,
         txPushMetaData: String?
     ) {
-        Timber.e("initConnection")
+        Timber.i("initConnection")
         providedServerConfig?.let {
             telnyxClient.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {

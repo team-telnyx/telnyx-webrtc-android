@@ -48,7 +48,6 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
-import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
@@ -68,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var callControlView: View
     private lateinit var incomingCallView: View
     private lateinit var loginSectionView: View
-    var callStateTextValue: TextView? = null
+    private var callStateTextValue: TextView? = null
 
     @Inject
     lateinit var userManager: UserManager
@@ -111,7 +110,6 @@ class MainActivity : AppCompatActivity() {
 
         checkPermissions()
         initViews()
-        handleServiceIntent(intent)
         handleUserLoginState()
         binding.toolbarId.setOnMenuItemClickListener(this::onOptionsItemSelected)
     }
@@ -281,7 +279,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeSocketResponses() {
-        mainViewModel.getSocketResponse()?.observe(
+        mainViewModel.getSocketResponse().observe(
             this,
             object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
@@ -378,7 +376,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeWsMessage() {
-        mainViewModel.getWsMessageResponse()?.observe(this) {
+        mainViewModel.getWsMessageResponse().observe(this) {
             it?.let { wsMesssage ->
                 wsMessageList?.add(wsMesssage.toString())
             }
@@ -608,105 +606,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    //ToDo(Oli): Verify that we no longer need this. Connection Service should be handling this now
-    /*private fun onReceiveCallView(callId: UUID, callerIdNumber: String) {
-        if (mainViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE) {
-            onReceiveActiveCallView(callId, callerIdNumber)
-            return
-        }
-
-        mainViewModel.currentCall
-        mainViewModel.setCurrentCall(callId)
-        when (notificationAcceptHandling) {
-            true -> {
-                Thread.sleep(1000)
-                onAcceptCall(callId, callerIdNumber)
-                notificationAcceptHandling = null
-            }
-
-            false -> {
-                onRejectCall(callId)
-                notificationAcceptHandling = null
-            }
-
-            else -> {
-                binding.apply {
-                    callControlSectionId.root.visibility = View.GONE
-                    incomingCallSectionId.root.visibility = View.VISIBLE
-                    incomingCallSectionId.root.bringToFront()
-                    incomingCallSectionId.answerCallId.setOnClickListener {
-                        onAcceptCall(callId, callerIdNumber)
-                    }
-                    incomingCallSectionId.rejectCallId.setOnClickListener {
-                        onRejectCall(callId)
-                    }
-                }
-
-            }
-        }
-    }*/
-
-    /*private fun onReceiveActiveCallView(callId: UUID, callerIdNumber: String) {
-        binding.apply {
-            callControlSectionId.root.visibility = View.GONE
-            incomingActiveCallSectionId.root.visibility = View.VISIBLE
-            incomingActiveCallSectionId.root.bringToFront()
-
-            incomingActiveCallSectionId.endAndAccept.setOnClickListener {
-                mainViewModel.currentCall!!.let {
-                    isActiveBye = true
-                    it.endCall(it.callId)
-                }.also {
-                    onAcceptCall(callId, callerIdNumber)
-                }
-            }
-            incomingActiveCallSectionId.rejectCurrentCall.setOnClickListener {
-                onRejectActiveCall(callId)
-            }
-            incomingActiveCallSectionId.holdAndAccept.setOnClickListener {
-                mainViewModel.currentCall?.let {
-                    mainViewModel.onHoldUnholdPressed(it.callId)
-                }.also {
-                    onAcceptCall(callId, callerIdNumber)
-                }
-            }
-        }
-
-    }
-
-
-    private fun onAcceptCall(callId: UUID, destinationNumber: String) {
-        binding.apply {
-            incomingCallSectionId.root.visibility = View.GONE
-            incomingActiveCallSectionId.root.visibility = View.GONE
-            // Visible but underneath fragment
-            callControlSectionId.root.visibility = View.VISIBLE
-
-        }
-
-        launchCallInstance(callId)
-        mainViewModel.acceptCall(callId, destinationNumber)
-
-    }
-
-    private fun onRejectActiveCall(callId: UUID) {
-        // Reject call and make call control section visible
-        binding.incomingActiveCallSectionId.root.visibility = View.GONE
-        mainViewModel.endCall(callId)
-    }
-
-    private fun onRejectCall(callId: UUID) {
-        // Reject call and make call control section visible
-        binding.apply {
-            incomingCallSectionId.root.visibility = View.GONE
-            callControlSectionId.root.visibility = View.VISIBLE
-        }
-
-
-        mainViewModel.endCall(callId)
-    }*/
-
     private fun checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Dexter.withContext(this)
@@ -762,38 +661,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleCallNotification(intent: Intent?) {
-
-        if (intent == null) {
-            Timber.d("Intent is null")
-            return
-        }
-
-        /*Timber.d("onNewIntent ")
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            putExtra("action", NotificationsService.STOP_ACTION)
-        }
-        serviceIntent.setAction(NotificationsService.STOP_ACTION)
-        startService(serviceIntent)
-
-        val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
-
-        action?.let {
-            txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
-            Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
-            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
-                // Handle Answer
-                notificationAcceptHandling = true
-                Timber.d("Call answered from notification")
-            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
-                // Handle Reject
-                notificationAcceptHandling = false
-                Timber.d("Call rejected from notification")
-            }
-            connectButtonPressed()
-        }*/
-    }
-
     override fun onResume() {
         super.onResume()
         Timber.d("onResume")
@@ -802,15 +669,6 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         Timber.d("onStop")
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleServiceIntent(intent)
-    }
-
-    private fun handleServiceIntent(intent: Intent?) {
-        handleCallNotification(intent)
     }
 }
 

@@ -445,8 +445,8 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
 
         //Disconnect active calls for reconnection
-        getActiveCalls()?.forEach { (_, call) ->
-            call?.peerConnection?.disconnect()
+        getActiveCalls().forEach { (_, call) ->
+            call.peerConnection?.disconnect()
         }
 
         // Create new socket connection
@@ -600,7 +600,7 @@ class TelnyxClient(
      * @param providedServerConfig, the TxServerConfiguration used to connect to the socket
      * @param txPushMetaData, the push metadata used to connect to a call from push
      * (Get this from push notification - fcm data payload)
-     * required fot push calls to work
+     * required for push calls to work
      * @param credentialConfig, represents a SIP user for login - credential based
      * @param autoLogin, if true, the SDK will automatically log in with
      * the provided credentials on connection established

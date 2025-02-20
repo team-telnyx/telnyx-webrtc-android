@@ -18,17 +18,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.SendToMobile
-import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.PhonePaused
 import androidx.compose.material.icons.rounded.SpeakerPhone
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -36,7 +32,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,26 +45,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_BLUETOOTH
-import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_SPEAKER
-import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_STREAMING
-import androidx.core.telecom.CallEndpointCompat.Companion.TYPE_WIRED_HEADSET
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCall
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallAction
 import com.telnyx.webrtc.sdk.utility.telecom.model.TelecomCallRepository
 import kotlinx.coroutines.delay
-import java.util.*
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun UnifiedCallUI(
     repository: TelecomCallRepository,
     telnyxCallManager: TelecomCallManager,
+    acceptCall: Boolean?,
     onCallFinished: () -> Unit
 ) {
+    if (acceptCall == true) {
+        val call = repository.getCurrentRegisteredCall()
+        call?.processAction(TelecomCallAction.Answer)
+    }
+
     // Observe the current Telecom call
     when (val call = repository.currentCall.collectAsState().value) {
         is TelecomCall.None, is TelecomCall.Unregistered -> {
@@ -95,7 +90,7 @@ fun UnifiedCallUI(
                 displayName = displayName.toString(),
                 phoneNumber = phoneNumber,
                 isIncoming = isIncoming,
-                isActive = call.isActive,
+                isActive = acceptCall ?: call.isActive,
                 onCallFinished = onCallFinished
             )
         }
@@ -103,37 +98,7 @@ fun UnifiedCallUI(
 }
 
 /**
- * A Jetpack Compose screen that replicates the "in-call" UI from CallInstanceFragment,
- * but now calls methods on [TelecomCallManager] directly for all call actions:
- * - acceptCall (if needed),
- * - mute/unmute,
- * - hold/unhold,
- * - speaker toggle,
- * - dtmf,
- * - endCall.
- *
- * This does NOT show how to also call TelecomCallRepository for
- * "system-level" hold or answer. If you need that, you can add it in parallel
- * (e.g. calling repository.doAnswer() AND manager.acceptCall()).
- *
- * Example usage:
- *
- *   @Composable
- *   fun MyInCallScreen(
- *       telnyxCallManager: TelnyxCallManager,
- *       isIncoming: Boolean,
- *       callId: UUID,
- *       displayName: String,
- *       phoneNumber: String
- *   ) {
- *       TelecomCallScreen(
- *           manager = telnyxCallManager,
- *           callId = callId,
- *           displayName = displayName,
- *           phoneNumber = phoneNumber,
- *           isIncoming = isIncoming
- *       )
- *   }
+ * Main UI for a call screen. Displays call info, call timer, and call actions.
  */
 @Composable
 fun TelecomCallScreen(
@@ -491,39 +456,5 @@ private fun DtmfDialPad(
             }
             Spacer(Modifier.height(8.dp))
         }
-    }
-}
-
-@Composable
-private fun RationaleMicDialog(onResult: (Boolean) -> Unit) {
-    AlertDialog(
-        onDismissRequest = { onResult(false) },
-        confirmButton = {
-            TextButton(onClick = { onResult(true) }) {
-                Text(text = "Continue")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = { onResult(false) }) {
-                Text(text = "Cancel")
-            }
-        },
-        title = {
-            Text(text = "Mic permission required")
-        },
-        text = {
-            Text(text = "In order to speak in a call we need mic permission. Please press continue and grant the permission in the next dialog.")
-        },
-    )
-}
-
-// If you have different endpoints (Bluetooth, etc.), you can create toggles here
-private fun getEndpointIcon(type: Int): ImageVector {
-    return when (type) {
-        TYPE_BLUETOOTH -> Icons.Rounded.BluetoothAudio
-        TYPE_SPEAKER -> Icons.Rounded.SpeakerPhone
-        TYPE_STREAMING -> Icons.AutoMirrored.Rounded.SendToMobile
-        TYPE_WIRED_HEADSET -> Icons.Rounded.Headphones
-        else -> Icons.Rounded.Phone
     }
 }
