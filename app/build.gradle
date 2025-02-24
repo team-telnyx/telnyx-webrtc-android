@@ -153,7 +153,7 @@ dependencies {
     // jUnit 4
     testImplementation 'junit:junit:4.13.2'
     testImplementation "org.junit.vintage:junit-vintage-engine:5.8.2"
-    testImplementation "androidx.test:core-ktx:1.4.0"
+    testImplementation "androidx.test:core-ktx:1.6.1"
 
     // jUnit 5
     def jupiter_version = "5.8.2"
@@ -186,7 +186,7 @@ dependencies {
     androidTestImplementation 'androidx.work:work-testing:2.7.1'
     androidTestImplementation "io.mockk:mockk-android:1.12.5"
     debugImplementation 'androidx.fragment:fragment-testing:1.5.2'
-    debugImplementation 'androidx.test:core-ktx:1.4.0'
+    debugImplementation 'androidx.test:core-ktx:1.6.1'
 
     androidTestImplementation 'androidx.test.espresso:espresso-intents:3.4.0'
     androidTestImplementation 'androidx.test:runner:1.4.0'
