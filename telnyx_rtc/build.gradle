@@ -237,7 +237,7 @@ dependencies {
 
     testImplementation "org.slf4j:slf4j-nop:1.7.36"
 
-    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.10'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:2.1.10'
 
     // Testing - Instrumentation
     androidTestImplementation 'junit:junit:4.13.2'
