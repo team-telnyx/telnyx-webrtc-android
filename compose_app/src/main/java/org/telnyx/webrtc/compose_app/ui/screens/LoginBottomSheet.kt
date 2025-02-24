@@ -32,18 +32,19 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 @Composable
 fun CredentialTokenView(
+    profile: Profile? = null,
     onSave: (Profile) -> Unit,
     onDismiss: () -> Unit
 ) {
     var isTokenState by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    var sipToken by remember { mutableStateOf("") }
+    var sipToken by remember { mutableStateOf(profile?.sipToken ?: "") }
 
-    var sipUsername by remember { mutableStateOf("") }
-    var sipPassword by remember { mutableStateOf("") }
-    var callerIdName by remember { mutableStateOf("") }
-    var callerIdNumber by remember { mutableStateOf("") }
+    var sipUsername by remember { mutableStateOf(profile?.sipUsername ?: "") }
+    var sipPassword by remember { mutableStateOf(profile?.sipPass ?: "") }
+    var callerIdName by remember { mutableStateOf(profile?.callerIdName ?: "") }
+    var callerIdNumber by remember { mutableStateOf(profile?.callerIdNumber ?: "") }
 
 
     Column(

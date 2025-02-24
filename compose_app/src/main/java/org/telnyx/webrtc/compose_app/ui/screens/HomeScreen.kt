@@ -64,10 +64,12 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedTextButton
+import timber.log.Timber
 
 
 @Serializable
 object LoginScreenNav
+
 @Serializable
 object CallScreenNav
 
@@ -87,16 +89,20 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
     LaunchedEffect(uiState) {
-        when(uiState) {
+        when (uiState) {
             is TelnyxSocketEvent.OnClientReady -> {
                 navController.navigate(CallScreenNav)
             }
+
             is TelnyxSocketEvent.InitState -> {
                 navController.navigate(LoginScreenNav) {
                     popUpTo(CallScreenNav) { inclusive = true }
                 }
             }
-            else -> {}
+
+            else -> {
+                telnyxViewModel.setIsLoading(false)
+            }
         }
     }
 
@@ -122,28 +128,38 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
 
                 MediumTextBold(text = stringResource(id = R.string.login_info))
                 ConnectionState(state = (sessionState is TelnyxSessionState.ClientLogged))
-                SessionItem(sessionId = when(sessionState) {
-                    is TelnyxSessionState.ClientLogged -> {
-                        (sessionState as TelnyxSessionState.ClientLogged).message.sessid
+                SessionItem(
+                    sessionId = when (sessionState) {
+                        is TelnyxSessionState.ClientLogged -> {
+                            (sessionState as TelnyxSessionState.ClientLogged).message.sessid
+                        }
+
+                        is TelnyxSessionState.ClientDisconnected -> {
+                            stringResource(R.string.dash)
+                        }
                     }
-                    is TelnyxSessionState.ClientDisconnected -> {
-                        stringResource(R.string.dash)
-                    }
-                })
+                )
             }
         },
         bottomBar = {
-            ConnectionStateButton(state = (sessionState is TelnyxSessionState.ClientLogged), telnyxViewModel, currentConfig)
+            ConnectionStateButton(
+                state = (sessionState is TelnyxSessionState.ClientLogged),
+                telnyxViewModel,
+                currentConfig
+            )
 
         }) {
         Column(
-            modifier = Modifier.padding(bottom = it.calculateBottomPadding(), top = it.calculateTopPadding()),
+            modifier = Modifier.padding(
+                bottom = it.calculateBottomPadding(),
+                top = it.calculateTopPadding()
+            ),
             verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
         ) {
 
             Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
 
-            NavHost(navController = navController, startDestination = LoginScreenNav){
+            NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
                     ProfileSwitcher(profileName = currentConfig?.sipUsername ?: "No Profile") {
                         showBottomSheet = true
@@ -204,9 +220,10 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
                         when (addProfile) {
                             true -> {
                                 CredentialTokenView(
+                                    currentConfig,
                                     onSave = { profile ->
                                         profile.apply {
-                                            telnyxViewModel.addProfile(context,profile)
+                                            telnyxViewModel.addProfile(context, profile)
                                         }
                                         isAddProfile = !isAddProfile
                                     },
@@ -226,7 +243,17 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
                                     ) {
                                         isAddProfile = !isAddProfile
                                     }
-                                    ProfileListView(credentialConfigList, telnyxViewModel)
+                                    ProfileListView(
+                                        credentialConfigList,
+                                        telnyxViewModel,
+                                        onEdit = { profile ->
+                                            Timber.d("Edit Profile: $profile")
+                                            isAddProfile = true
+                                            telnyxViewModel.setCurrentConfig(context, profile)
+                                        },
+                                        onDelete = {profile ->
+                                            telnyxViewModel.deleteProfile(context, profile)
+                                        })
 
                                     PosNegButton(
                                         positiveText = stringResource(id = R.string.confirm),
@@ -276,7 +303,9 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
 @Composable
 fun ProfileListView(
     profileList: List<Profile> = emptyList(),
-    telnyxViewModel: TelnyxViewModel
+    telnyxViewModel: TelnyxViewModel,
+    onEdit: (Profile) -> Unit = {},
+    onDelete: (Profile) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -293,10 +322,10 @@ fun ProfileListView(
                             telnyxViewModel.setCurrentConfig(context, it)
                         },
                         onEdit = {
-
+                            onEdit(item)
                         },
                         onDelete = {
-
+                            onDelete(item)
                         }
                     )
                 }
@@ -356,15 +385,11 @@ fun ProfileItem(
             contentDescription = stringResource(id = R.string.profile)
         )
         RegularText(text = item.sipUsername, modifier = Modifier.weight(1f))
-        IconButton(onClick = {
-
-        }) {
+        IconButton(onClick = onEdit) {
             Icon(imageVector = Icons.Default.Edit, contentDescription = null)
         }
 
-        IconButton(onClick = {
-
-        }) {
+        IconButton(onClick = onDelete) {
             Icon(imageVector = Icons.Default.Delete, contentDescription = null)
         }
     }
@@ -381,10 +406,9 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
         ) {
             RegularText(text = profileName)
             RoundSmallButton(
-                modifier = Modifier.height(30.dp),
                 backgroundColor = MaterialTheme.colorScheme.secondary,
                 text = stringResource(R.string.switch_profile),
-                textSize = 8.sp
+                textSize = 14.sp
             ) {
                 onProfileSwitch()
             }
@@ -428,7 +452,11 @@ fun ConnectionState(state: Boolean) {
 }
 
 @Composable
-fun ConnectionStateButton(state: Boolean, telnyxViewModel: TelnyxViewModel, currentConfig: Profile?) {
+fun ConnectionStateButton(
+    state: Boolean,
+    telnyxViewModel: TelnyxViewModel,
+    currentConfig: Profile?
+) {
     val context = LocalContext.current
     RoundedOutlinedButton(
         text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
