@@ -110,6 +110,10 @@ class TelnyxViewModel : ViewModel() {
     }
 
 
+    fun setIsLoading(isLoading: Boolean) {
+        _isLoading.value = isLoading
+    }
+
     fun credentialLogin(
         viewContext: Context,
         profile: Profile,
@@ -123,6 +127,7 @@ class TelnyxViewModel : ViewModel() {
                 txPushMetaData,
                 autoLogin
             ).asFlow().collectLatest { response ->
+                Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
         }
@@ -136,6 +141,9 @@ class TelnyxViewModel : ViewModel() {
     private fun getProfiles(context: Context) {
         ProfileManager.getProfilesList(context).let {
             _profileListState.value = it
+        }
+        ProfileManager.getLoggedProfile(context)?.let { profile ->
+            _currentProfile.value = profile
         }
     }
 
@@ -241,7 +249,7 @@ class TelnyxViewModel : ViewModel() {
             }
 
             SocketStatus.ERROR -> {
-
+                _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "Error Occurred")
             }
 
             SocketStatus.DISCONNECT -> {

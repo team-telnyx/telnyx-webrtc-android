@@ -13,7 +13,7 @@ fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
         sipPassword = sipPass ?: "",
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
-        logLevel = LogLevel.INFO,
+        logLevel = LogLevel.ALL,
         debug = true,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
