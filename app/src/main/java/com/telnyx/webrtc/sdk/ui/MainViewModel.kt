@@ -64,10 +64,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun startDebugStats() {
-        currentCall?.startDebug()
-    }
-
     fun saveUserData(
         userName: String,
         password: String,
@@ -134,7 +130,6 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
-        startDebugStats()
     }
 
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {

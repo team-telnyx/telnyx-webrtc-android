@@ -430,6 +430,9 @@ class TelnyxClient(
 
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
+                    getActiveCalls().forEach { (_, call) ->
+                        call.updateCallState(CallState.DROPPED)
+                    }
                     socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
@@ -448,9 +451,13 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
 
         //Disconnect active calls for reconnection
-        getActiveCalls()?.forEach { (_, call) ->
-            call?.peerConnection?.disconnect()
+        getActiveCalls().forEach { (_, call) ->
+            call.peerConnection?.disconnect()
+            call.updateCallState(CallState.RECONNECTING)
         }
+
+        //Delay for network to be properly established
+        delay(RECONNECT_DELAY)
 
         // Create new socket connection
         socketReconnection = TxSocket(
@@ -471,8 +478,6 @@ class TelnyxClient(
                     if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS
-
-
             }
 
 
@@ -1693,10 +1698,11 @@ class TelnyxClient(
                 },
                 Call.ICE_CANDIDATE_DELAY
             )
-        }
-        attachCall.updateCallState(CallState.ACTIVE)
-        calls[attachCall.callId] = attachCall
-    }
+            calls[this.callId]?.updateCallState(CallState.ACTIVE)
+            calls[this.callId] = this.apply {
+                updateCallState(CallState.ACTIVE)
+            }
+        } }
 
     override fun setCallRecovering() {
         call?.setCallRecovering()
