@@ -135,7 +135,7 @@ dependencies {
 
     implementation deps.hilt.android
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'com.google.firebase:firebase-inappmessaging-display:20.1.3'
+    implementation 'com.google.firebase:firebase-inappmessaging-display:21.0.1'
     kapt deps.hilt.compiler
 
     //Testing:
