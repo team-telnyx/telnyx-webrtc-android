@@ -245,7 +245,7 @@ class TelnyxViewModel : ViewModel() {
             }
 
             SocketStatus.LOADING -> {
-                Timber.i("Loading...")
+                Timber.i("Loading..")
             }
 
             SocketStatus.ERROR -> {
