@@ -11,14 +11,14 @@
         android:label="Login"
         tools:layout="@layout/fragment_login">
         <action
-            android:id="@+id/action_loginFragment_to_loginBottomSheetFragment"
+            android:id="@+id/action_loginFragment_to_homeFragment"
             app:destination="@id/homeFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/homeFragment"
         android:name="org.telnyx.webrtc.xmlapp.home.HomeCallFragment"
-        android:label="Login Options"
+        android:label="Call"
         tools:layout="@layout/fragment_home_call" />
 
 </navigation>

@@ -28,7 +28,7 @@ class AuthenticateBySIPCredentials(private val context: Context) {
         ProfileManager.saveProfile(context,Profile(sipUsername = credentialConfig.sipUser,
             sipPass = credentialConfig.sipPassword,
             callerIdName = credentialConfig.sipCallerIDName,
-            callerIdNumber = credentialConfig.sipCallerIDNumber))
+            callerIdNumber = credentialConfig.sipCallerIDNumber, isUserLogin = true))
 
         return telnyxClient.getSocketResponse()
     }

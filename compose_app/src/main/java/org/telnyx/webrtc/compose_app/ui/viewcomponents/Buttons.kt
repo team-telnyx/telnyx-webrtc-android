@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
+import org.telnyx.webrtc.compose_app.ui.theme.Dimens.smallPadding
 
 @Composable
 fun RoundedTextButton(
@@ -57,7 +58,7 @@ fun RoundSmallButton(
     Box (
         modifier = modifier.background(backgroundColor, shape = Dimens.shape100Percent).clip(shape = shape100Percent).clickable {
             onClick()
-        }.padding( horizontal = Dimens.mediumPadding), contentAlignment = Alignment.Center
+        }.padding(horizontal = Dimens.largePadding, vertical = smallPadding), contentAlignment = Alignment.Center
     ) {
         if (isLoading){
             GenericCircleProgressIndicator()

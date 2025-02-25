@@ -12,5 +12,5 @@
     <color name="mainTextColor">#272727</color>
     <color name="portal_blue">#3434EF</color>
     <color name="colorTransparent">#00FFFFFF</color>
-
+    <color name="answer_green">#14F0B8</color>
 </resources>

@@ -1,5 +1,9 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.media.ToneGenerator.*
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -9,16 +13,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,18 +41,59 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
+import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+
+private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
 @Composable
 fun CallScreen(telnyxViewModel: TelnyxViewModel) {
+    val context = LocalContext.current
 
+    val uiState by telnyxViewModel.uiState.collectAsState()
+    var callUIState by remember { mutableStateOf<CallUIState>(CallUIState.IDLE) }
+    val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
+    val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
+    val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
+
+    var showDialpadSection by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState) {
+        callUIState = when (uiState) {
+            is TelnyxSocketEvent.OnClientReady -> CallUIState.IDLE
+            is TelnyxSocketEvent.OnClientError -> {
+                val errorMessage = (uiState as TelnyxSocketEvent.OnClientError).message
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                CallUIState.IDLE
+            }
+            is TelnyxSocketEvent.OnIncomingCall -> {
+                //onCallIncoming(uiState.message.callId, uiState.message.callerIdNumber)
+                CallUIState.INCOMING
+            }
+            is TelnyxSocketEvent.OnCallAnswered -> {
+                CallUIState.ACTIVE
+            }
+            is TelnyxSocketEvent.OnCallEnded -> {
+                if (telnyxViewModel.currentCall != null)
+                    CallUIState.ACTIVE
+                else
+                    CallUIState.IDLE
+            }
+            is TelnyxSocketEvent.OnRinging -> {
+                CallUIState.ACTIVE
+            }
+            else -> {
+                CallUIState.IDLE
+            }
+        }
+    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
@@ -102,7 +157,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                     }
                     CallUIState.INCOMING ->  {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.extraLargeSpacing),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
@@ -119,6 +174,12 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
 
 
+        }
+    }
+
+    if (showDialpadSection) {
+        DialpadSection(telnyxViewModel::dtmfPressed) {
+            showDialpadSection = false
         }
     }
 }
