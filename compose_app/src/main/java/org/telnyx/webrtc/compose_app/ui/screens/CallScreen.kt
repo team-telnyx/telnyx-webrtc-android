@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.telnyx.webrtc.common.TelnyxSocketEvent
@@ -102,7 +103,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         OutlinedEdiText(
             text = destinationNumber,
             hint = stringResource(R.string.destination),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("callInput")
         ) {
             destinationNumber = it
         }
@@ -114,31 +115,32 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             AnimatedContent(targetState = callUIState)  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
-                        HomeIconButton(icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                        HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                             if (destinationNumber.isNotEmpty())
                                 telnyxViewModel.sendInvite(context, destinationNumber)
                         }
                     }
                     CallUIState.ACTIVE ->  {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)) {
+                            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
+                            modifier = Modifier.testTag("callActiveView")) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(icon = if (isMuted?.value == true) R.drawable.mute_24 else R.drawable.mute_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_24 else R.drawable.mute_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onMuteUnmutePressed()
                                 }
 
-                                HomeIconButton(icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_off_24 else R.drawable.speaker_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_off_24 else R.drawable.speaker_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
-                                HomeIconButton(icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     showDialpadSection = true
                                 }
                             }
@@ -146,7 +148,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
+                                HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
@@ -158,10 +160,10 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(Dimens.extraLargeSpacing),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HomeIconButton(icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
+                            HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
                                 telnyxViewModel.endCall(context)
                             }
-                            HomeIconButton(icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                            HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
                                 telnyxViewModel.answerCall(context, inviteResponse.callId, inviteResponse.callerIdNumber)
                             }
@@ -186,6 +188,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
 
 @Composable
 fun HomeIconButton(
+    modifier: Modifier,
     icon: Int,
     backGroundColor: Color,
     contentColor: Color,
@@ -193,7 +196,7 @@ fun HomeIconButton(
 ) {
 
     IconButton(
-        modifier = Modifier.size(Dimens.size60dp),
+        modifier = modifier.size(Dimens.size60dp),
         colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor),
         onClick = onClick) {
         Image(painter = painterResource(icon), contentDescription = "",modifier = Modifier.padding(Dimens.smallSpacing))

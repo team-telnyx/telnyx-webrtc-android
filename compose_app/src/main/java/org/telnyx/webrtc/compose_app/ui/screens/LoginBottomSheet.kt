@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.telnyx.webrtc.common.model.Profile
@@ -45,7 +46,7 @@ fun CredentialTokenView(
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-        modifier = Modifier.verticalScroll(rememberScrollState())
+        modifier = Modifier.verticalScroll(rememberScrollState()).testTag("credentialsForm")
     ) {
 
 
@@ -56,8 +57,8 @@ fun CredentialTokenView(
         if (!isTokenState) {
             OutlinedEdiText(
                 text = sipUsername,
-                hint = "SIP Username",
-                modifier = Modifier.fillMaxWidth()
+                hint = "Sip Username",
+                modifier = Modifier.fillMaxWidth().testTag("sipUsername")
             ) { value ->
                 sipUsername = value
             }
@@ -65,7 +66,7 @@ fun CredentialTokenView(
                 text = sipPassword,
                 hint = "SIP Password",
                 keyboardType = KeyboardType.Password,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("sipPassword")
             ) { value ->
                 sipPassword = value
             }
@@ -82,7 +83,7 @@ fun CredentialTokenView(
         OutlinedEdiText(
             text = callerIdName,
             hint = "Caller ID Name",
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("callerIDName")
         ) { value ->
             callerIdName = value
         }
@@ -90,7 +91,7 @@ fun CredentialTokenView(
         OutlinedEdiText(
             text = callerIdNumber,
             hint = "Caller ID Number",
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("callerIDNumber")
         ) { value ->
             callerIdNumber = value
         }

@@ -40,13 +40,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -73,10 +74,7 @@ object CallScreenNav
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
-
-    val navController = rememberNavController()
-
+fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewModel) {
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -85,24 +83,6 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
-
-    LaunchedEffect(uiState) {
-        when (uiState) {
-            is TelnyxSocketEvent.OnClientReady -> {
-                navController.navigate(CallScreenNav)
-            }
-
-            is TelnyxSocketEvent.InitState -> {
-                navController.navigate(LoginScreenNav) {
-                    popUpTo(CallScreenNav) { inclusive = true }
-                }
-            }
-
-            else -> {
-                telnyxViewModel.setIsLoading(false)
-            }
-        }
-    }
 
     Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
         topBar = {
@@ -159,7 +139,7 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
-                    ProfileSwitcher(profileName = currentConfig?.sipUsername ?: "No Profile") {
+                    ProfileSwitcher(profileName = currentConfig?.sipUsername ?: stringResource(R.string.missing_profile)) {
                         showBottomSheet = true
                     }
                 }
@@ -295,6 +275,20 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
             )
         }
     }
+
+    LaunchedEffect(uiState) {
+        when(uiState) {
+            is TelnyxSocketEvent.OnClientReady -> {
+                navController.navigate(CallScreenNav)
+            }
+            is TelnyxSocketEvent.InitState -> {
+                navController.navigate(LoginScreenNav) {
+                    popUpTo(CallScreenNav) { inclusive = true }
+                }
+            }
+            else -> {}
+        }
+    }
 }
 
 
@@ -311,7 +305,8 @@ fun ProfileListView(
 
         var currentSipId by remember { mutableStateOf("") }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+        LazyColumn(modifier = Modifier.testTag("profileList"),
+            verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
             profileList.forEach { item ->
                 item {
                     ProfileItem(item, selected = currentSipId == item.sipUsername,
