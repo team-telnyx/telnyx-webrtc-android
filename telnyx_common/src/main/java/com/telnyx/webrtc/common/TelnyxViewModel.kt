@@ -8,7 +8,15 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.authentication.Disconnect
+import com.telnyx.webrtc.common.domain.call.AcceptCall
+import com.telnyx.webrtc.common.domain.call.EndCurrentAndUnholdLast
+import com.telnyx.webrtc.common.domain.call.HoldCurrentAndAcceptIncoming
+import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
+import com.telnyx.webrtc.common.domain.call.OnByeReceived
+import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -27,13 +35,14 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import util.toCredentialConfig
 import java.io.IOException
+import java.util.*
 
 
 sealed class TelnyxSocketEvent {
     data object OnClientReady : TelnyxSocketEvent()
     data class OnClientError(val message: String) : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
-    data class OnCallAnswered(val message: AnswerResponse) : TelnyxSocketEvent()
+    data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
     data class OnCallEnded(val message: ByeResponse) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
@@ -41,6 +50,10 @@ sealed class TelnyxSocketEvent {
 
 }
 
+sealed class TelnyxSessionState {
+    data class ClientLogged(val message: LoginResponse): TelnyxSessionState()
+    data object ClientDisconnected: TelnyxSessionState()
+}
 
 
 class TelnyxViewModel : ViewModel() {
@@ -49,6 +62,13 @@ class TelnyxViewModel : ViewModel() {
         MutableStateFlow(TelnyxSocketEvent.InitState)
     val uiState: StateFlow<TelnyxSocketEvent> = _uiState.asStateFlow()
 
+    private val _sessionsState: MutableStateFlow<TelnyxSessionState> =
+        MutableStateFlow(TelnyxSessionState.ClientDisconnected)
+    val sessionsState: StateFlow<TelnyxSessionState> = _sessionsState.asStateFlow()
+
+    private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     var fcmToken: String? = null
 
     private val _profileListState = MutableStateFlow<List<Profile>>(
@@ -56,11 +76,15 @@ class TelnyxViewModel : ViewModel() {
     )
     val profileList: StateFlow<List<Profile>> = _profileListState
 
+    val currentCall: Call?
+        get() = TelnyxCommon.getInstance().currentCall
+
     private val _currentProfile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?>  = _currentProfile
 
-    fun setCurrentConfig(profile: Profile) {
+    fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
+        ProfileManager.saveProfile(context, profile)
     }
 
     fun setupProfileList(context: Context) {
@@ -86,18 +110,24 @@ class TelnyxViewModel : ViewModel() {
     }
 
 
+    fun setIsLoading(isLoading: Boolean) {
+        _isLoading.value = isLoading
+    }
+
     fun credentialLogin(
         viewContext: Context,
         profile: Profile,
         txPushMetaData: String?,
         autoLogin: Boolean = true
     ) {
+        _isLoading.value = true
         viewModelScope.launch {
             AuthenticateBySIPCredentials(context = viewContext).invoke(
                 profile.toCredentialConfig(fcmToken ?: ""),
                 txPushMetaData,
                 autoLogin
             ).asFlow().collectLatest { response ->
+                Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
         }
@@ -111,6 +141,9 @@ class TelnyxViewModel : ViewModel() {
     private fun getProfiles(context: Context) {
         ProfileManager.getProfilesList(context).let {
             _profileListState.value = it
+        }
+        ProfileManager.getLoggedProfile(context)?.let { profile ->
+            _currentProfile.value = profile
         }
     }
 
@@ -144,6 +177,12 @@ class TelnyxViewModel : ViewModel() {
         autoLogin
     ).asFlow()
 
+    fun disconnect(viewContext: Context) {
+        viewModelScope.launch {
+            Disconnect(viewContext).invoke()
+        }
+    }
+
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.status) {
             SocketStatus.ESTABLISHED -> {
@@ -166,6 +205,8 @@ class TelnyxViewModel : ViewModel() {
                         sessionId.let {
                             Timber.d("Session ID: $sessionId")
                         }
+                        _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
+                        _isLoading.value = false
                     }
 
                     SocketMethod.INVITE.methodName -> {
@@ -176,7 +217,7 @@ class TelnyxViewModel : ViewModel() {
 
                     SocketMethod.ANSWER.methodName -> {
                         _uiState.value =
-                            TelnyxSocketEvent.OnCallAnswered(data.result as AnswerResponse)
+                            TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
                     }
 
                     SocketMethod.RINGING.methodName -> {
@@ -191,7 +232,14 @@ class TelnyxViewModel : ViewModel() {
                     }
 
                     SocketMethod.BYE.methodName -> {
-                        _uiState.value = TelnyxSocketEvent.OnCallEnded(data.result as ByeResponse)
+                        val byeRespone = data.result as ByeResponse
+                        viewModelScope.launch {
+                            OnByeReceived().invoke(byeRespone.callId)
+
+                            _uiState.value = currentCall?.let {
+                                TelnyxSocketEvent.OnCallAnswered(it.callId)
+                            } ?: TelnyxSocketEvent.OnCallEnded(byeRespone)
+                        }
                     }
                 }
             }
@@ -201,13 +249,79 @@ class TelnyxViewModel : ViewModel() {
             }
 
             SocketStatus.ERROR -> {
-
+                _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "Error Occurred")
             }
 
             SocketStatus.DISCONNECT -> {
-
+                Timber.i("Disconnect...")
+                _sessionsState.value = TelnyxSessionState.ClientDisconnected
+                _uiState.value = TelnyxSocketEvent.InitState
             }
         }
     }
 
+    fun sendInvite(
+        viewContext: Context,
+        destinationNumber: String
+    ) {
+        viewModelScope.launch {
+            ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
+                Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
+                SendInvite(viewContext).invoke(
+                    currentProfile.callerIdName ?: "",
+                    currentProfile.callerIdNumber ?: "",
+                    destinationNumber,
+                    "Sample Client State",
+                    mapOf(Pair("X-test", "123456"))
+                )
+            }
+
+        }
+    }
+
+    fun endCall(
+        viewContext: Context) {
+        viewModelScope.launch {
+            currentCall?.let { currentCall ->
+                EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
+            }
+        }
+    }
+
+    fun answerCall(
+        viewContext: Context,
+        callId: UUID,
+        callerIdNumber: String
+    ) {
+        viewModelScope.launch {
+            currentCall?.let {
+                HoldCurrentAndAcceptIncoming(viewContext).invoke(
+                    callId,
+                    callerIdNumber,
+                    mapOf(Pair("X-test", "123456")))
+            } ?: run {
+                AcceptCall(viewContext).invoke(
+                    callId,
+                    callerIdNumber,
+                    mapOf(Pair("X-test", "123456")))
+            }
+
+            _uiState.value =
+                TelnyxSocketEvent.OnCallAnswered(callId)
+        }
+    }
+
+    fun holdUnholdCurrentCall(viewContext: Context,) {
+        viewModelScope.launch {
+            currentCall?.let {
+                HoldUnholdCall(viewContext).invoke(it)
+            }
+        }
+    }
+
+    fun dtmfPressed(key: String) {
+        currentCall?.let { call ->
+            call.dtmf(call.callId, key)
+        }
+    }
 }

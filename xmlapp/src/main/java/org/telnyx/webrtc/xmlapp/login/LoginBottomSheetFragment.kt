@@ -146,11 +146,11 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                     }
                 }
                 ProfileAction.SELECT_PROFILE -> {
-                    telnyxViewModel.setCurrentConfig(profile)
+                    telnyxViewModel.setCurrentConfig(requireContext(), profile)
                     dismiss()
                 }
             }
-            telnyxViewModel.setCurrentConfig(profile)
+            telnyxViewModel.setCurrentConfig(requireContext(), profile)
         }
         binding.allProfiles.adapter = adapter
 

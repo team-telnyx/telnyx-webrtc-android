@@ -1,14 +1,15 @@
 <resources>
     <string name="app_name">Telnyx WebRTC</string>
     <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
-    <string name="connect">connect</string>
+    <string name="connect">Connect</string>
     <string name="socket">Socket</string>
     <string name="session_id">Session ID</string>
     <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
+    <string name="client_ready">Client-ready</string>
     <string name="dash">-</string>
     <string name="session_pending">-</string>
-    <string name="call">call</string>
+    <string name="call">Call</string>
     <string name="sip_username">SIP Username</string>
     <string name="password">Password</string>
     <string name="caller_id_name">Caller ID Name</string>
@@ -56,9 +57,9 @@
     <string name="username">Username</string>
     <string name="token">Token</string>
     <string name="sign_in">Sign In</string>
-    <string name="delete">delete</string>
+    <string name="delete">Delete</string>
     <string name="credential_login">Credential Login</string>
     <string name="confirm">Confirm</string>
     <string name="save">Save</string>
-
+    <string name="dtmf_dialpad">DTMF Dialpad</string>
 </resources>

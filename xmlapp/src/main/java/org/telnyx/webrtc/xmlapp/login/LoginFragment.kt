@@ -4,13 +4,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
@@ -50,7 +51,26 @@ class LoginFragment : Fragment() {
                         profileId.text = it.sipUsername ?: it.sipToken ?: getString(R.string.no_profile_selected)
                     }
                 }
-        }
+            }
+
+            lifecycleScope.launch {
+                telnyxViewModel.uiState.collect { uiState ->
+                    when (uiState) {
+                        is TelnyxSocketEvent.OnClientReady -> {
+                            telnyxViewModel.currentProfile.value?.let { profile ->
+                                profile.isUserLogin = true
+                                telnyxViewModel.setCurrentConfig(requireContext(), profile)
+                            }
+                            findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+                            cancel()
+                        }
+                        is TelnyxSocketEvent.OnClientError -> {
+                            Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
+                        }
+                        else -> {}
+                    }
+                }
+            }
     }
 }
 
@@ -71,7 +91,6 @@ private fun setupListeners() {
             telnyxViewModel.currentProfile.value?.let {
                 telnyxViewModel.credentialLogin(this@LoginFragment.requireContext(),it,null)
             }
-            //findNavController().navigate(R.id.action_loginFragment_to_loginBottomSheetFragment)
 
         }
 

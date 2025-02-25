@@ -1,6 +1,5 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
-import android.media.RingtoneManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.sdk.CredentialConfig
-import com.telnyx.webrtc.sdk.TokenConfig
-import com.telnyx.webrtc.sdk.model.LogLevel
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
@@ -32,18 +28,19 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 @Composable
 fun CredentialTokenView(
+    profile: Profile? = null,
     onSave: (Profile) -> Unit,
     onDismiss: () -> Unit
 ) {
     var isTokenState by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    var sipToken by remember { mutableStateOf("") }
+    var sipToken by remember { mutableStateOf(profile?.sipToken ?: "") }
 
-    var sipUsername by remember { mutableStateOf("") }
-    var sipPassword by remember { mutableStateOf("") }
-    var callerIdName by remember { mutableStateOf("") }
-    var callerIdNumber by remember { mutableStateOf("") }
+    var sipUsername by remember { mutableStateOf(profile?.sipUsername ?: "") }
+    var sipPassword by remember { mutableStateOf(profile?.sipPass ?: "") }
+    var callerIdName by remember { mutableStateOf(profile?.callerIdName ?: "") }
+    var callerIdNumber by remember { mutableStateOf(profile?.callerIdNumber ?: "") }
 
 
     Column(
@@ -59,14 +56,14 @@ fun CredentialTokenView(
         if (!isTokenState) {
             OutlinedEdiText(
                 text = sipUsername,
-                hint = "Sip Username",
+                hint = "SIP Username",
                 modifier = Modifier.fillMaxWidth()
             ) { value ->
                 sipUsername = value
             }
             OutlinedEdiText(
                 text = sipPassword,
-                hint = "Sip Password",
+                hint = "SIP Password",
                 keyboardType = KeyboardType.Password,
                 modifier = Modifier.fillMaxWidth()
             ) { value ->
