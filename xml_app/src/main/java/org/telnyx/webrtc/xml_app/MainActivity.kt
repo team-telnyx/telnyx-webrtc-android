@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xmlapp
+package org.telnyx.webrtc.xml_app
 
 import android.os.Bundle
 import android.view.View
@@ -15,6 +15,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {

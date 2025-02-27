@@ -1,6 +1,6 @@
 @file:Suppress("MagicNumber")
 
-package org.telnyx.webrtc.xmlapp.login
+package org.telnyx.webrtc.xml_app.login
 
 import android.media.AudioManager
 import android.media.ToneGenerator

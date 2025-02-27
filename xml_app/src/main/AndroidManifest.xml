@@ -11,7 +11,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TelnyxAndroidWebRTCSDK">
         <activity
-            android:name=".MainActivity"
+            android:name="org.telnyx.webrtc.xml_app.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -19,6 +19,32 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="com.telnyx.webrtc.common.notification.MyFirebaseMessagingService"
+            android:priority="10000"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/white" />
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="telnyx_channel" />
+
+        <service
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="phoneCall"
+            android:name="com.telnyx.webrtc.common.notification.NotificationsService">
+            <meta-data
+                android:name="activity_class_name"
+                android:value="org.telnyx.webrtc.compose_app.MainActivity" />
+        </service>
     </application>
 
 </manifest>

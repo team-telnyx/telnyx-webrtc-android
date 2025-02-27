@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xmlapp.home
+package org.telnyx.webrtc.xml_app.home
 
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -19,7 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
-import org.telnyx.webrtc.xmlapp.login.DialpadFragment
+import org.telnyx.webrtc.xml_app.login.DialpadFragment
 import java.util.*
 
 

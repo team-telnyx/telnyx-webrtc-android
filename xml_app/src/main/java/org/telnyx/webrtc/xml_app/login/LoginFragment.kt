@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xmlapp.login
+package org.telnyx.webrtc.xml_app.login
 
 import android.os.Bundle
 import android.view.LayoutInflater

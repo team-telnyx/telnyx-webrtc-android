@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xmlapp.login
+package org.telnyx.webrtc.xml_app.login
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -14,7 +14,7 @@ enum class ProfileAction {
     SELECT_PROFILE
 }
 
-class ProfileListAdapter(private val onClick: (Profile,ProfileAction) -> Unit) :
+class ProfileListAdapter(private val onClick: (Profile, ProfileAction) -> Unit) :
     ListAdapter<Profile, ProfileListAdapter.ProfileViewHolder>(ProfileDiffCallback()) {
 
     // ViewHolder class
@@ -38,13 +38,13 @@ class ProfileListAdapter(private val onClick: (Profile,ProfileAction) -> Unit) :
     override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
         val profile = getItem(position) // Use getItem() to retrieve the item at the given position
         holder.binding.root.setOnClickListener {
-            onClick(profile,ProfileAction.SELECT_PROFILE)
+            onClick(profile, ProfileAction.SELECT_PROFILE)
         }
         holder.binding.deleteProfile.setOnClickListener {
-            onClick(profile,ProfileAction.DELETE_PROFILE)
+            onClick(profile, ProfileAction.DELETE_PROFILE)
         }
         holder.binding.editProfile.setOnClickListener {
-            onClick(profile,ProfileAction.EDIT_PROFILE)
+            onClick(profile, ProfileAction.EDIT_PROFILE)
         }
         holder.bind(profile)
     }
