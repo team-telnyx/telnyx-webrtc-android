@@ -9,8 +9,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import com.bugsnag.android.Bugsnag
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import timber.log.Timber
 
 /**
@@ -32,10 +30,11 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.unregisterNetworkCallback(callback)
         } catch (e: Exception) {
-            Timber.e(e, "unregisterNetworkCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
-            if (!BuildConfig.IS_TESTING.get()) {
-                Bugsnag.notify(e)
-            }
+            Timber.e(
+                e,
+                "unregisterNetworkCallback [%s]",
+                this@ConnectivityHelper.javaClass.simpleName
+            )
         }
     }
 
@@ -59,10 +58,11 @@ object ConnectivityHelper {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             manager.registerNetworkCallback(request, callback)
         } catch (e: Exception) {
-            Timber.e(e, "registerNetworkStatusCallback [%s]", this@ConnectivityHelper.javaClass.simpleName)
-            if (!BuildConfig.IS_TESTING.get()) {
-                Bugsnag.notify(e)
-            }
+            Timber.e(
+                e,
+                "registerNetworkStatusCallback [%s]",
+                this@ConnectivityHelper.javaClass.simpleName
+            )
         }
     }
 

@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.utility
 
 import android.content.Intent
+import android.os.Build
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.google.gson.Gson
@@ -29,10 +30,22 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
+
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+                putExtra("action", NotificationsService.STOP_ACTION)
+            }
+            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            startMessagingService(serviceIntent)
+            return
+        }
+
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
             putExtra("metadata", metadata)
         }
-        startForegroundService(serviceIntent)
+        startMessagingService(serviceIntent)
     }
 
 
@@ -56,12 +69,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("sendRegistrationTokenToServer($token)")
     }
 
-    /**
-     * Create and show a simple notification containing the received FCM message.
-     *
-     * @param messageBody FCM message body received.
-     */
-    private fun sendNotification(messageBody: String) {
+    private fun startMessagingService(serviceIntent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
     }
 
     companion object {
@@ -71,6 +84,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val REJECT_REQUEST_CODE = 1
 
         const val TX_PUSH_METADATA = "tx_push_metadata"
+        const val Missed_Call = "Missed call!"
 
         const val EXT_KEY_DO_ACTION = "ext_key_do_action"
         const val EXT_CALL_ID = "ext_call_id"

@@ -44,7 +44,8 @@ data class Call(
 ) {
 
     companion object {
-        const val ICE_CANDIDATE_DELAY: Long = 400
+        const val ICE_CANDIDATE_DELAY: Long = 400L
+        const val ICE_CANDIDATE_PERIOD: Long = 400L
     }
 
     internal var peerConnection: Peer? = null
@@ -86,7 +87,7 @@ data class Call(
     fun startDebug() {
         Timber.d("Peer connection debug started")
 
-        peerConnection?.startTimer()
+      //  peerConnection?.startTimer()
     }
 
     internal fun updateCallState(value: CallState) {
@@ -96,7 +97,7 @@ data class Call(
 
     fun stopDebug() {
         Timber.d("Peer connection debug stopped")
-        peerConnection?.stopTimer()
+       // peerConnection?.stopTimer()
     }
 
 
