@@ -15,6 +15,7 @@ import com.telnyx.webrtc.common.domain.call.EndCurrentAndUnholdLast
 import com.telnyx.webrtc.common.domain.call.HoldCurrentAndAcceptIncoming
 import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
 import com.telnyx.webrtc.common.domain.call.OnByeReceived
+import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
@@ -320,12 +321,18 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun endCall(
-        viewContext: Context) {
+    fun endCall(viewContext: Context) {
         viewModelScope.launch {
             currentCall?.let { currentCall ->
                 EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
             }
+        }
+    }
+
+    fun rejectCall(viewContext: Context, callId: UUID) {
+        viewModelScope.launch {
+            Timber.i("Reject call $callId")
+            RejectCall(viewContext).invoke(callId)
         }
     }
 

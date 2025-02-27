@@ -69,10 +69,6 @@ class HomeCallFragment : Fragment() {
             telnyxViewModel.currentCall?.onLoudSpeakerPressed()
         }
 
-        binding.callReject.setOnClickListener {
-            telnyxViewModel.endCall(this@HomeCallFragment.requireContext())
-        }
-
         binding.disconnect.setOnClickListener {
             telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
         }
@@ -142,6 +138,11 @@ class HomeCallFragment : Fragment() {
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber)
+            registerObservers()
+        }
+
+        binding.callReject.setOnClickListener {
+            telnyxViewModel.rejectCall(requireContext(), callId)
             registerObservers()
         }
     }

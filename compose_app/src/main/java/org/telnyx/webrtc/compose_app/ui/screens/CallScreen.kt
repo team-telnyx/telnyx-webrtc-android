@@ -161,7 +161,9 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
-                                telnyxViewModel.endCall(context)
+                                val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
+                                Timber.i("Reject call UI ${inviteResponse.callId}")
+                                telnyxViewModel.rejectCall(context, inviteResponse.callId)
                             }
                             HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
