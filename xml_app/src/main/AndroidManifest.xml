@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
 
     <application
         android:allowBackup="true"
@@ -43,7 +46,7 @@
             android:name="com.telnyx.webrtc.common.notification.NotificationsService">
             <meta-data
                 android:name="activity_class_name"
-                android:value="org.telnyx.webrtc.compose_app.MainActivity" />
+                android:value="org.telnyx.webrtc.xml_app.MainActivity" />
         </service>
     </application>
 

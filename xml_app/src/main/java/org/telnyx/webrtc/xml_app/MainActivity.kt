@@ -1,5 +1,6 @@
 package org.telnyx.webrtc.xml_app
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.enableEdgeToEdge
@@ -13,7 +14,8 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
-import kotlinx.coroutines.flow.collect
+import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
+import com.telnyx.webrtc.common.notification.NotificationsService
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
@@ -46,11 +48,18 @@ class MainActivity : AppCompatActivity() {
             setOf(R.id.loginFragment)
         )
 
+        handleCallNotification(intent)
+
         bindEvents()
     }
 
     override fun onSupportNavigateUp(): Boolean {
         return navController.navigateUp() || super.onSupportNavigateUp()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleCallNotification(intent)
     }
 
     private fun bindEvents() {
@@ -74,6 +83,30 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             telnyxViewModel.isLoading.collect { isLoading ->
                 binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.INVISIBLE
+            }
+        }
+    }
+
+    private fun handleCallNotification(intent: Intent?) {
+
+        if (intent == null) {
+            return
+        }
+
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("action", NotificationsService.STOP_ACTION)
+        }
+        serviceIntent.setAction(NotificationsService.STOP_ACTION)
+        startService(serviceIntent)
+
+        val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
+
+        action?.let {
+            val txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
+                telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
+            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
+                telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
             }
         }
     }
