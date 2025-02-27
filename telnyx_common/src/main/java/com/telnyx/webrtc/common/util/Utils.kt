@@ -1,4 +1,4 @@
-package util
+package com.telnyx.webrtc.common.util
 
 import android.media.RingtoneManager
 import com.telnyx.webrtc.common.R
@@ -13,7 +13,7 @@ fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
         sipPassword = sipPass ?: "",
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
-        logLevel = LogLevel.ALL,
+        logLevel = LogLevel.INFO,
         debug = true,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
@@ -28,7 +28,7 @@ fun Profile.toTokenConfig(fcmToken: String): TokenConfig {
         sipToken= sipToken ?: "",
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
-        logLevel = LogLevel.ALL,
+        logLevel = LogLevel.INFO,
         debug = true,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),

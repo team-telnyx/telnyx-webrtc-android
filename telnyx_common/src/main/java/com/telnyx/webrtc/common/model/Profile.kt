@@ -9,6 +9,7 @@ package com.telnyx.webrtc.common.model
  * @param callerIdName The caller ID name.
  * @param callerIdNumber The caller ID number.
  * @param isDev True if the user is a developer, false otherwise.
+ * @param fcmToken The FCM token.
  */
 data class Profile(
         val sipUsername: String? = null,
@@ -17,7 +18,8 @@ data class Profile(
         val callerIdName: String? = null,
         val callerIdNumber: String? = null,
         var isUserLogin: Boolean = false,
-        var isDev: Boolean = false) {
+        var isDev: Boolean = false,
+        var fcmToken: String? = null) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false
     }

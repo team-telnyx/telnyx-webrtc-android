@@ -50,6 +50,7 @@ import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+import timber.log.Timber
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
@@ -74,7 +75,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 CallUIState.IDLE
             }
             is TelnyxSocketEvent.OnIncomingCall -> {
-                //onCallIncoming(uiState.message.callId, uiState.message.callerIdNumber)
                 CallUIState.INCOMING
             }
             is TelnyxSocketEvent.OnCallAnswered -> {

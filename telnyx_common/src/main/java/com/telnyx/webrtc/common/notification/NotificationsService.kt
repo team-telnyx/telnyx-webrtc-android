@@ -1,11 +1,13 @@
-package com.telnyx.webrtc.sdk
+package com.telnyx.webrtc.common.notification
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.content.res.Resources.NotFoundException
 import android.graphics.Color
@@ -16,10 +18,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
-import com.telnyx.webrtc.sdk.di.AppModule
+import com.telnyx.webrtc.common.R
 import com.telnyx.webrtc.sdk.model.PushMetaData
-import com.telnyx.webrtc.sdk.ui.MainActivity
-import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import timber.log.Timber
 
 
@@ -97,7 +97,9 @@ class NotificationsService : Service() {
     }
 
     private fun showNotification(txPushMetaData: PushMetaData) {
-        val intent = Intent(this, MainActivity::class.java).apply {
+        val targetActivityClass = Class.forName(getActivityClassName())
+
+        val intent = Intent(this, targetActivityClass).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent: PendingIntent =
@@ -105,7 +107,7 @@ class NotificationsService : Service() {
 
         val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
-        val rejectResultIntent = Intent(this, MainActivity::class.java)
+        val rejectResultIntent = Intent(this, targetActivityClass)
         rejectResultIntent.action = Intent.ACTION_VIEW
         rejectResultIntent.putExtra(
             MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
@@ -122,7 +124,7 @@ class NotificationsService : Service() {
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val answerResultIntent = Intent(this, MainActivity::class.java)
+        val answerResultIntent = Intent(this, Class.forName(getActivityClassName()))
         answerResultIntent.setAction(Intent.ACTION_VIEW)
 
         answerResultIntent.putExtra(
@@ -171,5 +173,12 @@ class NotificationsService : Service() {
         )
     }
 
+    private fun getActivityClassName(): String {
+        val ai = packageManager.getServiceInfo(
+            ComponentName(this, NotificationsService::class.java),
+            PackageManager.GET_META_DATA
+        )
+        return ai.metaData.getString("activity_class_name") ?: ""
+    }
 
 }

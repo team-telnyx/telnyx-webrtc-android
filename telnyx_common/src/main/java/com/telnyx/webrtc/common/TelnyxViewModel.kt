@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall
 import com.telnyx.webrtc.common.domain.authentication.Disconnect
 import com.telnyx.webrtc.common.domain.call.AcceptCall
 import com.telnyx.webrtc.common.domain.call.EndCurrentAndUnholdLast
@@ -15,6 +16,7 @@ import com.telnyx.webrtc.common.domain.call.HoldCurrentAndAcceptIncoming
 import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
 import com.telnyx.webrtc.common.domain.call.OnByeReceived
 import com.telnyx.webrtc.common.domain.call.SendInvite
+import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TokenConfig
@@ -33,7 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import util.toCredentialConfig
+import com.telnyx.webrtc.common.util.toCredentialConfig
 import java.io.IOException
 import java.util.*
 
@@ -81,6 +83,8 @@ class TelnyxViewModel : ViewModel() {
 
     private val _currentProfile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?>  = _currentProfile
+
+    private var notificationAcceptHandlingUUID: UUID? = null
 
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
@@ -130,6 +134,39 @@ class TelnyxViewModel : ViewModel() {
                 Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
+        }
+    }
+
+    fun answerIncomingPushCall(
+        viewContext: Context,
+        txPushMetaData: String?
+    ) {
+        _isLoading.value = true
+        viewModelScope.launch {
+            AnswerIncomingPushCall(context = viewContext)
+                .invoke(txPushMetaData,
+                        mapOf(Pair("X-test", "123456"))) { answeredCall ->
+                    notificationAcceptHandlingUUID = answeredCall.callId
+                }
+            .asFlow().collectLatest { response ->
+                Timber.d("Auth Response: $response")
+                handleSocketResponse(response)
+            }
+        }
+    }
+
+    fun rejectIncomingPushCall(
+        viewContext: Context,
+        txPushMetaData: String?
+    ) {
+        _isLoading.value = true
+        viewModelScope.launch {
+            RejectIncomingPushCall(context = viewContext)
+                .invoke(txPushMetaData) { }
+                .asFlow().collectLatest { response ->
+                    Timber.d("Auth Response: $response")
+                    handleSocketResponse(response)
+                }
         }
     }
 
@@ -211,8 +248,12 @@ class TelnyxViewModel : ViewModel() {
 
                     SocketMethod.INVITE.methodName -> {
                         val inviteResponse = data.result as InviteResponse
-                        _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
+                        if (notificationAcceptHandlingUUID == inviteResponse.callId) {
+                            _uiState.value = TelnyxSocketEvent.OnCallAnswered(inviteResponse.callId)
+                        } else
+                            _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
 
+                        notificationAcceptHandlingUUID = null
                     }
 
                     SocketMethod.ANSWER.methodName -> {

@@ -2,14 +2,12 @@
  * Copyright © 2021 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.sdk.utility
+package com.telnyx.webrtc.common.notification
 
 import android.content.Intent
 import android.os.Build
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.google.gson.Gson
-import com.telnyx.webrtc.sdk.NotificationsService
 import org.json.JSONObject
 import timber.log.Timber
 
