@@ -42,7 +42,7 @@ data class Call(
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
     val providedStun: String = Config.DEFAULT_STUN,
-    internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.NEW),
+    internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE),
 ) {
 
     companion object {
