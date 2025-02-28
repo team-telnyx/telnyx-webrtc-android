@@ -124,12 +124,6 @@ android {
         abortOnError false
         absolutePaths false
     }
-
-    repositories {
-        flatDir {
-            dirs 'libs'
-        }
-    }
 }
 
 dokkaHtml {
@@ -175,7 +169,8 @@ dependencies {
     implementation deps.material
     implementation deps.constraint_layout
 
-    implementation(name: 'telnyx-webrtc-android-library-release-1.0.0', ext: 'aar')
+    //temporary located in maven local
+    implementation 'com.telnyx.webrtc.lib:library:1.0.0'
 
     implementation deps.gson
     implementation deps.retrofit.runtime
