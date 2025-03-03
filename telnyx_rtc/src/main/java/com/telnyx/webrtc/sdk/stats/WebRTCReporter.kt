@@ -104,6 +104,9 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         debugReportStarted = false
     }
 
+    internal fun pauseStats() {
+        debugReportJob?.cancel()
+    }
     internal fun onStatsDataEvent(event: StatsData) {
         CoroutineScope(Dispatchers.IO).launch {
             statsDataFlow.emit(event)

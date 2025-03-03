@@ -186,7 +186,7 @@ class CallTest : BaseTest() {
         call.callId = UUID.randomUUID()
         client.addToCalls(call)
         call.acceptCall(call.callId, "00000")
-        assertEquals(call.getCallState().value, CallState.ERROR)
+        assertEquals(call.callStateFlow.value, CallState.ERROR)
     }
 
     @Test
@@ -202,7 +202,7 @@ class CallTest : BaseTest() {
         call = Mockito.spy(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
-        assertEquals(call.getCallState().value, CallState.CONNECTING)
+        assertEquals(call.callStateFlow.value, CallState.CONNECTING)
     }
 
     // NOOP tests, methods that should literally do nothing -- included for test coverage

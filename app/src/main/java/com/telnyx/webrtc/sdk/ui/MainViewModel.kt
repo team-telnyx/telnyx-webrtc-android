@@ -35,6 +35,10 @@ class MainViewModel @Inject constructor(
     private val holdedCalls = mutableSetOf<Call>()
     private var calls: Map<UUID, Call> = mapOf()
 
+    fun initTelnyxClient(context: Context) {
+        telnyxClient = TelnyxClient(context)
+    }
+
     fun initConnection(
         context: Context,
         providedServerConfig: TxServerConfiguration?,
@@ -62,10 +66,6 @@ class MainViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    fun startDebugStats() {
-        currentCall?.startDebug()
     }
 
     fun saveUserData(
@@ -111,6 +111,9 @@ class MainViewModel @Inject constructor(
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
 
+    fun getCallStateFlow() = currentCall?.callStateFlow
+
+
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
     }
@@ -134,7 +137,6 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
-        startDebugStats()
     }
 
     fun disablePushNotifications(sipUserName: String, fcmToken: String) {
