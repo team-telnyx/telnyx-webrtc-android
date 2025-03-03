@@ -1,4 +1,5 @@
 ## Push Notification App Setup
+### Retrieving a Firebase Cloud Messaging Token
 
 If the portal setup is complete and when firebase is properly integrated into your application, you will be able to retrieve a token with a method such as this:
 
@@ -22,14 +23,24 @@ FirebaseApp.initializeApp(this)
 }
 ```
 
-> **Note:** After pasting the above content, Kindly check and remove any new line added
+### Providing our SDK with the FCM Token to receive Push Notifications
 
-You will need to provide the `connect(..)` method with a `txPushMetaData` value retrieved from push notification.
-The `txPushMetaData` is necessary for push notifications to work.
+You will need to provide the `connect(..)` method with a `CredentialConfig` or `TokenConfig` that contains an fcmToken value (received from FirebaseMessaging like in the above code snippet).
+Once the fcmToken has been provided, we can provide push notifications to the application when a call is received but the device is not actively connected to the socket. (eg. Killed or Backgrounded states)
 
 ```kotlin
-  telnyxClient = TelnyxClient(context)
-  telnyxClient.connect(txPushMetaData)
+telnyxClient = TelnyxClient(context)
+
+val credentialConfig = CredentialConfig(
+    sipUser = username,
+    sipPassword = password,
+    fcmToken = fcmToken
+)
+
+telnyxClient.connect(
+   txPushMetaData = txPushMetaData,
+   credentialConfig = credentialConfig,
+)
 ```
 
 The final step is to create a MessagingService for your application. The MessagingService is the class that handles FCM messages and creates notifications for the device from these messages. You can read about the firebase messaging service class here:
@@ -39,14 +50,207 @@ We have a sample implementation for you to take a look at here:
 https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/app/src/main/java/com/telnyx/webrtc/sdk/utility/MyFirebaseMessagingService.kt
 
 Once this class is created, remember to update your manifest and specify the newly created service like so:
-
 https://firebase.google.com/docs/cloud-messaging/android/client#manifest
 
 You are now ready to receive push notifications via Firebase Messaging Service.
 
+### Handling Push Notifications once received - TxPushMetaData
+The Telnyx SDK provides a `TxPushMetaData` object that can be used to handle push notifications when a call is received. You can parse the `TxPushMetaData` object to get the call details that then need to be provided to the `connect` method when reconnecting to the socket as a result of reacting to a push notification.
+
+```kotlin
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        super.onMessageReceived(remoteMessage)
+        Timber.d("Message Received From Firebase: ${remoteMessage.data}")
+        Timber.d("Message Received From Firebase Priority: ${remoteMessage.priority}")
+        Timber.d("Message Received From Firebase: ${remoteMessage.originalPriority}")
+
+        val params = remoteMessage.data
+        val objects = JSONObject(params as Map<*, *>)
+        val metadata = objects.getString("metadata")
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
+
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+                putExtra("action", NotificationsService.STOP_ACTION)
+            }
+            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            startMessagingService(serviceIntent)
+            return
+        }
+
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("metadata", metadata)
+        }
+        startMessagingService(serviceIntent)
+    }
+```
+
+You can see that in this case the TxPushMetaData is received from the 'metadata' field. This is then passed to our notification service for handling. A basic implementation of the Notification Service could look like so:
+
+```kotlin
+class NotificationsService : Service() {
+
+   companion object {
+      private const val CHANNEL_ID = "PHONE_CALL_NOTIFICATION_CHANNEL"
+      private const val NOTIFICATION_ID = 1
+      const val STOP_ACTION = "STOP_ACTION"
+   }
+
+   override fun onCreate() {
+      super.onCreate()
+      createNotificationChannel()
+   }
+   private var ringtone:Ringtone? = null
+
+   private fun playPushRingTone() {
+      try {
+         val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+         ringtone =  RingtoneManager.getRingtone(applicationContext, notification)
+         ringtone?.play()
+      } catch (e: NotFoundException) {
+         Timber.e("playPushRingTone: $e")
+      }
+   }
+
+
+   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
+      val stopAction = intent?.action
+      if (stopAction != null && stopAction == STOP_ACTION) {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            ringtone?.stop()
+         } else {
+            stopForeground(true)
+         }
+         return START_NOT_STICKY
+      }
+
+      val metadata = intent?.getStringExtra("metadata")
+      val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
+      telnyxPushMetadata?.let {
+         showNotification(it)
+         playPushRingTone()
+
+      }
+      return START_STICKY
+   }
+
+   override fun onBind(intent: Intent?): IBinder? {
+      return null
+   }
+
+   private fun createNotificationChannel() {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+         val name = "Phone Call Notifications"
+         val description = "Notifications for incoming phone calls"
+         val importance = NotificationManager.IMPORTANCE_HIGH
+         val channel = NotificationChannel(CHANNEL_ID, name, importance)
+         channel.description = description
+
+         val notificationManager = getSystemService(NotificationManager::class.java)
+         channel.apply {
+            lightColor = Color.RED
+            enableLights(true)
+            enableVibration(true)
+            setSound(null, null)
+         }
+         notificationManager.createNotificationChannel(channel)
+      }
+   }
+
+   private fun showNotification(txPushMetaData: PushMetaData) {
+      val intent = Intent(this, MainActivity::class.java).apply {
+         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+      }
+      val pendingIntent: PendingIntent =
+         PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_MUTABLE)
+
+      val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+
+      val rejectResultIntent = Intent(this, MainActivity::class.java)
+      rejectResultIntent.action = Intent.ACTION_VIEW
+      rejectResultIntent.putExtra(
+         MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
+         MyFirebaseMessagingService.ACT_REJECT_CALL
+      )
+      rejectResultIntent.putExtra(
+         MyFirebaseMessagingService.TX_PUSH_METADATA,
+         txPushMetaData.toJson()
+      )
+      val rejectPendingIntent = PendingIntent.getActivity(
+         this,
+         MyFirebaseMessagingService.REJECT_REQUEST_CODE,
+         rejectResultIntent,
+         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+      )
+
+      val answerResultIntent = Intent(this, MainActivity::class.java)
+      answerResultIntent.setAction(Intent.ACTION_VIEW)
+
+      answerResultIntent.putExtra(
+         MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
+         MyFirebaseMessagingService.ACT_ANSWER_CALL
+      )
+
+      answerResultIntent.putExtra(
+         MyFirebaseMessagingService.TX_PUSH_METADATA,
+         txPushMetaData.toJson()
+      )
+
+      val answerPendingIntent = PendingIntent.getActivity(
+         this,
+         MyFirebaseMessagingService.ANSWER_REQUEST_CODE,
+         answerResultIntent,
+         PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+      )
+      Timber.d("showNotification: ${txPushMetaData.toJson()}")
+
+
+      val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+         .setSmallIcon(R.drawable.ic_stat_contact_phone)
+         .setContentTitle("Incoming Call : ${txPushMetaData.callerName}")
+         .setContentText("Incoming call from: ${txPushMetaData.callerNumber} ")
+         .setPriority(NotificationCompat.PRIORITY_MAX)
+         .setContentIntent(pendingIntent)
+         .setSound(customSoundUri)
+         .addAction(
+            R.drawable.ic_call_white,
+            MyFirebaseMessagingService.ACT_ANSWER_CALL, answerPendingIntent
+         )
+         .addAction(
+            R.drawable.ic_call_end_white,
+            MyFirebaseMessagingService.ACT_REJECT_CALL, rejectPendingIntent
+         )
+         .setOngoing(true)
+         .setAutoCancel(false)
+         .setCategory(NotificationCompat.CATEGORY_CALL)
+         .setFullScreenIntent(pendingIntent, true)
+
+      startForeground(
+         NOTIFICATION_ID,
+         builder.build(),
+         ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+      )
+   }
+}
+```
+
+Ultimately though reacting to the push notification should cause the application to connect again and pass the handled `TxPushMetaData` object to the `connect` method like so:
+
+```kotlin
+telnyxClient.connect(
+   txPushMetaData = txPushMetaData,
+   credentialConfig = credentialConfig,
+)
+```   
+
+If this is done correctly and you reconnect to the socket, you should receive the invite for the call on the socket as soon as you are reconnected
+
 ## Best Practices
-1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services]
-    with broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
+### Handling Push Notifications
+In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services] with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
     - Play a ringtone when a call is received from push notification using the `RingtoneManager`
        ``` kotlin
        val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
