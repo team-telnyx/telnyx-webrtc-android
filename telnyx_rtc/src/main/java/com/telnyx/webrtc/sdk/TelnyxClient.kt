@@ -801,6 +801,7 @@ class TelnyxClient(
         val password = config.sipPassword
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
 
         Config.USERNAME = config.sipUser
@@ -810,7 +811,7 @@ class TelnyxClient(
 
         isDebug = config.debug
 
-        setSDKLogLevel(logLevel)
+        setSDKLogLevel(logLevel, customLogger)
 
         config.ringtone?.let {
             rawRingtone = it
@@ -927,13 +928,14 @@ class TelnyxClient(
         val token = config.sipToken
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
 
         isDebug = config.debug
 
-        setSDKLogLevel(logLevel)
+        setSDKLogLevel(logLevel, customLogger)
 
         var firebaseToken = ""
         if (fcmToken != null) {
@@ -965,12 +967,14 @@ class TelnyxClient(
      * Sets the global SDK log level
      * Logging is implemented with Timber
      *
-     * @param logLevel, the LogLevel specified for the SDK
+     * @param logLevel The LogLevel specified for the SDK
+     * @param customLogger Optional custom logger implementation
      * @see [LogLevel]
+     * @see [TxLogger]
      */
-    private fun setSDKLogLevel(logLevel: LogLevel) {
+    private fun setSDKLogLevel(logLevel: LogLevel, customLogger: TxLogger? = null) {
         Timber.uprootAll()
-        Timber.plant(TelnyxLoggingTree(logLevel))
+        Timber.plant(TelnyxLoggingTree(logLevel, customLogger))
     }
 
     /**
