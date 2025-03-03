@@ -4,53 +4,52 @@
 
 package com.telnyx.webrtc.sdk.utilities
 
-import com.telnyx.webrtc.sdk.TelnyxConfig
-import com.telnyx.webrtc.sdk.model.LogLevel
-import timber.log.Timber
-
 /**
  * Class that provides log levels throughout the SDK. The log level is declared during login
  *
  * @see TelnyxConfig
  */
+import android.util.Log
+import com.telnyx.webrtc.sdk.model.LogLevel
+
 internal class TelnyxLoggingTree(
-    logLevel: LogLevel,
+    private val logLevel: LogLevel,
     private val customLogger: TxLogger? = null
-) : Timber.DebugTree() {
+) {
+    fun log(logLevel: LogLevel, tag: String?, message: String, throwable: Throwable?) {
+        if (!shouldLog(logLevel)) return
 
-    private val projectLogLevel = logLevel
-    private val defaultLogger = TxDefaultLogger()
-
-    override fun log(priority: Int, tag: String?, message: String, throwable: Throwable?) {
-        // Determine the log level based on priority or tag
-        val logLevel = when {
-            priority == LogLevel.ERROR.priority -> LogLevel.ERROR
-            priority == LogLevel.WARNING.priority -> LogLevel.WARNING
-            priority == LogLevel.DEBUG.priority -> LogLevel.DEBUG
-            priority == LogLevel.INFO.priority -> LogLevel.INFO
-            tag == LogLevel.VERTO.name -> LogLevel.VERTO
-            else -> LogLevel.ALL
+        if (customLogger != null) {
+            customLogger.log(logLevel, tag, message, throwable)
+        } else {
+            logWithAndroidLog(logLevel, tag, message, throwable)
         }
+    }
 
-        // Check if we should log based on the project log level
-        val shouldLog = when (projectLogLevel) {
+    private fun shouldLog(logLevel: LogLevel): Boolean {
+        return when (this.logLevel) {
             LogLevel.NONE -> false
             LogLevel.ERROR -> logLevel == LogLevel.ERROR
-            LogLevel.WARNING -> logLevel == LogLevel.WARNING
-            LogLevel.DEBUG -> logLevel == LogLevel.DEBUG
-            LogLevel.INFO -> logLevel == LogLevel.INFO
-            LogLevel.VERTO -> tag == LogLevel.VERTO.name
+            LogLevel.WARNING -> logLevel == LogLevel.WARNING || logLevel == LogLevel.ERROR
+            LogLevel.DEBUG -> logLevel == LogLevel.DEBUG || logLevel == LogLevel.WARNING || logLevel == LogLevel.ERROR
+            LogLevel.INFO -> logLevel == LogLevel.INFO || logLevel == LogLevel.DEBUG || logLevel == LogLevel.WARNING || logLevel == LogLevel.ERROR
+            LogLevel.VERTO -> logLevel == LogLevel.VERTO
             LogLevel.ALL -> true
         }
+    }
 
-        if (shouldLog) {
-            // If custom logger is provided, use it
-            if (customLogger != null) {
-                customLogger.log(logLevel, tag, message, throwable)
-            } else {
-                // Otherwise, use the default Timber implementation
-                super.log(priority, tag, message, throwable)
-            }
+    private fun logWithAndroidLog(logLevel: LogLevel, tag: String?, message: String, throwable: Throwable?) {
+        val logTag = tag ?: "TelnyxLogging"
+        val logMessage = "Default Logger $logTag: $message"
+
+        when (logLevel) {
+            LogLevel.ERROR -> Log.e(logTag, logMessage, throwable)
+            LogLevel.WARNING -> Log.w(logTag, logMessage, throwable)
+            LogLevel.DEBUG -> Log.d(logTag, logMessage, throwable)
+            LogLevel.INFO -> Log.i(logTag, logMessage, throwable)
+            LogLevel.VERTO, LogLevel.ALL -> Log.d(logTag, logMessage, throwable) // Default to DEBUG for VERTO & ALL
+            LogLevel.NONE -> { /* No logging */ }
         }
     }
 }
+

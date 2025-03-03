@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.utilities
 
 import com.telnyx.webrtc.sdk.model.LogLevel
+import timber.log.Timber
 
 /**
  * Interface defining the contract for custom logging in the Telnyx SDK.
@@ -29,12 +30,12 @@ interface TxLogger {
 class TxDefaultLogger : TxLogger {
     override fun log(level: LogLevel, tag: String?, message: String, throwable: Throwable?) {
         when (level) {
-            LogLevel.ERROR -> timber.log.Timber.e(throwable, "%s: %s", tag, message)
-            LogLevel.WARNING -> timber.log.Timber.w(throwable, "%s: %s", tag, message)
-            LogLevel.DEBUG -> timber.log.Timber.d(throwable, "%s: %s", tag, message)
-            LogLevel.INFO -> timber.log.Timber.i(throwable, "%s: %s", tag, message)
-            LogLevel.VERTO -> timber.log.Timber.tag(LogLevel.VERTO.name).d("%s: %s", tag, message)
-            LogLevel.ALL -> timber.log.Timber.d(throwable, "%s: %s", tag, message)
+            LogLevel.ERROR -> Timber.e(throwable, "Default Logger %s: %s", tag, message)
+            LogLevel.WARNING -> Timber.w(throwable, "Default Logger %s: %s", tag, message)
+            LogLevel.DEBUG -> Timber.d(throwable, "Default Logger %s: %s", tag, message)
+            LogLevel.INFO -> Timber.i(throwable, "Default Logger %s: %s", tag, message)
+            LogLevel.VERTO -> Timber.tag(LogLevel.VERTO.name).d("Default Logger %s: %s", tag, message)
+            LogLevel.ALL -> Timber.d(throwable, "Default Logger %s: %s", tag, message)
             LogLevel.NONE -> { /* No logging */ }
         }
     }

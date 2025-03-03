@@ -25,6 +25,7 @@ import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
@@ -623,6 +624,9 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
+        setSDKLogLevel(credentialConfig.logLevel, credentialConfig.customLogger)
+
+
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
@@ -685,6 +689,8 @@ class TelnyxClient(
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
+
+        setSDKLogLevel(tokenConfig.logLevel, tokenConfig.customLogger)
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
@@ -973,8 +979,7 @@ class TelnyxClient(
      * @see [TxLogger]
      */
     private fun setSDKLogLevel(logLevel: LogLevel, customLogger: TxLogger? = null) {
-        Timber.uprootAll()
-        Timber.plant(TelnyxLoggingTree(logLevel, customLogger))
+        val telnyxLogger = TelnyxLoggingTree(logLevel, customLogger)
     }
 
     /**
