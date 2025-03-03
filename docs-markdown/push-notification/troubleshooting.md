@@ -14,8 +14,8 @@ One of the most common issues is that the FCM token is not being passed correctl
 - Look for logs similar to: `FCM token received: [your-token]`
 
 **Solution:**
-- Make sure you're retrieving the FCM token as shown in the [App Setup](./app-setup.md) guide
-- Ensure the token is passed to the `connect()` method with the `txPushMetaData` parameter
+- Make sure you're retrieving the FCM token as shown in the [App Setup](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/app-setup) guide
+- Ensure the token is passed to the `connect()` method within the [TelnyxConfig](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/config/txconfig) object (Ether Credential or Token)
 - Verify that the token is not null or empty before passing it
 
 ### 2. Incorrect google-services.json Configuration
@@ -29,7 +29,7 @@ If your Firebase configuration file is incorrect or outdated, push notifications
 **Solution:**
 - Download a fresh copy of the google-services.json file from the Firebase Console
 - Make sure you're using the correct Firebase project for your application
-- Follow the [Portal Setup](./portal-setup.md) guide to properly configure Firebase
+- Follow the [Portal Setup](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup) guide to properly configure Firebase
 
 ### 3. Wrong Push Credential Assigned to SIP Credential
 
@@ -40,7 +40,7 @@ If the push credential is not correctly assigned to your SIP credential, the ser
 - Verify that the correct Android push credential is selected in the WebRTC tab
 
 **Solution:**
-- Follow the steps in the [Portal Setup](./portal-setup.md) guide to properly assign the push credential
+- Follow the steps in the [Portal Setup](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup) guide to properly assign the push credential
 - Make sure you've selected the correct credential for your application
 
 ### 4. Incorrect Push Credential
