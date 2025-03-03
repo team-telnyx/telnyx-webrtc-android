@@ -222,8 +222,6 @@ With the current call object, you can perform actions such as:
 3. AcceptCall `currentCall.acceptCall(...)`
 4. EndCall `currentCall.endCall(callId: UUID)`
 
-
-
  ## Adding push notifications
 The Telnyx Android Client WebRTC SDK makes use of Firebase Cloud Messaging in order to deliver push notifications. 
 If you want to receive notifications for incoming calls on your Android mobile device you have to enable Firebase Cloud Messaging within your application.
@@ -237,59 +235,89 @@ In order to do this you need to:
        5. Generate a Firebase Cloud Messaging instance token
        6. Send the token with your login message
 
-Finally, you will need to provide the `connect(..)` method with a `txPushMetaData` value retrieved from push notification.
-The `txPushMetaData` is neccessary for push notifications to work. 
+### Providing our SDK with the FCM Token to receive Push Notifications
+
+You will need to provide the `connect(..)` method with a `CredentialConfig` or `TokenConfig` that contains an fcmToken value (received from FirebaseMessaging like in the above code snippet).
+Once the fcmToken has been provided, we can provide push notifications to the application when a call is received but the device is not actively connected to the socket. (eg. Killed or Backgrounded states)
 
 ```kotlin
-  telnyxClient = TelnyxClient(context)
-  telnyxClient.connect(txPushMetaData)
+telnyxClient = TelnyxClient(context)
+
+val credentialConfig = CredentialConfig(
+    sipUser = username,
+    sipPassword = password,
+    fcmToken = fcmToken
+)
+
+telnyxClient.connect(
+   txPushMetaData = txPushMetaData,
+   credentialConfig = credentialConfig,
+)
 ```
 
-For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/push-notifications)
+For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup)
 
 ## Best Practices
 
- 1. Handling Push Notifications : In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services]
-    with broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing. 
-     - Play a ringtone when a call is received from push notification using the `RingtoneManager`
-        ``` kotlin
-        val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-         RingtoneManager.getRingtone(applicationContext, notification).play()
-        ```
-     - Make Sure to set these flags for your pendingIntents, so the values get updated anytime when the notification is clicked
-         ``` kotlin
-            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-       ```
-    
-    ### Android 14 Requirements
-    In order to receive push notifications on Android 14, you will need to add  the following permissions to your AndroidManifest.xml file and request a few at runtime:
-    ``` xml
-        // Request this permission at runtime
-        <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
-        // If you need to use foreground services, you will need to add the following permissions
-        <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
-    
-        // Configure foregroundservice and set the foreground service type
-        // Remember to stopForegroundService when the call is answered or rejected
-        <service
-            android:name=".ForegroundService"
-            android:foregroundServiceType="phoneCall"
-            android:exported="true" />
-    ```
- 2. Handling Multiple Calls : The Telnyx WebRTC SDK allows for multiple calls to be handled at once.  
-    You can use the callId to differentiate the calls. 
-    ``` kotlin
+### Handling Push Notifications
+In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services] with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
+- Play a ringtone when a call is received from push notification using the `RingtoneManager`
+``` kotlin
+val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+ RingtoneManager.getRingtone(applicationContext, notification).play()
+```
+- Make Sure to set these flags for your pendingIntents, so the values get updated anytime when the notification is clicked
+``` kotlin
+   PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+```
+
+### Android 14 Requirements
+In order to receive push notifications on Android 14, you will need to add  the following permissions to your AndroidManifest.xml file and request a few at runtime:
+   ``` xml
+       // Request this permission at runtime
+       <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+   
+       // If you need to use foreground services, you will need to add the following permissions
+       <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+       <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+   
+       // Configure foregroundservice and set the foreground service type
+       // Remember to stopForegroundService when the call is answered or rejected
+       <service
+           android:name=".ForegroundService"
+           android:foregroundServiceType="phoneCall"
+           android:exported="true" />
+   ```
+### Handling Missed Call Notifications
+The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
+   ``` kotlin
+        const val Missed_Call = "Missed call!"
+        val params = remoteMessage.data
+        val objects = JSONObject(params as Map<*, *>)
+        val metadata = objects.getString("metadata")
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call) // 
+
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+                putExtra("action", NotificationsService.STOP_ACTION)
+            }
+            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            startMessagingService(serviceIntent)
+            return
+        }
+   ```
+
+### Handling Multiple Calls 
+The Telnyx WebRTC SDK allows for multiple calls to be handled at once. You can use the callId to differentiate the calls. 
+```kotlin
     import java.util.UUID
     // Retrieve all calls from the TelnyxClient
     val calls: Map<UUID,Call> = telnyxClient.calls 
 
     // Retrieve a specific call by callId
     val currentCall: Call? = calls[callId]
-    ```
-    
-
+```
 
  ## ProGuard changes
  NOTE:
