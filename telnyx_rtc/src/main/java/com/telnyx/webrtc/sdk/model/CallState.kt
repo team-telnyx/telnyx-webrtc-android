@@ -19,10 +19,11 @@ package com.telnyx.webrtc.sdk.model
 enum class CallState {
     NEW,
     CONNECTING,
-    RECOVERING,
+    RECONNECTING,
     RINGING,
     ACTIVE,
     HELD,
     DONE,
-    ERROR
+    ERROR,
+    DROPPED
 }
