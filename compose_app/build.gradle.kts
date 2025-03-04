@@ -63,6 +63,9 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
 
+    //permissions
+    implementation("com.karumi:dexter:6.2.2")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

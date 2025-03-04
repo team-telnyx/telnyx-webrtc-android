@@ -1,8 +1,10 @@
 package org.telnyx.webrtc.xml_app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -12,6 +14,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
+import com.karumi.dexter.Dexter
+import com.karumi.dexter.PermissionToken
+import com.karumi.dexter.listener.PermissionDeniedResponse
+import com.karumi.dexter.listener.PermissionGrantedResponse
+import com.karumi.dexter.listener.PermissionRequest
+import com.karumi.dexter.listener.single.PermissionListener
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
@@ -48,6 +56,7 @@ class MainActivity : AppCompatActivity() {
             setOf(R.id.loginFragment)
         )
 
+        checkPermission()
         handleCallNotification(intent)
 
         bindEvents()
@@ -108,6 +117,34 @@ class MainActivity : AppCompatActivity() {
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
                 telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
             }
+        }
+    }
+
+    private fun checkPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Dexter.withContext(this)
+                .withPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                .withListener(object : PermissionListener {
+                    override fun onPermissionGranted(response: PermissionGrantedResponse?) {
+                        // Permission granted
+                    }
+
+                    override fun onPermissionDenied(response: PermissionDeniedResponse?) {
+                        // Permission denied
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.notification_permission_text),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    override fun onPermissionRationaleShouldBeShown(
+                        permission: PermissionRequest?,
+                        token: PermissionToken?
+                    ) {
+                        token?.continuePermissionRequest()
+                    }
+                }).check()
         }
     }
 }
