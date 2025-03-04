@@ -36,6 +36,7 @@ class NotificationsService : Service() {
         super.onCreate()
         createNotificationChannel()
     }
+
     private var ringtone:Ringtone? = null
 
     private fun playPushRingTone() {
