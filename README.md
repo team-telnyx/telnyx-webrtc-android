@@ -309,7 +309,7 @@ val tokenConfig = TokenConfig(
 
 ### Default Behavior
 
-If no custom logger is provided, the SDK will use its default logging implementation based on Timber. The `logLevel` parameter still controls which logs are generated, regardless of whether you're using a custom logger or the default one.
+If no custom logger is provided, the SDK will use its default logging implementation based on Android's Log class. The `logLevel` parameter still controls which logs are generated, regardless of whether you're using a custom logger or the default one.
 
 ## Best Practices
 

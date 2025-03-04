@@ -12,18 +12,47 @@ package com.telnyx.webrtc.sdk.utilities
 import android.util.Log
 import com.telnyx.webrtc.sdk.model.LogLevel
 
-internal class Logger(
-    private val logLevel: LogLevel,
-    private val customLogger: TxLogger? = null
-) {
-    fun log(logLevel: LogLevel, tag: String?, message: String, throwable: Throwable?) {
+object Logger {
+    private var logLevel: LogLevel = LogLevel.NONE
+    private var customLogger: TxLogger? = null
+
+    fun init(logLevel: LogLevel, customLogger: TxLogger? = null) {
+        this.logLevel = logLevel
+        this.customLogger = customLogger
+    }
+
+    fun v(tag: String? = null, message: String, throwable: Throwable? = null) {
+        log(LogLevel.VERTO, tag, message, throwable)
+    }
+
+    fun d(tag: String? = null, message: String, throwable: Throwable? = null) {
+        log(LogLevel.DEBUG, tag, message, throwable)
+    }
+
+    fun i(tag: String? = null, message: String, throwable: Throwable? = null) {
+        log(LogLevel.INFO, tag, message, throwable)
+    }
+
+    fun w(tag: String? = null, message: String, throwable: Throwable? = null) {
+        log(LogLevel.WARNING, tag, message, throwable)
+    }
+
+    fun e(tag: String? = null, message: String, throwable: Throwable? = null) {
+        log(LogLevel.ERROR, tag, message, throwable)
+    }
+
+    fun log(logLevel: LogLevel, tag: String?, message: String, throwable: Throwable? = null) {
         if (!shouldLog(logLevel)) return
 
         if (customLogger != null) {
-            customLogger.log(logLevel, tag, message, throwable)
+            customLogger?.log(logLevel, tag, message, throwable)
         } else {
             logWithAndroidLog(logLevel, tag, message, throwable)
         }
+    }
+
+    fun formatMessage(format: String, vararg args: Any?): String {
+        return String.format(format, *args)
     }
 
     private fun shouldLog(logLevel: LogLevel): Boolean {
@@ -40,7 +69,7 @@ internal class Logger(
 
     private fun logWithAndroidLog(logLevel: LogLevel, tag: String?, message: String, throwable: Throwable?) {
         val logTag = tag ?: "TelnyxLogging"
-        val logMessage = "Default Logger $logTag: $message"
+        val logMessage = message
 
         when (logLevel) {
             LogLevel.ERROR -> Log.e(logTag, logMessage, throwable)
@@ -52,4 +81,3 @@ internal class Logger(
         }
     }
 }
-

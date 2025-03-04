@@ -4,8 +4,8 @@
 
 package com.telnyx.webrtc.sdk.utilities
 
+import android.util.Log
 import com.telnyx.webrtc.sdk.model.LogLevel
-import timber.log.Timber
 
 /**
  * Interface defining the contract for custom logging in the Telnyx SDK.
@@ -24,18 +24,21 @@ interface TxLogger {
 }
 
 /**
- * Default implementation of TxLogger that uses Timber for logging.
+ * Default implementation of TxLogger that uses Android Log for logging.
  * This is used when no custom logger is provided.
  */
 class TxDefaultLogger : TxLogger {
     override fun log(level: LogLevel, tag: String?, message: String, throwable: Throwable?) {
+        val logTag = tag ?: "TelnyxLogging"
+        val logMessage = "Default Logger $logTag: $message"
+
         when (level) {
-            LogLevel.ERROR -> Timber.e(throwable, "Default Logger %s: %s", tag, message)
-            LogLevel.WARNING -> Timber.w(throwable, "Default Logger %s: %s", tag, message)
-            LogLevel.DEBUG -> Timber.d(throwable, "Default Logger %s: %s", tag, message)
-            LogLevel.INFO -> Timber.i(throwable, "Default Logger %s: %s", tag, message)
-            LogLevel.VERTO -> Timber.tag(LogLevel.VERTO.name).d("Default Logger %s: %s", tag, message)
-            LogLevel.ALL -> Timber.d(throwable, "Default Logger %s: %s", tag, message)
+            LogLevel.ERROR -> Log.e(logTag, logMessage, throwable)
+            LogLevel.WARNING -> Log.w(logTag, logMessage, throwable)
+            LogLevel.DEBUG -> Log.d(logTag, logMessage, throwable)
+            LogLevel.INFO -> Log.i(logTag, logMessage, throwable)
+            LogLevel.VERTO -> Log.d(logTag, logMessage, throwable)
+            LogLevel.ALL -> Log.d(logTag, logMessage, throwable)
             LogLevel.NONE -> { /* No logging */ }
         }
     }

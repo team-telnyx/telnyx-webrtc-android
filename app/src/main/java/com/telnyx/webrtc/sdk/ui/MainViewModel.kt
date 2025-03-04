@@ -20,7 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
-import timber.log.Timber
+import com.telnyx.webrtc.sdk.utilities.Logger
 import java.util.*
 import javax.inject.Inject
 
@@ -46,7 +46,7 @@ class MainViewModel @Inject constructor(
         tokenConfig: TokenConfig?,
         txPushMetaData: String?,
     ) {
-        Timber.e("initConnection")
+        Logger.e(message = "initConnection")
         telnyxClient = TelnyxClient(context)
 
         providedServerConfig?.let {
