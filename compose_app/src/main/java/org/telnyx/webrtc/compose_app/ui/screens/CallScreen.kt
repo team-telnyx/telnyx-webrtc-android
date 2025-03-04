@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.launch
@@ -103,7 +104,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         OutlinedEdiText(
             text = destinationNumber,
             hint = stringResource(R.string.destination),
-            modifier = Modifier.fillMaxWidth().testTag("callInput")
+            modifier = Modifier.fillMaxWidth().testTag("callInput"),
+            imeAction = ImeAction.Done
         ) {
             destinationNumber = it
         }

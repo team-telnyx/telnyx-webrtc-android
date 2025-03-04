@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
@@ -55,26 +56,7 @@ class MainActivityTest {
     }
 
     @Test
-    fun addSIPCredentialsAndConnectTest() {
-        addSipCredentials()
-
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(context.getString(R.string.connect)).performClick()
-
-        composeTestRule.waitUntil(5000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).isDisplayed()
-        }
-
-        composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).performClick()
-
-        composeTestRule.waitUntil(5000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.connect)).isDisplayed()
-        }
-
-    }
-
-    @Test
-    fun makeCallTest() {
+    fun connectAndMakeCallTest() {
         addSipCredentials()
 
         composeTestRule.waitForIdle()
@@ -86,6 +68,7 @@ class MainActivityTest {
 
         composeTestRule.onNodeWithTag("callInput").assertIsDisplayed()
         composeTestRule.onNodeWithTag("callInput").performTextInput("18004377950")
+        composeTestRule.onNodeWithTag("callInput").performImeAction()
 
         composeTestRule.waitForIdle()
 
