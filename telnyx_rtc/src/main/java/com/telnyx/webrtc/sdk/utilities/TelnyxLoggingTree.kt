@@ -12,7 +12,7 @@ package com.telnyx.webrtc.sdk.utilities
 import android.util.Log
 import com.telnyx.webrtc.sdk.model.LogLevel
 
-internal class TelnyxLoggingTree(
+internal class Logger(
     private val logLevel: LogLevel,
     private val customLogger: TxLogger? = null
 ) {
