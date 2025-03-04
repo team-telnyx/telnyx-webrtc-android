@@ -133,7 +133,7 @@ class TelnyxViewModel : ViewModel() {
                 autoLogin
             ).asFlow().collectLatest { response ->
                 Timber.d("Auth Response: $response")
-                handleSocketResponse(response)
+                handleSocketResponse(response, false)
             }
         }
     }
@@ -151,7 +151,7 @@ class TelnyxViewModel : ViewModel() {
                 }
             .asFlow().collectLatest { response ->
                 Timber.d("Auth Response: $response")
-                handleSocketResponse(response)
+                handleSocketResponse(response, true)
             }
         }
     }
@@ -163,10 +163,12 @@ class TelnyxViewModel : ViewModel() {
         _isLoading.value = true
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
-                .invoke(txPushMetaData) { }
+                .invoke(txPushMetaData) {
+                    _isLoading.value = false
+                }
                 .asFlow().collectLatest { response ->
                     Timber.d("Auth Response: $response")
-                    handleSocketResponse(response)
+                    handleSocketResponse(response, true)
                 }
         }
     }
@@ -221,7 +223,7 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
+    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>, isPushConnection: Boolean) {
         when (response.status) {
             SocketStatus.ESTABLISHED -> {
                 Timber.d("OnConMan")
@@ -244,7 +246,7 @@ class TelnyxViewModel : ViewModel() {
                             Timber.d("Session ID: $sessionId")
                         }
                         _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
-                        _isLoading.value = false
+                        _isLoading.value = isPushConnection
                     }
 
                     SocketMethod.INVITE.methodName -> {
@@ -255,6 +257,7 @@ class TelnyxViewModel : ViewModel() {
                             _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
 
                         notificationAcceptHandlingUUID = null
+                        _isLoading.value = false
                     }
 
                     SocketMethod.ANSWER.methodName -> {
