@@ -29,7 +29,7 @@ class AuthenticateBySIPCredentials(private val context: Context) {
             sipPass = credentialConfig.sipPassword,
             callerIdName = credentialConfig.sipCallerIDName,
             callerIdNumber = credentialConfig.sipCallerIDNumber,
-            isUserLogin = true,
+            isUserLoggedIn = true,
             fcmToken = credentialConfig.fcmToken))
 
         return telnyxClient.getSocketResponse()

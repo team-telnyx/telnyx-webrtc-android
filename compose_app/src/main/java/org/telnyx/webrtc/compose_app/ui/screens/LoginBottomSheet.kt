@@ -112,7 +112,7 @@ fun CredentialTokenView(
                                 sipPass = sipPassword,
                                 callerIdName = callerIdName,
                                 callerIdNumber = callerIdNumber,
-                                isUserLogin = true
+                                isUserLoggedIn = true
                             ),
                         )
                     } else {
@@ -121,7 +121,7 @@ fun CredentialTokenView(
                                 sipToken = sipToken,
                                 callerIdName = callerIdName,
                                 callerIdNumber = callerIdNumber,
-                                isUserLogin = true
+                                isUserLoggedIn = true
                             )
                         )
                     }

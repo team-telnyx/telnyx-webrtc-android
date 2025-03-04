@@ -61,7 +61,7 @@ object ProfileManager {
      * @return The logged-in profile, or null if no profile is logged in.
      */
     fun getLoggedProfile(context: Context): Profile? {
-        return getProfilesList(context).firstOrNull { it.isUserLogin }
+        return getProfilesList(context).firstOrNull { it.isUserLoggedIn }
     }
 
     /**
