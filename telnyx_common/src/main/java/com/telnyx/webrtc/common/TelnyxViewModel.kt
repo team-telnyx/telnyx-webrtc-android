@@ -225,84 +225,91 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>, isPushConnection: Boolean) {
         when (response.status) {
-            SocketStatus.ESTABLISHED -> {
-                Timber.d("OnConMan")
-            }
-
-            SocketStatus.MESSAGERECEIVED -> {
-                val data = response.data as? ReceivedMessageBody
-                when (data?.method) {
-                    SocketMethod.CLIENT_READY.methodName -> {
-                        Log.d("TelnyxViewModel", "Client Ready")
-                        Timber.d("You are ready to make calls.")
-                        _uiState.value =
-                            TelnyxSocketEvent.OnClientReady
-                    }
-
-                    SocketMethod.LOGIN.methodName -> {
-                        // Use Client Ready
-                        val sessionId = (data.result as LoginResponse).sessid
-                        sessionId.let {
-                            Timber.d("Session ID: $sessionId")
-                        }
-                        _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
-                        _isLoading.value = isPushConnection
-                    }
-
-                    SocketMethod.INVITE.methodName -> {
-                        val inviteResponse = data.result as InviteResponse
-                        if (notificationAcceptHandlingUUID == inviteResponse.callId) {
-                            _uiState.value = TelnyxSocketEvent.OnCallAnswered(inviteResponse.callId)
-                        } else
-                            _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
-
-                        notificationAcceptHandlingUUID = null
-                        _isLoading.value = false
-                    }
-
-                    SocketMethod.ANSWER.methodName -> {
-                        _uiState.value =
-                            TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
-                    }
-
-                    SocketMethod.RINGING.methodName -> {
-                        // Client can simulate ringing state
-                        _uiState.value = TelnyxSocketEvent.OnRinging(data.result as RingingResponse)
-                    }
-
-                    SocketMethod.MEDIA.methodName -> {
-                        // Ringback tone is streamed to the caller
-                        // Early media - client can simulate ringing state
-                        _uiState.value = TelnyxSocketEvent.OnMedia
-                    }
-
-                    SocketMethod.BYE.methodName -> {
-                        val byeRespone = data.result as ByeResponse
-                        viewModelScope.launch {
-                            OnByeReceived().invoke(byeRespone.callId)
-
-                            _uiState.value = currentCall?.let {
-                                TelnyxSocketEvent.OnCallAnswered(it.callId)
-                            } ?: TelnyxSocketEvent.OnCallEnded(byeRespone)
-                        }
-                    }
-                }
-            }
-
-            SocketStatus.LOADING -> {
-                Timber.i("Loading...")
-            }
-
-            SocketStatus.ERROR -> {
-                _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "Error Occurred")
-            }
-
-            SocketStatus.DISCONNECT -> {
-                Timber.i("Disconnect...")
-                _sessionsState.value = TelnyxSessionState.ClientDisconnected
-                _uiState.value = TelnyxSocketEvent.InitState
-            }
+            SocketStatus.ESTABLISHED -> handleEstablished()
+            SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response, isPushConnection)
+            SocketStatus.LOADING -> handleLoading()
+            SocketStatus.ERROR -> handleError(response)
+            SocketStatus.DISCONNECT -> handleDisconnect()
         }
+    }
+
+    private fun handleEstablished() {
+        Timber.d("OnConMan")
+    }
+
+    private fun handleMessageReceived(response: SocketResponse<ReceivedMessageBody>, isPushConnection: Boolean) {
+        val data = response.data as? ReceivedMessageBody
+        when (data?.method) {
+            SocketMethod.CLIENT_READY.methodName -> handleClientReady()
+            SocketMethod.LOGIN.methodName -> handleLogin(data, isPushConnection)
+            SocketMethod.INVITE.methodName -> handleInvite(data)
+            SocketMethod.ANSWER.methodName -> handleAnswer(data)
+            SocketMethod.RINGING.methodName -> handleRinging(data)
+            SocketMethod.MEDIA.methodName -> handleMedia()
+            SocketMethod.BYE.methodName -> handleBye(data)
+        }
+    }
+
+    private fun handleClientReady() {
+        Log.d("TelnyxViewModel", "Client Ready")
+        Timber.d("You are ready to make calls.")
+        _uiState.value = TelnyxSocketEvent.OnClientReady
+    }
+
+    private fun handleLogin(data: ReceivedMessageBody, isPushConnection: Boolean) {
+        val sessionId = (data.result as LoginResponse).sessid
+        sessionId.let {
+            Timber.d("Session ID: $sessionId")
+        }
+        _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
+        _isLoading.value = isPushConnection
+    }
+
+    private fun handleInvite(data: ReceivedMessageBody) {
+        val inviteResponse = data.result as InviteResponse
+        if (notificationAcceptHandlingUUID == inviteResponse.callId) {
+            _uiState.value = TelnyxSocketEvent.OnCallAnswered(inviteResponse.callId)
+        } else {
+            _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
+        }
+        notificationAcceptHandlingUUID = null
+        _isLoading.value = false
+    }
+
+    private fun handleAnswer(data: ReceivedMessageBody) {
+        _uiState.value = TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
+    }
+
+    private fun handleRinging(data: ReceivedMessageBody) {
+        _uiState.value = TelnyxSocketEvent.OnRinging(data.result as RingingResponse)
+    }
+
+    private fun handleMedia() {
+        _uiState.value = TelnyxSocketEvent.OnMedia
+    }
+
+    private fun handleBye(data: ReceivedMessageBody) {
+        val byeResponse = data.result as ByeResponse
+        viewModelScope.launch {
+            OnByeReceived().invoke(byeResponse.callId)
+            _uiState.value = currentCall?.let {
+                TelnyxSocketEvent.OnCallAnswered(it.callId)
+            } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
+        }
+    }
+
+    private fun handleLoading() {
+        Timber.i("Loading...")
+    }
+
+    private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
+        _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "Error Occurred")
+    }
+
+    private fun handleDisconnect() {
+        Timber.i("Disconnect...")
+        _sessionsState.value = TelnyxSessionState.ClientDisconnected
+        _uiState.value = TelnyxSocketEvent.InitState
     }
 
     fun sendInvite(
