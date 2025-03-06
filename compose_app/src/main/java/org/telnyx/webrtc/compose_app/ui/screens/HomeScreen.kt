@@ -79,6 +79,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
+    var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
     val uiState by telnyxViewModel.uiState.collectAsState()
@@ -139,7 +140,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
-                    ProfileSwitcher(profileName = currentConfig?.sipUsername ?: stringResource(R.string.missing_profile)) {
+                    ProfileSwitcher(profileName = currentConfig?.callerIdName ?: stringResource(R.string.missing_profile)) {
                         showBottomSheet = true
                     }
                 }
@@ -198,14 +199,16 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         when (addProfile) {
                             true -> {
                                 CredentialTokenView(
-                                    currentConfig,
+                                    editableUserProfile,
                                     onSave = { profile ->
                                         profile.apply {
                                             telnyxViewModel.addProfile(context, profile)
+                                            editableUserProfile = null
                                         }
                                         isAddProfile = !isAddProfile
                                     },
                                     onDismiss = {
+                                        editableUserProfile = null
                                         isAddProfile = !isAddProfile
                                     }
                                 )
@@ -219,6 +222,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                         modifier = Modifier.height(30.dp),
                                         textSize = 12.sp
                                     ) {
+                                        editableUserProfile = null
                                         isAddProfile = !isAddProfile
                                     }
                                     ProfileListView(
@@ -226,8 +230,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                         telnyxViewModel,
                                         onEdit = { profile ->
                                             Timber.d("Edit Profile: $profile")
+                                            editableUserProfile = profile
                                             isAddProfile = true
-                                            telnyxViewModel.setCurrentConfig(context, profile)
                                         },
                                         onDelete = {profile ->
                                             telnyxViewModel.deleteProfile(context, profile)
@@ -309,9 +313,9 @@ fun ProfileListView(
             verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
             profileList.forEach { item ->
                 item {
-                    ProfileItem(item, selected = currentSipId == item.sipUsername,
+                    ProfileItem(item, selected = currentSipId == item.callerIdName,
                         onItemSelected = {
-                            currentSipId = it.sipUsername ?: ""
+                            currentSipId = it.callerIdName ?: ""
                             telnyxViewModel.setCurrentConfig(context, it)
                         },
                         onEdit = {
@@ -377,7 +381,7 @@ fun ProfileItem(
             imageVector = Icons.Default.Person,
             contentDescription = stringResource(id = R.string.profile)
         )
-        RegularText(text = item.sipUsername, modifier = Modifier.weight(1f))
+        RegularText(text = item.callerIdName, modifier = Modifier.weight(1f))
         IconButton(onClick = onEdit) {
             Icon(imageVector = Icons.Default.Edit, contentDescription = null)
         }
@@ -459,11 +463,19 @@ fun ConnectionStateButton(
             telnyxViewModel.disconnect(context)
         } else {
             currentConfig?.let { profile ->
-                telnyxViewModel.credentialLogin(
-                    context,
-                    profile = profile,
-                    txPushMetaData = null
-                )
+                if (profile.sipToken?.isEmpty() == false) {
+                    telnyxViewModel.tokenLogin(
+                        context,
+                        profile = profile,
+                        txPushMetaData = null
+                    )
+                } else {
+                    telnyxViewModel.credentialLogin(
+                        context,
+                        profile = profile,
+                        txPushMetaData = null
+                    )
+                }
             } ?: run {
                 Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
             }

@@ -48,7 +48,7 @@ class LoginFragment : Fragment() {
             lifecycleScope.launch {
                 telnyxViewModel.currentProfile.collectLatest { profile ->
                     profile?.let {
-                        profileId.text = it.sipUsername ?: it.sipToken ?: getString(R.string.no_profile_selected)
+                        profileId.text = it.callerIdName ?: getString(R.string.no_profile_selected)
                     }
                 }
             }
@@ -88,8 +88,11 @@ private fun setupListeners() {
 
         // Connect button click
         connect.setOnClickListener {
-            telnyxViewModel.currentProfile.value?.let {
-                telnyxViewModel.credentialLogin(this@LoginFragment.requireContext(),it,null)
+            telnyxViewModel.currentProfile.value?.let { currentProfile ->
+                if (currentProfile.sipToken?.isEmpty() == false)
+                    telnyxViewModel.tokenLogin(this@LoginFragment.requireContext(), currentProfile,null)
+                else
+                    telnyxViewModel.credentialLogin(this@LoginFragment.requireContext(), currentProfile,null)
             }
 
         }

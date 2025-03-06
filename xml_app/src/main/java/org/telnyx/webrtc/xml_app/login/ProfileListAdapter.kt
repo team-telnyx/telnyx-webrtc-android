@@ -22,7 +22,7 @@ class ProfileListAdapter(private val onClick: (Profile, ProfileAction) -> Unit) 
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(profile: Profile) {
-            binding.profileName.text = profile.sipUsername
+            binding.profileName.text = profile.callerIdName
         }
     }
 

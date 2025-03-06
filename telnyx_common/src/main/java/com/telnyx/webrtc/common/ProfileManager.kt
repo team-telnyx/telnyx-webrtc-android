@@ -42,7 +42,11 @@ object ProfileManager {
 
         val listOfProfiles = getProfilesList(context).toMutableList()
 
-        listOfProfiles.firstOrNull { it.sipUsername == profile.sipUsername }?.let { existingProfile ->
+        listOfProfiles.firstOrNull { it.sipUsername?.isEmpty() == false && it.sipUsername == profile.sipUsername }?.let { existingProfile ->
+            listOfProfiles.remove(existingProfile)
+        }
+
+        listOfProfiles.firstOrNull { it.sipToken?.isEmpty() == false && it.sipToken == profile.sipToken }?.let { existingProfile ->
             listOfProfiles.remove(existingProfile)
         }
 
@@ -77,6 +81,28 @@ object ProfileManager {
         val listOfProfiles = getProfilesList(context).toMutableList()
 
         return listOfProfiles.firstOrNull { it.sipUsername == sipUsername }?.let { existingProfile ->
+            listOfProfiles.remove(existingProfile)
+            val gson = Gson()
+
+            val json = gson.toJson(listOfProfiles)
+            sharedPreferences.edit().putString(LIST_OF_PROFILES, json).apply()
+            true
+        } ?: false
+    }
+
+    /**
+     * Deletes a profile by SIP token.
+     *
+     * @param context The application context.
+     * @param sipToken The SIP token of the profile to delete.
+     * @return True if the profile was deleted, false otherwise.
+     */
+    fun deleteProfileBySipToken(context: Context, sipToken: String): Boolean {
+        val sharedPreferences = TelnyxCommon.getInstance().getSharedPreferences(context)
+
+        val listOfProfiles = getProfilesList(context).toMutableList()
+
+        return listOfProfiles.firstOrNull { it.sipToken == sipToken }?.let { existingProfile ->
             listOfProfiles.remove(existingProfile)
             val gson = Gson()
 

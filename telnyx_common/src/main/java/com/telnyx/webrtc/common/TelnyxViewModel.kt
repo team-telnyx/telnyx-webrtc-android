@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
+import com.telnyx.webrtc.common.util.toTokenConfig
 import java.io.IOException
 import java.util.*
 
@@ -98,20 +99,23 @@ class TelnyxViewModel : ViewModel() {
 
 
     fun addProfile(context: Context,profile: Profile) {
-        val list = _profileListState.value.toMutableList()
-        list.add(profile)
-        _profileListState.value = list
-        ProfileManager.saveProfile(context,profile)
+        ProfileManager.saveProfile(context, profile)
+        refreshProfileList(context)
     }
 
     fun deleteProfile(context: Context,profile: Profile) {
         profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
-        profile.sipToken?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
+        profile.sipToken?.let { ProfileManager.deleteProfileBySipToken(context, it) }
         refreshProfileList(context)
     }
 
     private fun refreshProfileList(context: Context) {
         _profileListState.value = ProfileManager.getProfilesList(context)
+        _currentProfile.value?.let { profile ->
+            if (_profileListState.value.firstOrNull { it.callerIdName == profile.callerIdName } == null) {
+                _currentProfile.value = null
+            }
+        }
     }
 
 
@@ -208,14 +212,22 @@ class TelnyxViewModel : ViewModel() {
 
     fun tokenLogin(
         viewContext: Context,
-        credentialConfig: TokenConfig,
+        profile: Profile,
         txPushMetaData: String?,
         autoLogin: Boolean = true
-    ) = AuthenticateByToken(context = viewContext).invoke(
-        credentialConfig,
-        txPushMetaData,
-        autoLogin
-    ).asFlow()
+    ) {
+        _isLoading.value = true
+        viewModelScope.launch {
+            AuthenticateByToken(context = viewContext).invoke(
+                profile.toTokenConfig(fcmToken ?: ""),
+                txPushMetaData,
+                autoLogin
+            ).asFlow().collectLatest { response ->
+                Timber.d("Auth Response: $response")
+                handleSocketResponse(response, false)
+            }
+        }
+    }
 
     fun disconnect(viewContext: Context) {
         viewModelScope.launch {

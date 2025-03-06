@@ -65,4 +65,6 @@
     <string name="dtmf_dialpad">DTMF Dialpad</string>
 
     <string name="notification_permission_text">Notification permission is required to continue</string>
+
+    <string name="empty_profile_fields_message">Please fill all fields</string>
 </resources>
