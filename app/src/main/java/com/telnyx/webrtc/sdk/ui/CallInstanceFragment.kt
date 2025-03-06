@@ -13,13 +13,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.davidmiguel.numberkeyboard.NumberKeyboard
 import com.davidmiguel.numberkeyboard.NumberKeyboardListener
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.databinding.FragmentCallInstanceBinding
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.*
+import kotlinx.coroutines.flow.collectLatest
 import timber.log.Timber
 import java.util.*
 
@@ -71,6 +75,13 @@ class CallInstanceFragment : Fragment(), NumberKeyboardListener {
         mainViewModel.getCallState()?.observe(this.viewLifecycleOwner) { value ->
             (requireActivity() as MainActivity).callStateTextValue?.text = value.name
         }
+
+        this.lifecycleScope.launchWhenStarted {
+            mainViewModel.getCallStateFlow()?.collectLatest {value ->
+               // (requireActivity() as MainActivity).callStateTextValue?.text = value.name
+            }
+        }
+
         mainViewModel.getIsMuteStatus()?.observe(this.viewLifecycleOwner) { value ->
             binding.apply {
                 if (!value) {

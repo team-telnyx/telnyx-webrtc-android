@@ -430,6 +430,9 @@ class TelnyxClient(
 
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
+                    getActiveCalls().forEach { (_, call) ->
+                        call.updateCallState(CallState.DROPPED)
+                    }
                     socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
@@ -448,9 +451,14 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
 
         //Disconnect active calls for reconnection
-        getActiveCalls()?.forEach { (_, call) ->
-            call?.peerConnection?.disconnect()
+        getActiveCalls().forEach { (_, call) ->
+            webRTCReporter?.pauseStats()
+            call.peerConnection?.disconnect()
+            call.updateCallState(CallState.RECONNECTING)
         }
+
+        //Delay for network to be properly established
+        delay(RECONNECT_DELAY)
 
         // Create new socket connection
         socketReconnection = TxSocket(
@@ -471,8 +479,6 @@ class TelnyxClient(
                     if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS
-
-
             }
 
 
@@ -1638,18 +1644,20 @@ class TelnyxClient(
 
     override fun onAttachReceived(jsonObject: JsonObject) {
 
-        val attachCall = call!!.copy(
+        val params = jsonObject.getAsJsonObject("params")
+        val offerCallId = UUID.fromString(params.get("callID").asString)
+
+        calls[offerCallId]?.copy(
             context = context,
             client = this,
             socket = socket,
             sessionId = sessid,
             audioManager = audioManager!!,
             providedTurn = providedTurn!!,
-            providedStun = providedStun!!
-        ).apply {
+            providedStun = providedStun!!,
+            mutableCallStateFlow = calls[offerCallId]!!.mutableCallStateFlow,
+        )?.apply {
 
-            val params = jsonObject.getAsJsonObject("params")
-            val offerCallId = UUID.fromString(params.get("callID").asString)
             val remoteSdp = params.get("sdp").asString
             val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
             if (voiceSdkID != null) {
@@ -1669,11 +1677,11 @@ class TelnyxClient(
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
-                        if (isDebug) {
-                            webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
-                            webRTCReporter?.startStats()
-                        }
-                    }
+                if (isDebug) {
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter?.startStats()
+                }
+            }
 
             peerConnection?.startLocalAudioCapture()
 
@@ -1693,9 +1701,14 @@ class TelnyxClient(
                 },
                 Call.ICE_CANDIDATE_DELAY
             )
+            calls[this.callId]?.updateCallState(CallState.ACTIVE)
+            this.setCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
+            calls[this.callId] = this.apply {
+                updateCallState(CallState.ACTIVE)
+            }
+        } ?: run {
+            Timber.e("Call not found for Attach")
         }
-        attachCall.updateCallState(CallState.ACTIVE)
-        calls[attachCall.callId] = attachCall
     }
 
     override fun setCallRecovering() {
