@@ -1,14 +1,15 @@
 <resources>
     <string name="app_name">Telnyx WebRTC</string>
     <string name="webrtc_demo_title">Telnyx Mobile WebRTC</string>
-    <string name="connect">connect</string>
+    <string name="connect">Connect</string>
     <string name="socket">Socket</string>
     <string name="session_id">Session ID</string>
     <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
+    <string name="client_ready">Client-ready</string>
     <string name="dash">-</string>
     <string name="session_pending">-</string>
-    <string name="call">call</string>
+    <string name="call">Call</string>
     <string name="sip_username">SIP Username</string>
     <string name="password">Password</string>
     <string name="caller_id_name">Caller ID Name</string>
@@ -41,8 +42,6 @@
     <string name="clear_wsmessages">Clear WsMessages</string>
     <string name="share_wsmessages">Share WsMessages</string>
     <string name="empty_wsmessages">Oops! No logs are available currently. Please check after some time!</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>
     <string name="login_info">Please confirm details below and click ‘Connect’ to make a call.</string>
     <string name="home_info">Enter a destination (phone number or SIP user) to initiate your call.</string>
@@ -56,5 +55,10 @@
     <string name="token">Token</string>
     <string name="sign_in">Sign In</string>
     <string name="delete">delete</string>
-
+    <string name="credentials_login">Credential Login</string>
+    <string name="save">Save</string>
+    <string name="error_empty_field">Empty Field</string>
+    <string name="confirm">Confirm</string>
+    <string name="no_profile_selected">No Profile\n</string>
+    <string name="dtmf_dialpad">DTMF Dialpad</string>
 </resources>

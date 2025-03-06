@@ -89,3 +89,6 @@ app/google-services.json
 xmlapp/google-services.json
 compose_app/google-services.json
 connection_service_app/google-services.json
+
+# system
+.DS_Store

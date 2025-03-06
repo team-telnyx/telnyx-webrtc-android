@@ -1,9 +1,13 @@
 package org.telnyx.webrtc.compose_app.ui.viewcomponents
 
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -11,10 +15,14 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 
@@ -117,5 +125,30 @@ fun RegularText(
         textAlign = textAlign,
         softWrap = false,
         maxLines = 1
+    )
+}
+
+@Composable
+fun OutlinedEdiText(
+    modifier: Modifier = Modifier,
+    hint: String,
+    text: String,
+    isError: Boolean = false,
+    enabled: Boolean = true,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    onTextChanged: (String) -> Unit
+) {
+    OutlinedTextField(
+        modifier = modifier,
+        value = text,
+        onValueChange = onTextChanged,
+        enabled = enabled,
+        isError = isError,
+        visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
+        label = {
+            Text(hint, color = Color.Gray)
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        shape = RoundedCornerShape(8.dp)
     )
 }

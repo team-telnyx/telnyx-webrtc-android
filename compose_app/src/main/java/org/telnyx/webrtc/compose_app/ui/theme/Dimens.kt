@@ -1,6 +1,8 @@
 package org.telnyx.webrtc.compose_app.ui.theme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -12,6 +14,12 @@ object Dimens {
     val mediumPadding = 12.dp
     val largePadding = 14.dp
     val extraLargePadding = 24.dp
+
+    val extraSmallSpacing = 6.dp
+    val smallSpacing = 12.dp
+    val mediumSpacing = 24.dp
+    val largeSpacing = 36.dp
+    val extraLargeSpacing = 48.dp
 
     val spacingBottomList = 32.dp
     val spacing40dp = 40.dp
@@ -49,6 +57,7 @@ object Dimens {
     val size48dp = 48.dp
     val size50dp = 50.dp
     val size60dp = 60.dp
+    val size80dp = 80.dp
     val size100dp = 100.dp
     val size120dp = 120.dp
     val size200dp = 200.dp
@@ -69,6 +78,7 @@ object Dimens {
 
     //Shape
     val shape100Percent = RoundedCornerShape(100)
+    val borderStrokeTransparent = BorderStroke(0.dp, color = Color.Transparent)
 
 
 

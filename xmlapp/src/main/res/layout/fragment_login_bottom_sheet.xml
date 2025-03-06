@@ -41,7 +41,7 @@
         android:layout_height="wrap_content"
         android:visibility="gone"
         android:layout_marginTop="@dimen/spacing_normal"
-        app:layout_constraintTop_toBottomOf="@+id/outlinedButton"
+        app:layout_constraintTop_toBottomOf="@+id/addNewProfile"
         />
 
 
@@ -50,11 +50,11 @@
         android:id="@+id/allProfiles"
         android:layout_marginTop="@dimen/spacing_tiny"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@+id/credentialGroup"/>
 
     <Button
-        android:id="@+id/outlinedButton"
+        android:id="@+id/addNewProfile"
         android:layout_width="wrap_content"
         android:layout_height="32dp"
         android:text="@string/add_new_profile"
@@ -68,32 +68,7 @@
 
 
 
-    <Button
-        android:id="@+id/connect"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:text="Confirm"
-        android:textSize="12sp"
-        android:textAllCaps="false"
-        style="@style/CustomPrimaryButton"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        />
 
-    <Button
-        android:id="@+id/cancel"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:layout_marginStart="@dimen/spacing_normal"
-        android:text="@string/cancel"
-        android:textAllCaps="false"
-        android:textSize="12sp"
-        android:layout_marginEnd="@dimen/spacing_tiny"
-        android:layout_toStartOf="@+id/connect"
-        style="@style/CustomOutlinedButton"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/connect"
-        />
 
 
 

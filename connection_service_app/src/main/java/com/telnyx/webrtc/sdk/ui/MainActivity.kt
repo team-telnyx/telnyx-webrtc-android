@@ -259,6 +259,7 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
+        observeSocketResponses()
         if (!isDev) {
             mainViewModel.initConnection(
                 null,
@@ -275,15 +276,15 @@ class MainActivity : AppCompatActivity() {
             )
 
         }
-        observeSocketResponses()
     }
 
     private fun observeSocketResponses() {
-        mainViewModel.getSocketResponse().observe(
+        mainViewModel.initTelnyxClient(this)
+        mainViewModel.getSocketResponse()?.observe(
             this,
             object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
-                    Timber.d("OnConMan")
+                    Timber.d("Connection Established")
 
                 }
 
