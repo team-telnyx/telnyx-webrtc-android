@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.sdk
 
+// Timber import removed
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -17,6 +18,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.TelnyxClient.RingtoneType.RAW
+import com.telnyx.webrtc.sdk.TelnyxClient.RingtoneType.URI
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.EARPIECE
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.SPEAKER
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.UNASSIGNED
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -24,7 +30,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
-import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -32,7 +38,6 @@ import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
-// Timber import removed
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -1014,10 +1019,10 @@ class TelnyxClient(
                     audioManager?.startBluetoothSco()
                     audioManager?.isBluetoothScoOn = true
                 } else {
-                    Logger.d(message = (
+                    Logger.d(message = Logger.formatMessage(
                         "[%s] :: No Bluetooth device detected",
-                        this@TelnyxClient.javaClass.simpleName,
-                    )
+                        this@TelnyxClient.javaClass.simpleName
+                    ))
                 }
             }
 

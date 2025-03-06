@@ -21,6 +21,7 @@ import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.telnyx.webrtc.sdk.utilities.Logger
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 
