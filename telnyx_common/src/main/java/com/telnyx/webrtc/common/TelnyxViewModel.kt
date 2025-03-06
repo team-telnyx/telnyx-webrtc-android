@@ -214,6 +214,10 @@ class TelnyxViewModel : ViewModel() {
         return fcmToken
     }
 
+    fun disablePushNotifications(context: Context, sipUserName: String?, loginToken: String?, fcmToken: String) {
+        TelnyxCommon.getInstance().getTelnyxClient(context).disablePushNotification(sipUserName, loginToken, fcmToken)
+    }
+
     fun tokenLogin(
         viewContext: Context,
         profile: Profile,
