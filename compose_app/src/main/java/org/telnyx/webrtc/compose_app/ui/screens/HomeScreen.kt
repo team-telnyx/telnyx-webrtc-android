@@ -1,5 +1,8 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
@@ -322,7 +325,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     MediumTextBold(
-                        text = "Environment Options",
+                        text = stringResource(id = R.string.environment_options),
                         modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                     )
                     IconButton(onClick = {
@@ -343,7 +346,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
                     RoundSmallButton(
-                        text = "Development Environment",
+                        text = stringResource(id = R.string.development_environment),
                         backgroundColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.fillMaxWidth(),
                         textSize = 14.sp
@@ -352,7 +355,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     }
 
                     RoundSmallButton(
-                        text = "Production Environment",
+                        text = stringResource(id = R.string.production_environment),
                         backgroundColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.fillMaxWidth(),
                         textSize = 14.sp
@@ -361,16 +364,19 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     }
 
                     RoundSmallButton(
-                        text = "Copy FCM Token",
+                        text = stringResource(id = R.string.copy_fcm_token),
                         backgroundColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.fillMaxWidth(),
                         textSize = 14.sp
                     ) {
-                        // TODO: Implement FCM token copy
+                        val token = telnyxViewModel.retrieveFCMToken()
+                        val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("FCM Token", token)
+                        clipboardManager.setPrimaryClip(clip)
                     }
 
                     RoundSmallButton(
-                        text = "Disable Push Notifications",
+                        text = stringResource(id = R.string.disable_push_notifications),
                         backgroundColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.fillMaxWidth(),
                         textSize = 14.sp

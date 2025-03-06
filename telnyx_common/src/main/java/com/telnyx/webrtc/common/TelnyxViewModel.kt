@@ -99,7 +99,6 @@ class TelnyxViewModel : ViewModel() {
         _profileListState.value = ProfileManager.getProfilesList(context)
     }
 
-
     fun addProfile(context: Context,profile: Profile) {
         ProfileManager.saveProfile(context, profile)
         refreshProfileList(context)
@@ -118,11 +117,6 @@ class TelnyxViewModel : ViewModel() {
                 _currentProfile.value = null
             }
         }
-    }
-
-
-    fun setIsLoading(isLoading: Boolean) {
-        _isLoading.value = isLoading
     }
 
     fun credentialLogin(
@@ -214,6 +208,10 @@ class TelnyxViewModel : ViewModel() {
             }
             fcmToken = token
         }
+    }
+
+    fun retrieveFCMToken(): String? {
+        return fcmToken
     }
 
     fun tokenLogin(
