@@ -47,7 +47,6 @@ class MainViewModel @Inject constructor(
         txPushMetaData: String?,
     ) {
         Logger.e(message = "initConnection")
-        telnyxClient = TelnyxClient(context)
         providedServerConfig?.let {
             telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {

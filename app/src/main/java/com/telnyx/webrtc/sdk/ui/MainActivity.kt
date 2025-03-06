@@ -50,7 +50,6 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utilities.TxDefaultLogger
-import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
