@@ -4,7 +4,6 @@
 
 package com.telnyx.webrtc.sdk
 
-// Timber import removed
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -979,7 +978,8 @@ class TelnyxClient(
 
     /**
      * Sets the global SDK log level
-     * Logging is implemented with Logger
+     * Logging is implemented with the Logger provided via the [Config],
+     * if none is provided then the default logger in [TxLogger] is used
      *
      * @param logLevel The LogLevel specified for the SDK
      * @param customLogger Optional custom logger implementation
