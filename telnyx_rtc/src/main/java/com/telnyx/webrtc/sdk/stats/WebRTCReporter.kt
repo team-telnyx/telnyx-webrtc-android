@@ -394,10 +394,12 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     }
 
     private fun sendStats(data: JsonObject) {
-        val statsMessage = StatPrams(
-            debugReportId = debugStatsId.toString(),
-            reportData = data
-        )
-        socket.send(statsMessage)
+        debugStatsId?.let {
+            val statsMessage = StatPrams(
+                debugReportId = debugStatsId.toString(),
+                reportData = data
+            )
+            socket.send(statsMessage)
+        }
     }
 }
