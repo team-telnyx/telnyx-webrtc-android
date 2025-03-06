@@ -1,6 +1,5 @@
 package org.telnyx.webrtc.compose_app
 
-import android.Manifest.permission.POST_NOTIFICATIONS
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -15,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
@@ -30,14 +31,15 @@ import org.telnyx.webrtc.compose_app.ui.screens.HomeScreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import timber.log.Timber
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
 
     private val viewModel: TelnyxViewModel by viewModels()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super<ComponentActivity>.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+        lifecycle.addObserver(this)
 
         viewModel.initProfile(this)
 
@@ -58,6 +60,16 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleCallNotification(intent)
+    }
+
+    override fun onStart(owner: LifecycleOwner) {
+        super<DefaultLifecycleObserver>.onStart(owner)
+        viewModel.connectLastUsed(this)
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        super<DefaultLifecycleObserver>.onStop(owner)
+        viewModel.disconnect(this, false)
     }
 
     private fun handleCallNotification(intent: Intent?) {

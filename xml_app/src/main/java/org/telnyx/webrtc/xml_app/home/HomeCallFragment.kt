@@ -70,7 +70,7 @@ class HomeCallFragment : Fragment() {
         }
 
         binding.disconnect.setOnClickListener {
-            telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
+            telnyxViewModel.disconnect(this@HomeCallFragment.requireContext(), true)
         }
 
         binding.hold.setOnClickListener {

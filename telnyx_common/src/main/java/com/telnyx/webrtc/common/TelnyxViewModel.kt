@@ -20,7 +20,6 @@ import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.Call
-import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
@@ -38,6 +37,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import kotlinx.coroutines.Job
 import java.io.IOException
 import java.util.*
 
@@ -88,6 +88,8 @@ class TelnyxViewModel : ViewModel() {
 
     private var notificationAcceptHandlingUUID: UUID? = null
 
+    private var userSessionJob: Job? = null
+
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
         ProfileManager.saveProfile(context, profile)
@@ -130,7 +132,11 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+        userSessionJob = viewModelScope.launch {
             AuthenticateBySIPCredentials(context = viewContext).invoke(
                 profile.toCredentialConfig(fcmToken ?: ""),
                 txPushMetaData,
@@ -217,7 +223,11 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+        userSessionJob = viewModelScope.launch {
             AuthenticateByToken(context = viewContext).invoke(
                 profile.toTokenConfig(fcmToken ?: ""),
                 txPushMetaData,
@@ -229,9 +239,29 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun disconnect(viewContext: Context) {
+    fun disconnect(viewContext: Context, byUser: Boolean) {
         viewModelScope.launch {
             Disconnect(viewContext).invoke()
+            if (byUser)
+                _currentProfile.value = null
+        }
+    }
+
+    fun connectLastUsed(viewContext: Context) {
+        viewModelScope.launch {
+            _currentProfile.value?.let { lastUsedProfile ->
+                if (lastUsedProfile.sipToken?.isEmpty() == false) {
+                    tokenLogin(viewContext,
+                        lastUsedProfile,
+                        null,
+                        true)
+                } else {
+                    credentialLogin(viewContext,
+                        lastUsedProfile,
+                        null,
+                        true)
+                }
+            }
         }
     }
 

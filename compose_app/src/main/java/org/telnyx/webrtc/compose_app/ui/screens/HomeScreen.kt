@@ -460,7 +460,7 @@ fun ConnectionStateButton(
         modifier = Modifier.fillMaxWidth()
     ) {
         if (state) {
-            telnyxViewModel.disconnect(context)
+            telnyxViewModel.disconnect(context, true)
         } else {
             currentConfig?.let { profile ->
                 if (profile.sipToken?.isEmpty() == false) {
