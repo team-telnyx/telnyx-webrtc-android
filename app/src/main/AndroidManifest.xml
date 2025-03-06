@@ -40,9 +40,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <service
-            android:name=".utility.MyFirebaseMessagingService"
+            android:name="com.telnyx.webrtc.common.notification.MyFirebaseMessagingService"
             android:priority="10000"
             android:exported="true">
             <intent-filter>
@@ -71,8 +70,11 @@
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="phoneCall"
-            android:name=".NotificationsService"
-            />
+            android:name="com.telnyx.webrtc.common.notification.NotificationsService">
+            <meta-data
+                android:name="activity_class_name"
+                android:value="com.telnyx.webrtc.sdk.ui.MainActivity" />
+        </service>
 
     </application>
 </manifest>

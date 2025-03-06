@@ -30,6 +30,8 @@ import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
+import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
+import com.telnyx.webrtc.common.notification.NotificationsService
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
@@ -37,7 +39,6 @@ import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_DESTINATION_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_PASSWORD
 import com.telnyx.webrtc.sdk.MOCK_USERNAME
-import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
@@ -48,7 +49,6 @@ import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
-import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse

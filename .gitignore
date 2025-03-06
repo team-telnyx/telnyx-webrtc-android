@@ -88,3 +88,5 @@ lint/tmp/
 
 # system
 .DS_Store
+compose_app/google-services.json
+app/google-services.json

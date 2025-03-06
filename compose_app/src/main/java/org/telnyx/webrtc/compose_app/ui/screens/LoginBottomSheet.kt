@@ -33,7 +33,7 @@ fun CredentialTokenView(
     onSave: (Profile) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var isTokenState by remember { mutableStateOf(false) }
+    var isTokenState by remember { mutableStateOf(profile?.sipToken?.isNotEmpty() == true) }
     val context = LocalContext.current
 
     var sipToken by remember { mutableStateOf(profile?.sipToken ?: "") }
@@ -57,7 +57,7 @@ fun CredentialTokenView(
         if (!isTokenState) {
             OutlinedEdiText(
                 text = sipUsername,
-                hint = "Sip Username",
+                hint = "SIP Username",
                 modifier = Modifier.fillMaxWidth().testTag("sipUsername")
             ) { value ->
                 sipUsername = value
@@ -101,27 +101,33 @@ fun CredentialTokenView(
                 positiveText = stringResource(id = R.string.save),
                 negativeText = stringResource(id = R.string.Cancel),
                 onPositiveClick = {
-                    if (sipUsername.isEmpty() || sipPassword.isEmpty()) {
-                        Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
-                        return@PosNegButton
-                    }
                     if (!isTokenState) {
+                        if (sipUsername.isEmpty() || sipPassword.isEmpty() || callerIdName.isEmpty()) {
+                            Toast.makeText(context, context.getString(R.string.empty_profile_fields_message), Toast.LENGTH_SHORT).show()
+                            return@PosNegButton
+                        }
+
                         onSave(
                             Profile(
                                 sipUsername = sipUsername,
                                 sipPass = sipPassword,
                                 callerIdName = callerIdName,
                                 callerIdNumber = callerIdNumber,
-                                isUserLogin = true
+                                isUserLoggedIn = true
                             ),
                         )
                     } else {
+                        if (sipToken.isEmpty() || callerIdName.isEmpty()) {
+                            Toast.makeText(context, context.getString(R.string.empty_profile_fields_message), Toast.LENGTH_SHORT).show()
+                            return@PosNegButton
+                        }
+
                         onSave(
                             Profile(
                                 sipToken = sipToken,
                                 callerIdName = callerIdName,
                                 callerIdNumber = callerIdNumber,
-                                isUserLogin = true
+                                isUserLoggedIn = true
                             )
                         )
                     }

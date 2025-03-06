@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:padding="@dimen/spacing_normal"
+    tools:context="org.telnyx.webrtc.xmlapp.org.telnyx.webrtc.xml_app.login.LoginBottomSheetFragment">
+
+
+    <RelativeLayout
+        android:id="@+id/headerInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/HeaderTextLarge"
+            android:text="@string/existing_profiles" />
+
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@string/close_button_dessc"
+            android:src="@drawable/ic_close"
+            android:layout_alignParentEnd="true"/>
+
+    </RelativeLayout>
+
+    <include
+        android:id="@+id/credentialGroup"
+        layout="@layout/credentials_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_marginTop="@dimen/spacing_normal"
+        app:layout_constraintTop_toBottomOf="@+id/addNewProfile"
+        />
+
+
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/allProfiles"
+        android:layout_marginTop="@dimen/spacing_tiny"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@+id/credentialGroup"/>
+
+    <Button
+        android:id="@+id/addNewProfile"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:text="@string/add_new_profile"
+        android:textAllCaps="false"
+        android:layout_marginTop="@dimen/spacing_normal"
+        app:icon="@drawable/ic_add"
+        style="@style/AddProfileButton"
+        app:layout_constraintTop_toBottomOf="@+id/headerInfo"
+        app:layout_constraintStart_toStartOf="parent"
+        />
+
+
+
+
+
+
+
+
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
