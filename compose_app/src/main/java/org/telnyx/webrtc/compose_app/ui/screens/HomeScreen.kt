@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -78,6 +80,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
+    var showEnvironmentSheet by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
@@ -102,6 +105,13 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         modifier = Modifier
                             .padding(Dimens.smallPadding)
                             .size(width = 200.dp, height = Dimens.size100dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        showEnvironmentSheet = true
+                                    }
+                                )
+                            }
                     )
                 }
 
@@ -291,6 +301,84 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 }
             }
             else -> {}
+        }
+    }
+
+    if (showEnvironmentSheet) {
+        ModalBottomSheet(
+            modifier = Modifier.fillMaxSize(),
+            onDismissRequest = {
+                showEnvironmentSheet = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier.padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = "Environment Options",
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showEnvironmentSheet = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
+                    RoundSmallButton(
+                        text = "Development Environment",
+                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textSize = 14.sp
+                    ) {
+                        // TODO: Implement development environment switch
+                    }
+
+                    RoundSmallButton(
+                        text = "Production Environment",
+                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textSize = 14.sp
+                    ) {
+                        // TODO: Implement production environment switch
+                    }
+
+                    RoundSmallButton(
+                        text = "Copy FCM Token",
+                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textSize = 14.sp
+                    ) {
+                        // TODO: Implement FCM token copy
+                    }
+
+                    RoundSmallButton(
+                        text = "Disable Push Notifications",
+                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textSize = 14.sp
+                    ) {
+                        // TODO: Implement push notifications disable
+                    }
+                }
+            }
         }
     }
 }

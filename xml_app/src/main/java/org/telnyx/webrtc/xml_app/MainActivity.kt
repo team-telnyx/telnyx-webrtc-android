@@ -5,6 +5,9 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import android.view.GestureDetector
+import android.view.MotionEvent
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +37,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
     private lateinit var appBarConfiguration: AppBarConfiguration
+    private lateinit var gestureDetector: GestureDetector
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
 
@@ -62,7 +66,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         checkPermission()
         handleCallNotification(intent)
-
+        setupGestureDetector()
         bindEvents()
     }
 
@@ -132,6 +136,51 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
             }
         }
+    }
+
+    private fun setupGestureDetector() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                showEnvironmentBottomSheet()
+            }
+        })
+
+        binding.imageView.setOnTouchListener { v, event ->
+            gestureDetector.onTouchEvent(event)
+            true
+        }
+    }
+
+    private fun showEnvironmentBottomSheet() {
+        val bottomSheetDialog = BottomSheetDialog(this)
+        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_environment, null)
+
+        bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.devEnvironmentButton).setOnClickListener {
+            // TODO: Implement development environment switch
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.prodEnvironmentButton).setOnClickListener {
+            // TODO: Implement production environment switch
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).setOnClickListener {
+            // TODO: Implement FCM token copy
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.disablePushButton).setOnClickListener {
+            // TODO: Implement push notifications disable
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetDialog.setContentView(bottomSheetView)
+        bottomSheetDialog.show()
     }
 
     private fun checkPermission() {
