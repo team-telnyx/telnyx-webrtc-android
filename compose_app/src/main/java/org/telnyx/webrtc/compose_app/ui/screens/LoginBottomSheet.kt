@@ -57,7 +57,7 @@ fun CredentialTokenView(
         if (!isTokenState) {
             OutlinedEdiText(
                 text = sipUsername,
-                hint = "Sip Username",
+                hint = "SIP Username",
                 modifier = Modifier.fillMaxWidth().testTag("sipUsername")
             ) { value ->
                 sipUsername = value
