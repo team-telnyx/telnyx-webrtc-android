@@ -37,9 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
@@ -87,13 +89,67 @@ fun HomeScreen(telnyxViewModel: TelnyxViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    var showDevBottomSheet by remember { mutableStateOf(false) }
+
                     Image(
                         painter = painterResource(id = R.drawable.telnyx_logo),
                         contentDescription = stringResource(id = R.string.app_name),
                         modifier = Modifier
                             .padding(Dimens.smallPadding)
                             .size(width = 200.dp, height = Dimens.size100dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = { showDevBottomSheet = true }
+                                )
+                            }
                     )
+
+                    if (showDevBottomSheet) {
+                        ModalBottomSheet(
+                            onDismissRequest = { showDevBottomSheet = false },
+                            containerColor = Color.White,
+                            sheetState = rememberModalBottomSheetState(true)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(Dimens.mediumSpacing),
+                                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+                            ) {
+                                RoundedOutlinedButton(
+                                    text = "Development Environment",
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // TODO: Implement development environment switch
+                                    showDevBottomSheet = false
+                                }
+
+                                RoundedOutlinedButton(
+                                    text = "Production Environment",
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // TODO: Implement production environment switch
+                                    showDevBottomSheet = false
+                                }
+
+                                RoundedOutlinedButton(
+                                    text = "Copy FCM Token",
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // TODO: Implement FCM token copy
+                                    showDevBottomSheet = false
+                                }
+
+                                RoundedOutlinedButton(
+                                    text = "Disable Push Notifications",
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    // TODO: Implement push notifications disable
+                                    showDevBottomSheet = false
+                                }
+                            }
+                        }
+                    }
                 }
 
                 MediumTextBold(text = stringResource(id = R.string.login_info))
