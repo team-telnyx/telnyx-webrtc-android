@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk
 
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.utilities.TxLogger
 
 /**
  * Represents a SIP user for login
@@ -30,6 +31,7 @@ sealed class TelnyxConfig
  * @property ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property debug whether or not send client debug reports
  */
@@ -42,6 +44,7 @@ data class CredentialConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
+    val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
     val debug: Boolean = false
 ) : TelnyxConfig()
@@ -56,6 +59,7 @@ data class CredentialConfig(
  * @property ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  * @property debug whether or not send client debug reports
  */
@@ -67,6 +71,7 @@ data class TokenConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
+    val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
     val debug: Boolean = false
 ) : TelnyxConfig()

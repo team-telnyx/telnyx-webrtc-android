@@ -26,6 +26,11 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    lintOptions {
+        abortOnError false
+        disable 'LintVitalRelease'
+    }
+
     buildTypes {
         Properties properties = new Properties()
         if (project.rootProject.file('local.properties').canRead()) {

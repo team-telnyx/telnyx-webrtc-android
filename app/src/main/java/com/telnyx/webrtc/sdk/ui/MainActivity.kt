@@ -49,6 +49,8 @@ import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
+import com.telnyx.webrtc.sdk.utilities.TxDefaultLogger
+import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
@@ -217,7 +219,8 @@ class MainActivity : AppCompatActivity() {
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),// or ringtone,
                 R.raw.ringback_tone,
                 LogLevel.ALL,
-                debug = BuildConfig.IS_STATS_DEBUG_MODE
+                debug = BuildConfig.IS_STATS_DEBUG_MODE,
+                customLogger = TxDefaultLogger()
             )
             credentialConfig = loginConfig
         } else {
@@ -236,7 +239,8 @@ class MainActivity : AppCompatActivity() {
                             ringtone,
                             ringBackTone,
                             LogLevel.ALL,
-                            debug = BuildConfig.IS_STATS_DEBUG_MODE
+                            debug = BuildConfig.IS_STATS_DEBUG_MODE,
+                            customLogger = TxDefaultLogger()
                         )
                         tokenConfig = loginConfig
                     }
