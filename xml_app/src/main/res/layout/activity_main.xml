@@ -10,10 +10,9 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/appStatus"
         android:layout_width="match_parent"
-        app:layout_constraintTop_toTopOf="parent"
         android:layout_height="0dp"
         android:padding="24dp"
-        >
+        app:layout_constraintTop_toTopOf="parent">
 
 
         <ImageView
@@ -28,36 +27,34 @@
             app:layout_constraintTop_toTopOf="parent" />
 
 
-
         <TextView
             android:id="@+id/loginInfo"
+            style="@style/HeaderText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="60dp"
-            style="@style/HeaderText"
             android:text="@string/home_info"
-            app:layout_constraintTop_toBottomOf="@+id/imageView"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imageView" />
 
         <TextView
             android:id="@+id/socketLabel"
+            style="@style/SubText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@style/SubText"
-            android:text="@string/socket"
             android:layout_marginTop="24dp"
+            android:text="@string/socket"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-            />
+            app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
         <LinearLayout
             android:id="@+id/socketStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
             android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:orientation="horizontal"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/socketLabel">
 
@@ -70,15 +67,43 @@
 
             <TextView
                 android:id="@+id/socketStatusInfo"
+                style="@style/SubText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                style="@style/SubText"
                 android:layout_marginStart="8dp"
                 android:text="@string/disconnected"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
+                app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callStateInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_small"
+            android:orientation="vertical"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/sessionInfo">
+
+            <TextView
+                style="@style/SubText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/call_state"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/sessionInfo" />
+
+            <TextView
+                android:id="@+id/callState"
+                style="@style/SubText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_tiny"
+                android:text="@string/dash"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/sessionInfo" />
 
         </LinearLayout>
 
@@ -86,40 +111,34 @@
             android:id="@+id/sessionInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:layout_marginTop="@dimen/spacing_small"
+            android:orientation="vertical"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/socketStatus">
 
 
             <TextView
+                style="@style/SubText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                style="@style/SubText"
                 android:text="@string/session_id"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
+                app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
             <TextView
                 android:id="@+id/sessionId"
+                style="@style/SubText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                style="@style/SubText"
                 android:layout_marginTop="@dimen/spacing_tiny"
                 android:text="@string/dash"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
+                app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
         </LinearLayout>
 
 
-
-
-
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 
 
     <androidx.fragment.app.FragmentContainerView
@@ -128,21 +147,21 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:defaultNavHost="true"
-        app:layout_constraintTop_toBottomOf="@+id/appStatus"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/appStatus"
         app:navGraph="@navigation/nav_graph" />
 
     <LinearLayout
         android:id="@+id/progressIndicator"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/colorSecondary"
         android:alpha="0.5"
-        android:gravity="center_horizontal|center_vertical"
+        android:background="@color/colorSecondary"
         android:clickable="true"
         android:focusable="true"
+        android:gravity="center_horizontal|center_vertical"
         android:visibility="invisible">
 
         <com.google.android.material.progressindicator.CircularProgressIndicator

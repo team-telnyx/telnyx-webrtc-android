@@ -17,6 +17,7 @@ import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xml_app.MainActivity
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
@@ -52,7 +53,10 @@ class HomeCallFragment : Fragment() {
         binding.call.setOnClickListener {
             binding.callInput.text?.let { editable ->
                 if (editable.isNotEmpty()) {
-                    telnyxViewModel.sendInvite(this@HomeCallFragment.requireContext(), editable.trim().toString())
+                    telnyxViewModel.sendInvite(
+                        this@HomeCallFragment.requireContext(),
+                        editable.trim().toString()
+                    )
                 }
             }
         }
@@ -90,29 +94,36 @@ class HomeCallFragment : Fragment() {
     private fun bindEvents() {
         lifecycleScope.launch {
             telnyxViewModel.uiState.collect { uiState ->
-                when(uiState) {
+                when (uiState) {
                     is TelnyxSocketEvent.OnClientReady -> {
                         onIdle()
                     }
+
                     is TelnyxSocketEvent.OnClientError -> {
                         Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
                     }
+
                     is TelnyxSocketEvent.OnIncomingCall -> {
                         onCallIncoming(uiState.message.callId, uiState.message.callerIdNumber)
                     }
+
                     is TelnyxSocketEvent.OnCallAnswered -> {
                         onCallActive()
                     }
+
                     is TelnyxSocketEvent.OnCallEnded -> {
                         onIdle()
                     }
+
                     is TelnyxSocketEvent.OnRinging -> {
                         onCallActive()
                     }
+
                     is TelnyxSocketEvent.InitState -> {
                         findNavController().popBackStack()
                         cancel()
                     }
+
                     else -> {}
                 }
             }
@@ -148,9 +159,10 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun registerObservers() {
-        telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observe(viewLifecycleOwner) { loudSpeakerOn ->
-            (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_off_24 else R.drawable.speaker_24)
-        }
+        telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()
+            ?.observe(viewLifecycleOwner) { loudSpeakerOn ->
+                (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_off_24 else R.drawable.speaker_24)
+            }
 
         telnyxViewModel.currentCall?.getIsMuteStatus()?.observe(viewLifecycleOwner) { muteOn ->
             (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_24 else R.drawable.mute_off_24)
@@ -158,6 +170,13 @@ class HomeCallFragment : Fragment() {
 
         telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observe(viewLifecycleOwner) { onHold ->
             (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.play_24 else R.drawable.pause_24)
+        }
+
+        // Listen for call state changes:
+        lifecycleScope.launch {
+            telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
+                (activity as? MainActivity)?.updateCallState(callState.toString())
+            }
         }
     }
 
