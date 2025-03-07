@@ -21,6 +21,10 @@ class RejectCall(private val context: Context) {
         telnyxCommon.currentCall?.let { currentCall ->
             telnyxCommon.getTelnyxClient(context).endCall(currentCall.callId)
             telnyxCommon.unregisterCall(currentCall.callId)
+        } ?: run {
+            // There is no active call, reject the call by ID
+            telnyxCommon.getTelnyxClient(context).endCall(callId)
+            telnyxCommon.unregisterCall(callId)
         }
     }
 }
