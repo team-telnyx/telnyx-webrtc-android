@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
                 when (sessionState) {
-                    is TelnyxSessionState.ClientLogged -> {
+                    is TelnyxSessionState.ClientLoggedIn -> {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid

@@ -60,7 +60,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val context = LocalContext.current
 
     val uiState by telnyxViewModel.uiState.collectAsState()
-    var callUIState by remember { mutableStateOf<CallUIState>(CallUIState.IDLE) }
+    var callUIState by remember { mutableStateOf(CallUIState.IDLE) }
     val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
@@ -113,7 +113,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             contentAlignment = Alignment.Center
         ) {
 
-            AnimatedContent(targetState = callUIState)  { callState ->
+            AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
                         HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {

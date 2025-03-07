@@ -137,8 +137,8 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
-        telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
+    fun disablePushNotifications() {
+        telnyxClient?.disablePushNotification()
     }
 
 

@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import kotlinx.coroutines.Job
 import java.io.IOException
 import java.util.*
@@ -55,8 +56,8 @@ sealed class TelnyxSocketEvent {
 }
 
 sealed class TelnyxSessionState {
-    data class ClientLogged(val message: LoginResponse): TelnyxSessionState()
-    data object ClientDisconnected: TelnyxSessionState()
+    data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
+    data object ClientDisconnected : TelnyxSessionState()
 }
 
 
@@ -73,7 +74,9 @@ class TelnyxViewModel : ViewModel() {
     private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    var fcmToken: String? = null
+    private var fcmToken: String? = null
+
+    private var serverConfiguration = TxServerConfiguration()
 
     private val _profileListState = MutableStateFlow<List<Profile>>(
         emptyList()
@@ -84,11 +87,25 @@ class TelnyxViewModel : ViewModel() {
         get() = TelnyxCommon.getInstance().currentCall
 
     private val _currentProfile = MutableStateFlow<Profile?>(null)
-    val currentProfile: StateFlow<Profile?>  = _currentProfile
+    val currentProfile: StateFlow<Profile?> = _currentProfile
 
     private var notificationAcceptHandlingUUID: UUID? = null
 
     private var userSessionJob: Job? = null
+
+    fun stopLoading() {
+        _isLoading.value = false
+    }
+
+    fun changeServerConfigEnvironment(isDev: Boolean) {
+        serverConfiguration = serverConfiguration.copy(
+            host = if (isDev) {
+                "rtcdev.telnyx.com"
+            } else {
+                "rtc.telnyx.com"
+            }
+        )
+    }
 
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
@@ -99,12 +116,12 @@ class TelnyxViewModel : ViewModel() {
         _profileListState.value = ProfileManager.getProfilesList(context)
     }
 
-    fun addProfile(context: Context,profile: Profile) {
+    fun addProfile(context: Context, profile: Profile) {
         ProfileManager.saveProfile(context, profile)
         refreshProfileList(context)
     }
 
-    fun deleteProfile(context: Context,profile: Profile) {
+    fun deleteProfile(context: Context, profile: Profile) {
         profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
         profile.sipToken?.let { ProfileManager.deleteProfileBySipToken(context, it) }
         refreshProfileList(context)
@@ -132,6 +149,7 @@ class TelnyxViewModel : ViewModel() {
 
         userSessionJob = viewModelScope.launch {
             AuthenticateBySIPCredentials(context = viewContext).invoke(
+                serverConfiguration,
                 profile.toCredentialConfig(fcmToken ?: ""),
                 txPushMetaData,
                 autoLogin
@@ -149,14 +167,16 @@ class TelnyxViewModel : ViewModel() {
         _isLoading.value = true
         viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
-                .invoke(txPushMetaData,
-                        mapOf(Pair("X-test", "123456"))) { answeredCall ->
+                .invoke(
+                    txPushMetaData,
+                    mapOf(Pair("X-test", "123456"))
+                ) { answeredCall ->
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
-            .asFlow().collectLatest { response ->
-                Timber.d("Auth Response: $response")
-                handleSocketResponse(response, true)
-            }
+                .asFlow().collectLatest { response ->
+                    Timber.d("Auth Response: $response")
+                    handleSocketResponse(response, true)
+                }
         }
     }
 
@@ -214,8 +234,8 @@ class TelnyxViewModel : ViewModel() {
         return fcmToken
     }
 
-    fun disablePushNotifications(context: Context, sipUserName: String?, loginToken: String?, fcmToken: String) {
-        TelnyxCommon.getInstance().getTelnyxClient(context).disablePushNotification(sipUserName, loginToken, fcmToken)
+    fun disablePushNotifications(context: Context) {
+        TelnyxCommon.getInstance().getTelnyxClient(context).disablePushNotification()
     }
 
     fun tokenLogin(
@@ -231,6 +251,7 @@ class TelnyxViewModel : ViewModel() {
 
         userSessionJob = viewModelScope.launch {
             AuthenticateByToken(context = viewContext).invoke(
+                serverConfiguration,
                 profile.toTokenConfig(fcmToken ?: ""),
                 txPushMetaData,
                 autoLogin
@@ -253,21 +274,28 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             _currentProfile.value?.let { lastUsedProfile ->
                 if (lastUsedProfile.sipToken?.isEmpty() == false) {
-                    tokenLogin(viewContext,
+                    tokenLogin(
+                        viewContext,
                         lastUsedProfile,
                         null,
-                        true)
+                        true
+                    )
                 } else {
-                    credentialLogin(viewContext,
+                    credentialLogin(
+                        viewContext,
                         lastUsedProfile,
                         null,
-                        true)
+                        true
+                    )
                 }
             }
         }
     }
 
-    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>, isPushConnection: Boolean) {
+    private fun handleSocketResponse(
+        response: SocketResponse<ReceivedMessageBody>,
+        isPushConnection: Boolean
+    ) {
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
             SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response, isPushConnection)
@@ -281,7 +309,10 @@ class TelnyxViewModel : ViewModel() {
         Timber.d("OnConMan")
     }
 
-    private fun handleMessageReceived(response: SocketResponse<ReceivedMessageBody>, isPushConnection: Boolean) {
+    private fun handleMessageReceived(
+        response: SocketResponse<ReceivedMessageBody>,
+        isPushConnection: Boolean
+    ) {
         val data = response.data as? ReceivedMessageBody
         when (data?.method) {
             SocketMethod.CLIENT_READY.methodName -> handleClientReady()
@@ -305,7 +336,7 @@ class TelnyxViewModel : ViewModel() {
         sessionId.let {
             Timber.d("Session ID: $sessionId")
         }
-        _sessionsState.value = TelnyxSessionState.ClientLogged(data.result as LoginResponse)
+        _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
         _isLoading.value = isPushConnection
     }
 
@@ -347,7 +378,7 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "Error Occurred")
+        _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
     }
 
     private fun handleDisconnect() {
@@ -400,12 +431,14 @@ class TelnyxViewModel : ViewModel() {
                 HoldCurrentAndAcceptIncoming(viewContext).invoke(
                     callId,
                     callerIdNumber,
-                    mapOf(Pair("X-test", "123456")))
+                    mapOf(Pair("X-test", "123456"))
+                )
             } ?: run {
                 AcceptCall(viewContext).invoke(
                     callId,
                     callerIdNumber,
-                    mapOf(Pair("X-test", "123456")))
+                    mapOf(Pair("X-test", "123456"))
+                )
             }
 
             _uiState.value =
@@ -413,7 +446,7 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun holdUnholdCurrentCall(viewContext: Context,) {
+    fun holdUnholdCurrentCall(viewContext: Context) {
         viewModelScope.launch {
             currentCall?.let {
                 HoldUnholdCall(viewContext).invoke(it)
