@@ -861,37 +861,27 @@ class TelnyxClient(
 
 
     /**
-     * Disables push notifications for current user
+     * Disables push notifications for current logged in user.
      *
-     *  Takes :
-     *  @param sipUserName : sip username of the current user or
-     *  @param loginToken : fcm token of the device
-     *  @param fcmToken : fcm token of the device
      * NB : Push Notifications are enabled by default after login
      *
      * returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
      * */
-    fun disablePushNotification(sipUserName: String?, loginToken: String?, fcmToken: String) {
+    fun disablePushNotification() {
+        val storedConfig = credentialSessionConfig ?: tokenSessionConfig ?: return
 
-        sipUserName ?: loginToken ?: return
-
-        val params = when {
-            sipUserName == null -> {
-                TokenDisablePushParams(
-                    loginToken = loginToken!!,
-                    userVariables = UserVariables(fcmToken)
-                )
-            }
-
-            loginToken == null -> {
+        val params = when (storedConfig) {
+            is CredentialConfig -> {
                 DisablePushParams(
-                    user = sipUserName,
-                    userVariables = UserVariables(fcmToken)
+                    user = storedConfig.sipUser,
+                    userVariables = UserVariables(storedConfig.fcmToken ?: "")
                 )
             }
-
-            else -> {
-                return
+            is TokenConfig -> {
+                TokenDisablePushParams(
+                    loginToken = storedConfig.sipToken,
+                    userVariables = UserVariables(storedConfig.fcmToken ?: "")
+                )
             }
         }
 
@@ -901,7 +891,7 @@ class TelnyxClient(
             params = params
         )
         val message = Gson().toJson(disablePushMessage)
-        Log.d("disablePushMessage", message)
+        Logger.d("disablePushMessage", message)
         socket.send(disablePushMessage)
     }
 
