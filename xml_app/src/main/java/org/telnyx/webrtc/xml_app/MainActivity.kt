@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -115,6 +116,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
+    }
+
+    fun updateCallState(callState: String) {
+        findViewById<TextView>(R.id.callState).text = callState
     }
 
     private fun handleCallNotification(intent: Intent?) {

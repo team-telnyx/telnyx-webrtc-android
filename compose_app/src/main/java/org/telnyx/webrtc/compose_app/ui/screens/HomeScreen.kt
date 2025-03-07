@@ -57,6 +57,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.R
@@ -88,6 +89,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
+    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
+        ?: remember { mutableStateOf(CallState.DONE) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
@@ -132,6 +135,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                 MediumTextBold(text = stringResource(id = R.string.login_info))
                 ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
+                CurrentCallState(state = callState)
                 SessionItem(
                     sessionId = when (sessionState) {
                         is TelnyxSessionState.ClientLoggedIn -> {
@@ -581,7 +585,15 @@ fun ConnectionState(state: Boolean) {
             )
         }
     }
+}
 
+@Composable
+fun CurrentCallState(state: CallState) {
+    if (state == CallState.DONE) return
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+        RegularText(text = stringResource(id = R.string.call_state))
+        RegularText(text = state.name)
+    }
 }
 
 @Composable
