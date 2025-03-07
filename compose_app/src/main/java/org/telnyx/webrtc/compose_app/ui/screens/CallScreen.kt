@@ -60,7 +60,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val context = LocalContext.current
 
     val uiState by telnyxViewModel.uiState.collectAsState()
-    var callUIState by remember { mutableStateOf<CallUIState>(CallUIState.IDLE) }
+    var callUIState by remember { mutableStateOf(CallUIState.IDLE) }
     val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
@@ -113,7 +113,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             contentAlignment = Alignment.Center
         ) {
 
-            AnimatedContent(targetState = callUIState)  { callState ->
+            AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
                         HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
@@ -129,15 +129,15 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_24 else R.drawable.mute_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onMuteUnmutePressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_off_24 else R.drawable.speaker_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 

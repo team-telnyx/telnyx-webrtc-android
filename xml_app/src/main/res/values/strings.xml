@@ -61,6 +61,15 @@
     <string name="confirm">Confirm</string>
     <string name="no_profile_selected">No Profile\n</string>
     <string name="dtmf_dialpad">DTMF Dialpad</string>
+    
+    <string name="environment_options">Environment Options</string>
+    <string name="development_environment">Development Environment</string>
+    <string name="production_environment">Production Environment</string>
+    <string name="copy_fcm_token">Copy FCM Token</string>
+    <string name="disable_push_notifications">Disable Push Notifications</string>
+    <string name="switched_to_production">Switched to Production</string>
+    <string name="switched_to_development">Switched to Development</string>
+    <string name="push_notifications_disabled">Push Notifications Disabled</string>
 
     <string name="notification_permission_text">Notification permission is required to continue</string>
 </resources>

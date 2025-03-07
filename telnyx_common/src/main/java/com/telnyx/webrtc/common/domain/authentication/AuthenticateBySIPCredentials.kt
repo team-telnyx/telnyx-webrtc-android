@@ -17,20 +17,31 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
  */
 class AuthenticateBySIPCredentials(private val context: Context) {
 
-    operator fun invoke(credentialConfig: CredentialConfig, txPushMetaData: String? = null, autoLogin: Boolean = true): LiveData<SocketResponse<ReceivedMessageBody>> {
+    operator fun invoke(
+        serverConfig: TxServerConfiguration = TxServerConfiguration(),
+        credentialConfig: CredentialConfig,
+        txPushMetaData: String? = null,
+        autoLogin: Boolean = true
+    ): LiveData<SocketResponse<ReceivedMessageBody>> {
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
 
-        telnyxClient.connect(TxServerConfiguration(),
+        telnyxClient.connect(
+            serverConfig,
             credentialConfig,
             txPushMetaData,
-            autoLogin)
+            autoLogin
+        )
 
-        ProfileManager.saveProfile(context,Profile(sipUsername = credentialConfig.sipUser,
-            sipPass = credentialConfig.sipPassword,
-            callerIdName = credentialConfig.sipCallerIDName,
-            callerIdNumber = credentialConfig.sipCallerIDNumber,
-            isUserLoggedIn = true,
-            fcmToken = credentialConfig.fcmToken))
+        ProfileManager.saveProfile(
+            context, Profile(
+                sipUsername = credentialConfig.sipUser,
+                sipPass = credentialConfig.sipPassword,
+                callerIdName = credentialConfig.sipCallerIDName,
+                callerIdNumber = credentialConfig.sipCallerIDNumber,
+                isUserLoggedIn = true,
+                fcmToken = credentialConfig.fcmToken
+            )
+        )
 
         return telnyxClient.getSocketResponse()
     }

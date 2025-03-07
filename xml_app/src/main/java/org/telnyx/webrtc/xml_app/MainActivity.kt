@@ -1,11 +1,15 @@
 package org.telnyx.webrtc.xml_app
 
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import android.view.GestureDetector
+import android.view.MotionEvent
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -35,6 +39,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
     private lateinit var appBarConfiguration: AppBarConfiguration
+    private lateinit var gestureDetector: GestureDetector
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
 
@@ -63,7 +68,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         checkPermission()
         handleCallNotification(intent)
-
+        setupGestureDetector()
         bindEvents()
     }
 
@@ -78,7 +83,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStart(owner)
-        telnyxViewModel.connectLastUsed(this)
+        telnyxViewModel.connectWithLastUsedConfig(this)
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -90,7 +95,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
                 when (sessionState) {
-                    is TelnyxSessionState.ClientLogged -> {
+                    is TelnyxSessionState.ClientLoggedIn -> {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid
@@ -140,6 +145,68 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
             }
         }
+    }
+
+    private fun setupGestureDetector() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                showEnvironmentBottomSheet()
+            }
+        })
+
+        binding.imageView.setOnTouchListener { v, event ->
+            gestureDetector.onTouchEvent(event)
+            true
+        }
+    }
+
+    private fun showEnvironmentBottomSheet() {
+        val bottomSheetDialog = BottomSheetDialog(this)
+        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_environment, null)
+
+        bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.devEnvironmentButton).setOnClickListener {
+            telnyxViewModel.changeServerConfigEnvironment(true)
+            Toast.makeText(
+                this,
+                R.string.switched_to_development,
+                Toast.LENGTH_LONG
+            ).show()
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.prodEnvironmentButton).setOnClickListener {
+            telnyxViewModel.changeServerConfigEnvironment(false)
+            Toast.makeText(
+                this,
+                R.string.switched_to_production,
+                Toast.LENGTH_LONG
+            ).show()
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).setOnClickListener {
+            val token = telnyxViewModel.retrieveFCMToken()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetView.findViewById<View>(R.id.disablePushButton).setOnClickListener {
+            telnyxViewModel.disablePushNotifications(this)
+            Toast.makeText(
+                this,
+                R.string.push_notifications_disabled,
+                Toast.LENGTH_LONG
+            ).show()
+            bottomSheetDialog.dismiss()
+        }
+
+        bottomSheetDialog.setContentView(bottomSheetView)
+        bottomSheetDialog.show()
     }
 
     private fun checkPermission() {
