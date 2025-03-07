@@ -71,5 +71,5 @@
     <string name="switched_to_development">Switched to Development</string>
     <string name="push_notifications_disabled">Push Notifications Disabled</string>
 
-    <string name="notification_permission_text">Notification permission is required to continue</string>
+    <string name="notification_permission_text">Notification and Audio permissions are required to continue</string>
 </resources>

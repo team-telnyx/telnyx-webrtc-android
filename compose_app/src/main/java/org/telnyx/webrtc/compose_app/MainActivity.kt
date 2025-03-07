@@ -19,10 +19,12 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
+import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionDeniedResponse
 import com.karumi.dexter.listener.PermissionGrantedResponse
 import com.karumi.dexter.listener.PermissionRequest
+import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.karumi.dexter.listener.single.PermissionListener
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
@@ -87,7 +89,8 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
-            val txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            val txPushMetaData =
+                intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 viewModel.answerIncomingPushCall(this, txPushMetaData)
@@ -100,23 +103,28 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     private fun checkPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Dexter.withContext(this)
-                .withPermission(android.Manifest.permission.POST_NOTIFICATIONS)
-                .withListener(object : PermissionListener {
-                    override fun onPermissionGranted(response: PermissionGrantedResponse?) {
-                        // Permission granted
-                    }
-
-                    override fun onPermissionDenied(response: PermissionDeniedResponse?) {
-                        // Permission denied
-                        Toast.makeText(
-                            this@MainActivity,
-                            getString(R.string.notification_permission_text),
-                            Toast.LENGTH_LONG
-                        ).show()
+                .withPermissions(
+                    android.Manifest.permission.POST_NOTIFICATIONS,
+                    android.Manifest.permission.RECORD_AUDIO
+                )
+                .withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                        report?.let {
+                            if (report.areAllPermissionsGranted()) {
+                                // All permissions are granted
+                            } else {
+                                // Some permissions are denied
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.notification_permission_text),
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
                     }
 
                     override fun onPermissionRationaleShouldBeShown(
-                        permission: PermissionRequest?,
+                        permissions: MutableList<PermissionRequest>?,
                         token: PermissionToken?
                     ) {
                         token?.continuePermissionRequest()
