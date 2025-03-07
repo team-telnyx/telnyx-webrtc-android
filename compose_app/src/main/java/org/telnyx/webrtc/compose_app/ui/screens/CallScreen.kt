@@ -129,15 +129,15 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_24 else R.drawable.mute_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onMuteUnmutePressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_off_24 else R.drawable.speaker_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
