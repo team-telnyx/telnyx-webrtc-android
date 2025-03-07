@@ -85,3 +85,8 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+
+# system
+.DS_Store
+compose_app/google-services.json
+app/google-services.json

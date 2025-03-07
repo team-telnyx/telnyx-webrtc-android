@@ -1,3 +1,14 @@
+## [1.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.5.0) (2025-03-07)
+
+### Enhancement
+
+- Disable Push Notification call is now simplified, no longer requiring parameters to be passed in the SDK. We instead use the last logged in user to disable push notifications. This Aligns with our iOS and Flutter implementations
+- Added the ability to pass your own custom logger when connecting to redirect logs to your own logging system or log using a different chosen library.
+- Added new CallStates to represent DROPPED and RECONNECTING states in regards to network drops while on a call.
+
+### Bug Fixing
+- Fixed an issue where listeners declared before connecting to the SDK would not receive events.
+
 ## [1.4.4](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.4.4) (2025-02-04)
 
 ### Enhancement

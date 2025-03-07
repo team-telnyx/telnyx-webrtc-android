@@ -41,15 +41,12 @@ class MainViewModel @Inject constructor(
     }
 
     fun initConnection(
-        context: Context,
         providedServerConfig: TxServerConfiguration?,
         credentialConfig: CredentialConfig?,
         tokenConfig: TokenConfig?,
         txPushMetaData: String?,
     ) {
         Logger.e(message = "initConnection")
-        telnyxClient = TelnyxClient(context)
-
         providedServerConfig?.let {
             telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {
@@ -140,8 +137,8 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
-        telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
+    fun disablePushNotifications() {
+        telnyxClient?.disablePushNotification()
     }
 
 

@@ -9,14 +9,10 @@ import android.Manifest.permission.INTERNET
 import android.Manifest.permission.RECORD_AUDIO
 import android.app.AlertDialog
 import android.app.Dialog
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
@@ -29,13 +25,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.gson.Gson
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.telnyx.webrtc.sdk.App
+import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
+import com.telnyx.webrtc.common.notification.NotificationsService
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.MOCK_CALLER_NAME
@@ -43,7 +39,6 @@ import com.telnyx.webrtc.sdk.MOCK_CALLER_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_DESTINATION_NUMBER
 import com.telnyx.webrtc.sdk.MOCK_PASSWORD
 import com.telnyx.webrtc.sdk.MOCK_USERNAME
-import com.telnyx.webrtc.sdk.NotificationsService
 import com.telnyx.webrtc.sdk.R
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.databinding.ActivityMainBinding
@@ -51,12 +46,10 @@ import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
-import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.ui.wsmessages.WsMessageFragment
 import com.telnyx.webrtc.sdk.utilities.TxDefaultLogger
-import com.telnyx.webrtc.sdk.utility.MyFirebaseMessagingService
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
 import com.telnyx.webrtc.sdk.verto.receive.ByeResponse
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
@@ -99,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view: View = binding.root
-        setSupportActionBar(findViewById(R.id.toolbar_id))
+//        setSupportActionBar(findViewById(R.id.toolbar_id))
         mainViewModel = ViewModelProvider(this@MainActivity)[MainViewModel::class.java]
 
 
@@ -275,9 +268,9 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
+        observeSocketResponses()
         if (!isDev) {
             mainViewModel.initConnection(
-                applicationContext,
                 null,
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -285,7 +278,6 @@ class MainActivity : AppCompatActivity() {
             )
         } else {
             mainViewModel.initConnection(
-                applicationContext,
                 TxServerConfiguration(host = "rtcdev.telnyx.com"),
                 credentialConfig = credentialConfig,
                 tokenConfig = tokenConfig,
@@ -293,15 +285,15 @@ class MainActivity : AppCompatActivity() {
             )
 
         }
-        observeSocketResponses()
     }
 
     private fun observeSocketResponses() {
+        mainViewModel.initTelnyxClient(this)
         mainViewModel.getSocketResponse()?.observe(
             this,
             object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
-                    Timber.d("OnConMan")
+                    Timber.d("Connection Established")
 
                 }
 
