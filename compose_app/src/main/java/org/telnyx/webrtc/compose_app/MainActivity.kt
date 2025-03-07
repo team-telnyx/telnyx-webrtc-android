@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStart(owner)
-        viewModel.connectLastUsed(this)
+        viewModel.connectWithLastUsedConfig(this)
     }
 
     override fun onStop(owner: LifecycleOwner) {

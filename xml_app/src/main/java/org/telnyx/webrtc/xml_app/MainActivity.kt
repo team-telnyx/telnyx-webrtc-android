@@ -1,5 +1,6 @@
 package org.telnyx.webrtc.xml_app
 
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -81,7 +82,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStart(owner)
-        telnyxViewModel.connectLastUsed(this)
+        telnyxViewModel.connectWithLastUsedConfig(this)
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -98,6 +99,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid
                     }
+
                     is TelnyxSessionState.ClientDisconnected -> {
                         binding.socketStatusIcon.isEnabled = false
                         binding.socketStatusInfo.text = getString(R.string.disconnected)
@@ -109,7 +111,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         lifecycleScope.launch {
             telnyxViewModel.isLoading.collect { isLoading ->
-                binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.INVISIBLE
+                binding.progressIndicator.visibility =
+                    if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
     }
@@ -129,7 +132,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
-            val txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            val txPushMetaData =
+                intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
@@ -160,22 +164,39 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         }
 
         bottomSheetView.findViewById<View>(R.id.devEnvironmentButton).setOnClickListener {
-            // TODO: Implement development environment switch
+            telnyxViewModel.changeServerConfigEnvironment(true)
+            Toast.makeText(
+                this,
+                R.string.switched_to_development,
+                Toast.LENGTH_LONG
+            ).show()
             bottomSheetDialog.dismiss()
         }
 
         bottomSheetView.findViewById<View>(R.id.prodEnvironmentButton).setOnClickListener {
-            // TODO: Implement production environment switch
+            telnyxViewModel.changeServerConfigEnvironment(false)
+            Toast.makeText(
+                this,
+                R.string.switched_to_production,
+                Toast.LENGTH_LONG
+            ).show()
             bottomSheetDialog.dismiss()
         }
 
         bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).setOnClickListener {
-            // TODO: Implement FCM token copy
+            val token = telnyxViewModel.retrieveFCMToken()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
             bottomSheetDialog.dismiss()
         }
 
         bottomSheetView.findViewById<View>(R.id.disablePushButton).setOnClickListener {
-            // TODO: Implement push notifications disable
+            telnyxViewModel.disablePushNotifications(this)
+            Toast.makeText(
+                this,
+                R.string.push_notifications_disabled,
+                Toast.LENGTH_LONG
+            ).show()
             bottomSheetDialog.dismiss()
         }
 

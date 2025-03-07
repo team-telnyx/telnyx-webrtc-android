@@ -270,7 +270,7 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun connectLastUsed(viewContext: Context) {
+    fun connectWithLastUsedConfig(viewContext: Context) {
         viewModelScope.launch {
             _currentProfile.value?.let { lastUsedProfile ->
                 if (lastUsedProfile.sipToken?.isEmpty() == false) {
