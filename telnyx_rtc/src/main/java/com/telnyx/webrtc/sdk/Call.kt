@@ -24,6 +24,13 @@ import timber.log.Timber
 import java.util.*
 
 /**
+ * Data class to represent custom headers
+ * @param name the name of the custom header
+ * @param value the value of the custom header
+ */
+data class CustomHeaders(val name: String, val value: String)
+
+/**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
  *
  * @param context the current application Context
@@ -32,8 +39,6 @@ import java.util.*
  * @param sessionId the session ID of the user session
  * @param audioManager the [AudioManager] instance in use, used to change audio related settings.
  */
-
-data class CustomHeaders(val name: String, val value: String)
 data class Call(
     val context: Context,
     val client: TelnyxClient,

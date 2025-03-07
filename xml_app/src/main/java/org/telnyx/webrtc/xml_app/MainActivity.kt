@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -94,6 +95,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid
                     }
+
                     is TelnyxSessionState.ClientDisconnected -> {
                         binding.socketStatusIcon.isEnabled = false
                         binding.socketStatusInfo.text = getString(R.string.disconnected)
@@ -105,9 +107,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         lifecycleScope.launch {
             telnyxViewModel.isLoading.collect { isLoading ->
-                binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.INVISIBLE
+                binding.progressIndicator.visibility =
+                    if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
+    }
+
+    fun updateCallState(callState: String) {
+        findViewById<TextView>(R.id.callState).text = callState
     }
 
     private fun handleCallNotification(intent: Intent?) {
@@ -125,7 +132,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
 
         action?.let {
-            val txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            val txPushMetaData =
+                intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
                 telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
             } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
