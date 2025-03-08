@@ -143,7 +143,6 @@ fun CredentialTokenView(
 
 @Composable
 fun CredentialTokenSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) -> Unit) {
-
     Row(
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
         verticalAlignment = Alignment.CenterVertically

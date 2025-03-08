@@ -16,6 +16,7 @@ android {
         versionCode = 7
         versionName = "7.0"
 
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
