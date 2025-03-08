@@ -50,7 +50,7 @@ fun CredentialTokenView(
     ) {
 
 
-        CredSwitcher(isTokenState) {
+        CredentialTokenSwitcher(isTokenState) {
             isTokenState = it
         }
 
@@ -109,10 +109,10 @@ fun CredentialTokenView(
 
                         onSave(
                             Profile(
-                                sipUsername = sipUsername,
+                                sipUsername = sipUsername.trim(),
                                 sipPass = sipPassword,
-                                callerIdName = callerIdName,
-                                callerIdNumber = callerIdNumber,
+                                callerIdName = callerIdName.trim(),
+                                callerIdNumber = callerIdNumber.trim(),
                                 isUserLoggedIn = true
                             ),
                         )
@@ -124,9 +124,9 @@ fun CredentialTokenView(
 
                         onSave(
                             Profile(
-                                sipToken = sipToken,
-                                callerIdName = callerIdName,
-                                callerIdNumber = callerIdNumber,
+                                sipToken = sipToken.trim(),
+                                callerIdName = callerIdName.trim(),
+                                callerIdNumber = callerIdNumber.trim(),
                                 isUserLoggedIn = true
                             )
                         )
@@ -142,7 +142,7 @@ fun CredentialTokenView(
 
 
 @Composable
-fun CredSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun CredentialTokenSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) -> Unit) {
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),

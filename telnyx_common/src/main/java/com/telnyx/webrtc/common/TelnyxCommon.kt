@@ -77,6 +77,10 @@ class TelnyxCommon private constructor() {
         }
     }
 
+    internal fun resetTelnyxClient() {
+        telnyxClient = null
+    }
+
     internal fun getSharedPreferences(context: Context): SharedPreferences {
         return sharedPreferences ?: synchronized(this) {
             sharedPreferences ?: context.getSharedPreferences(

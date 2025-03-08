@@ -16,19 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
-import com.karumi.dexter.listener.PermissionDeniedResponse
-import com.karumi.dexter.listener.PermissionGrantedResponse
+
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.karumi.dexter.listener.single.PermissionListener
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.NotificationsService
+import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.ui.screens.HomeScreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import timber.log.Timber
@@ -43,10 +43,11 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         FirebaseApp.initializeApp(this)
         lifecycle.addObserver(this)
 
-        viewModel.initProfile(this)
-
-        checkPermission()
-        handleCallNotification(intent)
+        lifecycleScope.launch {
+            viewModel.initProfile(this@MainActivity)
+            checkPermission()
+            handleCallNotification(intent)
+        }
 
         enableEdgeToEdge()
         setContent {
@@ -64,14 +65,9 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         handleCallNotification(intent)
     }
 
-    override fun onStart(owner: LifecycleOwner) {
-        super<DefaultLifecycleObserver>.onStart(owner)
-        viewModel.connectWithLastUsedConfig(this)
-    }
-
     override fun onStop(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStop(owner)
-        viewModel.disconnect(this, false)
+        viewModel.disconnect(this)
     }
 
     private fun handleCallNotification(intent: Intent?) {
