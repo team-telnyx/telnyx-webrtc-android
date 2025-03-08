@@ -90,7 +90,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     override fun onStop(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStop(owner)
-        telnyxViewModel.disconnect(this, false)
+        telnyxViewModel.disconnect(this)
     }
 
     private fun bindEvents() {
