@@ -28,14 +28,6 @@ import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.NotificationsService
 import kotlinx.coroutines.launch
-import com.karumi.dexter.listener.PermissionDeniedResponse
-import com.karumi.dexter.listener.PermissionGrantedResponse
-import com.karumi.dexter.listener.PermissionRequest
-import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.karumi.dexter.listener.single.PermissionListener
-import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
-import com.telnyx.webrtc.common.notification.NotificationsService
 import org.telnyx.webrtc.compose_app.ui.screens.HomeScreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import timber.log.Timber
