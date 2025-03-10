@@ -1,10 +1,14 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -52,6 +57,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.R
@@ -77,12 +83,28 @@ object CallScreenNav
 fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewModel) {
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
-    var showBottomSheet by remember { mutableStateOf(false) }
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
+    var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
+    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
+        ?: remember { mutableStateOf(CallState.DONE) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is TelnyxSocketEvent.OnClientError -> {
+                val errorMessage = (uiState as TelnyxSocketEvent.OnClientError).message
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                telnyxViewModel.stopLoading()
+            }
+
+            else -> {}
+        }
+    }
 
     Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
         topBar = {
@@ -101,15 +123,23 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         modifier = Modifier
                             .padding(Dimens.smallPadding)
                             .size(width = 200.dp, height = Dimens.size100dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        showEnvironmentBottomSheet = true
+                                    }
+                                )
+                            }
                     )
                 }
 
                 MediumTextBold(text = stringResource(id = R.string.login_info))
-                ConnectionState(state = (sessionState is TelnyxSessionState.ClientLogged))
+                ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
+                CurrentCallState(state = callState)
                 SessionItem(
                     sessionId = when (sessionState) {
-                        is TelnyxSessionState.ClientLogged -> {
-                            (sessionState as TelnyxSessionState.ClientLogged).message.sessid
+                        is TelnyxSessionState.ClientLoggedIn -> {
+                            (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
                         }
 
                         is TelnyxSessionState.ClientDisconnected -> {
@@ -121,7 +151,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         },
         bottomBar = {
             ConnectionStateButton(
-                state = (sessionState is TelnyxSessionState.ClientLogged),
+                state = (sessionState is TelnyxSessionState.ClientLoggedIn),
                 telnyxViewModel,
                 currentConfig
             )
@@ -139,8 +169,11 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
-                    ProfileSwitcher(profileName = currentConfig?.sipUsername ?: stringResource(R.string.missing_profile)) {
-                        showBottomSheet = true
+                    ProfileSwitcher(
+                        profileName = currentConfig?.callerIdName
+                            ?: stringResource(R.string.missing_profile)
+                    ) {
+                        showLoginBottomSheet = true
                     }
                 }
                 composable<CallScreenNav> {
@@ -152,11 +185,11 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         }
 
         //BottomSheet
-        if (showBottomSheet) {
+        if (showLoginBottomSheet) {
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
-                    showBottomSheet = false
+                    showLoginBottomSheet = false
                 },
                 containerColor = Color.White,
                 sheetState = sheetState
@@ -181,7 +214,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                 sheetState.hide()
                             }.invokeOnCompletion {
                                 if (!sheetState.isVisible) {
-                                    showBottomSheet = false
+                                    showLoginBottomSheet = false
                                 }
                             }
                         }) {
@@ -194,18 +227,20 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
-                    AnimatedContent(isAddProfile) { addProfile ->
+                    AnimatedContent(isAddProfile, label = "Animated Add Profile") { addProfile ->
                         when (addProfile) {
                             true -> {
                                 CredentialTokenView(
-                                    currentConfig,
+                                    editableUserProfile,
                                     onSave = { profile ->
                                         profile.apply {
                                             telnyxViewModel.addProfile(context, profile)
+                                            editableUserProfile = null
                                         }
                                         isAddProfile = !isAddProfile
                                     },
                                     onDismiss = {
+                                        editableUserProfile = null
                                         isAddProfile = !isAddProfile
                                     }
                                 )
@@ -214,11 +249,12 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             false -> {
                                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
                                     RoundSmallButton(
-                                        text = stringResource(id = R.string.add_new_profile),
-                                        backgroundColor = MaterialTheme.colorScheme.secondary,
                                         modifier = Modifier.height(30.dp),
-                                        textSize = 12.sp
+                                        text = stringResource(id = R.string.add_new_profile),
+                                        textSize = 12.sp,
+                                        backgroundColor = MaterialTheme.colorScheme.secondary
                                     ) {
+                                        editableUserProfile = null
                                         isAddProfile = !isAddProfile
                                     }
                                     ProfileListView(
@@ -226,10 +262,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                         telnyxViewModel,
                                         onEdit = { profile ->
                                             Timber.d("Edit Profile: $profile")
+                                            editableUserProfile = profile
                                             isAddProfile = true
-                                            telnyxViewModel.setCurrentConfig(context, profile)
                                         },
-                                        onDelete = {profile ->
+                                        onDelete = { profile ->
                                             telnyxViewModel.deleteProfile(context, profile)
                                         })
 
@@ -240,14 +276,14 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                             scope.launch {
                                                 sheetState.hide()
                                             }.invokeOnCompletion {
-                                                showBottomSheet = false
+                                                showLoginBottomSheet = false
                                             }
                                         },
                                         onNegativeClick = {
                                             scope.launch {
                                                 sheetState.hide()
                                             }.invokeOnCompletion {
-                                                showBottomSheet = false
+                                                showLoginBottomSheet = false
                                             }
                                         })
                                 }
@@ -277,16 +313,122 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     }
 
     LaunchedEffect(uiState) {
-        when(uiState) {
+        when (uiState) {
             is TelnyxSocketEvent.OnClientReady -> {
                 navController.navigate(CallScreenNav)
             }
+
             is TelnyxSocketEvent.InitState -> {
                 navController.navigate(LoginScreenNav) {
                     popUpTo(CallScreenNav) { inclusive = true }
                 }
             }
+
             else -> {}
+        }
+    }
+
+    if (showEnvironmentBottomSheet) {
+        ModalBottomSheet(
+            modifier = Modifier.fillMaxSize(),
+            onDismissRequest = {
+                showEnvironmentBottomSheet = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier.padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = stringResource(id = R.string.environment_options),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showEnvironmentBottomSheet = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
+                    when (sessionState) {
+                        is TelnyxSessionState.ClientLoggedIn -> {
+                            RoundSmallButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(id = R.string.copy_fcm_token),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
+                            ) {
+                                val token = telnyxViewModel.retrieveFCMToken()
+                                val clipboardManager =
+                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("FCM Token", token)
+                                clipboardManager.setPrimaryClip(clip)
+                            }
+
+                            RoundSmallButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(id = R.string.disable_push_notifications),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
+                            ) {
+                                telnyxViewModel.disablePushNotifications(context)
+                                Toast.makeText(
+                                    context,
+                                    R.string.push_notifications_disabled,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+
+                        is TelnyxSessionState.ClientDisconnected -> {
+                            RoundSmallButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(id = R.string.development_environment),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
+                            ) {
+                                telnyxViewModel.changeServerConfigEnvironment(isDev = true)
+                                Toast.makeText(
+                                    context,
+                                    R.string.switched_to_development,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+
+                            RoundSmallButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(id = R.string.production_environment),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
+                            ) {
+                                telnyxViewModel.changeServerConfigEnvironment(isDev = false)
+                                Toast.makeText(
+                                    context,
+                                    R.string.switched_to_production,
+                                    Toast.LENGTH_LONG
+                                ).show()
+
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -305,13 +447,15 @@ fun ProfileListView(
 
         var currentSipId by remember { mutableStateOf("") }
 
-        LazyColumn(modifier = Modifier.testTag("profileList"),
-            verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+        LazyColumn(
+            modifier = Modifier.testTag("profileList"),
+            verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)
+        ) {
             profileList.forEach { item ->
                 item {
-                    ProfileItem(item, selected = currentSipId == item.sipUsername,
+                    ProfileItem(item, selected = currentSipId == item.callerIdName,
                         onItemSelected = {
-                            currentSipId = it.sipUsername ?: ""
+                            currentSipId = it.callerIdName ?: ""
                             telnyxViewModel.setCurrentConfig(context, it)
                         },
                         onEdit = {
@@ -377,7 +521,7 @@ fun ProfileItem(
             imageVector = Icons.Default.Person,
             contentDescription = stringResource(id = R.string.profile)
         )
-        RegularText(text = item.sipUsername, modifier = Modifier.weight(1f))
+        RegularText(text = item.callerIdName, modifier = Modifier.weight(1f))
         IconButton(onClick = onEdit) {
             Icon(imageVector = Icons.Default.Edit, contentDescription = null)
         }
@@ -399,9 +543,9 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
         ) {
             RegularText(text = profileName)
             RoundSmallButton(
-                backgroundColor = MaterialTheme.colorScheme.secondary,
                 text = stringResource(R.string.switch_profile),
-                textSize = 14.sp
+                textSize = 14.sp,
+                backgroundColor = MaterialTheme.colorScheme.secondary
             ) {
                 onProfileSwitch()
             }
@@ -441,7 +585,15 @@ fun ConnectionState(state: Boolean) {
             )
         }
     }
+}
 
+@Composable
+fun CurrentCallState(state: CallState) {
+    if (state == CallState.DONE) return
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+        RegularText(text = stringResource(id = R.string.call_state))
+        RegularText(text = state.name)
+    }
 }
 
 @Composable
@@ -459,11 +611,19 @@ fun ConnectionStateButton(
             telnyxViewModel.disconnect(context)
         } else {
             currentConfig?.let { profile ->
-                telnyxViewModel.credentialLogin(
-                    context,
-                    profile = profile,
-                    txPushMetaData = null
-                )
+                if (profile.sipToken?.isEmpty() == false) {
+                    telnyxViewModel.tokenLogin(
+                        context,
+                        profile = profile,
+                        txPushMetaData = null
+                    )
+                } else {
+                    telnyxViewModel.credentialLogin(
+                        context,
+                        profile = profile,
+                        txPushMetaData = null
+                    )
+                }
             } ?: run {
                 Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
             }

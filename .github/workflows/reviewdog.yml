@@ -18,5 +18,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           detekt_config: telnyx_rtc/config/detekt.yml
-          detekt_excludes: '**/build/**,**/.idea/**,**compose_app**'
-        
+          detekt_excludes: '**/build/**,**/.idea/**,**compose_app**,**xml_app**,**connection_service_app**'
+

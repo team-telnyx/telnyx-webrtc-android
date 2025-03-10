@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context="org.telnyx.webrtc.xmlapp.org.telnyx.webrtc.xml_app.login.LoginFragment">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="24dp"
+        >
+
+
+
+        <LinearLayout
+            android:id="@+id/destinationInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="@dimen/spacing_small"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/SubText"
+                android:text="@string/destination"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
+                />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/usernameTextFieldLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_tiny"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                >
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/callInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callIdleView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/spacing_tiny"
+            android:layout_marginTop="@dimen/spacing_normal"
+            android:orientation="horizontal"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+            android:visibility="visible">
+
+            <Button
+                style="@style/IconControlButton"
+                android:id="@+id/call"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:backgroundTint="@color/answer_green"
+                android:contentDescription="@string/fab_transformation_scrim_behavior"
+                app:icon="@drawable/baseline_call_24"
+                app:iconTint="@color/black" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callActiveView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/spacing_tiny"
+            android:layout_marginTop="@dimen/spacing_normal"
+            android:orientation="vertical"
+            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+            android:visibility="invisible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/spacing_tiny"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/mute"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/mute_24"
+                    />
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/loudSpeaker"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/speaker_24"
+                    />
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/hold"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/pause_24"
+                    />
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/dialpad"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/colorSecondary"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/dialpad_24"
+                    />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_normal"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/endCall"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/reject_red"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/baseline_call_end_24"
+                    app:iconTint="@color/white"
+                    />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/callIncomingView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/spacing_tiny"
+            android:layout_marginTop="@dimen/spacing_normal"
+            android:orientation="horizontal"
+            android:gravity="center"
+            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+            android:visibility="invisible">
+
+            <Button
+                style="@style/IconControlButton"
+                android:id="@+id/callReject"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:backgroundTint="@color/reject_red"
+                android:contentDescription="@string/fab_transformation_scrim_behavior"
+                app:icon="@drawable/baseline_call_end_24"
+                app:iconTint="@color/white"
+                android:layout_marginEnd="20dp"
+                />
+
+            <Button
+                style="@style/IconControlButton"
+                android:id="@+id/callAnswer"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:backgroundTint="@color/answer_green"
+                android:contentDescription="@string/fab_transformation_scrim_behavior"
+                app:icon="@drawable/baseline_call_24"
+                app:iconTint="@color/black"
+                android:layout_marginStart="20dp"/>
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/disconnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/disconnect"
+            android:textAllCaps="false"
+            android:padding="1dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            style="@style/CustomPrimaryButton"
+            />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

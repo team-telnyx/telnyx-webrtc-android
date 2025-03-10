@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="IconButton" parent="Widget.MaterialComponents.Button.Icon">
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+
+        <!-- Adjust padding with insets -->
+
+        <item name="strokeColor">@color/colorPrimary</item>
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
+    <style name="TextButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="shapeAppearanceOverlay">@style/RoundedCornersShape</item>
+
+        <!-- Adjust padding with insets -->
+        <item name="android:insetTop">2dp</item>
+        <item name="android:insetBottom">2dp</item>
+        <item name="android:insetLeft">4dp</item>
+        <item name="android:insetRight">4dp</item>
+        <item name="android:textSize">12sp</item>
+
+        <item name="strokeColor">@color/colorPrimary</item>
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
+    <style name="IconControlButton" parent="Widget.Material3.Button.IconButton">
+        <item name="shapeAppearanceOverlay">?attr/materialIconButtonStyle</item>
+
+        <!-- Adjust padding with insets -->
+        <item name="android:paddingHorizontal">16dp</item>
+
+
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
+    <style name="AddProfileButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+
+        <item name="backgroundTint">@color/colorSecondary</item>
+
+
+        <!-- Adjust padding with insets -->
+        <item name="android:insetTop">2dp</item>
+        <item name="android:insetBottom">2dp</item>
+        <item name="android:insetLeft">4dp</item>
+        <item name="android:insetRight">4dp</item>
+        <item name="android:textSize">12sp</item>
+
+        <item name="strokeColor">@color/colorPrimary</item>
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
+    <style name="CustomPrimaryButton" parent="Widget.MaterialComponents.Button">
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+        <item name="android:insetTop">2dp</item>
+        <item name="android:insetBottom">2dp</item>
+        <item name="android:insetLeft">4dp</item>
+        <item name="android:insetRight">4dp</item>
+
+    </style>
+
+    <style name="CustomOutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+
+        <!-- Adjust padding with insets -->
+        <item name="android:insetTop">2dp</item>
+        <item name="android:insetBottom">2dp</item>
+        <item name="android:insetLeft">4dp</item>
+        <item name="android:insetRight">4dp</item>
+        <item name="android:textSize">8sp</item>
+
+        <item name="strokeColor">@color/colorPrimary</item>
+
+        <!-- Apply the smaller text appearance -->
+    </style>
+
+
+
+    <!-- ####################################
+          EditText
+ ###################################### -->
+
+    <style name="SubText">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/colorPrimaryVariant</item>
+    </style>
+
+
+
+    <style name="SubTextDeep">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/mainTextColor</item>
+    </style>
+
+    <style name="HeaderText">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/mainTextColor</item>
+    </style>
+
+
+    <style name="HeaderTextLarge">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/mainTextColor</item>
+    </style>
+
+</resources>

@@ -13,8 +13,9 @@ android {
         applicationId = "org.telnyx.webrtc.compose_app"
         minSdk = 27
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 7
+        versionName = "7.0"
+
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +63,9 @@ dependencies {
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
+
+    //permissions
+    implementation("com.karumi:dexter:6.2.2")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

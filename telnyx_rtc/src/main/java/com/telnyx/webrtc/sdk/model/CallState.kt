@@ -15,14 +15,17 @@ package com.telnyx.webrtc.sdk.model
  * @property HELD the user has put the call on hold.
  * @property DONE the call is finished - either party has ended the call.
  * @property ERROR there was an issue creating the call.
+ * @property DROPPED the call was dropped as a result of network issues.
+ * @property RECONNECTING the call is being reconnected after a network issue.
  */
 enum class CallState {
     NEW,
     CONNECTING,
-    RECOVERING,
+    RECONNECTING,
     RINGING,
     ACTIVE,
     HELD,
     DONE,
-    ERROR
+    ERROR,
+    DROPPED
 }

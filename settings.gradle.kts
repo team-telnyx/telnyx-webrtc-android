@@ -31,5 +31,5 @@ rootProject.name = "Telnyx Android WebRTC SDK"
 include(":telnyx_rtc")
 include(":telnyx_common")
 include(":connection_service_app")
-include(":xmlapp")
+include(":xml_app")
 include(":compose_app")

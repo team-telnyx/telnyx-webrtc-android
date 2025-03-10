@@ -86,7 +86,7 @@ fun RoundedOutlinedButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(backgroundColor, contentColor),
-        shape = Dimens.shape100Percent,
+        shape = shape100Percent,
         modifier = modifier, border = BorderStroke(borderStroke,borderColor),
         elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
     ) {

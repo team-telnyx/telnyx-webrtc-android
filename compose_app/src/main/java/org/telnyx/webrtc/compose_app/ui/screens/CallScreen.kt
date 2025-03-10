@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -50,6 +51,7 @@ import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+import timber.log.Timber
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
@@ -58,7 +60,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val context = LocalContext.current
 
     val uiState by telnyxViewModel.uiState.collectAsState()
-    var callUIState by remember { mutableStateOf<CallUIState>(CallUIState.IDLE) }
+    var callUIState by remember { mutableStateOf(CallUIState.IDLE) }
     val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
@@ -74,7 +76,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 CallUIState.IDLE
             }
             is TelnyxSocketEvent.OnIncomingCall -> {
-                //onCallIncoming(uiState.message.callId, uiState.message.callerIdNumber)
                 CallUIState.INCOMING
             }
             is TelnyxSocketEvent.OnCallAnswered -> {
@@ -112,7 +113,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             contentAlignment = Alignment.Center
         ) {
 
-            AnimatedContent(targetState = callUIState)  { callState ->
+            AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
                         HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
@@ -128,15 +129,15 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_24 else R.drawable.mute_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onMuteUnmutePressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_off_24 else R.drawable.speaker_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
@@ -161,7 +162,9 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
-                                telnyxViewModel.endCall(context)
+                                val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
+                                Timber.i("Reject call UI ${inviteResponse.callId}")
+                                telnyxViewModel.rejectCall(context, inviteResponse.callId)
                             }
                             HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
@@ -199,7 +202,10 @@ fun HomeIconButton(
         modifier = modifier.size(Dimens.size60dp),
         colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor),
         onClick = onClick) {
-        Image(painter = painterResource(icon), contentDescription = "",modifier = Modifier.padding(Dimens.smallSpacing))
+        Image(painter = painterResource(icon),
+            contentDescription = "",
+            modifier = Modifier.padding(Dimens.smallSpacing),
+            colorFilter = ColorFilter.tint(Color.Black))
     }
 }
 
