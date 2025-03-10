@@ -41,6 +41,8 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import kotlinx.coroutines.Job
 import java.io.IOException
 import java.util.*
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 
 sealed class TelnyxSocketEvent {
@@ -92,6 +94,8 @@ class TelnyxViewModel : ViewModel() {
     private var notificationAcceptHandlingUUID: UUID? = null
 
     private var userSessionJob: Job? = null
+
+    private var handlingResponses = false
 
     fun stopLoading() {
         _isLoading.value = false
@@ -147,7 +151,13 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob?.cancel()
         userSessionJob = null
 
+
         userSessionJob = viewModelScope.launch {
+            // Ensure the token is fetched before proceeding
+            if (fcmToken == null) {
+                fcmToken = getFCMToken()
+            }
+
             AuthenticateBySIPCredentials(context = viewContext).invoke(
                 serverConfiguration,
                 profile.toCredentialConfig(fcmToken ?: ""),
@@ -174,7 +184,7 @@ class TelnyxViewModel : ViewModel() {
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
                 .asFlow().collectLatest { response ->
-                    Timber.d("Auth Response: $response")
+                    Timber.d("Answering income push response: $response")
                     handleSocketResponse(response, true)
                 }
         }
@@ -191,13 +201,13 @@ class TelnyxViewModel : ViewModel() {
                     _isLoading.value = false
                 }
                 .asFlow().collectLatest { response ->
-                    Timber.d("Auth Response: $response")
+                    Timber.d("Rejecting income push response: $response")
                     handleSocketResponse(response, true)
                 }
         }
     }
 
-    fun initProfile(context: Context) {
+    suspend fun initProfile(context: Context) {
         getProfiles(context)
         getFCMToken()
     }
@@ -211,22 +221,24 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    private fun getFCMToken() {
-        var token = ""
+    private suspend fun getFCMToken(): String? = suspendCoroutine { continuation ->
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Timber.d("Fetching FCM registration token failed")
                 fcmToken = null
-            } else if (task.isSuccessful) {
+                continuation.resume(null)
+            } else {
                 // Get new FCM registration token
                 try {
-                    token = task.result.toString()
+                    val token = task.result.toString()
+                    Timber.d("FCM TOKEN RECEIVED: $token")
+                    fcmToken = token
+                    continuation.resume(token)
                 } catch (e: IOException) {
                     Timber.d(e)
+                    continuation.resume(null)
                 }
-                Timber.d("FCM TOKEN RECEIVED: $token")
             }
-            fcmToken = token
         }
     }
 
@@ -262,11 +274,9 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun disconnect(viewContext: Context, byUser: Boolean) {
+    fun disconnect(viewContext: Context) {
         viewModelScope.launch {
             Disconnect(viewContext).invoke()
-            if (byUser)
-                _currentProfile.value = null
         }
     }
 
@@ -296,6 +306,9 @@ class TelnyxViewModel : ViewModel() {
         response: SocketResponse<ReceivedMessageBody>,
         isPushConnection: Boolean
     ) {
+        if (handlingResponses) {
+            return
+        }
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
             SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response, isPushConnection)
@@ -306,7 +319,7 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleEstablished() {
-        Timber.d("OnConMan")
+        Timber.d("Socket connection established")
     }
 
     private fun handleMessageReceived(

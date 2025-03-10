@@ -249,10 +249,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             false -> {
                                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
                                     RoundSmallButton(
-                                        text = stringResource(id = R.string.add_new_profile),
-                                        backgroundColor = MaterialTheme.colorScheme.secondary,
                                         modifier = Modifier.height(30.dp),
-                                        textSize = 12.sp
+                                        text = stringResource(id = R.string.add_new_profile),
+                                        textSize = 12.sp,
+                                        backgroundColor = MaterialTheme.colorScheme.secondary
                                     ) {
                                         editableUserProfile = null
                                         isAddProfile = !isAddProfile
@@ -369,10 +369,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     when (sessionState) {
                         is TelnyxSessionState.ClientLoggedIn -> {
                             RoundSmallButton(
-                                text = stringResource(id = R.string.copy_fcm_token),
-                                backgroundColor = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.fillMaxWidth(),
-                                textSize = 14.sp
+                                text = stringResource(id = R.string.copy_fcm_token),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
                                 val token = telnyxViewModel.retrieveFCMToken()
                                 val clipboardManager =
@@ -382,10 +382,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             }
 
                             RoundSmallButton(
-                                text = stringResource(id = R.string.disable_push_notifications),
-                                backgroundColor = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.fillMaxWidth(),
-                                textSize = 14.sp
+                                text = stringResource(id = R.string.disable_push_notifications),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
                                 telnyxViewModel.disablePushNotifications(context)
                                 Toast.makeText(
@@ -398,10 +398,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                         is TelnyxSessionState.ClientDisconnected -> {
                             RoundSmallButton(
-                                text = stringResource(id = R.string.development_environment),
-                                backgroundColor = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.fillMaxWidth(),
-                                textSize = 14.sp
+                                text = stringResource(id = R.string.development_environment),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
                                 telnyxViewModel.changeServerConfigEnvironment(isDev = true)
                                 Toast.makeText(
@@ -412,10 +412,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             }
 
                             RoundSmallButton(
-                                text = stringResource(id = R.string.production_environment),
-                                backgroundColor = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier.fillMaxWidth(),
-                                textSize = 14.sp
+                                text = stringResource(id = R.string.production_environment),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
                                 telnyxViewModel.changeServerConfigEnvironment(isDev = false)
                                 Toast.makeText(
@@ -543,9 +543,9 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
         ) {
             RegularText(text = profileName)
             RoundSmallButton(
-                backgroundColor = MaterialTheme.colorScheme.secondary,
                 text = stringResource(R.string.switch_profile),
-                textSize = 14.sp
+                textSize = 14.sp,
+                backgroundColor = MaterialTheme.colorScheme.secondary
             ) {
                 onProfileSwitch()
             }
@@ -608,7 +608,7 @@ fun ConnectionStateButton(
         modifier = Modifier.fillMaxWidth()
     ) {
         if (state) {
-            telnyxViewModel.disconnect(context, true)
+            telnyxViewModel.disconnect(context)
         } else {
             currentConfig?.let { profile ->
                 if (profile.sipToken?.isEmpty() == false) {

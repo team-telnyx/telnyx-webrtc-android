@@ -83,14 +83,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         handleCallNotification(intent)
     }
 
-    override fun onStart(owner: LifecycleOwner) {
-        super<DefaultLifecycleObserver>.onStart(owner)
-        telnyxViewModel.connectWithLastUsedConfig(this)
-    }
-
     override fun onStop(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStop(owner)
-        telnyxViewModel.disconnect(this, false)
+        telnyxViewModel.disconnect(this)
     }
 
     private fun bindEvents() {
