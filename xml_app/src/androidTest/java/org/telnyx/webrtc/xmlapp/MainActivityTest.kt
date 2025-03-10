@@ -41,19 +41,19 @@ class MainActivityTest {
 
         onView(withId(R.id.usernameTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_USERNAME))
+            .perform(typeText("AndroidDemoApp"))
 
         onView(withId(R.id.passwordTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD))
+            .perform(typeText("demo.123"))
 
         onView(withId(R.id.callerIdNameTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME))
+            .perform(typeText("AndroidDemoXML"))
 
         onView(withId(R.id.callerIdNumberTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NUMBER), closeSoftKeyboard())
+            .perform(typeText("+18338340561"), closeSoftKeyboard())
 
         onView(withId(R.id.confirmButton))
             .check(matches(isDisplayed()))
@@ -93,7 +93,7 @@ class MainActivityTest {
 
         onView(withId(R.id.callInput))
             .check(matches(isDisplayed()))
-            .perform(clearText(), typeText(BuildConfig.TEST_SIP_DEST_NUMBER), closeSoftKeyboard())
+            .perform(clearText(), typeText("18004377950"), closeSoftKeyboard())
 
         IdlingRegistry.getInstance().unregister(idlingResource)
 

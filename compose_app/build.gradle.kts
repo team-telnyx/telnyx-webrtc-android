@@ -1,6 +1,3 @@
-import java.io.FileInputStream
-import java.util.*
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +9,6 @@ android {
     namespace = "org.telnyx.webrtc.compose_app"
     compileSdk = 35
 
-    buildFeatures.buildConfig  = true
-
     defaultConfig {
         applicationId = "org.telnyx.webrtc.compose_app"
         minSdk = 27
@@ -22,19 +17,6 @@ android {
         versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        val properties = Properties()
-        val localPropertiesFile = file("${rootDir}/local.properties")
-
-        if (localPropertiesFile.exists()) {
-            FileInputStream(localPropertiesFile).use { properties.load(it) }
-        }
-
-        buildConfigField("String", "TEST_SIP_USERNAME", "\"${properties.getProperty("TEST_SIP_USERNAME", "default_username")}\"")
-        buildConfigField("String", "TEST_SIP_PASSWORD", "\"${properties.getProperty("TEST_SIP_PASSWORD", "default_password")}\"")
-        buildConfigField("String", "TEST_SIP_CALLER_NAME", "\"${properties.getProperty("TEST_SIP_CALLER_NAME", "default_callername")}\"")
-        buildConfigField("String", "TEST_SIP_CALLER_NUMBER", "\"${properties.getProperty("TEST_SIP_CALLER_NUMBER", "default_callernumber")}\"")
-        buildConfigField("String", "TEST_SIP_DEST_NUMBER", "\"${properties.getProperty("TEST_SIP_DEST_NUMBER", "default_dest_number")}\"")
     }
 
     buildTypes {
