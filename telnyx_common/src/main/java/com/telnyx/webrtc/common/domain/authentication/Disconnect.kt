@@ -18,7 +18,7 @@ class Disconnect(private val context: Context) {
         TelnyxCommon.getInstance().getTelnyxClient(context).onDisconnect()
 
         ProfileManager.getLoggedProfile(context)?.let { loggedProfile ->
-            val disconnectedProfile = loggedProfile.copy(isUserLogin = false)
+            val disconnectedProfile = loggedProfile.copy(isUserLoggedIn = false)
             ProfileManager.saveProfile(context, disconnectedProfile)
         }
     }

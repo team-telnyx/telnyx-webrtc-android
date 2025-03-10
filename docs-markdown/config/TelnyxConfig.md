@@ -17,6 +17,7 @@ Represents a SIP user for login - Credential based
  * ringBackTone The integer raw value of the audio file to use as a ringback tone
  * logLevel The log level that the SDK should use - default value is none.
  * autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
+ * debug whether or not send client debug reports
 
 ```kotlin
 data class CredentialConfig(
@@ -28,7 +29,8 @@ data class CredentialConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect: Boolean = false
+    val autoReconnect: Boolean = false,
+    val debug: Boolean = false
 ) : TelnyxConfig()
 ```
 
@@ -43,6 +45,7 @@ Represents a SIP user for login - Token based
  * ringBackTone The integer raw value of the audio file to use as a ringback tone
  * logLevel The log level that the SDK should use - default value is none.
  * autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
+ * debug whether or not send client debug reports
 
 ```kotlin
 data class TokenConfig(
@@ -54,5 +57,6 @@ data class TokenConfig(
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
     val autoReconnect: Boolean = true,
+    val debug: Boolean = false
 ) : TelnyxConfig()
 ```

@@ -17,6 +17,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.TelnyxClient.RingtoneType.RAW
+import com.telnyx.webrtc.sdk.TelnyxClient.RingtoneType.URI
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.EARPIECE
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.SPEAKER
+import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.UNASSIGNED
 import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -24,14 +29,14 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
-import com.telnyx.webrtc.sdk.utilities.TelnyxLoggingTree
+import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
-import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -228,7 +233,7 @@ class TelnyxClient(
                             socket.send(answerBodyMessage)
                             resetIceCandidateTimer()
                         } else {
-                            Timber.d("Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                            Logger.d(message = "Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
                         }
                     },
                     Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
@@ -320,7 +325,7 @@ class TelnyxClient(
                         socket.send(inviteMessageBody)
                         resetIceCandidateTimer()
                     } else {
-                        Timber.d("Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                        Logger.d(message = "Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
                     }
                 },
                 Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
@@ -412,7 +417,7 @@ class TelnyxClient(
     internal var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
-            Timber.d("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName)
+            Logger.d(message = Logger.formatMessage("[%s] :: There is a network available", this@TelnyxClient.javaClass.simpleName))
             // User has been logged in
             resetGatewayCounters()
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
@@ -422,14 +427,17 @@ class TelnyxClient(
         }
 
         override fun onNetworkUnavailable() {
-            Timber.d(
-                "[%s] :: There is no network available",
-                this@TelnyxClient.javaClass.simpleName
+            Logger.d(
+                message = Logger.formatMessage("[%s] :: There is no network available",
+                this@TelnyxClient.javaClass.simpleName)
             )
             reconnecting = true
 
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
+                    getActiveCalls().forEach { (_, call) ->
+                        call.updateCallState(CallState.DROPPED)
+                    }
                     socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
@@ -448,9 +456,14 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
 
         //Disconnect active calls for reconnection
-        getActiveCalls()?.forEach { (_, call) ->
-            call?.peerConnection?.disconnect()
+        getActiveCalls().forEach { (_, call) ->
+            webRTCReporter?.pauseStats()
+            call.peerConnection?.disconnect()
+            call.updateCallState(CallState.RECONNECTING)
         }
+
+        //Delay for network to be properly established
+        delay(RECONNECT_DELAY)
 
         // Create new socket connection
         socketReconnection = TxSocket(
@@ -471,8 +484,6 @@ class TelnyxClient(
                     if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS
-
-
             }
 
 
@@ -585,7 +596,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Timber.d("Provided Host Address: $providedHostAddress")
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
 
             }
@@ -621,6 +632,9 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
+        setSDKLogLevel(credentialConfig.logLevel, credentialConfig.customLogger)
+
+
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
@@ -638,7 +652,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Timber.d("Provided Host Address: $providedHostAddress")
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
             if (voiceSDKID != null) {
                 pushMetaData = PushMetaData(
                     callerName = "",
@@ -683,6 +697,8 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
 
+        setSDKLogLevel(tokenConfig.logLevel, tokenConfig.customLogger)
+
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
             processCallFromPush(metadata)
@@ -700,7 +716,7 @@ class TelnyxClient(
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Timber.d("Provided Host Address: $providedHostAddress")
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
             if (voiceSDKID != null) {
                 pushMetaData = PushMetaData(
                     callerName = "",
@@ -798,6 +814,7 @@ class TelnyxClient(
         val password = config.sipPassword
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
 
         Config.USERNAME = config.sipUser
@@ -807,7 +824,7 @@ class TelnyxClient(
 
         isDebug = config.debug
 
-        setSDKLogLevel(logLevel)
+        setSDKLogLevel(logLevel, customLogger)
 
         config.ringtone?.let {
             rawRingtone = it
@@ -837,44 +854,34 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
-        Timber.d("Auto login with credentialConfig")
+        Logger.d(message = "Auto login with credentialConfig")
 
         socket.send(loginMessage)
     }
 
 
     /**
-     * Disables push notifications for current user
+     * Disables push notifications for current logged in user.
      *
-     *  Takes :
-     *  @param sipUserName : sip username of the current user or
-     *  @param loginToken : fcm token of the device
-     *  @param fcmToken : fcm token of the device
      * NB : Push Notifications are enabled by default after login
      *
      * returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
      * */
-    fun disablePushNotification(sipUserName: String?, loginToken: String?, fcmToken: String) {
+    fun disablePushNotification() {
+        val storedConfig = credentialSessionConfig ?: tokenSessionConfig ?: return
 
-        sipUserName ?: loginToken ?: return
-
-        val params = when {
-            sipUserName == null -> {
-                TokenDisablePushParams(
-                    loginToken = loginToken!!,
-                    userVariables = UserVariables(fcmToken)
-                )
-            }
-
-            loginToken == null -> {
+        val params = when (storedConfig) {
+            is CredentialConfig -> {
                 DisablePushParams(
-                    user = sipUserName,
-                    userVariables = UserVariables(fcmToken)
+                    user = storedConfig.sipUser,
+                    userVariables = UserVariables(storedConfig.fcmToken ?: "")
                 )
             }
-
-            else -> {
-                return
+            is TokenConfig -> {
+                TokenDisablePushParams(
+                    loginToken = storedConfig.sipToken,
+                    userVariables = UserVariables(storedConfig.fcmToken ?: "")
+                )
             }
         }
 
@@ -884,7 +891,7 @@ class TelnyxClient(
             params = params
         )
         val message = Gson().toJson(disablePushMessage)
-        Log.d("disablePushMessage", message)
+        Logger.d("disablePushMessage", message)
         socket.send(disablePushMessage)
     }
 
@@ -924,13 +931,14 @@ class TelnyxClient(
         val token = config.sipToken
         val fcmToken = config.fcmToken
         val logLevel = config.logLevel
+        val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
 
         isDebug = config.debug
 
-        setSDKLogLevel(logLevel)
+        setSDKLogLevel(logLevel, customLogger)
 
         var firebaseToken = ""
         if (fcmToken != null) {
@@ -960,14 +968,16 @@ class TelnyxClient(
 
     /**
      * Sets the global SDK log level
-     * Logging is implemented with Timber
+     * Logging is implemented with the Logger provided via the [Config],
+     * if none is provided then the default logger in [TxLogger] is used
      *
-     * @param logLevel, the LogLevel specified for the SDK
+     * @param logLevel The LogLevel specified for the SDK
+     * @param customLogger Optional custom logger implementation
      * @see [LogLevel]
+     * @see [TxLogger]
      */
-    private fun setSDKLogLevel(logLevel: LogLevel) {
-        Timber.uprootAll()
-        Timber.plant(TelnyxLoggingTree(logLevel))
+    private fun setSDKLogLevel(logLevel: LogLevel, customLogger: TxLogger? = null) {
+        Logger.init(logLevel, customLogger)
     }
 
     /**
@@ -999,10 +1009,10 @@ class TelnyxClient(
                     audioManager?.startBluetoothSco()
                     audioManager?.isBluetoothScoOn = true
                 } else {
-                    Timber.d(
+                    Logger.d(message = Logger.formatMessage(
                         "[%s] :: No Bluetooth device detected",
-                        this@TelnyxClient.javaClass.simpleName,
-                    )
+                        this@TelnyxClient.javaClass.simpleName
+                    ))
                 }
             }
 
@@ -1057,7 +1067,7 @@ class TelnyxClient(
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
-                    Timber.d("Ringtone not valid:: No ringtone will be played")
+                    Logger.d(message = "Ringtone not valid:: No ringtone will be played")
                     return
                 }
                 mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
@@ -1065,12 +1075,12 @@ class TelnyxClient(
                     mediaPlayer!!.start()
                     mediaPlayer!!.isLooping = true
                 }
-                Timber.d("Ringtone playing")
+                Logger.d(message = "Ringtone playing")
             } catch (e: TypeCastException) {
-                Timber.e("Exception: ${e.message}")
+                Logger.e(message = "Exception: ${e.message}")
             }
         } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
+            Logger.d(message = "No ringtone specified :: No ringtone will be played")
         }
     }
 
@@ -1112,7 +1122,7 @@ class TelnyxClient(
                 mediaPlayer!!.isLooping = true
             }
         } ?: run {
-            Timber.d("No ringtone specified :: No ringtone will be played")
+            Logger.d(message = "No ringtone specified :: No ringtone will be played")
         }
     }
 
@@ -1127,7 +1137,7 @@ class TelnyxClient(
             mediaPlayer!!.release()
             mediaPlayer = null
         }
-        Timber.d("ringtone/ringback media player stopped and released")
+        Logger.d(message = "ringtone/ringback media player stopped and released")
 
         // reset audio mode to communication
         audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -1152,10 +1162,10 @@ class TelnyxClient(
      * @param receivedLoginSessionId, the session ID of the successfully registered session.
      */
     internal fun onLoginSuccessful(receivedLoginSessionId: String) {
-        Timber.d(
-            "[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
+        Logger.d(
+            message = Logger.formatMessage("[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
             this@TelnyxClient.javaClass.simpleName,
-            receivedLoginSessionId
+            receivedLoginSessionId)
         )
         sessid = receivedLoginSessionId
         socketResponseLiveData.postValue(
@@ -1169,7 +1179,7 @@ class TelnyxClient(
 
         socket.isLoggedIn = true
 
-        Timber.d("isCallPendingFromPush $isCallPendingFromPush")
+        Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
         //if there is a call pending from push, attach it
         if (isCallPendingFromPush) {
             attachCall()
@@ -1190,9 +1200,9 @@ class TelnyxClient(
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
         if (gatewayState != GatewayState.REGED.state) {
-            Timber.d(
-                "[%s] :: onClientReady :: retrieving gateway state",
-                this@TelnyxClient.javaClass.simpleName,
+            Logger.d(
+                message = Logger.formatMessage("[%s] :: onClientReady :: retrieving gateway state",
+                this@TelnyxClient.javaClass.simpleName)
             )
             if (waitingForReg) {
                 requestGatewayStatus()
@@ -1205,9 +1215,9 @@ class TelnyxClient(
                             }
                             registrationRetryCounter++
                         } else {
-                            Timber.d(
+                            Logger.d(message = Logger.formatMessage(
                                 "[%s] :: Gateway registration has timed out",
-                                this@TelnyxClient.javaClass.simpleName,
+                                this@TelnyxClient.javaClass.simpleName)
                             )
                             socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
                         }
@@ -1216,9 +1226,9 @@ class TelnyxClient(
                 )
             }
         } else {
-            Timber.d(
+            Logger.d(message = Logger.formatMessage(
                 "[%s] :: onClientReady :: Ready to make calls",
-                this@TelnyxClient.javaClass.simpleName,
+                this@TelnyxClient.javaClass.simpleName)
             )
 
             socketResponseLiveData.postValue(
@@ -1260,9 +1270,9 @@ class TelnyxClient(
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
                 if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
-                    Timber.d(
+                    Logger.d(message = Logger.formatMessage(
                         "[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME",
-                        this@TelnyxClient.javaClass.simpleName
+                        this@TelnyxClient.javaClass.simpleName)
                     )
                     runBlocking { reconnectToSocket() }
                 } else {
@@ -1311,23 +1321,23 @@ class TelnyxClient(
     }
 
     override fun onConnectionEstablished() {
-        Timber.d("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName)
+        Logger.d(message = Logger.formatMessage("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName))
         socketResponseLiveData.postValue(SocketResponse.established())
 
     }
 
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-        Timber.d("[%s] :: onErrorReceived ", errorMessage)
+        Logger.d(message = "onErrorReceived " + errorMessage)
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
     override fun onByeReceived(callId: UUID) {
 
-        Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
+        Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived", this.javaClass.simpleName))
         val byeCall = calls[callId]
         byeCall?.apply {
-            Timber.d("[%s] :: onByeReceived", this.javaClass.simpleName)
+            Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived", this.javaClass.simpleName))
             val byeResponse = ByeResponse(
                 callId
             )
@@ -1472,10 +1482,10 @@ class TelnyxClient(
 
     override fun onOfferReceived(jsonObject: JsonObject) {
         if (jsonObject.has("params")) {
-            Timber.d(
+            Logger.d(message = Logger.formatMessage(
                 "[%s] :: onOfferReceived [%s]",
                 this@TelnyxClient.javaClass.simpleName,
-                jsonObject
+                jsonObject)
             )
             val offerCall = call!!.copy(
                 context = context,
@@ -1492,10 +1502,10 @@ class TelnyxClient(
                 val remoteSdp = params.get("sdp").asString
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
-                    Timber.d("Voice SDK ID _ $voiceSdkID")
+                    Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
                 } else {
-                    Timber.e("No Voice SDK ID")
+                    Logger.e(message = "No Voice SDK ID")
                 }
 
                 val callerName = params.get("caller_id_name").asString
@@ -1555,9 +1565,9 @@ class TelnyxClient(
                 )
             )
         } else {
-            Timber.d(
+            Logger.d(message = Logger.formatMessage(
                 "[%s] :: Invalid offer received, missing required parameters [%s]",
-                this.javaClass.simpleName, jsonObject
+                this.javaClass.simpleName, jsonObject)
             )
         }
 
@@ -1568,10 +1578,10 @@ class TelnyxClient(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
-        Timber.d(
+        Logger.d(message = Logger.formatMessage(
             "[%s] :: onRingingReceived [%s]",
             this@TelnyxClient.javaClass.simpleName,
-            jsonObject
+            jsonObject)
         )
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
@@ -1616,10 +1626,10 @@ class TelnyxClient(
     }
 
     override fun onDisablePushReceived(jsonObject: JsonObject) {
-        Timber.d(
+        Logger.d(message = Logger.formatMessage(
             "[%s] :: onDisablePushReceived [%s]",
             this@TelnyxClient.javaClass.simpleName,
-            jsonObject
+            jsonObject)
         )
         val errorMessage = jsonObject.get("result").asJsonObject.get("message").asString
         val disablePushResponse = DisablePushResponse(
@@ -1638,25 +1648,27 @@ class TelnyxClient(
 
     override fun onAttachReceived(jsonObject: JsonObject) {
 
-        val attachCall = call!!.copy(
+        val params = jsonObject.getAsJsonObject("params")
+        val offerCallId = UUID.fromString(params.get("callID").asString)
+
+        calls[offerCallId]?.copy(
             context = context,
             client = this,
             socket = socket,
             sessionId = sessid,
             audioManager = audioManager!!,
             providedTurn = providedTurn!!,
-            providedStun = providedStun!!
-        ).apply {
+            providedStun = providedStun!!,
+            mutableCallStateFlow = calls[offerCallId]!!.mutableCallStateFlow,
+        )?.apply {
 
-            val params = jsonObject.getAsJsonObject("params")
-            val offerCallId = UUID.fromString(params.get("callID").asString)
             val remoteSdp = params.get("sdp").asString
             val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
             if (voiceSdkID != null) {
-                Timber.d("Voice SDK ID _ $voiceSdkID")
+                Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
             } else {
-                Timber.e("No Voice SDK ID")
+                Logger.e(message = "No Voice SDK ID")
             }
 
             // val callerName = params.get("caller_id_name").asString
@@ -1669,11 +1681,11 @@ class TelnyxClient(
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
-                        if (isDebug) {
-                            webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
-                            webRTCReporter?.startStats()
-                        }
-                    }
+                if (isDebug) {
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter?.startStats()
+                }
+            }
 
             peerConnection?.startLocalAudioCapture()
 
@@ -1693,9 +1705,14 @@ class TelnyxClient(
                 },
                 Call.ICE_CANDIDATE_DELAY
             )
+            calls[this.callId]?.updateCallState(CallState.ACTIVE)
+            this.setCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
+            calls[this.callId] = this.apply {
+                updateCallState(CallState.ACTIVE)
+            }
+        } ?: run {
+            Logger.e(message = "Call not found for Attach")
         }
-        attachCall.updateCallState(CallState.ACTIVE)
-        calls[attachCall.callId] = attachCall
     }
 
     override fun setCallRecovering() {
@@ -1703,7 +1720,7 @@ class TelnyxClient(
     }
 
     override fun pingPong() {
-        Timber.d("[%s] :: pingPong ", this@TelnyxClient.javaClass.simpleName)
+        Logger.d(message = Logger.formatMessage("[%s] :: pingPong ", this@TelnyxClient.javaClass.simpleName))
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {

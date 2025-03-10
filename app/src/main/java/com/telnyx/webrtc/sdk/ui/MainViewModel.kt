@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.telnyx.webrtc.sdk.utilities.Logger
 import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
@@ -43,8 +44,9 @@ class MainViewModel @Inject constructor(
         providedServerConfig: TxServerConfiguration?,
         credentialConfig: CredentialConfig?,
         tokenConfig: TokenConfig?,
-        txPushMetaData: String?
+        txPushMetaData: String?,
     ) {
+        Logger.e(message = "initConnection")
         providedServerConfig?.let {
             telnyxClient?.connect(it, credentialConfig!!, txPushMetaData, true)
         } ?: run {
@@ -62,10 +64,6 @@ class MainViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    fun startDebugStats() {
-        currentCall?.startDebug()
     }
 
     fun saveUserData(
@@ -111,6 +109,9 @@ class MainViewModel @Inject constructor(
     fun getIsOnLoudSpeakerStatus(): LiveData<Boolean>? = currentCall?.getIsOnLoudSpeakerStatus()
 
 
+    fun getCallStateFlow() = currentCall?.callStateFlow
+
+
     fun doLoginWithToken(tokenConfig: TokenConfig) {
         telnyxClient?.tokenLogin(tokenConfig)
     }
@@ -134,11 +135,10 @@ class MainViewModel @Inject constructor(
             destinationNumber,
             mapOf(Pair("X-testAndroid", "123456"))
         )
-        startDebugStats()
     }
 
-    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
-        telnyxClient?.disablePushNotification(sipUserName, null, fcmToken)
+    fun disablePushNotifications() {
+        telnyxClient?.disablePushNotification()
     }
 
 

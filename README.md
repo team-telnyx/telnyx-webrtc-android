@@ -87,7 +87,9 @@ sealed class TelnyxConfig
  * @property ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
+ * @property debug whether or not send client debug reports
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -98,7 +100,9 @@ data class CredentialConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect : Boolean = true
+    val customLogger: TxLogger? = null,
+    val autoReconnect: Boolean = true,
+    val debug: Boolean = false
     ) : TelnyxConfig()
 
 /**
@@ -111,7 +115,9 @@ data class CredentialConfig(
  * @property ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * @property ringBackTone The integer raw value of the audio file to use as a ringback tone
  * @property logLevel The log level that the SDK should use - default value is none.
+ * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
+ * @property debug whether or not send client debug reports
  */
 data class TokenConfig(
     val sipToken: String,
@@ -121,7 +127,9 @@ data class TokenConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
-    val autoReconnect : Boolean = true,
+    val customLogger: TxLogger? = null,
+    val autoReconnect: Boolean = true,
+    val debug: Boolean = false
     ) : TelnyxConfig()
 
 ```
@@ -246,6 +254,62 @@ The `txPushMetaData` is neccessary for push notifications to work.
 ```
 
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/push-notifications)
+
+## Custom Logging
+
+The Telnyx WebRTC SDK allows you to implement your own custom logging solution by providing a `TxLogger` implementation. This gives you full control over how logs are handled, allowing you to route them to your own logging frameworks or analytics services.
+
+### Using Custom Logger
+
+1. Create a class that implements the `TxLogger` interface:
+
+```kotlin
+class MyCustomLogger : TxLogger {
+    override fun log(level: LogLevel, tag: String?, message: String, throwable: Throwable?) {
+        // Implement your custom logging logic here
+        // Example: Send logs to your analytics service
+        MyAnalyticsService.log(
+            level = level.name,
+            tag = tag ?: "Telnyx",
+            message = message,
+            throwable = throwable
+        )
+    }
+}
+```
+
+2. Pass your custom logger when creating the configuration:
+
+```kotlin
+// For credential-based login
+val credentialConfig = CredentialConfig(
+    sipUser = "your_sip_username",
+    sipPassword = "your_sip_password",
+    sipCallerIDName = "Your Name",
+    sipCallerIDNumber = "Your Number",
+    fcmToken = fcmToken,
+    ringtone = R.raw.ringtone,
+    ringBackTone = R.raw.ringbacktone,
+    logLevel = LogLevel.ALL,           // Set desired log level
+    customLogger = MyCustomLogger()    // Pass your custom logger
+)
+
+// For token-based login
+val tokenConfig = TokenConfig(
+    sipToken = "your_jwt_token",
+    sipCallerIDName = "Your Name",
+    sipCallerIDNumber = "Your Number",
+    fcmToken = fcmToken,
+    ringtone = R.raw.ringtone,
+    ringBackTone = R.raw.ringbacktone,
+    logLevel = LogLevel.ALL,           // Set desired log level
+    customLogger = MyCustomLogger()    // Pass your custom logger
+)
+```
+
+### Default Behavior
+
+If no custom logger is provided, the SDK will use its default logging implementation based on Android's Log class. The `logLevel` parameter still controls which logs are generated, regardless of whether you're using a custom logger or the default one.
 
 ## Best Practices
 

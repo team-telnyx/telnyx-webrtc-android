@@ -16,7 +16,7 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.logging.HttpLoggingInterceptor
-import timber.log.Timber
+import com.telnyx.webrtc.sdk.utilities.Logger
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -110,21 +110,21 @@ class TxSocket(
                 .host(host_address)
                 .build()
         }
-        Timber.d("request: $client.")
+        Logger.d(message = "request: $client.")
 
         val request: Request =
             Request.Builder().url(requestUrl).build()
 
 
-        Timber.d("request2 : ${request.url.encodedQuery}")
+        Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
         webSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    Timber.tag("VERTO").d(
-                        "[%s] Connection established :: $host_address",
-                        this@TxSocket.javaClass.simpleName
+                    Logger.v(
+                        message = Logger.formatMessage("[%s] Connection established :: $host_address",
+                        this@TxSocket.javaClass.simpleName)
                     )
                     isConnected = true
                     onConnected(true)
@@ -133,10 +133,10 @@ class TxSocket(
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     super.onMessage(webSocket, text)
-                    Timber.tag("VERTO").d(
-                        "[%s] Receiving [%s]",
+                    Logger.v(
+                        message = Logger.formatMessage("[%s] Receiving [%s]",
                         this@TxSocket.javaClass.simpleName,
-                        text
+                        text)
                     )
                     val jsonObject = gson.fromJson(text, JsonObject::class.java)
                     listener.wsMessagesResponseLiveDate.postValue(jsonObject)
@@ -175,10 +175,10 @@ class TxSocket(
                         }
 
                         jsonObject.has("method") -> {
-                            Timber.tag("VERTO").d(
-                                "[%s] Received Method [%s]",
+                            Logger.v(
+                                message = Logger.formatMessage("[%s] Received Method [%s]",
                                 this@TxSocket.javaClass.simpleName,
-                                jsonObject.get("method").asString
+                                jsonObject.get("method").asString)
                             )
                             when (jsonObject.get("method").asString) {
                                 CLIENT_READY.methodName -> {
@@ -232,11 +232,10 @@ class TxSocket(
                             if (jsonObject.get("error").asJsonObject.has("code")) {
                                 val errorCode =
                                     jsonObject.get("error").asJsonObject.get("code").asInt
-                                Timber.tag("VERTO").d(
-                                    "[%s] Received Error From Telnyx [%s]",
+                                Logger.v(
+                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s]",
                                     this@TxSocket.javaClass.simpleName,
-                                    jsonObject.get("error").asJsonObject.get("message")
-                                        .toString()
+                                    jsonObject.get("error").asJsonObject.get("message").toString())
                                 )
                                 when (errorCode) {
                                     CREDENTIAL_ERROR.errorCode -> {
@@ -254,20 +253,20 @@ class TxSocket(
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosing(webSocket, code, reason)
-                    Timber.tag("TxSocket").i("Socket is closing: $code :: $reason")
+                    Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
                     listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosed(webSocket, code, reason)
-                    Timber.tag("TxSocket").i("Socket is closed: $code :: $reason")
+                    Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     destroy()
                     listener.onDisconnect()
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Timber.tag("TxSocket")
-                        .i("Socket is closed: $response $t :: Will attempt to reconnect")
+                    Logger.i(tag = "TxSocket", 
+                        message = "Socket is closed: $response $t :: Will attempt to reconnect")
                     if (ongoingCall) {
                         listener.call?.setCallRecovering()
                     }
@@ -295,8 +294,10 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
-        Timber.tag("VERTO")
-            .d("[%s] Sending [%s]", this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+        Logger.v(
+            message = Logger.formatMessage("[%s] Sending [%s]", 
+            this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+        )
         webSocket.send(gson.toJson(dataObject))
     }
 

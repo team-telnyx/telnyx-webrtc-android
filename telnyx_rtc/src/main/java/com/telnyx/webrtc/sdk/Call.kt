@@ -8,6 +8,7 @@ import android.content.Context
 import android.media.AudioManager
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
@@ -23,6 +24,13 @@ import timber.log.Timber
 import java.util.*
 
 /**
+ * Data class to represent custom headers
+ * @param name the name of the custom header
+ * @param value the value of the custom header
+ */
+data class CustomHeaders(val name: String, val value: String)
+
+/**
  * Class that represents a Call and handles all call related actions, including answering and ending a call.
  *
  * @param context the current application Context
@@ -31,8 +39,6 @@ import java.util.*
  * @param sessionId the session ID of the user session
  * @param audioManager the [AudioManager] instance in use, used to change audio related settings.
  */
-
-data class CustomHeaders(val name: String, val value: String)
 data class Call(
     val context: Context,
     val client: TelnyxClient,
@@ -41,6 +47,7 @@ data class Call(
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
     val providedStun: String = Config.DEFAULT_STUN,
+    internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE),
 ) {
 
     companion object {
@@ -60,12 +67,9 @@ data class Call(
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
 
+    val callStateFlow: StateFlow<CallState> = mutableCallStateFlow
 
-    private val callStateLiveData = MutableLiveData(CallState.NEW)
-
-    private val _callStateFlow = MutableStateFlow(CallState.NEW)
-
-    val callStateFlow: StateFlow<CallState> = _callStateFlow
+    private val callStateLiveData = callStateFlow.asLiveData()
 
     // Ongoing call options
     // Mute toggle live data
@@ -84,22 +88,13 @@ data class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
-    fun startDebug() {
-        Timber.d("Peer connection debug started")
-
-      //  peerConnection?.startTimer()
-    }
-
     internal fun updateCallState(value: CallState) {
-        callStateLiveData.postValue(value)
-        _callStateFlow.value = value
+        mutableCallStateFlow.value = value
     }
 
-    fun stopDebug() {
-        Timber.d("Peer connection debug stopped")
-       // peerConnection?.stopTimer()
+    internal fun setCallState(value: CallState) {
+        mutableCallStateFlow.value = value
     }
-
 
     /**
      * Initiates a new call invitation
@@ -161,7 +156,7 @@ data class Call(
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
-            callStateLiveData.postValue(CallState.ERROR)
+            mutableCallStateFlow.value = CallState.ERROR
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -176,7 +171,7 @@ data class Call(
                 )
             )
             socket.send(answerBodyMessage)
-            callStateLiveData.postValue(CallState.ACTIVE)
+            mutableCallStateFlow.value = CallState.ACTIVE
         }
     }
 
@@ -231,11 +226,11 @@ data class Call(
     fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
-            callStateLiveData.postValue(CallState.HELD)
+            mutableCallStateFlow.value  = CallState.HELD
             sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
-            callStateLiveData.postValue(CallState.ACTIVE)
+            mutableCallStateFlow.value  = CallState.ACTIVE
             sendHoldModifier(callId, "unhold")
         }
     }
@@ -357,7 +352,7 @@ data class Call(
 
 
     fun setCallRecovering() {
-        callStateLiveData.postValue(CallState.RECOVERING)
+        mutableCallStateFlow.value  = CallState.RECONNECTING
     }
 
 
