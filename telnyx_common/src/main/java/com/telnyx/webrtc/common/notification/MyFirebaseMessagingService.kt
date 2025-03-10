@@ -5,15 +5,12 @@
 package com.telnyx.webrtc.common.notification
 
 import android.content.Intent
-import android.net.Uri
+import android.os.Build
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-<<<<<<<< HEAD:connection_service_app/src/main/java/com/telnyx/webrtc/sdk/utility/MyFirebaseMessagingService.kt
-import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
-========
->>>>>>>> main:telnyx_common/src/main/java/com/telnyx/webrtc/common/notification/MyFirebaseMessagingService.kt
 import org.json.JSONObject
 import timber.log.Timber
+
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -31,26 +28,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
 
-        if (isMissedCall) {
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+                putExtra("action", NotificationsService.STOP_ACTION)
+            }
+            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            startMessagingService(serviceIntent)
             return
         }
 
-        val metadataObject = JSONObject(metadata)
-        val callerDisplayName = metadataObject.getString("caller_name") ?: "Unknown Caller"
-        val phoneNumber = metadataObject.getString("caller_number") ?: "Unknown Number"
-        val telnyxCallIdString = metadataObject.getString("call_id")
-
-        val incomingIntent = Intent(this, TelecomCallService::class.java).apply {
-            action = TelecomCallService.ACTION_INCOMING_CALL
-            putExtra(TelecomCallService.EXTRA_NAME, callerDisplayName)
-            putExtra(TelecomCallService.EXTRA_URI, Uri.fromParts("tel", phoneNumber, null))
-            putExtra(TelecomCallService.EXTRA_TELNYX_CALL_ID, telnyxCallIdString)
-            putExtra(TelecomCallService.PUSH_METADATA, metadata)
+        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+            putExtra("metadata", metadata)
         }
-        startForegroundService(incomingIntent)
+        startMessagingService(serviceIntent)
     }
+
 
 
     /**
@@ -72,8 +67,27 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         Timber.d("sendRegistrationTokenToServer($token)")
     }
 
+    private fun startMessagingService(serviceIntent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+    }
 
     companion object {
-        const val MISSED_CALL = "Missed call!"
+        private const val TAG = "MyFirebaseMsgService"
+        const val TELNYX_CHANNEL_ID = "telnyx_channel"
+        const val ANSWER_REQUEST_CODE = 0
+        const val REJECT_REQUEST_CODE = 1
+
+        const val TX_PUSH_METADATA = "tx_push_metadata"
+        const val Missed_Call = "Missed call!"
+
+        const val EXT_KEY_DO_ACTION = "ext_key_do_action"
+        const val EXT_CALL_ID = "ext_call_id"
+        const val EXT_DESTINATION_NUMBER = "ext_destination_number"
+        const val ACT_ANSWER_CALL = "answer"
+        const val ACT_REJECT_CALL = "reject"
     }
 }

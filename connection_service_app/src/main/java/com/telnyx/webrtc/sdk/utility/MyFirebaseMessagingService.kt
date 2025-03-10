@@ -8,10 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-<<<<<<<< HEAD:connection_service_app/src/main/java/com/telnyx/webrtc/sdk/utility/MyFirebaseMessagingService.kt
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallService
-========
->>>>>>>> main:telnyx_common/src/main/java/com/telnyx/webrtc/common/notification/MyFirebaseMessagingService.kt
 import org.json.JSONObject
 import timber.log.Timber
 
