@@ -80,8 +80,8 @@ class MainViewModel @Inject constructor(
 
     fun getWsMessageResponse(): LiveData<JsonObject> = telnyxClient.getWsMessageResponse()
 
-    fun disablePushNotifications(sipUserName: String, fcmToken: String) {
-        telnyxClient.disablePushNotification(sipUserName, null, fcmToken)
+    fun disablePushNotifications() {
+        telnyxClient.disablePushNotification()
     }
 
     fun disconnect() {
