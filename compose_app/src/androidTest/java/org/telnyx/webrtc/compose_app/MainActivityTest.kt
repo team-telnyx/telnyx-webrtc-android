@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
@@ -55,26 +56,7 @@ class MainActivityTest {
     }
 
     @Test
-    fun addSIPCredentialsAndConnectTest() {
-        addSipCredentials()
-
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(context.getString(R.string.connect)).performClick()
-
-        composeTestRule.waitUntil(5000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).isDisplayed()
-        }
-
-        composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).performClick()
-
-        composeTestRule.waitUntil(5000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.connect)).isDisplayed()
-        }
-
-    }
-
-    @Test
-    fun makeCallTest() {
+    fun connectAndMakeCallTest() {
         addSipCredentials()
 
         composeTestRule.waitForIdle()
@@ -85,7 +67,8 @@ class MainActivityTest {
         }
 
         composeTestRule.onNodeWithTag("callInput").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("callInput").performTextInput("18004377950")
+        composeTestRule.onNodeWithTag("callInput").performTextInput(BuildConfig.TEST_SIP_DEST_NUMBER)
+        composeTestRule.onNodeWithTag("callInput").performImeAction()
 
         composeTestRule.waitForIdle()
 
@@ -123,13 +106,13 @@ class MainActivityTest {
         composeTestRule.onNodeWithText(context.getString(R.string.credential_login)).assertIsDisplayed()
 
         composeTestRule.onNodeWithTag("sipUsername").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("sipUsername").performTextInput("AndroidDemoApp")
+        composeTestRule.onNodeWithTag("sipUsername").performTextInput(BuildConfig.TEST_SIP_USERNAME)
         composeTestRule.onNodeWithTag("sipPassword").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("sipPassword").performTextInput("demo.123")
+        composeTestRule.onNodeWithTag("sipPassword").performTextInput(BuildConfig.TEST_SIP_PASSWORD)
         composeTestRule.onNodeWithTag("callerIDName").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("callerIDName").performTextInput("AndroidDemoCompose")
+        composeTestRule.onNodeWithTag("callerIDName").performTextInput(BuildConfig.TEST_SIP_CALLER_NAME)
         composeTestRule.onNodeWithTag("callerIDNumber").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("callerIDNumber").performTextInput("+18338340561")
+        composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
         composeTestRule.onNodeWithTag("credentialsForm").performClick()
         composeTestRule.onNodeWithText(context.getString(R.string.save)).performClick()
 
