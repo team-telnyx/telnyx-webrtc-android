@@ -31,7 +31,7 @@ android {
             FileInputStream(localPropertiesFile).use { properties.load(it) }
         }
 
-        buildConfigField("String", "TEST_SIP_USERNAME", properties.getProperty("TEST_SIP_USERNAME", ""))
+        buildConfigField("String", "TEST_SIP_USERNAME", "\"${properties.getProperty("TEST_SIP_USERNAME", "default_username")}\"")
         buildConfigField("String", "TEST_SIP_PASSWORD", properties.getProperty("TEST_SIP_PASSWORD", ""))
         buildConfigField("String", "TEST_SIP_CALLER_NAME", properties.getProperty("TEST_SIP_CALLER_NAME", ""))
         buildConfigField("String", "TEST_SIP_CALLER_NUMBER", properties.getProperty("TEST_SIP_CALLER_NUMBER", ""))
