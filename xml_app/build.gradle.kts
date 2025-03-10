@@ -49,7 +49,7 @@ dependencies {
     implementation(project(":telnyx_common"))
     implementation("androidx.test.espresso:espresso-contrib:3.6.1")
     testImplementation("junit:junit:4.13.2")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.6")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.8.8")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.6")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
