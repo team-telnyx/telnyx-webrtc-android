@@ -62,7 +62,7 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
-    androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
+    androidTestImplementation("androidx.navigation:navigation-testing:2.8.8")
 
     //permissions
     implementation("com.karumi:dexter:6.2.2")
