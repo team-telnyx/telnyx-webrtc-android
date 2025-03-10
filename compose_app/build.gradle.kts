@@ -32,10 +32,10 @@ android {
         }
 
         buildConfigField("String", "TEST_SIP_USERNAME", "\"${properties.getProperty("TEST_SIP_USERNAME", "default_username")}\"")
-        buildConfigField("String", "TEST_SIP_PASSWORD", properties.getProperty("TEST_SIP_PASSWORD", ""))
-        buildConfigField("String", "TEST_SIP_CALLER_NAME", properties.getProperty("TEST_SIP_CALLER_NAME", ""))
-        buildConfigField("String", "TEST_SIP_CALLER_NUMBER", properties.getProperty("TEST_SIP_CALLER_NUMBER", ""))
-        buildConfigField("String", "TEST_SIP_DEST_NUMBER", properties.getProperty("TEST_SIP_DEST_NUMBER", ""))
+        buildConfigField("String", "TEST_SIP_PASSWORD", "\"${properties.getProperty("TEST_SIP_PASSWORD", "default_password")}\"")
+        buildConfigField("String", "TEST_SIP_CALLER_NAME", "\"${properties.getProperty("TEST_SIP_CALLER_NAME", "default_callername")}\"")
+        buildConfigField("String", "TEST_SIP_CALLER_NUMBER", "\"${properties.getProperty("TEST_SIP_CALLER_NUMBER", "default_callernumber")}\"")
+        buildConfigField("String", "TEST_SIP_DEST_NUMBER", "\"${properties.getProperty("TEST_SIP_DEST_NUMBER", "default_dest_number")}\"")
     }
 
     buildTypes {
