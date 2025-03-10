@@ -10,7 +10,7 @@ pluginManagement {
         id("com.android.application") version "8.6.1"
         id("org.jetbrains.kotlin.android") version "1.9.23"
         id("org.jetbrains.kotlin.plugin.compose") version "1.9.23"
-        id("io.gitlab.arturbosch.detekt") version "1.23.7"
+        id("io.gitlab.arturbosch.detekt") version "1.23.8"
         id("com.google.gms.google-services") version "4.4.2" apply false
     }
 }
