@@ -65,7 +65,7 @@ dependencies {
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
 
     //permissions
-    implementation("com.karumi:dexter:6.2.2")
+    implementation("com.karumi:dexter:6.2.3")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

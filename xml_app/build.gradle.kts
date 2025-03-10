@@ -55,7 +55,7 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 
     //permissions
-    implementation("com.karumi:dexter:6.2.2")
+    implementation("com.karumi:dexter:6.2.3")
 
     implementation("com.github.davidmigloz:number-keyboard:3.1.0")
 }
