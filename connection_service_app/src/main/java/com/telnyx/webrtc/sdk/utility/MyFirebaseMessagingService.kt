@@ -2,7 +2,7 @@
  * Copyright © 2021 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.common.notification
+package com.telnyx.webrtc.sdk.utility
 
 import android.content.Intent
 import android.net.Uri

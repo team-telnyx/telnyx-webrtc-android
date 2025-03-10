@@ -279,8 +279,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeSocketResponses() {
-        mainViewModel.initTelnyxClient(this)
-        mainViewModel.getSocketResponse()?.observe(
+        mainViewModel.getSocketResponse().observe(
             this,
             object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
