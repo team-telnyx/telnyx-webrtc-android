@@ -51,6 +51,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         FirebaseApp.initializeApp(this)
         lifecycle.addObserver(this)
 
+        lifecycleScope.launch {
+            telnyxViewModel.initProfile(this@MainActivity)
+            checkPermission()
+            handleCallNotification(intent)
+        }
+
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -69,12 +75,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         appBarConfiguration = AppBarConfiguration(
             setOf(R.id.loginFragment)
         )
-
-        lifecycleScope.launch {
-            telnyxViewModel.initProfile(this@MainActivity)
-            checkPermission()
-            handleCallNotification(intent)
-        }
         
         setupGestureDetector()
         bindEvents()

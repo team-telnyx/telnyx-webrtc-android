@@ -4,6 +4,7 @@ import java.util.*
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -13,7 +14,7 @@ android {
     buildFeatures.buildConfig  = true
 
     defaultConfig {
-        applicationId = "org.telnyx.webrtc.xmlapp"
+        applicationId = "org.telnyx.webrtc.xml_app"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
