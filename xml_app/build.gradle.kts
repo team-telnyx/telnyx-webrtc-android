@@ -66,6 +66,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation(project(":telnyx_common"))
     implementation("androidx.test.espresso:espresso-contrib:3.6.1")
+    implementation("androidx.test:rules:1.6.1")
     testImplementation("junit:junit:4.13.2")
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.6")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.6")
