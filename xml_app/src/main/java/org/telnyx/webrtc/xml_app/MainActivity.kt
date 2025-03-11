@@ -21,6 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
+import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
@@ -47,6 +48,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<AppCompatActivity>.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         lifecycle.addObserver(this)
 
         enableEdgeToEdge()
@@ -68,8 +70,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             setOf(R.id.loginFragment)
         )
 
-        checkPermission()
-        handleCallNotification(intent)
+        lifecycleScope.launch {
+            telnyxViewModel.initProfile(this@MainActivity)
+            checkPermission()
+            handleCallNotification(intent)
+        }
+        
         setupGestureDetector()
         bindEvents()
     }
