@@ -354,6 +354,13 @@ data class Call(
     fun setCallRecovering() {
         mutableCallStateFlow.value  = CallState.RECONNECTING
     }
-
+    
+    /**
+     * Sets the call state to ERROR when reconnection timeout occurs
+     */
+    fun setReconnectionTimeout() {
+        mutableCallStateFlow.value = CallState.ERROR
+        Timber.e("Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/1000} seconds")
+    }
 
 }
