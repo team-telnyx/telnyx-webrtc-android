@@ -62,5 +62,5 @@ jobs:
             --type instrumentation \
             --app compose_app/build/outputs/apk/debug/compose_app-debug.apk \
             --test compose_app/build/outputs/apk/androidTest/debug/compose_app-debug-androidTest.apk \
-            --device model=Pixel2,version=30,locale=en,orientation=portrait \
+            --device model=akita,version=34,locale=en,orientation=portrait \
             --timeout 30m
