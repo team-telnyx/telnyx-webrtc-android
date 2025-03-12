@@ -1,0 +1,127 @@
+// Note the contents of this file are intentially invalid and should not be used in a production environment
+{
+  "project_info": {
+    "project_number": "894569387136",
+    "project_id": "telnyx-webrtc-notifications",
+    "storage_bucket": "telnyx-webrtc-notifications.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894569387136:android:3c87242281f66d64c18265",
+        "android_client_info": {
+          "package_name": "com.telnyx.pushnotifications.call"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": ""
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894569387136:android:f2deb7d5d5b8b131c18265",
+        "android_client_info": {
+          "package_name": "com.telnyx.telnyx_flutter_webrtc"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": ""
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894569387136:android:ba55aa224418e38cc18265",
+        "android_client_info": {
+          "package_name": "com.telnyx.webrtc.sdk"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": ""
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894569387136:android:0f40f0c9dc339ee1c18265",
+        "android_client_info": {
+          "package_name": "org.telnyx.webrtc.compose_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": ""
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894569387136-sfen79l81ptf6b884d8qma14r34uhred.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "2"
+}
