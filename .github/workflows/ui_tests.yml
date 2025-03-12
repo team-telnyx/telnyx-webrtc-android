@@ -53,7 +53,7 @@ jobs:
             --type instrumentation \
             --app xml_app/build/outputs/apk/debug/xml_app-debug.apk \
             --test xml_app/build/outputs/apk/androidTest/debug/xml_app-debug-androidTest.apk \
-            --device model=Pixel2,version=30,locale=en,orientation=portrait \
+            --device model=akita,version=34,locale=en,orientation=portrait \
             --timeout 30m
 
       - name: Run Compose App Tests on Firebase Test Lab
