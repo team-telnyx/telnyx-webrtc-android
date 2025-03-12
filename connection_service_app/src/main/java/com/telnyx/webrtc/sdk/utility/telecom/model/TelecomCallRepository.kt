@@ -51,9 +51,11 @@ class TelecomCallRepository @Inject constructor(
             SocketMethod.LOGIN.methodName -> {
                 Timber.i("Repository: Logged in")
             }
+
             SocketMethod.INVITE.methodName -> {
                 Timber.i("Repository: Incoming call")
             }
+
             SocketMethod.ANSWER.methodName -> {
                 // When an invite you’ve sent is answered:
                 Timber.i("Repository: Call answered")
@@ -61,6 +63,7 @@ class TelecomCallRepository @Inject constructor(
                     _currentCall.update { (it as TelecomCall.Registered).copy(isActive = true) }
                 }
             }
+
             SocketMethod.BYE.methodName -> {
                 Timber.i("Repository: Call ended")
                 if (_currentCall.value is TelecomCall.Registered) {
@@ -285,7 +288,7 @@ class TelecomCallRepository @Inject constructor(
     }
 
     private suspend fun CallControlScope.doAnswer() {
-        when (answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)) {
+        when (val result = answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)) {
             is CallControlResult.Success -> {
                 onIsCallAnswered(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)
 
@@ -297,6 +300,7 @@ class TelecomCallRepository @Inject constructor(
             }
 
             is CallControlResult.Error -> {
+                Timber.e("Error answering call: ${result.errorCode}")
                 updateCurrentCall {
                     TelecomCall.Unregistered(
                         id = id,

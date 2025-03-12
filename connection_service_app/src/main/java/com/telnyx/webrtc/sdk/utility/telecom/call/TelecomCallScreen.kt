@@ -60,11 +60,12 @@ fun UnifiedCallUI(
     acceptCall: Boolean?,
     onCallFinished: () -> Unit
 ) {
-    if (acceptCall == true) {
-        val call = repository.getCurrentRegisteredCall()
-        call?.processAction(TelecomCallAction.Answer)
+    LaunchedEffect(acceptCall) {
+        if (acceptCall == true) {
+            val call = repository.getCurrentRegisteredCall()
+            call?.processAction(TelecomCallAction.Answer)
+        }
     }
-
     // Observe the current Telecom call
     when (val call = repository.currentCall.collectAsState().value) {
         is TelecomCall.None, is TelecomCall.Unregistered -> {
