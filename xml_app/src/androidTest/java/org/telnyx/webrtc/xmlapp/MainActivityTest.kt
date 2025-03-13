@@ -32,8 +32,6 @@ class MainActivityTest {
         android.Manifest.permission.RECORD_AUDIO
     )
 
-    private val idlingResource = ElapsedTimeIdlingResource(10000)
-
     @Test
     fun addSIPCredentialsAndConnectTest() {
         onView(withId(R.id.usernameTextField))
@@ -84,8 +82,6 @@ class MainActivityTest {
             
         IdlingRegistry.getInstance().unregister(connectIdlingResource)
 
-        IdlingRegistry.getInstance().unregister(idlingResource)
-
     }
 
     @Test
@@ -110,8 +106,6 @@ class MainActivityTest {
             .perform(clearText(), typeText(BuildConfig.TEST_SIP_DEST_NUMBER), closeSoftKeyboard())
             
         IdlingRegistry.getInstance().unregister(connectIdlingResource)
-
-        IdlingRegistry.getInstance().unregister(idlingResource)
 
         onView(withId(R.id.call))
             .check(matches(isDisplayed()))
