@@ -156,7 +156,5 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        onView(withId(R.id.disconnect))
-            .perform(click())
     }
 }
