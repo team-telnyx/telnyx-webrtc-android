@@ -1,17 +1,17 @@
 # Connection Service App Sample
 
-This sample application demonstrates how to use the Telnyx WebRTC SDK with Android's ConnectionService API for native call integration.
+This sample application demonstrates how to use the Telnyx WebRTC SDK with Android's ConnectionService API for native call integration to be integrated into the built-in phone app
 
+More details about the Connection Service API can be found [here](https://developer.android.com/reference/android/telecom/ConnectionService).
+
+## Important Classes:
+
+- **TelecomCallActivity**: The activity to be launched when there is an active call. It handles the UI logic based on the current call.
+- **TelecomCallService**: A service that manages the logic of the call and communicates with the Telecom SDK.
+- **TelecomCallRepository**: The actual logic to communicate with the Telecom SDK as well as the Telnyx Stack via the TelnyxCallManager.
+- **TelecomCallManager**: A simple manager to wrap the TelnyxClient and track the active call state.
+- 
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
-[![Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/scheduled_unit_test.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/scheduled_unit_test.yml)
-
-## Project structure: 
-
-- SDK project: sdk module, containing all Telnyx SDK components as well as tests.
-- Demo application: app module, containing a sample demo application utilizing the sdk module. 
-       <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/114007708-78bb8a80-9859-11eb-9667-dfc2ef464ac1.PNG">
-         </p>
 
 ## Project Setup:
 
@@ -31,10 +31,7 @@ This sample application demonstrates how to use the Telnyx WebRTC SDK with Andro
  <p align="center">
                <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif">
             </p>
-            
 
- ## Using Jetpack Compose?
- Have a look at our Jetpack Compose reference application [here](https://github.com/team-telnyx/Telnyx-Android-Jetpack-Compose-WebRTC-Sample)
 
 ## SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
