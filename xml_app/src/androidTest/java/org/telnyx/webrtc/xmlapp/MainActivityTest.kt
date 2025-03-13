@@ -39,11 +39,15 @@ class MainActivityTest {
 
         onView(withId(R.id.switchProfile))
             .perform(click())
-            
+
+        val switchIdlingResource = ElapsedTimeIdlingResource(5000)
+        IdlingRegistry.getInstance().register(switchIdlingResource)
+
         onView(withId(R.id.addNewProfile))
-            .perform(waitUntilVisible(2000))
             .check(matches(isDisplayed()))
             .perform(click())
+
+        IdlingRegistry.getInstance().unregister(switchIdlingResource)
 
         onView(withId(R.id.usernameTextField))
             .check(matches(isDisplayed()))
