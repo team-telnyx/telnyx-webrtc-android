@@ -95,7 +95,10 @@ class TelnyxClient(
         const val RECONNECT_DELAY: Long = 1000
         
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
-        const val RECONNECT_TIMEOUT: Long = 10000
+        const val RECONNECT_TIMEOUT: Long = 60000
+
+        /** Timeout dividend*/
+        const val TIMEOUT_DIVISOR: Long = 1000
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -1345,7 +1348,7 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT/1000} seconds"))
+                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds"))
 
                     // Reset reconnection state
                     reconnecting = false
@@ -1355,7 +1358,7 @@ class TelnyxClient(
                 // If we're no longer reconnecting, cancel the timer
                 cancelReconnectionTimer()
             }
-        }, RECONNECT_TIMEOUT) // Check every second
+        }, credentialSessionConfig?.reconnectionTimeout ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT) // Check every second
     }
     
     /**

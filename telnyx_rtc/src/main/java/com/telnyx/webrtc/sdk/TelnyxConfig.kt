@@ -46,7 +46,8 @@ data class CredentialConfig(
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000
 ) : TelnyxConfig()
 
 /**
@@ -73,5 +74,6 @@ data class TokenConfig(
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000
 ) : TelnyxConfig()
