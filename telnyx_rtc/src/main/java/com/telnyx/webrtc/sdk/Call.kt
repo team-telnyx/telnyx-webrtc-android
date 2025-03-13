@@ -16,6 +16,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -360,7 +361,7 @@ data class Call(
      */
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
-        Timber.e("Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/1000} seconds")
+        Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/1000} seconds")
     }
 
 }
