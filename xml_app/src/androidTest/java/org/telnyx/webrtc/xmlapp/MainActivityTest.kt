@@ -41,8 +41,9 @@ class MainActivityTest {
 
         onView(withId(R.id.switchProfile))
             .perform(click())
-
+            
         onView(withId(R.id.addNewProfile))
+            .perform(waitUntilVisible(2000))
             .check(matches(isDisplayed()))
             .perform(click())
 
@@ -73,11 +74,15 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        IdlingRegistry.getInstance().register(idlingResource)
+        // Wait 10 seconds between clicking connect and checking disconnect visibility
+        val connectIdlingResource = ElapsedTimeIdlingResource(10000)
+        IdlingRegistry.getInstance().register(connectIdlingResource)
 
         onView(withId(R.id.disconnect))
             .check(matches(isDisplayed()))
             .perform(click())
+            
+        IdlingRegistry.getInstance().unregister(connectIdlingResource)
 
         IdlingRegistry.getInstance().unregister(idlingResource)
 
@@ -96,11 +101,15 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        IdlingRegistry.getInstance().register(idlingResource)
+        // Wait 10 seconds between clicking connect and checking callInput visibility
+        val connectIdlingResource = ElapsedTimeIdlingResource(10000)
+        IdlingRegistry.getInstance().register(connectIdlingResource)
 
         onView(withId(R.id.callInput))
             .check(matches(isDisplayed()))
             .perform(clearText(), typeText(BuildConfig.TEST_SIP_DEST_NUMBER), closeSoftKeyboard())
+            
+        IdlingRegistry.getInstance().unregister(connectIdlingResource)
 
         IdlingRegistry.getInstance().unregister(idlingResource)
 
