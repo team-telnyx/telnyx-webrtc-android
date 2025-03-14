@@ -108,7 +108,7 @@ class TelnyxClient(
     private var reconnecting = false
     
     // Reconnection timeout timer
-    private var reconnectionTimer: Timer? = null
+    private var reconnectTimeOutJob: Job? = null
 
     // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
@@ -1334,12 +1334,11 @@ class TelnyxClient(
     private fun startReconnectionTimer() {
         Logger.d(message = "Starting reconnection timer")
         // Cancel any existing timer
-        reconnectionTimer?.cancel()
-        reconnectionTimer = null
+        reconnectTimeOutJob?.cancel()
+        reconnectTimeOutJob = null
         // Create a new timer to check for timeout
-        reconnectionTimer = Timer()
-        reconnectionTimer?.schedule(timerTask {
-            // Check if we're still reconnecting
+        reconnectTimeOutJob = CoroutineScope(Dispatchers.Default).launch {
+            delay( credentialSessionConfig?.reconnectionTimeout ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT)
             if (reconnecting) {
                 Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
                 reconnecting = false
@@ -1358,7 +1357,7 @@ class TelnyxClient(
                 // If we're no longer reconnecting, cancel the timer
                 cancelReconnectionTimer()
             }
-        }, credentialSessionConfig?.reconnectionTimeout ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT) // Check every second
+        }
     }
     
     /**
@@ -1366,8 +1365,8 @@ class TelnyxClient(
      */
     private fun cancelReconnectionTimer() {
         Logger.d(message = "Cancelling reconnection timer")
-        reconnectionTimer?.cancel()
-        reconnectionTimer = null
+        reconnectTimeOutJob?.cancel()
+        reconnectTimeOutJob = null
     }
 
     override fun onConnectionEstablished() {

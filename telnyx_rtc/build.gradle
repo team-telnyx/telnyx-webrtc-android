@@ -14,9 +14,9 @@ apply plugin: 'maven-publish'
 android {
     namespace 'com.telnyx.webrtc.sdk.telnyx_rtc'
 }
- 01
+
 def getVersionName = { ->
-    return "1.4.4"
+    return "1.6.0"
 }
 
 def getArtifactId = { ->

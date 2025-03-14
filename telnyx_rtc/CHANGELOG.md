@@ -1,3 +1,8 @@
+## [1.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.5.0) (2025-03-07)
+
+### Enhancement
+- Added reconnect timeout functionality to handle call reconnection failures.
+
 ## [1.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.5.0) (2025-03-07)
 
 ### Enhancement
