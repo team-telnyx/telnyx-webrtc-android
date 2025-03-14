@@ -289,17 +289,12 @@ class TelnyxViewModel : ViewModel() {
                 // We have an active call, don't disconnect
                 Timber.d("Socket disconnect prevented: Active call in progress")
                 
-                // Start foreground service to keep audio alive and show ongoing call notification
-                currentCall?.let { call ->
-                    startCallService(viewContext, call)
-                }
-                
                 TelnyxCommon.getInstance().setHandlingPush(false)
             }
         }
     }
 
-    private fun startCallService(viewContext: Context, call: Call) {
+    private fun startCallService(viewContext: Context, inviteResponse: InviteResponse?, callId: UUID) {
         // Check if the service is already running
         if (CallForegroundService.isServiceRunning(viewContext)) {
             Timber.d("CallForegroundService is already running, not starting again")
@@ -307,9 +302,9 @@ class TelnyxViewModel : ViewModel() {
         }
         
         val pushMetaData = PushMetaData(
-            callerName = call.inviteResponse?.callerIdName ?: "Unknown Caller",
-            callerNumber = call.inviteResponse?.callerIdNumber ?: "Unknown Number",
-            callId = call.callId.toString()
+            callerName = inviteResponse?.callerIdName ?: "Active Call",
+            callerNumber = inviteResponse?.callerIdNumber ?: "",
+            callId = callId.toString()
         )
 
         try {
@@ -401,12 +396,15 @@ class TelnyxViewModel : ViewModel() {
         } else {
             _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
         }
+        startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, inviteResponse, inviteResponse.callId)
         notificationAcceptHandlingUUID = null
         _isLoading.value = false
     }
 
     private fun handleAnswer(data: ReceivedMessageBody) {
+        val answerResponse = data.result as AnswerResponse
         _uiState.value = TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
+        startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, null, answerResponse.callId)
     }
 
     private fun handleRinging(data: ReceivedMessageBody) {
