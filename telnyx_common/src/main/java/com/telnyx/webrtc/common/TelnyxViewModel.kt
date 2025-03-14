@@ -300,6 +300,12 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun startCallService(viewContext: Context, call: Call) {
+        // Check if the service is already running
+        if (CallForegroundService.isServiceRunning(viewContext)) {
+            Timber.d("CallForegroundService is already running, not starting again")
+            return
+        }
+        
         val pushMetaData = PushMetaData(
             callerName = call.inviteResponse?.callerIdName ?: "Unknown Caller",
             callerNumber = call.inviteResponse?.callerIdNumber ?: "Unknown Number",
@@ -310,8 +316,8 @@ class TelnyxViewModel : ViewModel() {
             // Start the foreground service
             CallForegroundService.startService(viewContext, pushMetaData)
             Timber.d("Started CallForegroundService for ongoing call")
-        } catch (e: IOException) {
-            Timber.e(e, "Failed to start CallForegroundService")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to start CallForegroundService: ${e.message}")
         }
     }
 
@@ -420,11 +426,13 @@ class TelnyxViewModel : ViewModel() {
             try {
                 val context = TelnyxCommon.getInstance().telnyxClient?.context
                 context?.let {
-                    CallForegroundService.stopService(it)
-                    Timber.d("Stopped CallForegroundService after call ended by remote party")
+                    if (CallForegroundService.isServiceRunning(it)) {
+                        CallForegroundService.stopService(it)
+                        Timber.d("Stopped CallForegroundService after call ended by remote party")
+                    }
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Failed to stop CallForegroundService")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to stop CallForegroundService: ${e.message}")
             }
             
             _uiState.value = currentCall?.let {
