@@ -7,6 +7,13 @@
             android:name=".notification.CallNotificationReceiver"
             android:enabled="true"
             android:exported="false" />
+            
+        <!-- Register the CallForegroundService -->
+        <service
+            android:name=".service.CallForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
     </application>
 
 </manifest>

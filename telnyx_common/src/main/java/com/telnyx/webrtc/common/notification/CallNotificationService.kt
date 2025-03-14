@@ -34,9 +34,9 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
 ) {
 
     companion object {
-        private const val CHANNEL_ID = "telnyx_call_notification_channel"
-        private const val CHANNEL_ONGOING_ID = "telnyx_call_ongoing_channel"
-        private const val NOTIFICATION_ID = 1234
+        const val CHANNEL_ID = "telnyx_call_notification_channel"
+        const val CHANNEL_ONGOING_ID = "telnyx_call_ongoing_channel"
+        const val NOTIFICATION_ID = 1234
         const val NOTIFICATION_ACTION = "NOTIFICATION_ACTION"
 
         enum class NotificationState(val value: Int) {
@@ -177,13 +177,39 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             .build()
     }
 
-    private fun createOngoingCallNotification(txPushMetaData: PushMetaData): Notification {
-        val targetActivityClass = Class.forName(getActivityClassName())
+    /**
+     * Create an ongoing call notification
+     * This is used by the CallForegroundService to show a persistent notification
+     * during active calls when the app is minimized
+     */
+    fun createOngoingCallNotification(txPushMetaData: PushMetaData): Notification {
+        // Get the target activity class
+        val activityClassName = getActivityClassName()
+        val targetActivityClass = try {
+            if (activityClassName.isNotEmpty()) {
+                Class.forName(activityClassName)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get target activity class")
+            null
+        }
         
         // Intent for full screen activity
-        val fullScreenIntent = Intent(context, targetActivityClass).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        val fullScreenIntent = if (targetActivityClass != null) {
+            Intent(context, targetActivityClass).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+        } else {
+            // Fallback to a generic launcher intent if we can't get the specific activity
+            Intent().apply {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
         }
+        
         val fullScreenPendingIntent = PendingIntent.getActivity(
             context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE
         )
@@ -225,10 +251,15 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     }
 
     private fun getActivityClassName(): String {
-        val ai = context.packageManager.getServiceInfo(
-            ComponentName(context, NotificationsService::class.java),
-            PackageManager.GET_META_DATA
-        )
-        return ai.metaData.getString("activity_class_name") ?: ""
+        return try {
+            val ai = context.packageManager.getServiceInfo(
+                ComponentName(context, NotificationsService::class.java),
+                PackageManager.GET_META_DATA
+            )
+            ai.metaData?.getString("activity_class_name") ?: ""
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get activity class name")
+            ""
+        }
     }
 }
