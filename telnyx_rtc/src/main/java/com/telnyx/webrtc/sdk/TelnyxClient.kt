@@ -93,6 +93,12 @@ class TelnyxClient(
 
         /** Delay in milliseconds before attempting to reconnect */
         const val RECONNECT_DELAY: Long = 1000
+        
+        /** Timeout in milliseconds for reconnection attempts (60 seconds) */
+        const val RECONNECT_TIMEOUT: Long = 60000
+
+        /** Timeout dividend*/
+        const val TIMEOUT_DIVISOR: Long = 1000
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -100,6 +106,9 @@ class TelnyxClient(
     private val iceCandidateList: MutableList<String> = mutableListOf()
 
     private var reconnecting = false
+    
+    // Reconnection timeout timer
+    private var reconnectTimeOutJob: Job? = null
 
     // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
@@ -422,7 +431,6 @@ class TelnyxClient(
             resetGatewayCounters()
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
                 runBlocking { reconnectToSocket() }
-                reconnecting = false
             }
         }
 
@@ -442,7 +450,6 @@ class TelnyxClient(
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
-                    reconnecting = false
                 }
             }, RECONNECT_DELAY)
         }
@@ -454,6 +461,8 @@ class TelnyxClient(
      * @see [TelnyxConfig]
      */
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
+        // Start the reconnection timer to track timeout
+        startReconnectionTimer()
 
         //Disconnect active calls for reconnection
         getActiveCalls().forEach { (_, call) ->
@@ -478,14 +487,12 @@ class TelnyxClient(
             // Socket is now the reconnectionSocket
             socket = socketReconnection!!
 
-
             if (providedHostAddress == null) {
                 providedHostAddress =
                     if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
                     else
                         Config.TELNYX_PROD_HOST_ADDRESS
             }
-
 
             if (voiceSDKID != null) {
                 pushMetaData = PushMetaData(
@@ -1319,6 +1326,48 @@ class TelnyxClient(
         registrationRetryCounter = 0
         connectRetryCounter = 0
     }
+    
+    /**
+     * Starts the reconnection timer to track reconnection attempts.
+     * If reconnection takes longer than RECONNECT_TIMEOUT, it will trigger an error.
+     */
+    private fun startReconnectionTimer() {
+        Logger.d(message = "Starting reconnection timer")
+        // Cancel any existing timer
+        reconnectTimeOutJob?.cancel()
+        reconnectTimeOutJob = null
+        // Create a new timer to check for timeout
+        reconnectTimeOutJob = CoroutineScope(Dispatchers.Default).launch {
+            delay( credentialSessionConfig?.reconnectionTimeout ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT)
+            if (reconnecting) {
+                Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
+                reconnecting = false
+                // Handle the timeout by updating call states and notifying the user
+                Handler(Looper.getMainLooper()).post {
+                    getActiveCalls().forEach { (_, call) ->
+                        call.setReconnectionTimeout()
+                    }
+                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds"))
+
+                    // Reset reconnection state
+                    reconnecting = false
+                    cancelReconnectionTimer()
+                }
+            } else {
+                // If we're no longer reconnecting, cancel the timer
+                cancelReconnectionTimer()
+            }
+        }
+    }
+    
+    /**
+     * Cancels the reconnection timer if it's running.
+     */
+    private fun cancelReconnectionTimer() {
+        Logger.d(message = "Cancelling reconnection timer")
+        reconnectTimeOutJob?.cancel()
+        reconnectTimeOutJob = null
+    }
 
     override fun onConnectionEstablished() {
         Logger.d(message = Logger.formatMessage("[%s] :: onConnectionEstablished", this@TelnyxClient.javaClass.simpleName))
@@ -1647,7 +1696,8 @@ class TelnyxClient(
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {
-
+        // reset reconnecting state
+        reconnecting = false
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 

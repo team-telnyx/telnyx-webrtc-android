@@ -16,6 +16,7 @@ import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.utilities.Logger
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.DataChannel
@@ -382,18 +383,19 @@ internal class Peer(
      * Closes and disposes of current [PeerConnection]
      */
     fun disconnect() {
-        peerConnection?.close()
-        peerConnection?.dispose()
-        peerConnection = null
+        try {
+            peerConnection?.close()
+            peerConnection?.dispose()
+            peerConnection = null
+        }catch (e: IllegalStateException){
+            Logger.e(message = e.toString())
+        }
     }
 
     fun release() {
         if (peerConnection != null) {
             disconnect()
             peerConnectionFactory.dispose()
-        }
-        if (isDebugStats){
-            //stopTimer()
         }
     }
 
