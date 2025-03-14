@@ -50,6 +50,12 @@
                 android:name="activity_class_name"
                 android:value="org.telnyx.webrtc.compose_app.MainActivity" />
         </service>
+        
+        <!-- Register the CallNotificationReceiver -->
+        <receiver
+            android:name="com.telnyx.webrtc.common.notification.CallNotificationReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>

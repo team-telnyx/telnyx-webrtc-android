@@ -8,11 +8,15 @@ import android.content.Intent
 import android.os.Build
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.google.gson.Gson
+import com.telnyx.webrtc.sdk.model.PushMetaData
 import org.json.JSONObject
 import timber.log.Timber
 
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
+
+    private var callNotificationService: CallNotificationService? = null
 
     /**
      * Called when message is received.
@@ -40,13 +44,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
+        // Initialize CallNotificationService if needed
+        if (callNotificationService == null) {
+            callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+        }
+
+        // Try to use the new CallNotificationService if available
+        try {
+            val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
+            telnyxPushMetadata?.let {
+                // Show incoming call notification using CallStyle
+                callNotificationService?.showIncomingCallNotification(it)
+                return
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error showing call notification, falling back to legacy notification")
+        }
+
+        // Fallback to legacy notification service
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
             putExtra("metadata", metadata)
         }
         startMessagingService(serviceIntent)
     }
-
-
 
     /**
      * Called if InstanceID token is updated. This may occur if the security of
@@ -56,7 +76,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         sendRegistrationToServer(token)
     }
-
 
     /**
      * Persist token to third-party servers.
