@@ -8,6 +8,8 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
 import android.os.Binder
 import android.os.Build
@@ -124,7 +126,11 @@ class CallForegroundService : Service() {
             // Show the ongoing call notification
             callNotificationService?.let { service ->
                 val notification = service.createOngoingCallNotification(metadata)
-                startForeground(CallNotificationService.NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_PHONE_CALL)
+                startForeground(
+                    CallNotificationService.NOTIFICATION_ID,
+                    notification,
+                    FOREGROUND_SERVICE_TYPE_PHONE_CALL or FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
             }
         }
     }

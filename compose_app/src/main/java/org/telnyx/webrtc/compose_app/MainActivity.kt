@@ -100,7 +100,8 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             Dexter.withContext(this)
                 .withPermissions(
                     android.Manifest.permission.POST_NOTIFICATIONS,
-                    android.Manifest.permission.RECORD_AUDIO
+                    android.Manifest.permission.RECORD_AUDIO,
+                    android.Manifest.permission.FOREGROUND_SERVICE_MICROPHONE
                 )
                 .withListener(object : MultiplePermissionsListener {
                     override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
