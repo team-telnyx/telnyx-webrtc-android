@@ -8,21 +8,19 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.RingtoneManager
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.getSystemService
-import com.google.gson.Gson
 import com.telnyx.webrtc.common.R
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import timber.log.Timber
@@ -30,7 +28,10 @@ import timber.log.Timber
 /**
  * Service for handling call notifications using the modern CallStyle API
  */
-class CallNotificationService {
+class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
+    private val context: Context,
+    private val notificationReceiverClass: Class<*>
+) {
 
     companion object {
         private const val CHANNEL_ID = "telnyx_call_notification_channel"
@@ -42,10 +43,6 @@ class CallNotificationService {
             ANSWER(0),
             REJECT(1),
             CANCEL(2);
-
-            companion object {
-                fun valueOf(value: Int) = values().find { it.value == value }
-            }
         }
 
         /**
@@ -56,20 +53,16 @@ class CallNotificationService {
         }
     }
 
-    private val notificationManager: NotificationManager
-    private val context: Context
-    private val notificationReceiverClass: Class<*>
+    private val notificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    constructor(context: Context, notificationReceiverClass: Class<*>) {
-        this.context = context
-        this.notificationReceiverClass = notificationReceiverClass
-        this.notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    init {
         createNotificationChannels()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannels() {
         val managerCompat = NotificationManagerCompat.from(context)
-        
+
         // Create incoming call channel
         val incomingCallChannel = NotificationChannel(
             CHANNEL_ID,
@@ -87,7 +80,7 @@ class CallNotificationService {
             enableLights(true)
             enableVibration(true)
         }
-        
+
         // Create ongoing call channel
         val ongoingCallChannel = NotificationChannel(
             CHANNEL_ONGOING_ID,
