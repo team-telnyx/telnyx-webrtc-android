@@ -109,7 +109,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
         topBar = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
             ) {
                 Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
 
@@ -162,10 +162,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 bottom = it.calculateBottomPadding(),
                 top = it.calculateTopPadding()
             ),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
         ) {
 
-            Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
+            Spacer(modifier = Modifier.size(Dimens.smallSpacing))
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
@@ -556,7 +556,7 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
 
 @Composable
 fun SessionItem(sessionId: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
         RegularText(text = stringResource(id = R.string.session_id))
         RegularText(text = sessionId)
     }
@@ -564,7 +564,7 @@ fun SessionItem(sessionId: String) {
 
 @Composable
 fun ConnectionState(state: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
         RegularText(text = stringResource(id = R.string.socket))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
@@ -590,7 +590,7 @@ fun ConnectionState(state: Boolean) {
 @Composable
 fun CurrentCallState(state: CallState) {
     if (state == CallState.DONE) return
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
         RegularText(text = stringResource(id = R.string.call_state))
         RegularText(text = state.name)
     }

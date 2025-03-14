@@ -92,3 +92,4 @@ connection_service_app/google-services.json
 
 # system
 .DS_Store
+/platform-samples/

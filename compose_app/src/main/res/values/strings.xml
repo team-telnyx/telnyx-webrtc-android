@@ -37,7 +37,7 @@
     <string name="off">Off</string>
     <string name="on">On</string>
     <string name="audio_settings">Audio Output Device</string>
-    <string name="call_state">Call State:</string>
+    <string name="call_state">Call State</string>
     <string name="show_wsmessages">WsMessages</string>
     <string name="clear_wsmessages">Clear WsMessages</string>
     <string name="share_wsmessages">Share WsMessages</string>
