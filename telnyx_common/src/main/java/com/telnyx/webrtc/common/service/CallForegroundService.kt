@@ -67,7 +67,11 @@ class CallForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         Timber.d("CallForegroundService created")
-        callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+        } else {
+            Timber.e("CallForegroundService requires Android Oreo or higher")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -82,8 +86,8 @@ class CallForegroundService : Service() {
                     val currentCall = TelnyxCommon.getInstance().currentCall
                     if (currentCall != null) {
                         pushMetaData = PushMetaData(
-                            callerName = currentCall.callerName ?: "Unknown Caller",
-                            callerNumber = currentCall.callerNumber ?: "",
+                            callerName = currentCall.inviteResponse?.callerIdName ?: "Unknown Caller",
+                            callerNumber = currentCall.inviteResponse?.callerIdNumber ?: "Unknown Number",
                             callId = currentCall.callId.toString()
                         )
                         startForeground()

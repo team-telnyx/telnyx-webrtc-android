@@ -45,7 +45,7 @@ class CallNotificationReceiver : BroadcastReceiver() {
                 }
                 else -> {
                     Timber.d("Call cancelled from notification")
-                    handleCancelCall(context)
+                    handleCancelCall()
                 }
             }
             
@@ -92,19 +92,10 @@ class CallNotificationReceiver : BroadcastReceiver() {
         }
     }
     
-    private fun handleCancelCall(context: Context) {
+    private fun handleCancelCall() {
         // Handle call cancellation
         val currentCall = TelnyxCommon.getInstance().currentCall
-        if (currentCall != null) {
-            // If there's an active call, start the main activity to handle ending the call
-            val targetActivityClass = getTargetActivityClass(context)
-            targetActivityClass?.let { activityClass ->
-                val intent = Intent(context, activityClass).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                }
-                context.startActivity(intent)
-            }
-        }
+        currentCall?.endCall(currentCall.callId)
     }
     
     private fun getTargetActivityClass(context: Context): Class<*>? {
