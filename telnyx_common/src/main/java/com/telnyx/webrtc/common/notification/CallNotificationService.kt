@@ -53,7 +53,8 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         }
     }
 
-    private val notificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val notificationManager: NotificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     init {
         createNotificationChannels()
@@ -87,7 +88,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             "Ongoing Call Notifications",
             NotificationManager.IMPORTANCE_LOW
         )
-        
+
         managerCompat.createNotificationChannels(listOf(incomingCallChannel, ongoingCallChannel))
     }
 
@@ -116,7 +117,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
 
     private fun createIncomingCallNotification(txPushMetaData: PushMetaData): Notification {
         val targetActivityClass = Class.forName(getActivityClassName())
-        
+
         // Intent for full screen activity
         val fullScreenIntent = Intent(context, targetActivityClass).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -124,7 +125,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         val fullScreenPendingIntent = PendingIntent.getActivity(
             context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE
         )
-        
+
         // Answer call intent
         val answerIntent = Intent(context, notificationReceiverClass)
         answerIntent.putExtra(NOTIFICATION_ACTION, NotificationState.ANSWER.ordinal)
@@ -133,12 +134,12 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             txPushMetaData.toJson()
         )
         val answerPendingIntent = PendingIntent.getBroadcast(
-            context, 
+            context,
             MyFirebaseMessagingService.ANSWER_REQUEST_CODE,
-            answerIntent, 
+            answerIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        
+
         // Reject call intent
         val rejectIntent = Intent(context, notificationReceiverClass)
         rejectIntent.putExtra(NOTIFICATION_ACTION, NotificationState.REJECT.ordinal)
@@ -147,18 +148,18 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             txPushMetaData.toJson()
         )
         val rejectPendingIntent = PendingIntent.getBroadcast(
-            context, 
+            context,
             MyFirebaseMessagingService.REJECT_REQUEST_CODE,
-            rejectIntent, 
+            rejectIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        
+
         // Create caller person
         val caller = Person.Builder()
             .setName(txPushMetaData.callerName ?: "Unknown Caller")
             .setImportant(true)
             .build()
-        
+
         // Build notification
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
@@ -195,7 +196,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             Timber.e(e, "Failed to get target activity class")
             null
         }
-        
+
         // Intent for full screen activity
         val fullScreenIntent = if (targetActivityClass != null) {
             Intent(context, targetActivityClass).apply {
@@ -209,11 +210,11 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
         }
-        
+
         val fullScreenPendingIntent = PendingIntent.getActivity(
             context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE
         )
-        
+
         // End call intent
         val endCallIntent = Intent(context, notificationReceiverClass)
         endCallIntent.putExtra(NOTIFICATION_ACTION, NotificationState.CANCEL.ordinal)
@@ -222,18 +223,18 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             txPushMetaData.toJson()
         )
         val endCallPendingIntent = PendingIntent.getBroadcast(
-            context, 
-            1202,
-            endCallIntent, 
+            context,
+            MyFirebaseMessagingService.END_CALL_REQUEST_CODE,
+            endCallIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        
+
         // Create caller person
         val caller = Person.Builder()
             .setName(txPushMetaData.callerName ?: "Unknown Caller")
             .setImportant(true)
             .build()
-        
+
         // Build notification
         return NotificationCompat.Builder(context, CHANNEL_ONGOING_ID)
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
@@ -257,7 +258,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
                 PackageManager.GET_META_DATA
             )
             ai.metaData?.getString("activity_class_name") ?: ""
-        } catch (e: Exception) {
+        } catch (e: PackageManager.NameNotFoundException) {
             Timber.e(e, "Failed to get activity class name")
             ""
         }

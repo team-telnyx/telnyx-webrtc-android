@@ -291,23 +291,27 @@ class TelnyxViewModel : ViewModel() {
                 
                 // Start foreground service to keep audio alive and show ongoing call notification
                 currentCall?.let { call ->
-                    val pushMetaData = PushMetaData(
-                        callerName = call.inviteResponse?.callerIdName ?: "Unknown Caller",
-                        callerNumber = call.inviteResponse?.callerIdNumber ?: "Unknown Number",
-                        callId = call.callId.toString()
-                    )
-                    
-                    try {
-                        // Start the foreground service
-                        CallForegroundService.startService(viewContext, pushMetaData)
-                        Timber.d("Started CallForegroundService for ongoing call")
-                    } catch (e: IOException) {
-                        Timber.e(e, "Failed to start CallForegroundService")
-                    }
+                    startCallService(viewContext, call)
                 }
                 
                 TelnyxCommon.getInstance().setHandlingPush(false)
             }
+        }
+    }
+
+    private fun startCallService(viewContext: Context, call: Call) {
+        val pushMetaData = PushMetaData(
+            callerName = call.inviteResponse?.callerIdName ?: "Unknown Caller",
+            callerNumber = call.inviteResponse?.callerIdNumber ?: "Unknown Number",
+            callId = call.callId.toString()
+        )
+
+        try {
+            // Start the foreground service
+            CallForegroundService.startService(viewContext, pushMetaData)
+            Timber.d("Started CallForegroundService for ongoing call")
+        } catch (e: IOException) {
+            Timber.e(e, "Failed to start CallForegroundService")
         }
     }
 

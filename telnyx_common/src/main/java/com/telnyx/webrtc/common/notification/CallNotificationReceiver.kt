@@ -106,7 +106,7 @@ class CallNotificationReceiver : BroadcastReceiver() {
             )
             val activityClassName = serviceInfo.metaData.getString("activity_class_name") ?: return null
             Class.forName(activityClassName)
-        } catch (e: Exception) {
+        } catch (e: ClassNotFoundException) {
             Timber.e(e, "Failed to get target activity class")
             null
         }

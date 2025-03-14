@@ -99,6 +99,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val TELNYX_CHANNEL_ID = "telnyx_channel"
         const val ANSWER_REQUEST_CODE = 0
         const val REJECT_REQUEST_CODE = 1
+        const val END_CALL_REQUEST_CODE = 1202
 
         const val TX_PUSH_METADATA = "tx_push_metadata"
         const val Missed_Call = "Missed call!"

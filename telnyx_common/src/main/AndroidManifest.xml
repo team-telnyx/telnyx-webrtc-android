@@ -1,19 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <application>
-        <!-- Register the CallNotificationReceiver -->
-        <receiver
-            android:name=".notification.CallNotificationReceiver"
-            android:enabled="true"
-            android:exported="false" />
-            
-        <!-- Register the CallForegroundService -->
-        <service
-            android:name=".service.CallForegroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="phoneCall" />
-    </application>
 
 </manifest>
