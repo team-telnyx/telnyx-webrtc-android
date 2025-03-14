@@ -276,7 +276,14 @@ class TelnyxViewModel : ViewModel() {
 
     fun disconnect(viewContext: Context) {
         viewModelScope.launch {
-            Disconnect(viewContext).invoke()
+            // Check if we are on a call before disconnecting
+            if (currentCall == null) {
+                // No active call, safe to disconnect
+                Disconnect(viewContext).invoke()
+            } else {
+                // We have an active call, don't disconnect
+                Timber.d("Socket disconnect prevented: Active call in progress")
+            }
         }
     }
 
