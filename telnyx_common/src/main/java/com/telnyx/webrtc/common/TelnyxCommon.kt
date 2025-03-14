@@ -31,6 +31,10 @@ class TelnyxCommon private constructor() {
 
     private val holdStatusObservers: MutableMap<Call, Observer<Boolean>> = mutableMapOf()
 
+    private var _handlingPush = false
+    val handlingPush
+        get() = _handlingPush
+
     companion object {
         @Volatile
         private var instance: TelnyxCommon? = null
@@ -81,6 +85,7 @@ class TelnyxCommon private constructor() {
         telnyxClient = null
     }
 
+
     internal fun getSharedPreferences(context: Context): SharedPreferences {
         return sharedPreferences ?: synchronized(this) {
             sharedPreferences ?: context.getSharedPreferences(
@@ -88,6 +93,10 @@ class TelnyxCommon private constructor() {
                 Context.MODE_PRIVATE
             ).also { sharedPreferences = it }
         }
+    }
+
+    internal fun setHandlingPush(value: Boolean) {
+        _handlingPush = value
     }
 
     private fun updateHoldedCalls() {

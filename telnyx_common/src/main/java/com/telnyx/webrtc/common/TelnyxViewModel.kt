@@ -62,7 +62,6 @@ sealed class TelnyxSessionState {
     data object ClientDisconnected : TelnyxSessionState()
 }
 
-
 class TelnyxViewModel : ViewModel() {
 
     private val _uiState: MutableStateFlow<TelnyxSocketEvent> =
@@ -96,6 +95,7 @@ class TelnyxViewModel : ViewModel() {
     private var userSessionJob: Job? = null
 
     private var handlingResponses = false
+
 
     fun stopLoading() {
         _isLoading.value = false
@@ -175,6 +175,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
@@ -195,6 +196,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
@@ -276,13 +278,15 @@ class TelnyxViewModel : ViewModel() {
 
     fun disconnect(viewContext: Context) {
         viewModelScope.launch {
-            // Check if we are on a call before disconnecting
-            if (currentCall == null) {
+            // Check if we are on a call and not handling a push notification before disconnecting
+            // (we check this because clicking on a notification can trigger a disconnect if we are using onStop in MainActivity)
+            if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
                 // No active call, safe to disconnect
                 Disconnect(viewContext).invoke()
             } else {
                 // We have an active call, don't disconnect
                 Timber.d("Socket disconnect prevented: Active call in progress")
+                TelnyxCommon.getInstance().setHandlingPush(false)
             }
         }
     }
@@ -398,7 +402,8 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
+        _uiState.value =
+            TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
     }
 
     private fun handleDisconnect() {
