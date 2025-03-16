@@ -16,6 +16,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.R
@@ -39,6 +40,7 @@ class NotificationsService : Service() {
     private var callNotificationService: CallNotificationService? = null
     private var ringtone: Ringtone? = null
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -197,11 +199,15 @@ class NotificationsService : Service() {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(pendingIntent, true)
 
-        startForeground(
-            NOTIFICATION_ID,
-            builder.build(),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                builder.build(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, builder.build())
+        }
     }
 
     private fun getActivityClassName(): String {

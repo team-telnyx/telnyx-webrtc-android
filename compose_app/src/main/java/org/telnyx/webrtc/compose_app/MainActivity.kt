@@ -96,37 +96,45 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     }
 
     private fun checkPermission() {
+        // Create a mutable list of permissions that will always be needed.
+        val permissions = mutableListOf(
+            android.Manifest.permission.RECORD_AUDIO
+        )
+
+        // Conditionally add permissions based on the API level.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Dexter.withContext(this)
-                .withPermissions(
-                    android.Manifest.permission.POST_NOTIFICATIONS,
-                    android.Manifest.permission.RECORD_AUDIO,
-                    android.Manifest.permission.FOREGROUND_SERVICE_MICROPHONE
-                )
-                .withListener(object : MultiplePermissionsListener {
-                    override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
-                        report?.let {
-                            if (report.areAllPermissionsGranted()) {
-                                // All permissions are granted
-                            } else {
-                                // Some permissions are denied
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    getString(R.string.notification_permission_text),
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= 34) { // Only available on Android 14 and above.
+            permissions.add(android.Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
+        }
+
+        // Now use Dexter to check the permissions.
+        Dexter.withContext(this)
+            .withPermissions(*permissions.toTypedArray())
+            .withListener(object : MultiplePermissionsListener {
+                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+                    report?.let {
+                        if (report.areAllPermissionsGranted()) {
+                            // All permissions are granted.
+                        } else {
+                            // Some permissions are denied.
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.notification_permission_text),
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                     }
+                }
 
-                    override fun onPermissionRationaleShouldBeShown(
-                        permissions: MutableList<PermissionRequest>?,
-                        token: PermissionToken?
-                    ) {
-                        token?.continuePermissionRequest()
-                    }
-                }).check()
-        }
+                override fun onPermissionRationaleShouldBeShown(
+                    permissions: MutableList<PermissionRequest>?,
+                    token: PermissionToken?
+                ) {
+                    token?.continuePermissionRequest()
+                }
+            }).check()
     }
 }
 
