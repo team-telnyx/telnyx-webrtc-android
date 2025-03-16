@@ -4,36 +4,36 @@
 
 package com.telnyx.webrtc.common.notification
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.os.Build
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.TelnyxCommon
-import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import timber.log.Timber
+import android.content.Intent
+
 
 /**
  * BroadcastReceiver for handling call notification actions
  */
 class CallNotificationReceiver : BroadcastReceiver() {
-    
+
     override fun onReceive(context: Context, intent: Intent?) {
         intent?.let {
             val notificationStateValue = it.getIntExtra(
                 CallNotificationService.NOTIFICATION_ACTION,
                 CallNotificationService.Companion.NotificationState.CANCEL.ordinal
             )
-            
+
             val txPushMetadataJson = it.getStringExtra(MyFirebaseMessagingService.TX_PUSH_METADATA)
             val txPushMetadata = if (txPushMetadataJson != null) {
                 Gson().fromJson(txPushMetadataJson, PushMetaData::class.java)
             } else {
                 null
             }
-            
+
             when (notificationStateValue) {
                 CallNotificationService.Companion.NotificationState.ANSWER.ordinal -> {
                     Timber.d("Call answered from notification")
@@ -48,18 +48,18 @@ class CallNotificationReceiver : BroadcastReceiver() {
                     handleCancelCall()
                 }
             }
-            
+
             // Cancel the notification
             CallNotificationService.cancelNotification(context)
         }
     }
-    
+
     private fun handleAnswerCall(context: Context, txPushMetadata: PushMetaData?) {
         txPushMetadata?.let {
             // Set handling push to true to prevent disconnect
             TelnyxCommon.getInstance().setHandlingPush(true)
-            
-            // Start the main activity to handle the call
+
+            // Create an intent for the main activity to handle the call
             val targetActivityClass = getTargetActivityClass(context)
             targetActivityClass?.let { activityClass ->
                 val intent = Intent(context, activityClass).apply {
@@ -68,17 +68,20 @@ class CallNotificationReceiver : BroadcastReceiver() {
                     putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_ANSWER_CALL)
                     putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
                 }
-                context.startActivity(intent)
+                val pendingIntent = PendingIntent.getActivity(
+                    context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                pendingIntent.send()
             }
         }
     }
-    
+
     private fun handleRejectCall(context: Context, txPushMetadata: PushMetaData?) {
         txPushMetadata?.let {
             // Set handling push to true to prevent disconnect
             TelnyxCommon.getInstance().setHandlingPush(true)
-            
-            // Start the main activity to handle the call rejection
+
+            // Create an intent for the main activity to handle the call rejection
             val targetActivityClass = getTargetActivityClass(context)
             targetActivityClass?.let { activityClass ->
                 val intent = Intent(context, activityClass).apply {
@@ -87,17 +90,20 @@ class CallNotificationReceiver : BroadcastReceiver() {
                     putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
                     putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
                 }
-                context.startActivity(intent)
+                val pendingIntent = PendingIntent.getActivity(
+                    context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                pendingIntent.send()
             }
         }
     }
-    
+
     private fun handleCancelCall() {
         // Handle call cancellation
         val currentCall = TelnyxCommon.getInstance().currentCall
         currentCall?.endCall(currentCall.callId)
     }
-    
+
     private fun getTargetActivityClass(context: Context): Class<*>? {
         return try {
             val serviceInfo = context.packageManager.getServiceInfo(

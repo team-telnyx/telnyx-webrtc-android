@@ -127,30 +127,24 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         )
 
         // Answer call intent
-        val answerIntent = Intent(context, notificationReceiverClass)
-        answerIntent.putExtra(NOTIFICATION_ACTION, NotificationState.ANSWER.ordinal)
-        answerIntent.putExtra(
-            MyFirebaseMessagingService.TX_PUSH_METADATA,
-            txPushMetaData.toJson()
-        )
-        val answerPendingIntent = PendingIntent.getBroadcast(
-            context,
-            MyFirebaseMessagingService.ANSWER_REQUEST_CODE,
-            answerIntent,
+        val answerResultIntent = Intent(context, targetActivityClass).apply {
+            action = Intent.ACTION_VIEW
+            putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_ANSWER_CALL)
+            putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
+        }
+        val answerPendingIntent = PendingIntent.getActivity(
+            context, MyFirebaseMessagingService.ANSWER_REQUEST_CODE, answerResultIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Reject call intent
-        val rejectIntent = Intent(context, notificationReceiverClass)
-        rejectIntent.putExtra(NOTIFICATION_ACTION, NotificationState.REJECT.ordinal)
-        rejectIntent.putExtra(
-            MyFirebaseMessagingService.TX_PUSH_METADATA,
-            txPushMetaData.toJson()
-        )
-        val rejectPendingIntent = PendingIntent.getBroadcast(
-            context,
-            MyFirebaseMessagingService.REJECT_REQUEST_CODE,
-            rejectIntent,
+        val rejectResultIntent = Intent(context, targetActivityClass).apply {
+            action = Intent.ACTION_VIEW
+            putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
+            putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
+        }
+        val rejectPendingIntent = PendingIntent.getActivity(
+            context, MyFirebaseMessagingService.REJECT_REQUEST_CODE, rejectResultIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -177,7 +171,6 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             )
             .build()
     }
-
     /**
      * Create an ongoing call notification
      * This is used by the CallForegroundService to show a persistent notification
