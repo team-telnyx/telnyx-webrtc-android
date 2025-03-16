@@ -11,7 +11,7 @@ import android.content.Intent
 import android.os.Build
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.TelnyxCommon
-import com.telnyx.webrtc.common.service.CallHandlerService
+import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import timber.log.Timber
 
@@ -59,28 +59,16 @@ class CallNotificationReceiver : BroadcastReceiver() {
             // Set handling push to true to prevent disconnect
             TelnyxCommon.getInstance().setHandlingPush(true)
             
-            // Start the CallHandlerService to handle the call
-            val serviceIntent = Intent(context, CallHandlerService::class.java).apply {
-                action = CallHandlerService.ACTION_ANSWER_CALL
-                putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
-            
-            // Also start the CallHandlerActivity as a fallback
-            val handlerIntent = Intent(context, CallHandlerActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_ANSWER_CALL)
-                putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
-            }
-            try {
-                context.startActivity(handlerIntent)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to start CallHandlerActivity")
+            // Start the main activity to handle the call
+            val targetActivityClass = getTargetActivityClass(context)
+            targetActivityClass?.let { activityClass ->
+                val intent = Intent(context, activityClass).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    action = Intent.ACTION_VIEW
+                    putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_ANSWER_CALL)
+                    putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
+                }
+                context.startActivity(intent)
             }
         }
     }
@@ -90,28 +78,16 @@ class CallNotificationReceiver : BroadcastReceiver() {
             // Set handling push to true to prevent disconnect
             TelnyxCommon.getInstance().setHandlingPush(true)
             
-            // Start the CallHandlerService to handle the call rejection
-            val serviceIntent = Intent(context, CallHandlerService::class.java).apply {
-                action = CallHandlerService.ACTION_REJECT_CALL
-                putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
-            
-            // Also start the CallHandlerActivity as a fallback
-            val handlerIntent = Intent(context, CallHandlerActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
-                putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
-            }
-            try {
-                context.startActivity(handlerIntent)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to start CallHandlerActivity")
+            // Start the main activity to handle the call rejection
+            val targetActivityClass = getTargetActivityClass(context)
+            targetActivityClass?.let { activityClass ->
+                val intent = Intent(context, activityClass).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    action = Intent.ACTION_VIEW
+                    putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
+                    putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
+                }
+                context.startActivity(intent)
             }
         }
     }
@@ -120,5 +96,19 @@ class CallNotificationReceiver : BroadcastReceiver() {
         // Handle call cancellation
         val currentCall = TelnyxCommon.getInstance().currentCall
         currentCall?.endCall(currentCall.callId)
+    }
+    
+    private fun getTargetActivityClass(context: Context): Class<*>? {
+        return try {
+            val serviceInfo = context.packageManager.getServiceInfo(
+                ComponentName(context, NotificationsService::class.java),
+                android.content.pm.PackageManager.GET_META_DATA
+            )
+            val activityClassName = serviceInfo.metaData.getString("activity_class_name") ?: return null
+            Class.forName(activityClassName)
+        } catch (e: ClassNotFoundException) {
+            Timber.e(e, "Failed to get target activity class")
+            null
+        }
     }
 }

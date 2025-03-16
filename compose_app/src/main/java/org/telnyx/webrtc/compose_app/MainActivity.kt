@@ -61,8 +61,6 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Timber.d("onNewIntent called with action: ${intent.action}")
-        setIntent(intent) // Update the stored intent
         handleCallNotification(intent)
     }
 
@@ -72,47 +70,28 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     }
 
     private fun handleCallNotification(intent: Intent?) {
+
         if (intent == null) {
-            Timber.d("handleCallNotification: intent is null")
             return
         }
 
-        // Stop the notification service
         val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            action = NotificationsService.STOP_ACTION
+            putExtra("action", NotificationsService.STOP_ACTION)
         }
-        try {
-            startService(serviceIntent)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to stop NotificationsService")
-        }
+        serviceIntent.setAction(NotificationsService.STOP_ACTION)
+        startService(serviceIntent)
 
-        // Get the action and metadata from the intent
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
-        val txPushMetaData = intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
 
-        Timber.d("handleCallNotification: action=$action, metadata=${txPushMetaData != null}")
-
-        if (action != null && txPushMetaData != null) {
-            try {
-                when (action) {
-                    MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
-                        Timber.d("Answering call from notification")
-                        viewModel.answerIncomingPushCall(this, txPushMetaData)
-                    }
-                    MyFirebaseMessagingService.ACT_REJECT_CALL -> {
-                        Timber.d("Rejecting call from notification")
-                        viewModel.rejectIncomingPushCall(this, txPushMetaData)
-                    }
-                    else -> {
-                        Timber.d("Unknown action: $action")
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error handling call notification")
+        action?.let {
+            val txPushMetaData =
+                intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
+            Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
+            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
+                viewModel.answerIncomingPushCall(this, txPushMetaData)
+            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
+                viewModel.rejectIncomingPushCall(this, txPushMetaData)
             }
-        } else {
-            Timber.d("No action or metadata in intent")
         }
     }
 
