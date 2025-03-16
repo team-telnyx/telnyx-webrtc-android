@@ -9,6 +9,7 @@ import android.os.Build
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import org.json.JSONObject
 import timber.log.Timber
@@ -57,8 +58,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 callNotificationService?.showIncomingCallNotification(it)
                 return
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Error showing call notification, falling back to legacy notification")
+        } catch (e: JsonSyntaxException) {
+            Timber.e(e, "Error parsing push metadata JSON, falling back to legacy notification")
         }
 
         // Fallback to legacy notification service

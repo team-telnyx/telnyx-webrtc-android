@@ -156,7 +156,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
 
         // Create caller person
         val caller = Person.Builder()
-            .setName(txPushMetaData.callerName ?: "Unknown Caller")
+            .setName(txPushMetaData.callerName)
             .setImportant(true)
             .build()
 
@@ -192,7 +192,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             } else {
                 null
             }
-        } catch (e: Exception) {
+        } catch (e: ClassNotFoundException) {
             Timber.e(e, "Failed to get target activity class")
             null
         }
@@ -200,7 +200,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         // Intent for full screen activity
         val fullScreenIntent = if (targetActivityClass != null) {
             Intent(context, targetActivityClass).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             }
         } else {
             // Fallback to a generic launcher intent if we can't get the specific activity
@@ -231,7 +231,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
 
         // Create caller person
         val caller = Person.Builder()
-            .setName(txPushMetaData.callerName ?: "Unknown Caller")
+            .setName(txPushMetaData.callerName)
             .setImportant(true)
             .build()
 

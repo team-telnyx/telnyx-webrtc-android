@@ -171,7 +171,6 @@ class CallForegroundService : Service() {
         Timber.d("CallForegroundService destroyed")
     }
 
-    @SuppressLint("NewApi")
     private fun startForeground() {
         pushMetaData?.let { metadata ->
             Timber.d("Starting foreground service with notification for call: ${metadata.callId}")
@@ -205,7 +204,7 @@ class CallForegroundService : Service() {
                         startForeground(CallNotificationService.NOTIFICATION_ID, notification)
                         Timber.d("Started foreground service (pre-Q Android version)")
                     }
-                } catch (e: Exception) {
+                } catch (e: SecurityException) {
                     // Last resort fallback
                     Timber.e(e, "Failed to start foreground service with types, using basic startForeground")
                     startForeground(CallNotificationService.NOTIFICATION_ID, notification)

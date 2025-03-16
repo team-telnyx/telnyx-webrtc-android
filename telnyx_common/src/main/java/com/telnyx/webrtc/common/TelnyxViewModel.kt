@@ -311,7 +311,7 @@ class TelnyxViewModel : ViewModel() {
             // Start the foreground service
             CallForegroundService.startService(viewContext, pushMetaData)
             Timber.d("Started CallForegroundService for ongoing call")
-        } catch (e: Exception) {
+        } catch (e: IllegalStateException) {
             Timber.e(e, "Failed to start CallForegroundService: ${e.message}")
         }
     }
@@ -429,7 +429,7 @@ class TelnyxViewModel : ViewModel() {
                         Timber.d("Stopped CallForegroundService after call ended by remote party")
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
                 Timber.e(e, "Failed to stop CallForegroundService: ${e.message}")
             }
             
@@ -498,7 +498,7 @@ class TelnyxViewModel : ViewModel() {
             try {
                 CallForegroundService.stopService(viewContext)
                 Timber.d("Stopped CallForegroundService after call rejected")
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
                 Timber.e(e, "Failed to stop CallForegroundService")
             }
         }

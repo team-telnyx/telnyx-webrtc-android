@@ -42,10 +42,11 @@ class NotificationsService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        
+
         // Initialize the new CallNotificationService
         try {
-            callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+            callNotificationService =
+                CallNotificationService(this, CallNotificationReceiver::class.java)
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize CallNotificationService")
         }
@@ -70,10 +71,10 @@ class NotificationsService : Service() {
             } else {
                 stopForeground(true)
             }
-            
+
             // Also cancel any CallNotificationService notifications
             callNotificationService?.cancelNotification()
-            
+
             return START_NOT_STICKY
         }
 
@@ -86,16 +87,19 @@ class NotificationsService : Service() {
                     callNotificationService?.showIncomingCallNotification(it)
                     playPushRingTone()
                     return START_STICKY
-                } catch (e: Exception) {
-                    Timber.e(e, "Error showing call notification with CallStyle, falling back to legacy")
+                } catch (e: IllegalStateException) {
+                    Timber.e(
+                        e,
+                        "Error showing call notification with CallStyle, falling back to legacy"
+                    )
                 }
             }
-            
+
             // Fallback to legacy notification
             showNotification(it)
             playPushRingTone()
         }
-        
+
         return START_STICKY
     }
 
@@ -205,7 +209,7 @@ class NotificationsService : Service() {
         )
         return ai.metaData.getString("activity_class_name") ?: ""
     }
-    
+
     /**
      * Determine if we should use the new CallStyle notification
      * This can be extended to check for device capabilities or preferences
