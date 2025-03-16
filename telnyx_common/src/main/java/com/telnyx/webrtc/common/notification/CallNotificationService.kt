@@ -116,14 +116,14 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     }
 
     private fun createIncomingCallNotification(txPushMetaData: PushMetaData): Notification {
-        val targetActivityClass = Class.forName(getActivityClassName())
-
-        // Intent for full screen activity
-        val fullScreenIntent = Intent(context, targetActivityClass).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        // Intent for full screen activity - use CallHandlerActivity instead of direct MainActivity
+        val fullScreenIntent = Intent(context, CallHandlerActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_ANSWER_CALL)
+            putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
-            context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE
+            context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Answer call intent
@@ -168,6 +168,9 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            // Set the content intent to be the same as the answer intent
+            // This makes clicking the notification body accept the call
+            .setContentIntent(answerPendingIntent)
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(
                     caller,

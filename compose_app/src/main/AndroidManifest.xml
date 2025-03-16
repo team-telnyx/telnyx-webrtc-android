@@ -61,11 +61,25 @@
             android:foregroundServiceType="phoneCall|microphone"
             android:permission="android.permission.FOREGROUND_SERVICE_PHONE_CALL"
             android:process=":call_service" />
+            
+        <service android:name="com.telnyx.webrtc.common.service.CallHandlerService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="phoneCall" />
         
         <receiver
             android:name="com.telnyx.webrtc.common.notification.CallNotificationReceiver"
             android:enabled="true"
             android:exported="false" />
+            
+        <activity
+            android:name="com.telnyx.webrtc.common.notification.CallHandlerActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance" />
     </application>
 
 </manifest>
