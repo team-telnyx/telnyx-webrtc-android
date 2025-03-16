@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <application>
+        <!-- Transparent activity to handle call actions when the app is in the background -->
+        <activity
+            android:name=".notification.CallHandlerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask" />
+            
+        <!-- Service to handle call actions from the background -->
+        <service
+            android:name=".notification.CallHandlerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
+    </application>
 
 </manifest>
