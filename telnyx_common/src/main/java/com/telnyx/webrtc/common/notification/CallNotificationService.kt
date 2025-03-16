@@ -116,6 +116,16 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     }
 
     private fun createIncomingCallNotification(txPushMetaData: PushMetaData): Notification {
+        val targetActivityClass = Class.forName(getActivityClassName())
+
+        // Intent for full screen activity
+        val fullScreenIntent = Intent(context, targetActivityClass).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context, 0, fullScreenIntent, PendingIntent.FLAG_MUTABLE
+        )
+
         // Answer call intent
         val answerIntent = Intent(context, notificationReceiverClass)
         answerIntent.putExtra(NOTIFICATION_ACTION, NotificationState.ANSWER.ordinal)
@@ -153,8 +163,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         // Build notification
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
-            .setFullScreenIntent(answerPendingIntent, true) // Use answer intent as the full screen intent
-            .setContentIntent(answerPendingIntent) // Make default click action answer the call
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
