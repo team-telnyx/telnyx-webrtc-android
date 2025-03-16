@@ -47,8 +47,10 @@ class NotificationsService : Service() {
         try {
             callNotificationService =
                 CallNotificationService(this, CallNotificationReceiver::class.java)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize CallNotificationService")
+        } catch (e: ClassNotFoundException) {
+            Timber.e(e, "Failed to initialize CallNotificationService: Class not found")
+        } catch (e: NoSuchMethodException) {
+            Timber.e(e, "Failed to initialize CallNotificationService: Method not found")
         }
     }
 
