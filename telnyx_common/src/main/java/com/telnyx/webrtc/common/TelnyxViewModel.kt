@@ -291,7 +291,6 @@ class TelnyxViewModel : ViewModel() {
             } else {
                 // We have an active call, don't disconnect
                 Timber.d("Socket disconnect prevented: Active call in progress")
-                
                 TelnyxCommon.getInstance().setHandlingPush(false)
             }
         }

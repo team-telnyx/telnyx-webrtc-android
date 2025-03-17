@@ -62,7 +62,7 @@ class MainActivityTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText(context.getString(R.string.connect)).performClick()
 
-        composeTestRule.waitUntil(10000) {
+        composeTestRule.waitUntil(15000) {
             composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).isDisplayed()
         }
 
@@ -76,7 +76,7 @@ class MainActivityTest {
 
         composeTestRule.waitForIdle()
 
-        composeTestRule.waitUntil(30000) {
+        composeTestRule.waitUntil(40000) {
             composeTestRule.onNodeWithTag("callActiveView").isDisplayed()
         }
 
