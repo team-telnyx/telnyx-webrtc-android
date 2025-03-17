@@ -77,6 +77,8 @@ class TelnyxViewModel : ViewModel() {
     private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private var rejectFromPush = false
+
     private var fcmToken: String? = null
 
     private var serverConfiguration = TxServerConfiguration()
@@ -198,6 +200,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        rejectFromPush = true
         TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
@@ -396,7 +399,12 @@ class TelnyxViewModel : ViewModel() {
         } else {
             _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
         }
-        startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, inviteResponse, inviteResponse.callId)
+        if (!rejectFromPush) {
+            startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, inviteResponse, inviteResponse.callId)
+        } else {
+            rejectFromPush = false
+            Timber.d("Rejecting call from push notification - no need to start service")
+        }
         notificationAcceptHandlingUUID = null
         _isLoading.value = false
     }

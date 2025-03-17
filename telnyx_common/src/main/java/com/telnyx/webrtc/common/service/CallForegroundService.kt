@@ -4,12 +4,10 @@
 
 package com.telnyx.webrtc.common.service
 
-import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
 import android.os.Binder
