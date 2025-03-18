@@ -17,6 +17,7 @@ The Android SDK implements a structured approach to error handling through sever
 The SDK monitors the gateway registration status and triggers errors in the following scenarios:
 
 * When the gateway status is not "REGED" (registered) after an initial attempt and retry
+* When the gateway status is "FAILED" after multiple retries
 * Location: [TelnyxClient.kt](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt)
 * This ensures that the client is properly connected to the Telnyx network
 
