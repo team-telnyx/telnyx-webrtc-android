@@ -61,13 +61,15 @@ class TelnyxCommon private constructor() {
         call?.let { newCall ->
             telnyxClient?.getActiveCalls()?.get(newCall.callId)?.let {
                 _currentCall = it
-                // Start the CallForegroundService
+                // Start the CallForegroundService - if one is not already running
                 startCallService(context, it)
             }
         } ?: run {
             _currentCall = null
             // if we have no active call, stop the CallForegroundService
             stopCallService(context)
+            // reset handling push flag, even if we were not previously handling push
+            _handlingPush = false
         }
     }
 
