@@ -1,5 +1,3 @@
-# Error Handling in Telnyx WebRTC Android SDK
-
 This document describes the error handling mechanisms in the Telnyx WebRTC Android SDK, specifically focusing on when and why error events are triggered and how they are processed through the SDK.
 
 ## Error Handling Architecture
