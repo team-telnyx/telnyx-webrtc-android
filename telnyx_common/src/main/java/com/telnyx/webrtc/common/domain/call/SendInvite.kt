@@ -28,7 +28,7 @@ class SendInvite(private val context: Context) {
         val telnyxClient = telnyxCommon.getTelnyxClient(context)
 
         val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customeHeaders)
-        telnyxCommon.setCurrentCall(outgoingCall)
+        telnyxCommon.setCurrentCall(context, outgoingCall)
         telnyxCommon.registerCall(outgoingCall)
     }
 }

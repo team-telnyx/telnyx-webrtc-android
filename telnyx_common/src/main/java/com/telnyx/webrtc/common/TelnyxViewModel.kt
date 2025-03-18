@@ -19,9 +19,7 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.common.service.CallForegroundService
 import com.telnyx.webrtc.sdk.Call
-import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
@@ -76,8 +74,6 @@ class TelnyxViewModel : ViewModel() {
 
     private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private var rejectFromPush = false
 
     private var fcmToken: String? = null
 
@@ -200,7 +196,6 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
-        rejectFromPush = true
         TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
@@ -296,28 +291,6 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    private fun startCallService(viewContext: Context, inviteResponse: InviteResponse?, callId: UUID) {
-        // Check if the service is already running
-        if (CallForegroundService.isServiceRunning(viewContext)) {
-            Timber.d("CallForegroundService is already running, not starting again")
-            return
-        }
-        
-        val pushMetaData = PushMetaData(
-            callerName = inviteResponse?.callerIdName ?: "Active Call",
-            callerNumber = inviteResponse?.callerIdNumber ?: "",
-            callId = callId.toString()
-        )
-
-        try {
-            // Start the foreground service
-            CallForegroundService.startService(viewContext, pushMetaData)
-            Timber.d("Started CallForegroundService for ongoing call")
-        } catch (e: IllegalStateException) {
-            Timber.e(e, "Failed to start CallForegroundService: ${e.message}")
-        }
-    }
-
     fun connectWithLastUsedConfig(viewContext: Context) {
         viewModelScope.launch {
             _currentProfile.value?.let { lastUsedProfile ->
@@ -398,20 +371,13 @@ class TelnyxViewModel : ViewModel() {
         } else {
             _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
         }
-        if (!rejectFromPush) {
-            startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, inviteResponse, inviteResponse.callId)
-        } else {
-            rejectFromPush = false
-            Timber.d("Rejecting call from push notification - no need to start service")
-        }
+
         notificationAcceptHandlingUUID = null
         _isLoading.value = false
     }
 
     private fun handleAnswer(data: ReceivedMessageBody) {
-        val answerResponse = data.result as AnswerResponse
         _uiState.value = TelnyxSocketEvent.OnCallAnswered((data.result as AnswerResponse).callId)
-        startCallService(TelnyxCommon.getInstance().telnyxClient?.context!!, null, answerResponse.callId)
     }
 
     private fun handleRinging(data: ReceivedMessageBody) {
@@ -425,21 +391,11 @@ class TelnyxViewModel : ViewModel() {
     private fun handleBye(data: ReceivedMessageBody) {
         val byeResponse = data.result as ByeResponse
         viewModelScope.launch {
-            OnByeReceived().invoke(byeResponse.callId)
-            
-            // Stop the foreground service when the call is ended by the remote party
-            try {
-                val context = TelnyxCommon.getInstance().telnyxClient?.context
-                context?.let {
-                    if (CallForegroundService.isServiceRunning(it)) {
-                        CallForegroundService.stopService(it)
-                        Timber.d("Stopped CallForegroundService after call ended by remote party")
-                    }
-                }
-            } catch (e: IllegalStateException) {
-                Timber.e(e, "Failed to stop CallForegroundService: ${e.message}")
+            val context = TelnyxCommon.getInstance().telnyxClient?.context
+            context?.let {
+                OnByeReceived().invoke(context, byeResponse.callId)
             }
-            
+
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
@@ -484,14 +440,9 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             currentCall?.let { currentCall ->
                 EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
-                
-                // Stop the foreground service when the call ends
-                try {
-                    CallForegroundService.stopService(viewContext)
-                    Timber.d("Stopped CallForegroundService after call ended")
-                } catch (e: IOException) {
-                    Timber.e(e, "Failed to stop CallForegroundService")
-                }
+
+                // If we are handling a push notification, set the flag to false
+                TelnyxCommon.getInstance().setHandlingPush(false)
             }
         }
     }
@@ -500,14 +451,9 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             Timber.i("Reject call $callId")
             RejectCall(viewContext).invoke(callId)
-            
-            // Stop the foreground service when the call is rejected
-            try {
-                CallForegroundService.stopService(viewContext)
-                Timber.d("Stopped CallForegroundService after call rejected")
-            } catch (e: IllegalStateException) {
-                Timber.e(e, "Failed to stop CallForegroundService")
-            }
+
+            // If we are handling a push notification, set the flag to false
+            TelnyxCommon.getInstance().setHandlingPush(false)
         }
     }
 
