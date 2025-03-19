@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.common.notification
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -70,6 +71,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             "Incoming Call Notifications",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
                 AudioAttributes.Builder()
@@ -154,23 +156,48 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             .setImportant(true)
             .build()
 
-        // Build notification
-        return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_contact_phone)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
-            .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setStyle(
-                NotificationCompat.CallStyle.forIncomingCall(
-                    caller,
-                    rejectPendingIntent,
-                    answerPendingIntent
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (keyguardManager.isKeyguardLocked) {
+            // The screen is locked—build a notification without a full-screen intent.
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_contact_phone)
+                .setContentTitle("Incoming Call : ${txPushMetaData.callerName}")
+                .setContentText("Incoming call from: ${txPushMetaData.callerNumber} ")
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setContentIntent(fullScreenPendingIntent)
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+                .addAction(
+                    R.drawable.ic_call_white,
+                    MyFirebaseMessagingService.ACT_ANSWER_CALL, answerPendingIntent
                 )
-            )
-            .build()
+                .addAction(
+                    R.drawable.ic_call_end_white,
+                    MyFirebaseMessagingService.ACT_REJECT_CALL, rejectPendingIntent
+                )
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .build()
+        } else {
+            // The screen is unlocked. Build a call style notification with a full-screen intent.
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_contact_phone)
+                .setOngoing(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setStyle(
+                    NotificationCompat.CallStyle.forIncomingCall(
+                        caller,
+                        rejectPendingIntent,
+                        answerPendingIntent
+                    )
+                )
+                .setFullScreenIntent(fullScreenPendingIntent, true)
+                .build()
+        }
     }
+
     /**
      * Create an ongoing call notification
      * This is used by the CallForegroundService to show a persistent notification
