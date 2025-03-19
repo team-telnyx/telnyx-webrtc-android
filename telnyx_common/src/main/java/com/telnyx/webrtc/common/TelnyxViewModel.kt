@@ -283,6 +283,8 @@ class TelnyxViewModel : ViewModel() {
             if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
                 // No active call, safe to disconnect
                 Disconnect(viewContext).invoke()
+                // if we are disconnecting, there is no call so we should stop service if one is running
+                TelnyxCommon.getInstance().stopCallService(viewContext)
             } else {
                 // We have an active call, don't disconnect
                 Timber.d("Socket disconnect prevented: Active call in progress")

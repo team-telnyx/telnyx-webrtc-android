@@ -109,7 +109,7 @@ class TelnyxCommon private constructor() {
         }
     }
 
-    private fun stopCallService(context: Context) {
+    internal fun stopCallService(context: Context) {
         try {
             context.let {
                 if (CallForegroundService.isServiceRunning(it)) {
