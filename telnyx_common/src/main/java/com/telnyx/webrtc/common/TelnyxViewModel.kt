@@ -62,7 +62,6 @@ sealed class TelnyxSessionState {
     data object ClientDisconnected : TelnyxSessionState()
 }
 
-
 class TelnyxViewModel : ViewModel() {
 
     private val _uiState: MutableStateFlow<TelnyxSocketEvent> =
@@ -96,6 +95,7 @@ class TelnyxViewModel : ViewModel() {
     private var userSessionJob: Job? = null
 
     private var handlingResponses = false
+
 
     fun stopLoading() {
         _isLoading.value = false
@@ -175,6 +175,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
@@ -195,6 +196,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
@@ -276,7 +278,18 @@ class TelnyxViewModel : ViewModel() {
 
     fun disconnect(viewContext: Context) {
         viewModelScope.launch {
-            Disconnect(viewContext).invoke()
+            // Check if we are on a call and not handling a push notification before disconnecting
+            // (we check this because clicking on a notification can trigger a disconnect if we are using onStop in MainActivity)
+            if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
+                // No active call, safe to disconnect
+                Disconnect(viewContext).invoke()
+                // if we are disconnecting, there is no call so we should stop service if one is running
+                TelnyxCommon.getInstance().stopCallService(viewContext)
+            } else {
+                // We have an active call, don't disconnect
+                Timber.d("Socket disconnect prevented: Active call in progress")
+                TelnyxCommon.getInstance().setHandlingPush(false)
+            }
         }
     }
 
@@ -360,6 +373,7 @@ class TelnyxViewModel : ViewModel() {
         } else {
             _uiState.value = TelnyxSocketEvent.OnIncomingCall(inviteResponse)
         }
+
         notificationAcceptHandlingUUID = null
         _isLoading.value = false
     }
@@ -379,7 +393,11 @@ class TelnyxViewModel : ViewModel() {
     private fun handleBye(data: ReceivedMessageBody) {
         val byeResponse = data.result as ByeResponse
         viewModelScope.launch {
-            OnByeReceived().invoke(byeResponse.callId)
+            val context = TelnyxCommon.getInstance().telnyxClient?.context
+            context?.let {
+                OnByeReceived().invoke(context, byeResponse.callId)
+            }
+
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
@@ -391,7 +409,8 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        _uiState.value = TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
+        _uiState.value =
+            TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
     }
 
     private fun handleDisconnect() {
@@ -423,6 +442,9 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             currentCall?.let { currentCall ->
                 EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
+
+                // If we are handling a push notification, set the flag to false
+                TelnyxCommon.getInstance().setHandlingPush(false)
             }
         }
     }
@@ -431,6 +453,9 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             Timber.i("Reject call $callId")
             RejectCall(viewContext).invoke(callId)
+
+            // If we are handling a push notification, set the flag to false
+            TelnyxCommon.getInstance().setHandlingPush(false)
         }
     }
 

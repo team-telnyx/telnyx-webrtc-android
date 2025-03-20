@@ -5,10 +5,6 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
@@ -30,9 +26,7 @@ import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
-import timber.log.Timber
 import java.util.*
-
 
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
@@ -51,14 +45,16 @@ internal class Peer(
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
-
     }
 
     private val rootEglBase: EglBase = EglBase.create()
     private var isDebugStats = false
 
-    internal var debugStatsId = UUID.randomUUID()
-
+    private val mediaConstraints = MediaConstraints().apply {
+        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
+        optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
+    }
 
     val iceServer = getIceServers()
 
@@ -72,7 +68,7 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Timber.e("start get ice server")
+        Logger.e(message = "Start collection of ice servers")
         iceServers.add(
             PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
@@ -83,7 +79,7 @@ internal class Peer(
                 PASSWORD
             ).createIceServer()
         )
-        Timber.e("end get ice server")
+        Logger.e(message = "End collection of ice servers")
         return iceServers
     }
 
@@ -109,28 +105,22 @@ internal class Peer(
             peerConnectionObserver?.onIceGatheringChange(p0)
         }
 
-        override fun onIceCandidate(p0: IceCandidate?) {
-            Timber.d("Event-IceCandidate Generated")
-            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                addIceCandidate(p0)
-                Timber.d("Event-IceCandidate Added")
-            }
-
-            Timber.d("Event-IceCandidate Generated ")
-            p0?.let {
-                if (!it.serverUrl.isNullOrEmpty()) { // Host has empty serverUrl
+        override fun onIceCandidate(candidate: IceCandidate?) {
+            Logger.d(message = "Event-IceCandidate Generated")
+            // Only add candidates that come from our STUN/TURN servers (non-local)
+            candidate?.let {
+                if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
+                    Logger.d(message = "Valid ICE candidate generated from server: ${it.serverUrl}")
+                    if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                        peerConnection?.addIceCandidate(it)
+                        Logger.d(message = "ICE candidate added: $it")
+                    }
                     onIceCandidateAdd?.invoke(it.serverUrl)
-                    //iceCandidateList.add(it.serverUrl)
+                } else {
+                    Logger.d(message = "Ignoring local ICE candidate: $it")
                 }
             }
-            if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                peerConnection?.let { connection ->
-                    connection.addIceCandidate(p0)
-                    Timber.d("Event-IceCandidate Added ${p0}")
-                }
-            }
-
-            peerConnectionObserver?.onIceCandidate(p0)
+            peerConnectionObserver?.onIceCandidate(candidate)
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
@@ -196,11 +186,13 @@ internal class Peer(
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
      * @see [getIceServers]
      */
-    private fun buildPeerConnection() =
-        peerConnectionFactory.createPeerConnection(
-            iceServer,
-            observer
-        )
+    private fun buildPeerConnection(): PeerConnection? {
+        val config = PeerConnection.RTCConfiguration(iceServer).apply {
+            iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+        }
+
+        return peerConnectionFactory.createPeerConnection(config, observer)
+    }
 
     /**
      * Starts local audio capture to be used during call
@@ -220,9 +212,6 @@ internal class Peer(
         peerConnection?.addTrack(localAudioTrack)
     }
 
-
-
-
     /**
      * Initiates a call, creating an offer with a local SDP
      * The offer creation is handled with an [SdpObserver]
@@ -230,31 +219,25 @@ internal class Peer(
      * @see [SdpObserver]
      */
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
-        val constraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
-            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
-        }
-
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Timber.tag("Call").d("onSetFailure [%s]", "$p0")
+                                Logger.d(tag="Call", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Timber.tag("Call").d("onSetSuccess")
+                                Logger.d(tag="Call", message = "onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Timber.tag("Call").d("onCreateSuccess")
+                                Logger.d(tag="Call", message = "onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Timber.tag("Call").d("onCreateFailure [%s]", "$p0")
+                                Logger.d(tag="Call", message = "onCreateFailure $p0")
                             }
                         },
                         desc
@@ -262,7 +245,7 @@ internal class Peer(
                     sdpObserver.onCreateSuccess(desc)
                 }
             },
-            constraints
+            mediaConstraints
         )
     }
 
@@ -273,31 +256,25 @@ internal class Peer(
      * @see [SdpObserver]
      */
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
-        val constraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
-            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
-        }
-
         createAnswer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Timber.tag("Answer").d("onSetFailure [%s]", "$p0")
+                                Logger.d(tag="Answer", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Timber.tag("Answer").d("onSetSuccess")
+                                Logger.d(tag="Answer", message = "onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Timber.tag("Answer").d("onCreateSuccess")
+                                Logger.d(tag="Answer", message = "onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Timber.tag("Answer").d("onCreateFailure [%s]", "$p0")
+                                Logger.d(tag="Answer", message = "onCreateFailure $p0")
                             }
                         },
                         desc
@@ -305,7 +282,7 @@ internal class Peer(
                     sdpObserver.onCreateSuccess(desc)
                 }
             },
-            constraints
+            mediaConstraints
         )
     }
 
@@ -333,20 +310,20 @@ internal class Peer(
             object : SdpObserver {
                 override fun onSetFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Timber.tag("RemoteSessionReceived").d("Set Failure [%s]", p0)
+                    Logger.d(tag="RemoteSessionReceived", message = "Set Failure $p0")
                 }
 
                 override fun onSetSuccess() {
-                    Timber.tag("RemoteSessionReceived").d("Set Success")
+                    Logger.d(tag="RemoteSessionReceived", message = "Set Success")
                 }
 
                 override fun onCreateSuccess(p0: SessionDescription?) {
-                    Timber.tag("RemoteSessionReceived").d("Create Success")
+                    Logger.d(tag="RemoteSessionReceived", message = "Create Success")
                 }
 
                 override fun onCreateFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Timber.tag("RemoteSessionReceived").d("Create Failure [%s]", p0)
+                    Logger.d(tag="RemoteSessionReceived", message = "Create Failure p0")
                 }
             },
             sessionDescription
@@ -377,7 +354,6 @@ internal class Peer(
     fun getRemoteDescription(): SessionDescription? {
         return peerConnection?.remoteDescription
     }
-
 
     /**
      * Closes and disposes of current [PeerConnection]

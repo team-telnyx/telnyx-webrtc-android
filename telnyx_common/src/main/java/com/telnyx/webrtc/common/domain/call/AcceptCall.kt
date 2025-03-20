@@ -22,7 +22,7 @@ class AcceptCall(private val context: Context) {
     operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customeHeaders)
-        telnyxCommon.setCurrentCall(incomingCall)
+        telnyxCommon.setCurrentCall(context, incomingCall)
         telnyxCommon.registerCall(incomingCall)
         return incomingCall
     }

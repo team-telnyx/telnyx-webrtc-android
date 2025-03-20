@@ -4,7 +4,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
 
     <application
         android:allowBackup="true"
@@ -17,6 +20,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.TelnyxAndroidWebRTCSDK">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -50,6 +54,18 @@
                 android:name="activity_class_name"
                 android:value="org.telnyx.webrtc.compose_app.MainActivity" />
         </service>
+
+        <service android:name="com.telnyx.webrtc.common.service.CallForegroundService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="phoneCall|microphone"
+            android:permission="android.permission.FOREGROUND_SERVICE_PHONE_CALL"
+            android:process=":call_service" />
+        
+        <receiver
+            android:name="com.telnyx.webrtc.common.notification.CallNotificationReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>
