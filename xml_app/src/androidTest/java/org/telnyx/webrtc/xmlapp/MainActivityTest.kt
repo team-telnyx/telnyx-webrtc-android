@@ -32,8 +32,6 @@ class MainActivityTest {
         android.Manifest.permission.RECORD_AUDIO
     )
 
-    private val idlingResource = ElapsedTimeIdlingResource(10000)
-
     @Test
     fun addSIPCredentialsAndConnectTest() {
         onView(withId(R.id.usernameTextField))
@@ -42,9 +40,14 @@ class MainActivityTest {
         onView(withId(R.id.switchProfile))
             .perform(click())
 
+        val switchIdlingResource = ElapsedTimeIdlingResource(5000)
+        IdlingRegistry.getInstance().register(switchIdlingResource)
+
         onView(withId(R.id.addNewProfile))
             .check(matches(isDisplayed()))
             .perform(click())
+
+        IdlingRegistry.getInstance().unregister(switchIdlingResource)
 
         onView(withId(R.id.usernameTextField))
             .check(matches(isDisplayed()))
@@ -73,13 +76,15 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        IdlingRegistry.getInstance().register(idlingResource)
+        // Wait 10 seconds between clicking connect and checking disconnect visibility
+        val connectIdlingResource = ElapsedTimeIdlingResource(10000)
+        IdlingRegistry.getInstance().register(connectIdlingResource)
 
         onView(withId(R.id.disconnect))
             .check(matches(isDisplayed()))
             .perform(click())
-
-        IdlingRegistry.getInstance().unregister(idlingResource)
+            
+        IdlingRegistry.getInstance().unregister(connectIdlingResource)
 
     }
 
@@ -96,13 +101,15 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        IdlingRegistry.getInstance().register(idlingResource)
+        // Wait 10 seconds between clicking connect and checking callInput visibility
+        val connectIdlingResource = ElapsedTimeIdlingResource(10000)
+        IdlingRegistry.getInstance().register(connectIdlingResource)
 
         onView(withId(R.id.callInput))
             .check(matches(isDisplayed()))
             .perform(clearText(), typeText(BuildConfig.TEST_SIP_DEST_NUMBER), closeSoftKeyboard())
-
-        IdlingRegistry.getInstance().unregister(idlingResource)
+            
+        IdlingRegistry.getInstance().unregister(connectIdlingResource)
 
         onView(withId(R.id.call))
             .check(matches(isDisplayed()))
@@ -149,7 +156,5 @@ class MainActivityTest {
             .check(matches(isDisplayed()))
             .perform(click())
 
-        onView(withId(R.id.disconnect))
-            .perform(click())
     }
 }

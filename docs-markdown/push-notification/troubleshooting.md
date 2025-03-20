@@ -1,5 +1,3 @@
-# Push Notification Troubleshooting
-
 This guide helps you troubleshoot common issues that prevent push notifications from being delivered in the Telnyx WebRTC Android SDK.
 
 ## Common Points of Failure

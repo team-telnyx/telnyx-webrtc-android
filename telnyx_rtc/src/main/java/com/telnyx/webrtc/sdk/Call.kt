@@ -12,10 +12,12 @@ import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
+import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -354,6 +356,13 @@ data class Call(
     fun setCallRecovering() {
         mutableCallStateFlow.value  = CallState.RECONNECTING
     }
-
+    
+    /**
+     * Sets the call state to ERROR when reconnection timeout occurs
+     */
+    fun setReconnectionTimeout() {
+        mutableCallStateFlow.value = CallState.ERROR
+        Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
+    }
 
 }
