@@ -42,8 +42,8 @@ jobs:
 
       - name: Build Debug APK and Test APK
         run: |
-          ./gradlew samples:xml_app:assembleDebug samples:xml_app:assembleDebugAndroidTest
-          ./gradlew samples:compose_app:assembleDebug samples:compose_app:assembleDebugAndroidTest
+          ./gradlew :samples:xml_app:assembleDebug samples:xml_app:assembleDebugAndroidTest
+          ./gradlew :samples:compose_app:assembleDebug samples:compose_app:assembleDebugAndroidTest
 
       - name: 'Authenticate Cloud SDK'
         uses: 'google-github-actions/auth@v2'
