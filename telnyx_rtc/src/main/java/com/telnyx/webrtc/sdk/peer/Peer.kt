@@ -186,11 +186,13 @@ internal class Peer(
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
      * @see [getIceServers]
      */
-    private fun buildPeerConnection() =
-        peerConnectionFactory.createPeerConnection(
-            iceServer,
-            observer
-        )
+    private fun buildPeerConnection(): PeerConnection? {
+        val config = PeerConnection.RTCConfiguration(iceServer).apply {
+            iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+        }
+
+        return peerConnectionFactory.createPeerConnection(config, observer)
+    }
 
     /**
      * Starts local audio capture to be used during call
