@@ -1,8 +1,7 @@
+[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 # Jetpack Compose App Sample
 
 This sample application demonstrates how to use the Telnyx WebRTC SDK with Jetpack Compose in Android.
-
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 
 ## Project Setup:
 

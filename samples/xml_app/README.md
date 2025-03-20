@@ -1,8 +1,8 @@
+[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
+
 # XML App Sample
 
 This sample application demonstrates how to use the Telnyx WebRTC SDK with traditional XML layouts in Android.
-
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 
 ## Project Setup:
 

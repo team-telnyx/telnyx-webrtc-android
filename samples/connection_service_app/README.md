@@ -1,3 +1,5 @@
+[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
+
 # Connection Service App Sample
 
 This sample application demonstrates how to use the Telnyx WebRTC SDK with Android's ConnectionService API for native call integration to be integrated into the built-in phone app
@@ -11,7 +13,6 @@ More details about the Connection Service API can be found [here](https://develo
 - **TelecomCallRepository**: The actual logic to communicate with the Telecom SDK as well as the Telnyx Stack via the TelnyxCallManager.
 - **TelecomCallManager**: A simple manager to wrap the TelnyxClient and track the active call state.
 - 
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 
 ## Project Setup:
 
