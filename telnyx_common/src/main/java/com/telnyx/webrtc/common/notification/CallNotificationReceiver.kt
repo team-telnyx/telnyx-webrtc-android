@@ -16,7 +16,12 @@ import android.content.Intent
 
 
 /**
- * BroadcastReceiver for handling call notification actions
+ * BroadcastReceiver for handling call notification actions - answer, reject, and cancel
+ *
+ * Note: handleAnswerCall and handleRejectCall are not actually used as in our implementation we do not show a notification for incoming calls while connected
+ * The code is provided for reference in case you want to implement a similar feature
+ *
+ * The handleCancelCall method is used to end the call when the app is minimized and the notification 'End Call' button is clicked
  */
 class CallNotificationReceiver : BroadcastReceiver() {
 
