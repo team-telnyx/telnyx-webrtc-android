@@ -1,3 +1,9 @@
+## [1.5.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.5.1) (2025-03-20)
+
+### Bug Fixing
+- Fixed an issue where we were including local candidates in the SDP offer, which was causing issues with some networks.
+- Adjusted the Peer class to also use the provided Logger when logging messages so that these can be used by a custom logger provided by the user (or our default logger if none is provided).
+
 ## [1.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.5.0) (2025-03-07)
 
 ### Enhancement
