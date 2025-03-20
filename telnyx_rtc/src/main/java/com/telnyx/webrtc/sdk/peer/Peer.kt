@@ -26,7 +26,6 @@ import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
-import com.telnyx.webrtc.sdk.utilities.Logger
 import java.util.*
 
 /**
