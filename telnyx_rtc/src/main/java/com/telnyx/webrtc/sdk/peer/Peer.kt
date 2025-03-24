@@ -88,6 +88,10 @@ internal class Peer(
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
 
+    internal fun onRenegotiationNeeded() {
+        peerConnectionObserver?.onRenegotiationNeeded()
+    }
+
     private val observer = object : PeerConnection.Observer {
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
             peerConnectionObserver?.onSignalingChange(p0)
@@ -106,7 +110,7 @@ internal class Peer(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
-            Logger.d(message = "Event-IceCandidate Generated")
+            Logger.d(message = "Event-IceCandidate Generated from server: $candidate")
             // Only add candidates that come from our STUN/TURN servers (non-local)
             candidate?.let {
                 if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
@@ -114,8 +118,8 @@ internal class Peer(
                     if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
                         peerConnection?.addIceCandidate(it)
                         Logger.d(message = "ICE candidate added: $it")
+                        onIceCandidateAdd?.invoke(it.serverUrl)
                     }
-                    onIceCandidateAdd?.invoke(it.serverUrl)
                 } else {
                     Logger.d(message = "Ignoring local ICE candidate: $it")
                 }

@@ -1377,7 +1377,7 @@ class TelnyxClient(
 
     override fun onErrorReceived(jsonObject: JsonObject) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-        Logger.d(message = "onErrorReceived " + errorMessage)
+        Logger.d(message = "onErrorReceived $errorMessage")
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
     }
 
