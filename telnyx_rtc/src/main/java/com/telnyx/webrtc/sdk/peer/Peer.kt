@@ -196,7 +196,7 @@ internal class Peer(
      */
     private fun buildPeerConnection(): PeerConnection? {
         val config = PeerConnection.RTCConfiguration(iceServer).apply {
-            //iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+            iceTransportsType = PeerConnection.IceTransportsType.NOHOST
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
         }
 
