@@ -133,10 +133,21 @@ class NotificationsService : Service() {
         val targetActivityClass = Class.forName(getActivityClassName())
 
         val intent = Intent(this, targetActivityClass).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            action = Intent.ACTION_VIEW
+            putExtra(
+                MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
+                MyFirebaseMessagingService.ACT_OPEN_TO_REPLY
+            )
+            putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
         }
+
         val pendingIntent: PendingIntent =
-            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_MUTABLE)
+            PendingIntent.getActivity(
+                this,
+                MyFirebaseMessagingService.OPEN_TO_REPLY_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_MUTABLE
+            )
 
         val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 

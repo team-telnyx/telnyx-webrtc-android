@@ -293,21 +293,21 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun connectWithLastUsedConfig(viewContext: Context) {
+    fun connectWithLastUsedConfig(viewContext: Context, txPushMetaData: String? = null) {
         viewModelScope.launch {
             _currentProfile.value?.let { lastUsedProfile ->
                 if (lastUsedProfile.sipToken?.isEmpty() == false) {
                     tokenLogin(
                         viewContext,
                         lastUsedProfile,
-                        null,
+                        txPushMetaData,
                         true
                     )
                 } else {
                     credentialLogin(
                         viewContext,
                         lastUsedProfile,
-                        null,
+                        txPushMetaData,
                         true
                     )
                 }

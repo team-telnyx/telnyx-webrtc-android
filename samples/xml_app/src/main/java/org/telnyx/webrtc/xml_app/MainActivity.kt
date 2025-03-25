@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         appBarConfiguration = AppBarConfiguration(
             setOf(R.id.loginFragment)
         )
-        
+
         setupGestureDetector()
         bindEvents()
     }
@@ -142,10 +142,18 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         action?.let {
             val txPushMetaData =
                 intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
-            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
-                telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
-            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
-                telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
+            when (action) {
+                MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
+                    telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
+                }
+
+                MyFirebaseMessagingService.ACT_REJECT_CALL -> {
+                    telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
+                }
+
+                MyFirebaseMessagingService.ACT_OPEN_TO_REPLY -> {
+                    telnyxViewModel.connectWithLastUsedConfig(this, txPushMetaData)
+                }
             }
         }
     }
