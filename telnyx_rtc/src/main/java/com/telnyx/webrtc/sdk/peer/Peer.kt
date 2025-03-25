@@ -48,7 +48,6 @@ internal class Peer(
     }
 
     private val rootEglBase: EglBase = EglBase.create()
-    private var isDebugStats = false
 
     private val mediaConstraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -88,62 +87,67 @@ internal class Peer(
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
 
-    internal fun onRenegotiationNeeded() {
-        peerConnectionObserver?.onRenegotiationNeeded()
-    }
-
     private val observer = object : PeerConnection.Observer {
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
+            Logger.d(tag = "Observer", message = "Signaling State Change: $p0")
             peerConnectionObserver?.onSignalingChange(p0)
         }
 
         override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+            Logger.d(tag = "Observer", message = "ICE Connection State Change: $p0")
             peerConnectionObserver?.onIceConnectionChange(p0)
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
+            Logger.d(tag = "Observer", message = "ICE Connection Receiving Change: $p0")
             peerConnectionObserver?.onIceConnectionReceivingChange(p0)
         }
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
+            Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
             peerConnectionObserver?.onIceGatheringChange(p0)
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
-            Logger.d(message = "Event-IceCandidate Generated from server: $candidate")
+            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated from server: $candidate")
             // Only add candidates that come from our STUN/TURN servers (non-local)
             candidate?.let {
                 if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
-                    Logger.d(message = "Valid ICE candidate generated from server: ${it.serverUrl}")
+                    Logger.d(tag = "Observer", message = "Valid ICE candidate generated from server: ${it.serverUrl}")
                     if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
                         peerConnection?.addIceCandidate(it)
-                        Logger.d(message = "ICE candidate added: $it")
+                        Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                         onIceCandidateAdd?.invoke(it.serverUrl)
                     }
                 } else {
-                    Logger.d(message = "Ignoring local ICE candidate: $it")
+                    Logger.d(tag = "Observer", message = "Ignoring local ICE candidate: $it")
                 }
             }
             peerConnectionObserver?.onIceCandidate(candidate)
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
+            Logger.d(tag = "Observer", message = "ICE Candidates Removed: $p0")
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
         }
 
         override fun onAddStream(p0: MediaStream?) {
+            Logger.d(tag = "Observer", message = "Stream Added: $p0")
             peerConnectionObserver?.onAddStream(p0)
         }
 
         override fun onRemoveStream(p0: MediaStream?) {
+            Logger.d(tag = "Observer", message = "Stream Removed: $p0")
             peerConnectionObserver?.onRemoveStream(p0)
         }
 
         override fun onDataChannel(p0: DataChannel?) {
+            Logger.d(tag = "Observer", message = "Data Channel: $p0")
             peerConnectionObserver?.onDataChannel(p0)
         }
 
         override fun onRenegotiationNeeded() {
+            Logger.d(tag = "Observer", message = "Renegotiation Needed")
             peerConnectionObserver?.onRenegotiationNeeded()
         }
     }
@@ -192,7 +196,8 @@ internal class Peer(
      */
     private fun buildPeerConnection(): PeerConnection? {
         val config = PeerConnection.RTCConfiguration(iceServer).apply {
-            iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+            //iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+            bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)
