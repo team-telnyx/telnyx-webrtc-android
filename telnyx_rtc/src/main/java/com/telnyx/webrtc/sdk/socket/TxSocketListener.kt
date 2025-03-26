@@ -12,11 +12,6 @@ import java.util.*
  * TxSocket interface containing the methods that the socket connection will fire
  */
 interface TxSocketListener {
-    
-    /**
-     * Maps original callID strings to UUIDs for non-UUID callIDs
-     */
-    val callIdStringToUuidMap: MutableMap<String, UUID>
 
     /**
      * Fires once the client is ready and gateway status updates can be received

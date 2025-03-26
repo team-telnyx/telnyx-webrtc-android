@@ -65,10 +65,7 @@ data class Call(
     var inviteResponse: InviteResponse? = null
     var answerResponse: AnswerResponse? = null
     lateinit var callId: UUID
-    
-    // Original callID string from the server (may not be a UUID)
-    internal var originalCallIdString: String? = null
-    
+
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
 
@@ -326,15 +323,6 @@ data class Call(
      */
     fun getTelnyxLegId(): UUID? {
         return telnyxLegId
-    }
-    
-    /**
-     * Returns the original callID string received from the server
-     * This may be a UUID string or a non-UUID string like "420009675_133898086@206.147.68.154"
-     * @return [String] The original callID string or null if not set
-     */
-    fun getOriginalCallIdString(): String? {
-        return originalCallIdString
     }
 
     /**
