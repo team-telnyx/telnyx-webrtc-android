@@ -11,7 +11,7 @@ import kotlin.collections.ArrayList
 
 sealed class DialogParams
 
-data class ByeDialogParams(val callId: UUID) : DialogParams()
+data class ByeDialogParams(val callId: String) : DialogParams()
 
 data class CallDialogParams(
     val useStereo: Boolean = false,
@@ -23,7 +23,7 @@ data class CallDialogParams(
     @SerializedName("clientState")
     val clientState: String = "",
     @SerializedName("callID")
-    val callId: UUID,
+    val callId: String,
     @SerializedName("remote_caller_id_name")
     val remoteCallerIdName: String = "",
     @SerializedName("caller_id_number")

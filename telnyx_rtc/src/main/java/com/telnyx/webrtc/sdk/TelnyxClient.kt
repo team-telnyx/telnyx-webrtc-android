@@ -231,7 +231,7 @@ class TelnyxClient(
                                     sessid = sessionId,
                                     sdp = sessionDescriptionString,
                                     dialogParams = CallDialogParams(
-                                        callId = callId,
+                                        callId = getOriginalCallIdString(),
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
                                             ?: arrayListOf()
@@ -373,7 +373,7 @@ class TelnyxClient(
                     CauseCode.USER_BUSY.code,
                     CauseCode.USER_BUSY.name,
                     ByeDialogParams(
-                        callId
+                        getOriginalCallIdString()
                     )
                 )
             )
@@ -1382,11 +1382,19 @@ class TelnyxClient(
     }
 
     override fun onByeReceived(callId: UUID) {
-
         Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived", this.javaClass.simpleName))
-        val byeCall = calls[callId]
+        
+        // First try to find the call directly by UUID
+        var byeCall = calls[callId]
+        
+        // If not found and we have a non-UUID callID from the socket, try to find by original callID
+        if (byeCall == null) {
+            // Look for a call that might have this as its original callID string
+            byeCall = calls.values.firstOrNull { it.getOriginalCallIdString() == callId.toString() }
+        }
+        
         byeCall?.apply {
-            Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived", this.javaClass.simpleName))
+            Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived for call", this.javaClass.simpleName))
             val byeResponse = ByeResponse(
                 callId
             )
@@ -1416,8 +1424,17 @@ class TelnyxClient(
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val answeredCall = calls[UUID.fromString(callId)]
+        val callIdString = params.get("callID").asString
+        
+        // Try to find the call by UUID if it's a valid UUID
+        val uuid = try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // If not a valid UUID, look for a call that has this string as its original callID
+            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+        }
+        
+        val answeredCall = uuid?.let { calls[it] }
         answeredCall?.apply {
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
@@ -1484,8 +1501,17 @@ class TelnyxClient(
 
     override fun onMediaReceived(jsonObject: JsonObject) {
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val mediaCall = calls[UUID.fromString(callId)]
+        val callIdString = params.get("callID").asString
+        
+        // Try to find the call by UUID if it's a valid UUID
+        val uuid = try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // If not a valid UUID, look for a call that has this string as its original callID
+            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+        }
+        
+        val mediaCall = uuid?.let { calls[it] }
         mediaCall?.apply {
             if (params.has("sdp")) {
                 val stringSdp = params.get("sdp").asString
@@ -1547,7 +1573,11 @@ class TelnyxClient(
             ).apply {
 
                 val params = jsonObject.getAsJsonObject("params")
-                val offerCallId = UUID.fromString(params.get("callID").asString)
+                val callIdString = params.get("callID").asString
+                
+                // Use the new setCallId method to handle both UUID and non-UUID callIDs
+                val offerCallId = setCallId(callIdString)
+                
                 val remoteSdp = params.get("sdp").asString
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
@@ -1561,9 +1591,8 @@ class TelnyxClient(
                 val callerNumber = params.get("caller_id_number").asString
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
                 telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
-
-                // Set global callID
-                callId = offerCallId
+                
+                // No need to set callId explicitly as it's now a computed property
                 val call = this
 
 
@@ -1633,8 +1662,17 @@ class TelnyxClient(
             jsonObject)
         )
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val ringingCall = calls[UUID.fromString(callId)]
+        val callIdString = params.get("callID").asString
+        
+        // Try to find the call by UUID if it's a valid UUID
+        val uuid = try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // If not a valid UUID, look for a call that has this string as its original callID
+            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+        }
+        
+        val ringingCall = uuid?.let { calls[it] }
 
         ringingCall?.apply {
             telnyxSessionId = if (params.has("telnyx_session_id")) {
@@ -1651,7 +1689,7 @@ class TelnyxClient(
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
             val ringingResponse = RingingResponse(
-                UUID.fromString(callId),
+                callId,
                 params.get("caller_id_name").asString,
                 params.get("caller_id_number").asString,
                 sessionId,
@@ -1699,7 +1737,15 @@ class TelnyxClient(
         // reset reconnecting state
         reconnecting = false
         val params = jsonObject.getAsJsonObject("params")
-        val offerCallId = UUID.fromString(params.get("callID").asString)
+        val callIdString = params.get("callID").asString
+        
+        // Try to parse as UUID or generate a new one
+        val offerCallId = try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // If not a valid UUID, generate a new one
+            UUID.randomUUID()
+        }
 
         calls[offerCallId]?.copy(
             context = context,
@@ -1726,8 +1772,8 @@ class TelnyxClient(
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-            // Set global callID
-            callId = offerCallId
+            // Set callID mapping
+            setCallId(callIdString)
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {

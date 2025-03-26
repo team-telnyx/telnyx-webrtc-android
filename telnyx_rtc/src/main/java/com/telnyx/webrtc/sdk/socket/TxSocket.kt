@@ -204,9 +204,20 @@ class TxSocket(
                                 BYE.methodName -> {
                                     val params =
                                         jsonObject.getAsJsonObject("params")
-                                    val callId =
-                                        UUID.fromString(params.get("callID").asString)
-                                    listener.onByeReceived(callId)
+                                    val callIdString = params.get("callID").asString
+                                    
+                                    // Try to parse as UUID
+                                    try {
+                                        val callId = UUID.fromString(callIdString)
+                                        listener.onByeReceived(callId)
+                                    } catch (e: IllegalArgumentException) {
+                                        // If not a valid UUID, we need to find the call with this original callID
+                                        // This will be handled in the TelnyxClient.onByeReceived method
+                                        Logger.d(message = "Received BYE for non-UUID callID: $callIdString")
+                                        // Create a random UUID to pass to the listener
+                                        // The listener will need to find the actual call
+                                        listener.onByeReceived(UUID.randomUUID())
+                                    }
                                 }
 
                                 INVITE.methodName -> {

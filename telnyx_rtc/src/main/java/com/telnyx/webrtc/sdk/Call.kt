@@ -64,8 +64,17 @@ data class Call(
 
     var inviteResponse: InviteResponse? = null
     var answerResponse: AnswerResponse? = null
-    lateinit var callId: UUID
-
+    
+    // Map to store original callID strings to UUIDs
+    internal val callIdMap = mutableMapOf<String, UUID>()
+    
+    // Original callID string received from the server
+    internal var originalCallIdString: String? = null
+    
+    // Public callId property that maintains backward compatibility
+    val callId: UUID
+        get() = callIdMap.values.firstOrNull() ?: throw IllegalStateException("callIdMap is empty")
+    
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
 
@@ -167,7 +176,7 @@ data class Call(
                     sdp = sessionDescriptionString,
                     dialogParams = CallDialogParams(
                         attach = true,
-                        callId = callId,
+                        callId = getOriginalCallIdString(),
                         destinationNumber = destinationNumber
                     )
                 )
@@ -251,7 +260,7 @@ data class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = getOriginalCallIdString(),
                 )
             )
         )
@@ -274,7 +283,7 @@ data class Call(
                 sessid = sessionId,
                 dtmf = tone,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = getOriginalCallIdString(),
                 )
             )
         )
@@ -364,5 +373,38 @@ data class Call(
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
-
+    
+    /**
+     * Sets the call ID mapping between original string and UUID
+     * If the original string is a valid UUID, it will be used as both the key and value
+     * Otherwise, a new UUID will be generated
+     * 
+     * @param callIdString The original call ID string from the server
+     * @return The UUID that will be used for this call
+     */
+    internal fun setCallId(callIdString: String): UUID {
+        originalCallIdString = callIdString
+        
+        // Try to parse the string as UUID
+        val uuid = try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // If not a valid UUID, generate a new one
+            UUID.randomUUID()
+        }
+        
+        // Store the mapping
+        callIdMap[callIdString] = uuid
+        return uuid
+    }
+    
+    /**
+     * Gets the original call ID string that was received from the server
+     * This should be used for all socket communications
+     * 
+     * @return The original call ID string
+     */
+    internal fun getOriginalCallIdString(): String {
+        return originalCallIdString ?: callId.toString()
+    }
 }
