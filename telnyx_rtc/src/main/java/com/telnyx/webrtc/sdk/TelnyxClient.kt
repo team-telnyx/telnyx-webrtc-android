@@ -291,8 +291,11 @@ class TelnyxClient(
         ).apply {
             val uuid: String = UUID.randomUUID().toString()
             val inviteCallId: UUID = UUID.randomUUID()
-
-            callId = inviteCallId
+            val inviteCallIdString = inviteCallId.toString()
+            
+            // Store the UUID in the callIdMap with itself as the key
+            callIdMap[inviteCallIdString] = inviteCallId
+            originalCallIdString = inviteCallIdString
             val call = this
 
 
@@ -1596,9 +1599,9 @@ class TelnyxClient(
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
                 telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-                // Set global callID and original callID string
-                callId = offerCallId
+                // Set original callID string and update the callIdMap
                 originalCallIdString = callIdString
+                callIdMap[callIdString] = offerCallId
                 val call = this
 
 
@@ -1771,8 +1774,8 @@ class TelnyxClient(
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-            // Set global callID
-            callId = offerCallId
+            // Update the callIdMap
+            callIdMap[params.get("callID").asString] = offerCallId
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {

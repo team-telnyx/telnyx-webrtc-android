@@ -64,10 +64,16 @@ data class Call(
 
     var inviteResponse: InviteResponse? = null
     var answerResponse: AnswerResponse? = null
-    lateinit var callId: UUID
+    
+    // Internal map to store the mapping between original callID strings and UUIDs
+    internal val callIdMap = mutableMapOf<String, UUID>()
     
     // Original callID string from the server (may not be a UUID)
     internal var originalCallIdString: String? = null
+    
+    // Public property for callId that returns the UUID from the map or throws if empty
+    val callId: UUID
+        get() = callIdMap.values.firstOrNull() ?: throw IllegalStateException("callIdMap is empty")
     
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
