@@ -74,7 +74,11 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             is TelnyxSocketEvent.OnClientError -> {
                 val errorMessage = (uiState as TelnyxSocketEvent.OnClientError).message
                 Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-                CallUIState.IDLE
+                if (callUIState == CallUIState.ACTIVE) {
+                    callUIState
+                } else {
+                    CallUIState.IDLE
+                }
             }
             is TelnyxSocketEvent.OnIncomingCall -> {
                 CallUIState.INCOMING
