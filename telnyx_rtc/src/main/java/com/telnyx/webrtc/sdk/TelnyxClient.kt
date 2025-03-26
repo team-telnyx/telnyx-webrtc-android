@@ -141,6 +141,9 @@ class TelnyxClient(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+    
+    // Maps original callIDs (which may not be UUIDs) to generated UUIDs
+    internal val callIdMapping: MutableMap<String, UUID> = mutableMapOf()
 
     @Deprecated("telnyxclient.call is deprecated. Use telnyxclient.[option] instead. e.g telnyxclient.newInvite()")
     val call: Call? by lazy {
@@ -224,6 +227,9 @@ class TelnyxClient(
                 iceCandidateTimer?.schedule(
                     timerTask {
                         if (iceCandidateList.size > 0) {
+                            // Find the original callID if it exists in the mapping
+                            val originalCallId = callIdMapping.entries.find { it.value == callId }?.key
+                            
                             // set localInfo and ice candidate and able to create correct offer
                             val answerBodyMessage = SendingMessageBody(
                                 uuid, SocketMethod.ANSWER.methodName,
@@ -366,6 +372,10 @@ class TelnyxClient(
         val endCall = calls[callId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
+            
+            // Find the original callID if it exists in the mapping
+            val originalCallId = callIdMapping.entries.find { it.value == callId }?.key ?: callId.toString()
+            
             val byeMessageBody = SendingMessageBody(
                 uuid, SocketMethod.BYE.methodName,
                 ByeParams(
@@ -419,6 +429,9 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
+        
+        // Also remove from the callIdMapping if it exists
+        callIdMapping.entries.removeIf { it.value == callId }
     }
 
     private var socketReconnection: TxSocket? = null
@@ -1547,7 +1560,20 @@ class TelnyxClient(
             ).apply {
 
                 val params = jsonObject.getAsJsonObject("params")
-                val offerCallId = UUID.fromString(params.get("callID").asString)
+                val originalCallId = params.get("callID").asString
+                
+                // Try to parse as UUID, if it fails, generate a new UUID
+                val offerCallId = try {
+                    UUID.fromString(originalCallId)
+                } catch (e: IllegalArgumentException) {
+                    // Generate a new UUID for non-UUID callIDs
+                    Logger.d(message = "Received non-UUID callID: $originalCallId, generating UUID")
+                    UUID.randomUUID()
+                }
+                
+                // Store the mapping between original callID and UUID
+                this@TelnyxClient.callIdMapping[originalCallId] = offerCallId
+                
                 val remoteSdp = params.get("sdp").asString
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
