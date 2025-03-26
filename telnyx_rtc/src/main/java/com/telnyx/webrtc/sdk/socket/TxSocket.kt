@@ -202,11 +202,19 @@ class TxSocket(
                                 }
 
                                 BYE.methodName -> {
-                                    val params =
-                                        jsonObject.getAsJsonObject("params")
-                                    val callId =
-                                        UUID.fromString(params.get("callID").asString)
-                                    listener.onByeReceived(callId)
+                                    val params = jsonObject.getAsJsonObject("params")
+                                    val callIdString = params.get("callID").asString
+                                    
+                                    // Try to get UUID from map or parse directly
+                                    val callUuid = listener.callIdStringToUuidMap[callIdString] ?: try {
+                                        UUID.fromString(callIdString)
+                                    } catch (e: IllegalArgumentException) {
+                                        // This should not happen as the call should already be in the map
+                                        Logger.e(message = "Received unknown non-UUID callID in BYE: $callIdString")
+                                        null
+                                    }
+                                    
+                                    callUuid?.let { listener.onByeReceived(it) }
                                 }
 
                                 INVITE.methodName -> {

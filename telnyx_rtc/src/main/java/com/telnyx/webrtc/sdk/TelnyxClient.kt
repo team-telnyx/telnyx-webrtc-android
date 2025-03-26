@@ -141,6 +141,9 @@ class TelnyxClient(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+    
+    // Maps original callID strings to UUIDs for non-UUID callIDs
+    internal val callIdStringToUuidMap: MutableMap<String, UUID> = mutableMapOf()
 
     @Deprecated("telnyxclient.call is deprecated. Use telnyxclient.[option] instead. e.g telnyxclient.newInvite()")
     val call: Call? by lazy {
@@ -418,7 +421,26 @@ class TelnyxClient(
      * @param callId, the UUID used to identify a specific
      */
     internal fun removeFromCalls(callId: UUID) {
+        // Also remove from the callIdStringToUuidMap if it exists
+        calls[callId]?.getOriginalCallIdString()?.let { originalCallIdString ->
+            callIdStringToUuidMap.remove(originalCallIdString)
+        }
         calls.remove(callId)
+    }
+    
+    /**
+     * Get a Call by its original callID string
+     * @param callIdString The original callID string
+     * @return The Call object or null if not found
+     */
+    internal fun getCallByOriginalCallIdString(callIdString: String): Call? {
+        val uuid = callIdStringToUuidMap[callIdString] ?: try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+        
+        return uuid?.let { calls[it] }
     }
 
     private var socketReconnection: TxSocket? = null
@@ -1547,7 +1569,19 @@ class TelnyxClient(
             ).apply {
 
                 val params = jsonObject.getAsJsonObject("params")
-                val offerCallId = UUID.fromString(params.get("callID").asString)
+                val callIdString = params.get("callID").asString
+                
+                // Try to parse as UUID, if not possible, generate a new UUID and map it
+                val offerCallId = try {
+                    UUID.fromString(callIdString)
+                } catch (e: IllegalArgumentException) {
+                    // Not a valid UUID, generate a new one and store the mapping
+                    Logger.d(message = "Received non-UUID callID: $callIdString, generating a UUID")
+                    val generatedUuid = UUID.randomUUID()
+                    callIdStringToUuidMap[callIdString] = generatedUuid
+                    generatedUuid
+                }
+                
                 val remoteSdp = params.get("sdp").asString
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
@@ -1562,8 +1596,9 @@ class TelnyxClient(
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
                 telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-                // Set global callID
+                // Set global callID and original callID string
                 callId = offerCallId
+                originalCallIdString = callIdString
                 val call = this
 
 
@@ -1633,8 +1668,18 @@ class TelnyxClient(
             jsonObject)
         )
         val params = jsonObject.getAsJsonObject("params")
-        val callId = params.get("callID").asString
-        val ringingCall = calls[UUID.fromString(callId)]
+        val callIdString = params.get("callID").asString
+        
+        // Try to get UUID from map or parse directly
+        val callUuid = callIdStringToUuidMap[callIdString] ?: try {
+            UUID.fromString(callIdString)
+        } catch (e: IllegalArgumentException) {
+            // This should not happen as the call should already be in the map from onOfferReceived
+            Logger.e(message = "Received unknown non-UUID callID in onRingingReceived: $callIdString")
+            null
+        }
+        
+        val ringingCall = callUuid?.let { calls[it] }
 
         ringingCall?.apply {
             telnyxSessionId = if (params.has("telnyx_session_id")) {
