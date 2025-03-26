@@ -231,7 +231,7 @@ class TelnyxClient(
                                     sessid = sessionId,
                                     sdp = sessionDescriptionString,
                                     dialogParams = CallDialogParams(
-                                        callId = getOriginalCallIdString(),
+                                        callId = fetchOriginalCallIdString(),
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
                                             ?: arrayListOf()
@@ -287,12 +287,9 @@ class TelnyxClient(
             providedStun = providedStun!!
         ).apply {
             val uuid: String = UUID.randomUUID().toString()
-            val inviteCallId: UUID = UUID.randomUUID()
+            val inviteCallId = UUID.randomUUID().toString()
 
-            callId = inviteCallId
-            val call = this
-
-
+            setCallId(inviteCallId)
 
             // Create new peer
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
@@ -373,7 +370,7 @@ class TelnyxClient(
                     CauseCode.USER_BUSY.code,
                     CauseCode.USER_BUSY.name,
                     ByeDialogParams(
-                        getOriginalCallIdString()
+                        fetchOriginalCallIdString()
                     )
                 )
             )
@@ -1390,7 +1387,7 @@ class TelnyxClient(
         // If not found and we have a non-UUID callID from the socket, try to find by original callID
         if (byeCall == null) {
             // Look for a call that might have this as its original callID string
-            byeCall = calls.values.firstOrNull { it.getOriginalCallIdString() == callId.toString() }
+            byeCall = calls.values.firstOrNull { it.fetchOriginalCallIdString() == callId.toString() }
         }
         
         byeCall?.apply {
@@ -1431,7 +1428,7 @@ class TelnyxClient(
             UUID.fromString(callIdString)
         } catch (e: IllegalArgumentException) {
             // If not a valid UUID, look for a call that has this string as its original callID
-            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+            calls.values.firstOrNull { it.fetchOriginalCallIdString() == callIdString }?.callId
         }
         
         val answeredCall = uuid?.let { calls[it] }
@@ -1449,7 +1446,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
 
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        callId,
                         stringSdp,
                         customHeaders?.toCustomHeaders() ?: arrayListOf()
                     )
@@ -1468,7 +1465,7 @@ class TelnyxClient(
                     updateCallState(CallState.CONNECTING)
                     val stringSdp = peerConnection?.getLocalDescription()?.description
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        callId,
                         stringSdp!!,
                         customHeaders?.toCustomHeaders() ?: arrayListOf()
                     )
@@ -1487,7 +1484,7 @@ class TelnyxClient(
                 else -> {
                     // There was no SDP in the response, there was an error.
                     updateCallState(CallState.DONE)
-                    client.removeFromCalls(UUID.fromString(callId))
+                    client.removeFromCalls(callId)
                 }
             }
             client.callOngoing()
@@ -1508,7 +1505,7 @@ class TelnyxClient(
             UUID.fromString(callIdString)
         } catch (e: IllegalArgumentException) {
             // If not a valid UUID, look for a call that has this string as its original callID
-            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+            calls.values.firstOrNull { it.fetchOriginalCallIdString() == callIdString }?.callId
         }
         
         val mediaCall = uuid?.let { calls[it] }
@@ -1528,7 +1525,7 @@ class TelnyxClient(
                     if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
 
                 val mediaResponse = MediaResponse(
-                    UUID.fromString(callId),
+                    callId,
                     callerIDName,
                     callerNumber,
                     sessionId,
@@ -1545,7 +1542,7 @@ class TelnyxClient(
             } else {
                 // There was no SDP in the response, there was an error.
                 updateCallState(CallState.DONE)
-                client.removeFromCalls(UUID.fromString(callId))
+                client.removeFromCalls(callId)
             }
 
         }
@@ -1669,7 +1666,7 @@ class TelnyxClient(
             UUID.fromString(callIdString)
         } catch (e: IllegalArgumentException) {
             // If not a valid UUID, look for a call that has this string as its original callID
-            calls.values.firstOrNull { it.getOriginalCallIdString() == callIdString }?.callId
+            calls.values.firstOrNull { it.fetchOriginalCallIdString() == callIdString }?.callId
         }
         
         val ringingCall = uuid?.let { calls[it] }

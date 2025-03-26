@@ -176,7 +176,7 @@ data class Call(
                     sdp = sessionDescriptionString,
                     dialogParams = CallDialogParams(
                         attach = true,
-                        callId = getOriginalCallIdString(),
+                        callId = fetchOriginalCallIdString(),
                         destinationNumber = destinationNumber
                     )
                 )
@@ -260,7 +260,7 @@ data class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = getOriginalCallIdString(),
+                    callId = fetchOriginalCallIdString(),
                 )
             )
         )
@@ -283,7 +283,7 @@ data class Call(
                 sessid = sessionId,
                 dtmf = tone,
                 dialogParams = CallDialogParams(
-                    callId = getOriginalCallIdString(),
+                    callId = fetchOriginalCallIdString(),
                 )
             )
         )
@@ -404,7 +404,7 @@ data class Call(
      * 
      * @return The original call ID string
      */
-    internal fun getOriginalCallIdString(): String {
+    internal fun fetchOriginalCallIdString(): String {
         return originalCallIdString ?: callId.toString()
     }
 }
