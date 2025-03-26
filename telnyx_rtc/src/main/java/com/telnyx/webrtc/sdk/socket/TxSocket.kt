@@ -204,27 +204,8 @@ class TxSocket(
                                 BYE.methodName -> {
                                     val params =
                                         jsonObject.getAsJsonObject("params")
-                                    val originalCallId = params.get("callID").asString
-                                    
-                                    // Check if we have a mapping for this callID
-                                    val callId = if (listener is TelnyxClient) {
-                                        listener.callIdMapping[originalCallId] ?: try {
-                                            // Try to parse as UUID, if it fails, use a generated UUID
-                                            UUID.fromString(originalCallId)
-                                        } catch (e: IllegalArgumentException) {
-                                            // This should rarely happen as the mapping should exist
-                                            Logger.w(message = "No mapping found for callID: $originalCallId")
-                                            UUID.randomUUID()
-                                        }
-                                    } else {
-                                        try {
-                                            UUID.fromString(originalCallId)
-                                        } catch (e: IllegalArgumentException) {
-                                            Logger.w(message = "Invalid UUID callID: $originalCallId")
-                                            UUID.randomUUID()
-                                        }
-                                    }
-                                    
+                                    val callId =
+                                        UUID.fromString(params.get("callID").asString)
                                     listener.onByeReceived(callId)
                                 }
 
