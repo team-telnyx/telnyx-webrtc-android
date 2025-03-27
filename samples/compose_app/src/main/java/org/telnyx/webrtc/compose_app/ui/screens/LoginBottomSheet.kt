@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.telnyx.webrtc.common.model.Profile
 import org.telnyx.webrtc.compose_app.R
@@ -58,6 +59,7 @@ fun CredentialTokenView(
             OutlinedEdiText(
                 text = sipUsername,
                 hint = "SIP Username",
+                imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().testTag("sipUsername")
             ) { value ->
                 sipUsername = value
@@ -66,6 +68,7 @@ fun CredentialTokenView(
                 text = sipPassword,
                 hint = "SIP Password",
                 keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().testTag("sipPassword")
             ) { value ->
                 sipPassword = value
@@ -74,6 +77,7 @@ fun CredentialTokenView(
             OutlinedEdiText(
                 text = sipToken,
                 hint = "Token",
+                imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth()
             ) { value ->
                 sipToken = value
@@ -83,6 +87,7 @@ fun CredentialTokenView(
         OutlinedEdiText(
             text = callerIdName,
             hint = "Caller ID Name",
+            imeAction = ImeAction.Next,
             modifier = Modifier.fillMaxWidth().testTag("callerIDName")
         ) { value ->
             callerIdName = value
@@ -91,6 +96,8 @@ fun CredentialTokenView(
         OutlinedEdiText(
             text = callerIdNumber,
             hint = "Caller ID Number",
+            keyboardType = KeyboardType.Phone,
+            imeAction = ImeAction.Done,
             modifier = Modifier.fillMaxWidth().testTag("callerIDNumber")
         ) { value ->
             callerIdNumber = value

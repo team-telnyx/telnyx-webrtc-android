@@ -87,10 +87,16 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             val txPushMetaData =
                 intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
-            if (action == MyFirebaseMessagingService.ACT_ANSWER_CALL) {
-                viewModel.answerIncomingPushCall(this, txPushMetaData)
-            } else if (action == MyFirebaseMessagingService.ACT_REJECT_CALL) {
-                viewModel.rejectIncomingPushCall(this, txPushMetaData)
+            when (action) {
+                MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
+                    viewModel.answerIncomingPushCall(this, txPushMetaData)
+                }
+                MyFirebaseMessagingService.ACT_REJECT_CALL -> {
+                    viewModel.rejectIncomingPushCall(this, txPushMetaData)
+                }
+                MyFirebaseMessagingService.ACT_OPEN_TO_REPLY -> {
+                    viewModel.connectWithLastUsedConfig(this, txPushMetaData)
+                }
             }
         }
     }

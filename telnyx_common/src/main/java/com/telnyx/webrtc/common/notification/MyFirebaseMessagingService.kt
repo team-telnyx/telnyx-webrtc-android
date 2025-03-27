@@ -100,6 +100,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     companion object {
         const val ANSWER_REQUEST_CODE = 0
         const val REJECT_REQUEST_CODE = 1
+        const val OPEN_TO_REPLY_REQUEST_CODE = 2
         const val END_CALL_REQUEST_CODE = 1202
 
         const val TX_PUSH_METADATA = "tx_push_metadata"
@@ -108,5 +109,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val EXT_KEY_DO_ACTION = "ext_key_do_action"
         const val ACT_ANSWER_CALL = "answer"
         const val ACT_REJECT_CALL = "reject"
+        const val ACT_OPEN_TO_REPLY = "open_to_reply"
     }
 }

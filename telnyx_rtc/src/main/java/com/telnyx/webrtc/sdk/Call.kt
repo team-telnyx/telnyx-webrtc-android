@@ -59,7 +59,6 @@ data class Call(
 
     internal var peerConnection: Peer? = null
 
-
     internal var earlySDP = false
 
     var inviteResponse: InviteResponse? = null

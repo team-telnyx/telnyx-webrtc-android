@@ -150,6 +150,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             }
         },
         bottomBar = {
+            if (callState == CallState.DONE || callState == CallState.ERROR)
             ConnectionStateButton(
                 state = (sessionState is TelnyxSessionState.ClientLoggedIn),
                 telnyxViewModel,

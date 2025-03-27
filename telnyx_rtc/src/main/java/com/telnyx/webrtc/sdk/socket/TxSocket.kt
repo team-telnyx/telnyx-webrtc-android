@@ -9,6 +9,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
+import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
 import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
@@ -243,6 +244,14 @@ class TxSocket(
                                     }
 
                                     TOKEN_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
+                                    }
+
+                                    SocketError.CODEC_ERROR.errorCode -> {
+                                        listener.onErrorReceived(jsonObject)
+                                    }
+
+                                    else -> {
                                         listener.onErrorReceived(jsonObject)
                                     }
                                 }
