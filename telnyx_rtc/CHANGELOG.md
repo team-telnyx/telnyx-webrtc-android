@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.1) (2025-03-28)
+
+### Bug Fixing
+- Provide proper feedback when codec error occurs through the `onError` callback.
+- Tag logs for easier identification.
+
+
 ## [1.6.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.1) (2025-03-20)
 
 ### Bug Fixing
