@@ -5,7 +5,7 @@ buildscript {
     val kotlinVersion = "1.9.23" // Define Kotlin version
     val androidGradlePluginVersion = "8.6.1"
     val googlePlayServicesVersion = "4.4.2"
-    val hiltVersion = "2.48"
+    val hiltVersion = "2.56.1"
     repositories {
         google()
         mavenCentral()
