@@ -12,8 +12,10 @@ package com.telnyx.webrtc.sdk.model
  *
  * @property TOKEN_ERROR there was an issue with a token - either invalid or expired
  * @property CREDENTIAL_ERROR there was an issue with the credentials used - likely invalid.
+ * @property CODEC_ERROR there was an issue with the SDP handshake, likely due to codec issues.
  */
 enum class SocketError(var errorCode: Int) {
     TOKEN_ERROR(-32000),
-    CREDENTIAL_ERROR(-32001)
+    CREDENTIAL_ERROR(-32001),
+    CODEC_ERROR(-32002)
 }

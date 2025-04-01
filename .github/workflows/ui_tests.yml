@@ -1,0 +1,72 @@
+name: UI Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+      inputs:
+        branch:
+          description: 'Branch to run the workflow on'
+          required: true
+          default: 'main'
+
+jobs:
+  ui-tests:
+    name: Run UI Tests on Firebase Test Lab
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Create local.properties
+        run: |
+          echo "TEST_SIP_USERNAME=${{ secrets.TEST_SIP_USERNAME }}" >> local.properties
+          echo "TEST_SIP_PASSWORD=${{ secrets.TEST_SIP_PASSWORD }}" >> local.properties
+          echo "TEST_SIP_CALLER_NAME=${{ secrets.TEST_SIP_CALLER_NAME }}" >> local.properties
+          echo "TEST_SIP_CALLER_NUMBER=${{ secrets.TEST_SIP_CALLER_NUMBER }}" >> local.properties
+          echo "TEST_SIP_DEST_NUMBER=${{ secrets.TEST_SIP_DEST_NUMBER }}" >> local.properties
+
+      - name: Build Debug APK and Test APK
+        run: |
+          ./gradlew :samples:xml_app:assembleDebug samples:xml_app:assembleDebugAndroidTest
+          ./gradlew :samples:compose_app:assembleDebug samples:compose_app:assembleDebugAndroidTest
+
+      - name: 'Authenticate Cloud SDK'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.TEST_UI_GCLOUD_SERVICE_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run XML App Tests on Firebase Test Lab
+        run: |
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app samples/xml_app/build/outputs/apk/debug/xml_app-debug.apk \
+            --test samples/xml_app/build/outputs/apk/androidTest/debug/xml_app-debug-androidTest.apk \
+            --device model=akita,version=34,locale=en,orientation=portrait \
+            --timeout 30m
+
+      - name: Run Compose App Tests on Firebase Test Lab
+        run: |
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app samples/compose_app/build/outputs/apk/debug/compose_app-debug.apk \
+            --test samples/compose_app/build/outputs/apk/androidTest/debug/compose_app-debug-androidTest.apk \
+            --device model=akita,version=34,locale=en,orientation=portrait \
+            --timeout 30m

@@ -1,10 +1,14 @@
-
 ## 1
-name: Unit test on Push
+name: Unit test on Push or PR into Main
 
-## Actions that will be executed when you push code currently none
+## Actions that will be executed when you push or create a pull request to main
 on:
   push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 ## 2
 jobs:
@@ -17,7 +21,7 @@ jobs:
         uses: actions/setup-java@v3.5.0
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '17'
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew

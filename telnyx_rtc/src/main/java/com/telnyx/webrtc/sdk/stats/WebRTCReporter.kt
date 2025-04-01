@@ -104,6 +104,9 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         debugReportStarted = false
     }
 
+    internal fun pauseStats() {
+        debugReportJob?.cancel()
+    }
     internal fun onStatsDataEvent(event: StatsData) {
         CoroutineScope(Dispatchers.IO).launch {
             statsDataFlow.emit(event)
@@ -394,10 +397,12 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     }
 
     private fun sendStats(data: JsonObject) {
-        val statsMessage = StatPrams(
-            debugReportId = debugStatsId.toString(),
-            reportData = data
-        )
-        socket.send(statsMessage)
+        debugStatsId?.let {
+            val statsMessage = StatPrams(
+                debugReportId = debugStatsId.toString(),
+                reportData = data
+            )
+            socket.send(statsMessage)
+        }
     }
 }

@@ -11,18 +11,22 @@ plugins {
 
 apply plugin: 'maven-publish'
 
+android {
+    namespace 'com.telnyx.webrtc.sdk.telnyx_rtc'
+}
+
 def getVersionName = { ->
-    return "1.4.4"
+    return "1.6.0"
 }
 
 def getArtifactId = { ->
     return "telnyx_rtc"
 }
 
-task sourceJar(type: Jar) {
+/*task sourceJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
     classifier "sources"
-}
+}*/
 
 publishing {
     publications {
@@ -33,7 +37,7 @@ publishing {
             artifact("$buildDir/outputs/aar/${getArtifactId()}-release.aar") {
                 builtBy assemble
             }
-            artifact(sourceJar)
+//            artifact(sourceJar)
             pom.withXml {
                 final dependenciesNode = asNode().appendNode('dependencies')
                 ext.addDependency = { Dependency dep, String scope ->
@@ -67,20 +71,18 @@ publishing {
 }
 
 android {
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         minSdkVersion 23
         targetSdkVersion 34
-        versionCode 1
-        versionName "1.0"
 
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'proguard-rules.txt'
 
-        buildConfigField("double", "SDK_VERSION", versionName)
+        buildConfigField("double", "SDK_VERSION", versionName ?: "1.0")
         buildConfigField "java.util.concurrent.atomic.AtomicBoolean", "IS_TESTING", "new java.util.concurrent.atomic.AtomicBoolean(false)"
     }
 
@@ -94,7 +96,6 @@ android {
             testCoverageEnabled true
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            debuggable true
             jniDebuggable true
         }
     }
@@ -123,6 +124,9 @@ android {
     lintOptions {
         abortOnError false
         absolutePaths false
+    }
+    buildFeatures {
+        buildConfig true
     }
 }
 
@@ -169,8 +173,7 @@ dependencies {
     implementation deps.material
     implementation deps.constraint_layout
 
-    //temporary located in maven local
-    implementation 'com.telnyx.webrtc.lib:library:1.0.0'
+    implementation "io.getstream:stream-webrtc-android:1.3.8"
 
     implementation deps.gson
     implementation deps.retrofit.runtime
@@ -261,4 +264,5 @@ dependencies {
 
     def lifecycle_version = "2.7.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle_version"
 }

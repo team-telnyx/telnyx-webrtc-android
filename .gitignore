@@ -14,7 +14,7 @@
 bin/
 gen/
 out/
-#  Uncomment the following line in case you need and you don't have the release build type files in your app
+#  Uncomment the following line in case you need and you don't have the release build type files in your connection_service_app
 # release/
 
 # Gradle files
@@ -85,3 +85,11 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+app/google-services.json
+xmlapp/google-services.json
+compose_app/google-services.json
+connection_service_app/google-services.json
+
+# system
+.DS_Store
+/platform-samples/
