@@ -118,7 +118,6 @@ dependencies {
 
     implementation deps.dialpad
 
-    implementation "io.getstream:stream-webrtc-android:1.0.0"
     implementation ("androidx.core:core-telecom:1.0.0-beta01")
     implementation "com.google.accompanist:accompanist-permissions:0.37.0"
 

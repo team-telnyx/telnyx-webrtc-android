@@ -12,7 +12,7 @@ import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
-com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel

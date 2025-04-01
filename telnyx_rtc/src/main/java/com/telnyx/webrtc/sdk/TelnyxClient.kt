@@ -37,7 +37,6 @@ import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
-import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
 
