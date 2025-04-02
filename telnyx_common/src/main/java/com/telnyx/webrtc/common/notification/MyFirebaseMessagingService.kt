@@ -39,10 +39,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         if(isMissedCall){
             Timber.d("Missed Call")
-            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-                putExtra("action", NotificationsService.STOP_ACTION)
+            val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
+                putExtra("action", LegacyCallNotificationService.STOP_ACTION)
             }
-            serviceIntent.setAction(NotificationsService.STOP_ACTION)
+            serviceIntent.setAction(LegacyCallNotificationService.STOP_ACTION)
             startMessagingService(serviceIntent)
             return
         }
@@ -65,7 +65,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         // Fallback to legacy notification service
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+        val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
             putExtra("metadata", metadata)
         }
         startMessagingService(serviceIntent)

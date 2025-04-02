@@ -1,7 +1,6 @@
 # Push Notification Quickstart with telnyx_common
 
-The `telnyx_common` module provides a comprehensive implementation for handling push notifications in your Android application. This guide will help you quickly integrate Telnyx's push notification system using the ready-made components available in the `telnyx_common` module.
-
+The `telnyx_common` module provides a comprehensive SDK implementation, including push notification handling for your Android application. This guide will help you quickly integrate Telnyx's push notification system using the ready-made components available in the `telnyx_common` module.
 ## Overview
 
 The `telnyx_common` module offers a complete solution for handling push notifications for incoming calls, including:
@@ -71,9 +70,9 @@ The service is automatically used by `MyFirebaseMessagingService` when an incomi
     android:exported="false" />
 ```
 
-### NotificationsService
+### LegacyCallNotificationService
 
-`NotificationsService` is a legacy notification service maintained for backward compatibility.
+`LegacyCallNotificationService` is a legacy notification service maintained for backward compatibility.
 
 **Key Features:**
 - Provides fallback notification handling for devices that don't support CallStyle
@@ -85,7 +84,7 @@ The service is automatically used by `MyFirebaseMessagingService` when an incomi
 1. Register the service in your AndroidManifest.xml and specify your main activity:
 ```xml
 <service
-    android:name="com.telnyx.webrtc.common.notification.NotificationsService">
+    android:name="com.telnyx.webrtc.common.notification.LegacyCallNotificationService">
     <meta-data
         android:name="activity_class_name"
         android:value="your.package.MainActivity" />
@@ -113,7 +112,7 @@ To integrate push notifications using the `telnyx_common` module:
 </service>
 
 <service
-    android:name="com.telnyx.webrtc.common.notification.NotificationsService">
+    android:name="com.telnyx.webrtc.common.notification.LegacyCallNotificationService">
     <meta-data
         android:name="activity_class_name"
         android:value="your.package.MainActivity" />

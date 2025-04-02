@@ -28,7 +28,7 @@ import timber.log.Timber
  * This service is maintained for backward compatibility
  * New implementations should use CallNotificationService
  */
-class NotificationsService : Service() {
+class LegacyCallNotificationService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "PHONE_CALL_NOTIFICATION_CHANNEL"
@@ -222,7 +222,7 @@ class NotificationsService : Service() {
 
     private fun getActivityClassName(): String {
         val ai = packageManager.getServiceInfo(
-            ComponentName(this, NotificationsService::class.java),
+            ComponentName(this, LegacyCallNotificationService::class.java),
             PackageManager.GET_META_DATA
         )
         return ai.metaData.getString("activity_class_name") ?: ""
