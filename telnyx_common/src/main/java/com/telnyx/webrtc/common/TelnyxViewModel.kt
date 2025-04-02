@@ -166,7 +166,7 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
-     * Sets the current user profile configuration.
+     * Sets the current user profile configuration. (A profile can be Token or Credential based)
      *
      * @param context The application context.
      * @param profile The user profile to set as current.
@@ -226,8 +226,8 @@ class TelnyxViewModel : ViewModel() {
      * Authenticates a user using SIP credentials (username/password).
      *
      * @param viewContext The application context.
-     * @param profile The user profile containing SIP credentials.
-     * @param txPushMetaData Optional push metadata for handling incoming calls.
+     * @param profile The user profile (SIP or Generated Credentials or Token based authentication profile)
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
      * @param autoLogin Whether to automatically login after authentication.
      */
     fun credentialLogin(
@@ -264,7 +264,7 @@ class TelnyxViewModel : ViewModel() {
      * Answers an incoming call received via push notification.
      *
      * @param viewContext The application context.
-     * @param txPushMetaData The push metadata containing call information.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
      */
     fun answerIncomingPushCall(
         viewContext: Context,
@@ -291,7 +291,7 @@ class TelnyxViewModel : ViewModel() {
      * Rejects an incoming call received via push notification.
      *
      * @param viewContext The application context.
-     * @param txPushMetaData The push metadata containing call information.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
      */
     fun rejectIncomingPushCall(
         viewContext: Context,
@@ -384,7 +384,7 @@ class TelnyxViewModel : ViewModel() {
      *
      * @param viewContext The application context.
      * @param profile The user profile containing the SIP token.
-     * @param txPushMetaData Optional push metadata for handling incoming calls.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
      * @param autoLogin Whether to automatically login after authentication.
      */
     fun tokenLogin(
@@ -443,7 +443,7 @@ class TelnyxViewModel : ViewModel() {
      * based on the available information in the last used profile.
      *
      * @param viewContext The application context.
-     * @param txPushMetaData Optional push metadata for handling incoming calls.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
      */
     fun connectWithLastUsedConfig(viewContext: Context, txPushMetaData: String? = null) {
         viewModelScope.launch {
