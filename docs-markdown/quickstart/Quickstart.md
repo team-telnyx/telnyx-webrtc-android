@@ -1,6 +1,8 @@
-# Telnyx Common Module Quickstart
+# Telnyx Android Quickstart - the `telnyx_common` module
 
 The `telnyx_common` module provides a ready-to-use implementation of the Telnyx WebRTC SDK for Android applications. This module is designed to be a drop-in solution for developers who want to quickly integrate Telnyx's voice calling capabilities into their Android applications without having to implement the low-level SDK interactions themselves.
+
+The `telnyx_common` module is currently used in both our [Compose](https://github.com/team-telnyx/telnyx-webrtc-android/tree/main/samples/compose_app) and [XML](https://github.com/team-telnyx/telnyx-webrtc-android/tree/main/samples/xml_app) sample apps - both of which can be used as references depending on how you are developing your application
 
 ## Overview
 
@@ -10,28 +12,6 @@ The `telnyx_common` module serves as a bridge between your application and the `
 2. User-friendly abstractions for authentication, call management, and notifications
 3. Ready-to-use UI components and services for handling calls
 4. Foreground service implementation for maintaining calls when the app is minimized
-
-## Integration
-
-To use the `telnyx_common` module in your application:
-
-1. Add the module as a dependency in your app's `build.gradle` file:
-
-```gradle
-dependencies {
-    implementation project(':telnyx_common')
-}
-```
-
-2. Initialize the module in your application class:
-
-```kotlin
-// In your Application class
-override fun onCreate() {
-    super.onCreate()
-    TelnyxCommon.initialize(this)
-}
-```
 
 ## Key Components
 
@@ -57,28 +37,24 @@ The `TelnyxViewModel` is the primary interface for interacting with the Telnyx W
 
 #### Push Notification Methods
 
-- `answerIncomingPushCall(viewContext, txPushMetaData)`: Answers a call received via push notification
-- `rejectIncomingPushCall(viewContext, txPushMetaData)`: Rejects a call received via push notification
+- `answerIncomingPushCall(viewContext, txPushMetaData)`: Answers a call received via push notification with the metadata received from the push notification
+- `rejectIncomingPushCall(viewContext, txPushMetaData)`: Rejects a call received via push notification with the metadata received from the push notification
 - `disablePushNotifications(context)`: Disables push notifications for the current device
 
-#### Profile Management Methods
+#### Profile Management Methods - Saving and Loading Credentials (SIP or Generated) or Tokens
 
 - `setupProfileList(context)`: Initializes the list of user profiles
 - `addProfile(context, profile)`: Adds a new user profile
 - `deleteProfile(context, profile)`: Deletes an existing user profile
 - `setCurrentConfig(context, profile)`: Sets the active user profile
 
-#### Server Configuration Methods
-
-- `changeServerConfigEnvironment(isDev)`: Switches between development and production environments
-
 ### CallForegroundService
 
-The `CallForegroundService` is a foreground service that keeps your call active when the app is minimized. This is essential for maintaining call audio and preventing the system from killing the call process.
+The `CallForegroundService` is a foreground service that keeps your call active when the app is minimized. This is essential for maintaining call audio and preventing the system from killing the call process. The 'CallForegroundService' also provides a persistent notification that allows users to control the call directly from the notification. This notification is in line with Android's guidelines for ongoing calls and uses their official Call Notification style.
 
 Key features:
-- Maintains a persistent notification during active calls
-- Handles audio routing when the app is in the background
+- Maintains a persistent notification during active calls in the official Call Notification style
+- Handles audio priority and routing when the app is in the background. Without this service, the system may kill the call process, causing the call to disconnect or audio to stop
 - Provides call control actions directly from the notification
 
 Usage:
@@ -93,16 +69,34 @@ CallForegroundService.stopService(context)
 val isCallActive = CallForegroundService.isServiceRunning(context)
 ```
 
-### Notification System
+A more fleshed out example of how we use this is within `TelnyxCommon.kt` which is utilized by the TelnyxViewModel where we set the current call and start the service when a call is active and stop it when the call is ended.
 
-The notification system provides a complete implementation for handling call notifications, including:
+```kotlin
+    internal fun setCurrentCall(context: Context, call: Call?) {
+        call?.let { newCall ->
+            telnyxClient?.getActiveCalls()?.get(newCall.callId)?.let {
+                _currentCall = it
+                // Start the CallForegroundService - if one is not already running
+                startCallService(context, it)
+            }
+        } ?: run {
+            _currentCall = null
+            // if we have no active call, stop the CallForegroundService
+            stopCallService(context)
+        }
+    }
+```
+
+### Notifications
+
+The notification folder provides a complete implementation for handling call notifications, including:
 
 #### CallNotificationService
 
 Handles the creation and management of notifications for:
 - Incoming calls
 - Ongoing calls
-- Missed calls
+- Missed calls (When an invitation has been stopped on the callers side)
 
 The service creates appropriate notification channels and configures them with the correct importance levels, sounds, and vibration patterns.
 
@@ -116,13 +110,13 @@ A `BroadcastReceiver` that handles user interactions with call notifications:
 #### MyFirebaseMessagingService
 
 Handles incoming Firebase Cloud Messaging (FCM) push notifications for calls:
-- Parses incoming push notifications
+- Parses incoming push notifications and extracts the call metadata, which is required when answering or rejecting calls from the notification
 - Displays appropriate UI for incoming calls
 - Routes call information to the appropriate handlers
 
 ## Implementation Example
 
-Here's a basic example of how to use the `telnyx_common` module in an activity:
+Here's a very very basic example of how to use the `telnyx_common` module in an activity:
 
 ```kotlin
 class CallActivity : AppCompatActivity() {
@@ -182,10 +176,8 @@ class CallActivity : AppCompatActivity() {
 
 4. **User Permissions**: Ensure your app has the necessary permissions (microphone, notifications) before initiating calls.
 
-5. **Battery Optimization**: Inform users to disable battery optimization for your app to ensure reliable call handling.
-
 ## Troubleshooting
 
 - If calls disconnect when the app is minimized, ensure the `CallForegroundService` is properly started.
-- For notification issues, check that notification permissions are granted and channels are properly configured.
+- For notification issues, check that notification permissions are granted and channels are properly configured. Also double check the portal to make sure the push credentials are assigned properly.
 - If authentication fails, verify the credentials and ensure the device has internet connectivity.
