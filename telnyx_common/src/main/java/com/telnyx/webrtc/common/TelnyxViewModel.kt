@@ -62,45 +62,99 @@ sealed class TelnyxSessionState {
     data object ClientDisconnected : TelnyxSessionState()
 }
 
+/**
+ * Main ViewModel for interacting with the Telnyx WebRTC SDK.
+ * 
+ * This ViewModel provides methods for authentication, call management, and handling
+ * incoming calls. It exposes state flows for observing socket events, session state,
+ * and loading state.
+ */
 class TelnyxViewModel : ViewModel() {
 
+    /**
+     * State flow for socket events such as incoming calls, call answered, call ended, etc.
+     * Observe this flow to react to call-related events in the UI.
+     */
     private val _uiState: MutableStateFlow<TelnyxSocketEvent> =
         MutableStateFlow(TelnyxSocketEvent.InitState)
     val uiState: StateFlow<TelnyxSocketEvent> = _uiState.asStateFlow()
 
+    /**
+     * State flow for session events such as login and disconnect.
+     * Observe this flow to react to authentication state changes.
+     */
     private val _sessionsState: MutableStateFlow<TelnyxSessionState> =
         MutableStateFlow(TelnyxSessionState.ClientDisconnected)
     val sessionsState: StateFlow<TelnyxSessionState> = _sessionsState.asStateFlow()
 
+    /**
+     * State flow for loading state.
+     * Observe this flow to show/hide loading indicators in the UI.
+     */
     private val _isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    /**
+     * Firebase Cloud Messaging token for push notifications.
+     */
     private var fcmToken: String? = null
 
+    /**
+     * Server configuration for the Telnyx WebRTC SDK.
+     */
     private var serverConfiguration = TxServerConfiguration()
 
+    /**
+     * State flow for the list of user profiles.
+     * Observe this flow to display the list of profiles in the UI.
+     */
     private val _profileListState = MutableStateFlow<List<Profile>>(
         emptyList()
     )
     val profileList: StateFlow<List<Profile>> = _profileListState
 
+    /**
+     * The current active call, if any.
+     * Returns null if there is no active call.
+     */
     val currentCall: Call?
         get() = TelnyxCommon.getInstance().currentCall
 
+    /**
+     * State flow for the current user profile.
+     * Observe this flow to react to profile changes.
+     */
     private val _currentProfile = MutableStateFlow<Profile?>(null)
     val currentProfile: StateFlow<Profile?> = _currentProfile
 
+    /**
+     * UUID for handling notification acceptance.
+     */
     private var notificationAcceptHandlingUUID: UUID? = null
 
+    /**
+     * Coroutine job for user session operations.
+     */
     private var userSessionJob: Job? = null
 
+    /**
+     * Flag to prevent handling multiple responses simultaneously.
+     */
     private var handlingResponses = false
 
 
+    /**
+     * Stops the loading indicator.
+     */
     fun stopLoading() {
         _isLoading.value = false
     }
 
+    /**
+     * Changes the server configuration environment.
+     *
+     * @param isDev If true, uses the development environment; otherwise, uses production.
+     */
     fun changeServerConfigEnvironment(isDev: Boolean) {
         serverConfiguration = serverConfiguration.copy(
             host = if (isDev) {
@@ -111,26 +165,54 @@ class TelnyxViewModel : ViewModel() {
         )
     }
 
+    /**
+     * Sets the current user profile configuration. (A profile can be Token or Credential based)
+     *
+     * @param context The application context.
+     * @param profile The user profile to set as current.
+     */
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
         ProfileManager.saveProfile(context, profile)
     }
 
+    /**
+     * Initializes the profile list from storage.
+     *
+     * @param context The application context.
+     */
     fun setupProfileList(context: Context) {
         _profileListState.value = ProfileManager.getProfilesList(context)
     }
 
+    /**
+     * Adds a new user profile to storage.
+     *
+     * @param context The application context.
+     * @param profile The user profile to add.
+     */
     fun addProfile(context: Context, profile: Profile) {
         ProfileManager.saveProfile(context, profile)
         refreshProfileList(context)
     }
 
+    /**
+     * Deletes a user profile from storage.
+     *
+     * @param context The application context.
+     * @param profile The user profile to delete.
+     */
     fun deleteProfile(context: Context, profile: Profile) {
         profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
         profile.sipToken?.let { ProfileManager.deleteProfileBySipToken(context, it) }
         refreshProfileList(context)
     }
 
+    /**
+     * Refreshes the profile list from storage and updates the current profile if needed.
+     *
+     * @param context The application context.
+     */
     private fun refreshProfileList(context: Context) {
         _profileListState.value = ProfileManager.getProfilesList(context)
         _currentProfile.value?.let { profile ->
@@ -140,6 +222,14 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Authenticates a user using SIP credentials (username/password).
+     *
+     * @param viewContext The application context.
+     * @param profile The user profile (SIP or Generated Credentials or Token based authentication profile)
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
+     * @param autoLogin Whether to automatically login after authentication.
+     */
     fun credentialLogin(
         viewContext: Context,
         profile: Profile,
@@ -170,6 +260,12 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Answers an incoming call received via push notification.
+     *
+     * @param viewContext The application context.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
+     */
     fun answerIncomingPushCall(
         viewContext: Context,
         txPushMetaData: String?
@@ -191,6 +287,12 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Rejects an incoming call received via push notification.
+     *
+     * @param viewContext The application context.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
+     */
     fun rejectIncomingPushCall(
         viewContext: Context,
         txPushMetaData: String?
@@ -209,11 +311,21 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Initializes the user profile and FCM token.
+     *
+     * @param context The application context.
+     */
     suspend fun initProfile(context: Context) {
         getProfiles(context)
         getFCMToken()
     }
 
+    /**
+     * Loads user profiles from storage.
+     *
+     * @param context The application context.
+     */
     private fun getProfiles(context: Context) {
         ProfileManager.getProfilesList(context).let {
             _profileListState.value = it
@@ -223,6 +335,11 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Fetches the Firebase Cloud Messaging token for push notifications.
+     *
+     * @return The FCM token, or null if fetching failed.
+     */
     private suspend fun getFCMToken(): String? = suspendCoroutine { continuation ->
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
@@ -244,14 +361,32 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Retrieves the current FCM token.
+     *
+     * @return The current FCM token, or null if not available.
+     */
     fun retrieveFCMToken(): String? {
         return fcmToken
     }
 
+    /**
+     * Disables push notifications for the current device.
+     *
+     * @param context The application context.
+     */
     fun disablePushNotifications(context: Context) {
         TelnyxCommon.getInstance().getTelnyxClient(context).disablePushNotification()
     }
 
+    /**
+     * Authenticates a user using a SIP token.
+     *
+     * @param viewContext The application context.
+     * @param profile The user profile containing the SIP token.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
+     * @param autoLogin Whether to automatically login after authentication.
+     */
     fun tokenLogin(
         viewContext: Context,
         profile: Profile,
@@ -276,6 +411,14 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Disconnects the current session.
+     * 
+     * This method will only disconnect if there is no active call and we're not handling
+     * a push notification. If there is an active call, the disconnect will be prevented.
+     *
+     * @param viewContext The application context.
+     */
     fun disconnect(viewContext: Context) {
         viewModelScope.launch {
             // Check if we are on a call and not handling a push notification before disconnecting
@@ -293,6 +436,15 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Connects using the last used profile configuration.
+     * 
+     * This method will automatically choose between token and credential login
+     * based on the available information in the last used profile.
+     *
+     * @param viewContext The application context.
+     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
+     */
     fun connectWithLastUsedConfig(viewContext: Context, txPushMetaData: String? = null) {
         viewModelScope.launch {
             _currentProfile.value?.let { lastUsedProfile ->
@@ -419,6 +571,12 @@ class TelnyxViewModel : ViewModel() {
         _uiState.value = TelnyxSocketEvent.InitState
     }
 
+    /**
+     * Initiates an outgoing call to the specified destination number.
+     *
+     * @param viewContext The application context.
+     * @param destinationNumber The phone number to call.
+     */
     fun sendInvite(
         viewContext: Context,
         destinationNumber: String
@@ -438,6 +596,13 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Ends the current active call.
+     * 
+     * If there was a previous call on hold, it will be automatically unholded.
+     *
+     * @param viewContext The application context.
+     */
     fun endCall(viewContext: Context) {
         viewModelScope.launch {
             currentCall?.let { currentCall ->
@@ -449,6 +614,12 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Rejects an incoming call.
+     *
+     * @param viewContext The application context.
+     * @param callId The UUID of the call to reject.
+     */
     fun rejectCall(viewContext: Context, callId: UUID) {
         viewModelScope.launch {
             Timber.i("Reject call $callId")
@@ -459,6 +630,16 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Answers an incoming call.
+     * 
+     * If there is already an active call, the current call will be put on hold
+     * before answering the new call.
+     *
+     * @param viewContext The application context.
+     * @param callId The UUID of the call to answer.
+     * @param callerIdNumber The caller ID number for the call.
+     */
     fun answerCall(
         viewContext: Context,
         callId: UUID,
@@ -484,6 +665,14 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Toggles the hold state of the current call.
+     * 
+     * If the call is active, it will be put on hold.
+     * If the call is on hold, it will be unholded.
+     *
+     * @param viewContext The application context.
+     */
     fun holdUnholdCurrentCall(viewContext: Context) {
         viewModelScope.launch {
             currentCall?.let {
@@ -492,6 +681,11 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Sends DTMF tones during an active call.
+     *
+     * @param key The DTMF key to send (0-9, *, #).
+     */
     fun dtmfPressed(key: String) {
         currentCall?.let { call ->
             call.dtmf(call.callId, key)
