@@ -44,7 +44,7 @@
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="phoneCall"
-            android:name="com.telnyx.webrtc.common.notification.NotificationsService">
+            android:name="com.telnyx.webrtc.common.notification.LegacyCallNotificationService">
             <meta-data
                 android:name="activity_class_name"
                 android:value="org.telnyx.webrtc.xml_app.MainActivity" />

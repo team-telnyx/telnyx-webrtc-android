@@ -276,7 +276,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     private fun getActivityClassName(): String {
         return try {
             val ai = context.packageManager.getServiceInfo(
-                ComponentName(context, NotificationsService::class.java),
+                ComponentName(context, LegacyCallNotificationService::class.java),
                 PackageManager.GET_META_DATA
             )
             ai.metaData?.getString("activity_class_name") ?: ""

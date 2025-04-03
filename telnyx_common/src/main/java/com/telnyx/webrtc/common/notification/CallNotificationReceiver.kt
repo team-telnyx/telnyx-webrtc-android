@@ -112,7 +112,7 @@ class CallNotificationReceiver : BroadcastReceiver() {
     private fun getTargetActivityClass(context: Context): Class<*>? {
         return try {
             val serviceInfo = context.packageManager.getServiceInfo(
-                ComponentName(context, NotificationsService::class.java),
+                ComponentName(context, LegacyCallNotificationService::class.java),
                 android.content.pm.PackageManager.GET_META_DATA
             )
             val activityClassName = serviceInfo.metaData.getString("activity_class_name") ?: return null

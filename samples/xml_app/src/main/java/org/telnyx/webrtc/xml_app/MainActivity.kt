@@ -25,15 +25,12 @@ import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
-import com.karumi.dexter.listener.PermissionDeniedResponse
-import com.karumi.dexter.listener.PermissionGrantedResponse
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.karumi.dexter.listener.single.PermissionListener
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
-import com.telnyx.webrtc.common.notification.NotificationsService
+import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
@@ -131,10 +128,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             return
         }
 
-        val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-            putExtra("action", NotificationsService.STOP_ACTION)
+        val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
+            putExtra("action", LegacyCallNotificationService.STOP_ACTION)
         }
-        serviceIntent.setAction(NotificationsService.STOP_ACTION)
+        serviceIntent.setAction(LegacyCallNotificationService.STOP_ACTION)
         startService(serviceIntent)
 
         val action = intent.extras?.getString(MyFirebaseMessagingService.EXT_KEY_DO_ACTION)
