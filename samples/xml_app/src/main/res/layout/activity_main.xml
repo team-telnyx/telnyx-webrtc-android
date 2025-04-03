@@ -5,6 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background_color"
     tools:context="org.telnyx.webrtc.xml_app.MainActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -32,8 +33,10 @@
             style="@style/HeaderText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="60dp"
+            android:layout_marginTop="108dp"
             android:text="@string/home_info"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/imageView" />
@@ -45,6 +48,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="@string/socket"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
@@ -53,8 +58,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:layout_marginBottom="32dp"
             android:gravity="center"
             android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/socketLabel">
 
@@ -175,5 +183,15 @@
 
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/versionInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Production TelnyxSDK [v1.2.0] - App [v1.2.0]"
+        android:textColor="#525252"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

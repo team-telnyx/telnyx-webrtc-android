@@ -106,7 +106,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         }
     }
 
-    Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
+    Scaffold(
+        modifier = Modifier
+            .padding(Dimens.mediumSpacing)
+            .background(background_color),
         topBar = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
@@ -132,8 +135,13 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             }
                     )
                 }
+                
+                // Added 108px total spacing between logo and text
+                Spacer(modifier = Modifier.height(108.dp - Dimens.mediumSpacing - Dimens.smallSpacing))
 
-                MediumTextBold(text = stringResource(id = R.string.login_info))
+                // Adjust x position with 24px padding on both sides
+                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    MediumTextBold(text = stringResource(id = R.string.login_info))
                 ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
                 CurrentCallState(state = callState)
                 SessionItem(
@@ -536,17 +544,20 @@ fun ProfileItem(
 
 @Composable
 fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
-    Column {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         RegularText(text = stringResource(id = R.string.profile))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), // 12px padding between profile name and button
             verticalAlignment = Alignment.CenterVertically
         ) {
             RegularText(text = profileName)
             RoundSmallButton(
-                text = stringResource(R.string.switch_profile),
+                text = "Switch Profile", // Sentence case
                 textSize = 14.sp,
-                backgroundColor = MaterialTheme.colorScheme.secondary
+                backgroundColor = Color.Transparent, // Secondary button style
+                contentColor = MaterialTheme.colorScheme.primary,
+                borderStroke = 1.dp,
+                borderColor = MaterialTheme.colorScheme.primary
             ) {
                 onProfileSwitch()
             }
@@ -565,11 +576,15 @@ fun SessionItem(sessionId: String) {
 
 @Composable
 fun ConnectionState(state: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp),
+        modifier = Modifier.padding(horizontal = 24.dp)
+    ) {
         RegularText(text = stringResource(id = R.string.socket))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -580,9 +595,7 @@ fun ConnectionState(state: Boolean) {
                     )
             )
             RegularText(
-                text = if (state) stringResource(id = R.string.client_ready) else stringResource(
-                    id = R.string.disconnected
-                )
+                text = if (state) "Connected" else "Disconnected"
             )
         }
     }
@@ -606,7 +619,9 @@ fun ConnectionStateButton(
     val context = LocalContext.current
     RoundedOutlinedButton(
         text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(32.dp)
     ) {
         if (state) {
             telnyxViewModel.disconnect(context)
