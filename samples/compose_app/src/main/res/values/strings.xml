@@ -50,7 +50,7 @@
     <string name="profile">Profile</string>
     <string name="missing_profile">No Profile</string>
     <string name="icon">icon</string>
-    <string name="switch_profile">Switch Profile</string>
+    <string name="switch_profile">Switch profile</string>
     <string name="existing_profiles">Existing profiles</string>
     <string name="close_button_dessc">close button</string>
     <string name="add_new_profile">Add new profile</string>
@@ -76,5 +76,5 @@
     <string name="switched_to_production">Switched to Production</string>
     <string name="switched_to_development">Switched to Development</string>
     <string name="push_notifications_disabled">Push Notifications Disabled</string>
-
+    <string name="bottom_bar_production_text">Production TelnyxSDK [v1.6.1] - App [v%1$s]</string>
 </resources>
