@@ -32,6 +32,7 @@ import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 
@@ -73,6 +74,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             setOf(R.id.loginFragment)
         )
 
+        setupUI()
         setupGestureDetector()
         bindEvents()
     }
@@ -91,6 +93,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         telnyxViewModel.disconnect(this)
     }
 
+    private fun setupUI() {
+        binding.apply {
+            versionInfo.text = String.format(getString(R.string.bottom_bar_production_text), BuildConfig.VERSION_NAME)
+        }
+    }
+
     private fun bindEvents() {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
@@ -99,12 +107,27 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid
+
+                        binding.bottomButton.text = getString(R.string.disconnect)
+                        binding.bottomButton.setOnClickListener {
+                            telnyxViewModel.disconnect(this@MainActivity)
+                        }
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
                         binding.socketStatusIcon.isEnabled = false
                         binding.socketStatusInfo.text = getString(R.string.disconnected)
                         binding.sessionId.text = getString(R.string.dash)
+
+                        binding.bottomButton.text = getString(R.string.connect)
+                        binding.bottomButton.setOnClickListener {
+                            telnyxViewModel.currentProfile.value?.let { currentProfile ->
+                                if (currentProfile.sipToken?.isEmpty() == false)
+                                    telnyxViewModel.tokenLogin(this@MainActivity, currentProfile,null)
+                                else
+                                    telnyxViewModel.credentialLogin(this@MainActivity, currentProfile,null)
+                            }
+                        }
                     }
                 }
             }

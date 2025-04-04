@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,11 +49,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -60,9 +64,11 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import org.telnyx.webrtc.compose_app.BuildConfig
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
+import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
@@ -106,17 +112,19 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         }
     }
 
-    Scaffold(modifier = Modifier.padding(Dimens.mediumSpacing),
+    Scaffold(
+        modifier = Modifier
+            .padding(start = Dimens.mediumSpacing, end = Dimens.mediumSpacing),
         topBar = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-            ) {
-                Spacer(modifier = Modifier.size(Dimens.mediumSpacing))
-
+            Column {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.25f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Spacer(modifier = Modifier.height(Dimens.spacing32dp))
+                    
                     Image(
                         painter = painterResource(id = R.drawable.telnyx_logo),
                         contentDescription = stringResource(id = R.string.app_name),
@@ -133,25 +141,29 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     )
                 }
 
-                MediumTextBold(text = stringResource(id = R.string.login_info))
-                ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
-                CurrentCallState(state = callState)
-                SessionItem(
-                    sessionId = when (sessionState) {
-                        is TelnyxSessionState.ClientLoggedIn -> {
-                            (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
-                        }
+                Column {
+                    MediumTextBold(text = stringResource(id = R.string.login_info))
+                    Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+                    ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
+                    Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+                    CurrentCallState(state = callState)
+                    SessionItem(
+                        sessionId = when (sessionState) {
+                            is TelnyxSessionState.ClientLoggedIn -> {
+                                (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+                            }
 
-                        is TelnyxSessionState.ClientDisconnected -> {
-                            stringResource(R.string.dash)
+                            is TelnyxSessionState.ClientDisconnected -> {
+                                stringResource(R.string.dash)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         },
         bottomBar = {
             if (callState == CallState.DONE || callState == CallState.ERROR)
-            ConnectionStateButton(
+            BottomBar(
                 state = (sessionState is TelnyxSessionState.ClientLoggedIn),
                 telnyxViewModel,
                 currentConfig
@@ -166,7 +178,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
         ) {
 
-            Spacer(modifier = Modifier.size(Dimens.smallSpacing))
+            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
@@ -539,14 +551,14 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
     Column {
         RegularText(text = stringResource(id = R.string.profile))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacing12dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             RegularText(text = profileName)
             RoundSmallButton(
                 text = stringResource(R.string.switch_profile),
                 textSize = 14.sp,
-                backgroundColor = MaterialTheme.colorScheme.secondary
+                backgroundColor = MaterialTheme.colorScheme.background
             ) {
                 onProfileSwitch()
             }
@@ -565,11 +577,14 @@ fun SessionItem(sessionId: String) {
 
 @Composable
 fun ConnectionState(state: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
+    ) {
         RegularText(text = stringResource(id = R.string.socket))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -580,9 +595,7 @@ fun ConnectionState(state: Boolean) {
                     )
             )
             RegularText(
-                text = if (state) stringResource(id = R.string.client_ready) else stringResource(
-                    id = R.string.disconnected
-                )
+                text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
         }
     }
@@ -598,37 +611,66 @@ fun CurrentCallState(state: CallState) {
 }
 
 @Composable
-fun ConnectionStateButton(
+fun BottomBar(
     state: Boolean,
     telnyxViewModel: TelnyxViewModel,
     currentConfig: Profile?
 ) {
     val context = LocalContext.current
-    RoundedOutlinedButton(
-        text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (state) {
-            telnyxViewModel.disconnect(context)
-        } else {
-            currentConfig?.let { profile ->
-                if (profile.sipToken?.isEmpty() == false) {
-                    telnyxViewModel.tokenLogin(
-                        context,
-                        profile = profile,
-                        txPushMetaData = null
-                    )
-                } else {
-                    telnyxViewModel.credentialLogin(
-                        context,
-                        profile = profile,
-                        txPushMetaData = null
-                    )
+
+    Column (modifier = Modifier
+        .fillMaxHeight(0.16f)) {
+
+        RoundedOutlinedButton(
+            text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            if (state) {
+                telnyxViewModel.disconnect(context)
+            } else {
+                currentConfig?.let { profile ->
+                    if (profile.sipToken?.isEmpty() == false) {
+                        telnyxViewModel.tokenLogin(
+                            context,
+                            profile = profile,
+                            txPushMetaData = null
+                        )
+                    } else {
+                        telnyxViewModel.credentialLogin(
+                            context,
+                            profile = profile,
+                            txPushMetaData = null
+                        )
+                    }
+                } ?: run {
+                    Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
                 }
-            } ?: run {
-                Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
             }
         }
 
+        Column (modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = Dimens.mediumPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center) {
+                RegularText(text = stringResource(R.string.bottom_bar_production_text, BuildConfig.VERSION_NAME),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    textAlign = TextAlign.Center)
+        }
+    }
+
+}
+
+@Preview
+@Composable
+fun HomeScreenPreview() {
+    val fakeViewModel = TelnyxViewModel()
+
+    TelnyxAndroidWebRTCSDKTheme {
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            innerPadding.calculateTopPadding()
+            HomeScreen(rememberNavController(), telnyxViewModel = fakeViewModel)
+        }
     }
 }

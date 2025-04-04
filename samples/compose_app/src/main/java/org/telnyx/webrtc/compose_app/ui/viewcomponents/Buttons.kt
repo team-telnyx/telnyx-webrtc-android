@@ -2,6 +2,7 @@ package org.telnyx.webrtc.compose_app.ui.viewcomponents
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -56,9 +57,15 @@ fun RoundSmallButton(
     onClick: () -> Unit
 ) {
     Box (
-        modifier = modifier.background(backgroundColor, shape = Dimens.shape100Percent).clip(shape = shape100Percent).clickable {
-            onClick()
-        }.padding(horizontal = Dimens.largePadding, vertical = smallPadding), contentAlignment = Alignment.Center
+        modifier = modifier
+            .background(backgroundColor, shape = Dimens.shape100Percent)
+            .clip(shape = shape100Percent)
+            .border(borderStroke, borderColor, shape = shape100Percent)
+            .clickable {
+                onClick()
+            }
+            .padding(horizontal = Dimens.largePadding, vertical = smallPadding), 
+        contentAlignment = Alignment.Center
     ) {
         if (isLoading){
             GenericCircleProgressIndicator()
@@ -67,9 +74,6 @@ fun RoundSmallButton(
         }
     }
 }
-
-
-
 
 @Composable
 fun RoundedOutlinedButton(
@@ -93,7 +97,7 @@ fun RoundedOutlinedButton(
         if (isLoading){
             GenericCircleProgressIndicator()
         }else{
-            MediumTextBold(text = text, modifier = Modifier.padding(Dimens.smallPadding), color = contentColor,textSize = textSize)
+            MediumTextBold(text = text, color = contentColor,textSize = textSize)
         }
     }
 }

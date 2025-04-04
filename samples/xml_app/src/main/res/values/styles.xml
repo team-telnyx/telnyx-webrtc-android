@@ -86,25 +86,25 @@
  ###################################### -->
 
     <style name="SubText">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/colorPrimaryVariant</item>
     </style>
 
 
 
     <style name="SubTextDeep">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/mainTextColor</item>
     </style>
 
     <style name="HeaderText">
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:textColor">@color/mainTextColor</item>
     </style>
 
 
     <style name="HeaderTextLarge">
-        <item name="android:textSize">16sp</item>
+        <item name="android:textSize">22sp</item>
         <item name="android:textColor">@color/mainTextColor</item>
     </style>
 
