@@ -41,35 +41,21 @@
             <Button
                 android:id="@+id/switchProfile"
                 android:layout_width="wrap_content"
-                android:layout_height="28dp"
+                android:layout_height="@dimen/spacing_medium"
                 android:layout_marginStart="@dimen/spacing_normal"
                 android:layout_toEndOf="@+id/profileId"
                 android:text="@string/switch_profile"
                 android:layout_below="@+id/profileLabel"
                 android:textAllCaps="false"
-                android:padding="1dp"
+                android:paddingStart="@dimen/spacing_tiny"
+                android:paddingEnd="@dimen/spacing_tiny"
+                android:layout_marginTop="1dp"
                 style="@style/CustomOutlinedButton"
+                android:textSize="@dimen/font_button"
                 />
 
 
         </RelativeLayout>
-
-        <Button
-            android:id="@+id/connect"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/connect"
-            android:textAllCaps="false"
-            android:padding="1dp"
-            android:layout_marginTop="@dimen/spacing_large"
-            app:layout_constraintTop_toBottomOf="@+id/profileInfo"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            style="@style/CustomPrimaryButton"
-            />
-
-
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

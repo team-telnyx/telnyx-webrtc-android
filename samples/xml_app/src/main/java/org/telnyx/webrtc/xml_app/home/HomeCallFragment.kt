@@ -73,10 +73,6 @@ class HomeCallFragment : Fragment() {
             telnyxViewModel.currentCall?.onLoudSpeakerPressed()
         }
 
-        binding.disconnect.setOnClickListener {
-            telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
-        }
-
         binding.hold.setOnClickListener {
             telnyxViewModel.holdUnholdCurrentCall(this@HomeCallFragment.requireContext())
         }
