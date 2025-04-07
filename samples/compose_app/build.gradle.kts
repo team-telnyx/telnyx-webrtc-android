@@ -94,6 +94,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     val nav_version = "2.8.7"
     implementation("androidx.navigation:navigation-compose:$nav_version")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
 
 }
