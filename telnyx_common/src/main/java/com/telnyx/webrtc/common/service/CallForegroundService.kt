@@ -21,21 +21,39 @@ import com.telnyx.webrtc.sdk.model.PushMetaData
 import timber.log.Timber
 
 /**
- * Foreground service to keep audio alive when the app is minimized during an active call
+ * Foreground service to keep audio alive when the app is minimized during an active call.
+ * This service is responsible for maintaining the audio connection and displaying a notification
+ * to the user when the app is not in the foreground.
  */
 class CallForegroundService : Service() {
 
     companion object {
+        /**
+         * Action to start the foreground service with call information.
+         */
         private const val ACTION_START_SERVICE = "ACTION_START_SERVICE"
+        /**
+         * Action to stop the foreground service.
+         */
         private const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
+        /**
+         * Extra key for passing push metadata to the service.
+         */
         private const val EXTRA_PUSH_METADATA = "EXTRA_PUSH_METADATA"
-        
-        // Static flag to track if the service is running
+
+        /**
+         * Static flag to track if the service is running.
+         * This flag is used to prevent multiple instances of the service from running concurrently.
+         */
         @Volatile
         private var isServiceRunning = false
 
         /**
-         * Start the foreground service with call information
+         * Starts the foreground service with call information.
+         * This method checks if the service is already running and starts it only if it's not.
+         *
+         * @param context The application context.
+         * @param pushMetaData The push metadata containing call information.
          */
         fun startService(context: Context, pushMetaData: PushMetaData) {
             // Check if service is already running
@@ -64,7 +82,10 @@ class CallForegroundService : Service() {
         }
 
         /**
-         * Stop the foreground service
+         * Stops the foreground service.
+         * This method stops the service and sets the [isServiceRunning] flag to false.
+         *
+         * @param context The application context.
          */
         fun stopService(context: Context) {
             val intent = Intent(context, CallForegroundService::class.java).apply {
@@ -74,9 +95,14 @@ class CallForegroundService : Service() {
             isServiceRunning = false
             Timber.d("Stopping CallForegroundService")
         }
-        
+
         /**
-         * Check if the service is running in the foreground
+         * Checks if the service is running in the foreground.
+         * This method uses the `ActivityManager` to get a list of running services and checks if
+         * the [CallForegroundService] is in the list.
+         *
+         * @param context The application context.
+         * @return True if the service is running in the foreground, false otherwise.
          */
         private fun isServiceRunningInForeground(context: Context): Boolean {
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
