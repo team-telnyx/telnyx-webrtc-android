@@ -16,7 +16,7 @@ android {
 }
 
 def getVersionName = { ->
-    return "1.6.0"
+    return "1.6.2"
 }
 
 def getArtifactId = { ->
@@ -82,7 +82,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'proguard-rules.txt'
 
-        buildConfigField("double", "SDK_VERSION", versionName ?: "1.0")
+        buildConfigField("double", "SDK_VERSION", versionName ?: "1.6.2")
         buildConfigField "java.util.concurrent.atomic.AtomicBoolean", "IS_TESTING", "new java.util.concurrent.atomic.AtomicBoolean(false)"
     }
 

@@ -36,6 +36,7 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -220,38 +221,70 @@ class TelnyxClient(
             if (sessionDescriptionString == null) {
                 updateCallState(CallState.ERROR)
             } else {
+                // Track the number of valid ICE candidates we've received
+                var validCandidatesCount = 0
+                val requiredCandidates = 2 // We want at least 2 valid candidates (one from STUN, one from TURN)
+                
+                // Set up a completion handler that will be called when we have enough candidates
+                val onEnoughCandidates = {
+                    if (validCandidatesCount >= requiredCandidates) {
+                        val answerBodyMessage = SendingMessageBody(
+                            uuid, SocketMethod.ANSWER.methodName,
+                            CallParams(
+                                sessid = sessionId,
+                                sdp = sessionDescriptionString,
+                                dialogParams = CallDialogParams(
+                                    callId = callId,
+                                    destinationNumber = destinationNumber,
+                                    customHeaders = customHeaders?.toCustomHeaders()
+                                        ?: arrayListOf()
+                                )
+                            )
+                        )
+                        updateCallState(CallState.ACTIVE)
+                        socket.send(answerBodyMessage)
+                        resetIceCandidateTimer()
+                    }
+                }
+
+                // Start a timer to check for ICE candidates
                 iceCandidateTimer = Timer()
                 iceCandidateTimer?.schedule(
                     timerTask {
-                        if (iceCandidateList.size > 0) {
-                            // set localInfo and ice candidate and able to create correct offer
-                            val answerBodyMessage = SendingMessageBody(
-                                uuid, SocketMethod.ANSWER.methodName,
-                                CallParams(
-                                    sessid = sessionId,
-                                    sdp = sessionDescriptionString,
-                                    dialogParams = CallDialogParams(
-                                        callId = callId,
-                                        destinationNumber = destinationNumber,
-                                        customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
-                                    )
-                                )
-                            )
-                            updateCallState(CallState.ACTIVE)
-                            socket.send(answerBodyMessage)
+                        // Log the current state for debugging
+                        Logger.d(
+                            tag = "AcceptCall",
+                            message = "ICE Candidate Check - " +
+                                    "Valid Candidates: $validCandidatesCount, " +
+                                    "Required: $requiredCandidates, " +
+                                    "Total Candidates: ${iceCandidateList.size}"
+                        )
+
+                        if (validCandidatesCount >= requiredCandidates) {
+                            onEnoughCandidates()
                             resetIceCandidateTimer()
                         } else {
-                            Logger.d(message = "Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                            // Check if we've received any new valid candidates
+                            val currentValidCandidates = iceCandidateList.count { url ->
+                                url == providedStun || url == providedTurn
+                            }
+                            
+                            if (currentValidCandidates > validCandidatesCount) {
+                                validCandidatesCount = currentValidCandidates
+                                Logger.d(tag = "AcceptCall", message = "New valid ICE candidates detected: $validCandidatesCount")
+                                
+                                if (validCandidatesCount >= requiredCandidates) {
+                                    onEnoughCandidates()
+                                    resetIceCandidateTimer()
+                                }
+                            }
                         }
                     },
                     Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
                 )
-                client.stopMediaPlayer()
-                // reset audio mode to communication
-                setSpeakerMode(speakerState)
 
-                // callStateLiveData.value = CallState.ACTIVE
+                client.stopMediaPlayer()
+                setSpeakerMode(speakerState)
                 client.callOngoing()
             }
         }
