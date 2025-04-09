@@ -179,7 +179,8 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         telnyxViewModel.setupProfileList(requireContext())
         binding.apply {
             headerInfo.getChildAt(1).setOnClickListener { dismiss() }
-            addNewProfile.setOnClickListener { toggleCredentialLayout(true) }
+            // Show credentials layout by default
+            toggleCredentialLayout(true)
             credentialsBinding.cancelButton.setOnClickListener { toggleCredentialLayout(false) }
 
             credentialsBinding.sessionSwitch.setOnCheckedChangeListener { _, isChecked ->
