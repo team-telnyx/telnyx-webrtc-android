@@ -1,4 +1,10 @@
-## [1.6.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.1) (2025-03-28)
+## [1.6.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.3) (2025-04-08)
+
+### Bug Fixing
+- Enhanced Ice Candidate Collection when answering calls to ensure more suitable candidates are used in the SDP.
+
+
+## [1.6.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.2) (2025-03-28)
 
 ### Bug Fixing
 - Provide proper feedback when codec error occurs through the `onError` callback.

@@ -28,6 +28,7 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import timber.log.Timber
 import java.util.*
+import kotlin.concurrent.timerTask
 
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
@@ -46,7 +47,12 @@ internal class Peer(
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
+        private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
     }
+
+    private var lastCandidateTime = System.currentTimeMillis()
+    private var negotiationTimer: Timer? = null
+    private var onNegotiationComplete: (() -> Unit)? = null
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -119,6 +125,8 @@ internal class Peer(
                         peerConnection?.addIceCandidate(it)
                         Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                         onIceCandidateAdd?.invoke(it.serverUrl)
+                        // Reset the negotiation timer when we receive a new candidate
+                        lastCandidateTime = System.currentTimeMillis()
                     }
                 } else {
                     Logger.d(tag = "Observer", message = "Ignoring local ICE candidate: $it")
@@ -378,7 +386,53 @@ internal class Peer(
         }
     }
 
+    /**
+     * Sets a callback to be invoked when ICE negotiation is complete
+     */
+    fun setOnNegotiationComplete(callback: () -> Unit) {
+        onNegotiationComplete = callback
+        startNegotiationTimer()
+    }
+
+    /**
+     * Starts the negotiation timer that checks for ICE candidate timeout
+     */
+    private fun startNegotiationTimer() {
+        negotiationTimer = Timer()
+        negotiationTimer?.schedule(
+            timerTask {
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastCandidate = currentTime - lastCandidateTime
+
+                Logger.d(
+                    tag = "NegotiationTimer",
+                    message = "Time since last candidate: ${timeSinceLastCandidate}ms"
+                )
+
+                if (timeSinceLastCandidate >= NEGOTIATION_TIMEOUT) {
+                    Logger.d(tag = "NegotiationTimer", message = "Negotiation timeout reached")
+                    onNegotiationComplete?.invoke()
+                    stopNegotiationTimer()
+                }
+            },
+            NEGOTIATION_TIMEOUT, NEGOTIATION_TIMEOUT
+        )
+    }
+
+    /**
+     * Stops and cleans up the negotiation timer
+     */
+    private fun stopNegotiationTimer() {
+        negotiationTimer?.cancel()
+        negotiationTimer?.purge()
+        negotiationTimer = null
+    }
+
+    /**
+     * Cleans up resources when the peer is no longer needed
+     */
     fun release() {
+        stopNegotiationTimer()
         if (peerConnection != null) {
             disconnect()
             peerConnectionFactory.dispose()

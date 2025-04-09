@@ -36,6 +36,7 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -220,38 +221,27 @@ class TelnyxClient(
             if (sessionDescriptionString == null) {
                 updateCallState(CallState.ERROR)
             } else {
-                iceCandidateTimer = Timer()
-                iceCandidateTimer?.schedule(
-                    timerTask {
-                        if (iceCandidateList.size > 0) {
-                            // set localInfo and ice candidate and able to create correct offer
-                            val answerBodyMessage = SendingMessageBody(
-                                uuid, SocketMethod.ANSWER.methodName,
-                                CallParams(
-                                    sessid = sessionId,
-                                    sdp = sessionDescriptionString,
-                                    dialogParams = CallDialogParams(
-                                        callId = callId,
-                                        destinationNumber = destinationNumber,
-                                        customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
-                                    )
-                                )
+                // Set up the negotiation complete callback
+                peerConnection?.setOnNegotiationComplete {
+                    val answerBodyMessage = SendingMessageBody(
+                        uuid, SocketMethod.ANSWER.methodName,
+                        CallParams(
+                            sessid = sessionId,
+                            sdp = sessionDescriptionString,
+                            dialogParams = CallDialogParams(
+                                callId = callId,
+                                destinationNumber = destinationNumber,
+                                customHeaders = customHeaders?.toCustomHeaders()
+                                    ?: arrayListOf()
                             )
-                            updateCallState(CallState.ACTIVE)
-                            socket.send(answerBodyMessage)
-                            resetIceCandidateTimer()
-                        } else {
-                            Logger.d(message = "Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
-                        }
-                    },
-                    Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
-                )
-                client.stopMediaPlayer()
-                // reset audio mode to communication
-                setSpeakerMode(speakerState)
+                        )
+                    )
+                    updateCallState(CallState.ACTIVE)
+                    socket.send(answerBodyMessage)
+                }
 
-                // callStateLiveData.value = CallState.ACTIVE
+                client.stopMediaPlayer()
+                setSpeakerMode(speakerState)
                 client.callOngoing()
             }
         }
