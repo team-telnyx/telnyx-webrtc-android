@@ -132,17 +132,17 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                         }
                     }
                     CallUIState.ACTIVE ->  {
-                        Column( // Outer Column for the entire ACTIVE state view
+                        Column( 
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing), // Spacing between controls and waveforms
+                            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
                             modifier = Modifier.fillMaxWidth().testTag("callActiveView")
                         ) {
-                             // Column specifically for centering the control buttons
+                             
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
                             ) {
-                                Row( // Top Row for Mute, Speaker, Hold, Dialpad
+                                Row( 
                                     horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -162,18 +162,17 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                         showDialpadSection = true
                                     }
                                 }
-                                Row( // Bottom Row for End Call button
-                                    horizontalArrangement = Arrangement.Center, // Center the single button
+                                Row( 
+                                    horizontalArrangement = Arrangement.Center, 
                                     verticalAlignment = Alignment.CenterVertically,
-                                     modifier = Modifier.fillMaxWidth() // Allow centering within the row
+                                     modifier = Modifier.fillMaxWidth() 
                                 ) {
                                     HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
                                         telnyxViewModel.endCall(context)
                                     }
                                 }
-                            } // End of Column for control buttons
+                            } 
 
-                            // Column for the audio waveforms, placed below the controls
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -188,7 +187,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                         .fillMaxWidth()
                                         .height(50.dp),
                                     barColor = telnyxGreen,
-                                    maxBarHeight = 50f // Increased max height
+                                    maxBarHeight = 50f 
                                 )
 
                                 Spacer(modifier = Modifier.height(Dimens.mediumSpacing))
@@ -201,10 +200,9 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                         .fillMaxWidth()
                                         .height(50.dp),
                                     barColor = MaterialTheme.colorScheme.secondary,
-                                    maxBarHeight = 50f // Increased max height
-                                )
+                                    maxBarHeight = 50f 
                             }
-                        } // End of Outer Column for ACTIVE state
+                        } 
                     }
                     CallUIState.INCOMING ->  {
                         Row(
