@@ -2,6 +2,8 @@ package com.telnyx.webrtc.common
 
 import android.content.Context
 import android.util.Log
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
@@ -142,6 +144,12 @@ class TelnyxViewModel : ViewModel() {
      */
     private var handlingResponses = false
 
+    // Add audio level LiveData with backing fields (now holding lists)
+    private val _inboundAudioLevel = MutableLiveData<List<Float>>(emptyList())
+    val inboundAudioLevel: LiveData<List<Float>> = _inboundAudioLevel
+
+    private val _outboundAudioLevel = MutableLiveData<List<Float>>(emptyList())
+    val outboundAudioLevel: LiveData<List<Float>> = _outboundAudioLevel
 
     /**
      * Stops the loading indicator.
@@ -243,6 +251,8 @@ class TelnyxViewModel : ViewModel() {
 
 
         userSessionJob = viewModelScope.launch {
+            observeAudioLevels(viewContext)
+
             // Ensure the token is fetched before proceeding
             if (fcmToken == null) {
                 fcmToken = getFCMToken()
@@ -399,6 +409,8 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob = null
 
         userSessionJob = viewModelScope.launch {
+            observeAudioLevels(viewContext)
+
             AuthenticateByToken(context = viewContext).invoke(
                 serverConfiguration,
                 profile.toTokenConfig(fcmToken ?: ""),
@@ -689,6 +701,22 @@ class TelnyxViewModel : ViewModel() {
     fun dtmfPressed(key: String) {
         currentCall?.let { call ->
             call.dtmf(call.callId, key)
+        }
+    }
+
+    /**
+     * Observes the audio levels for inbound and outbound audio.
+     *
+     * @param context The application context.
+     */
+    private fun observeAudioLevels(context: Context) {
+        TelnyxCommon.getInstance().getTelnyxClient(context).let { client ->
+            client.inboundAudioLevel.observeForever { levels ->
+                _inboundAudioLevel.value = levels
+            }
+            client.outboundAudioLevel.observeForever { levels ->
+                _outboundAudioLevel.value = levels
+            }
         }
     }
 }

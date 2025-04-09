@@ -36,10 +36,10 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
-import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
 import java.util.*
 import kotlin.concurrent.timerTask
+import java.util.LinkedList
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -100,6 +100,9 @@ class TelnyxClient(
 
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
+
+        /** Size of the audio level history */
+        private const val AUDIO_LEVEL_HISTORY_SIZE = 100
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -282,19 +285,17 @@ class TelnyxClient(
             callId = inviteCallId
             val call = this
 
-
             // Create new peer
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
                 iceCandidateList.add(it)
             }.also {
                 if (isDebug) {
-                    webRTCReporter =
-                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
                     webRTCReporter?.startStats()
                 }
+                // Set audio levels listener when peer is created
+                it.setAudioLevelsListener(audioLevelsListener)
             }
-
-
 
             peerConnection?.startLocalAudioCapture()
             peerConnection?.createOfferForSdp(AppSdpObserver())
@@ -355,6 +356,9 @@ class TelnyxClient(
     fun endCall(callId: UUID) {
         val endCall = calls[callId]
         endCall?.apply {
+            // Stop audio level monitoring
+            peerConnection?.stopAudioLevelMonitoring()
+            
             val uuid: String = UUID.randomUUID().toString()
             val byeMessageBody = SendingMessageBody(
                 uuid, SocketMethod.BYE.methodName,
@@ -1051,12 +1055,12 @@ class TelnyxClient(
         // set speakerState to current audioManager settings
         speakerState = if (speakerState != UNASSIGNED) {
             if (audioManager?.isSpeakerphoneOn == true) {
-                SpeakerMode.SPEAKER
+                SPEAKER
             } else {
-                SpeakerMode.EARPIECE
+                EARPIECE
             }
         } else {
-            SpeakerMode.EARPIECE
+            EARPIECE
         }
 
         // set audioManager to ringtone settings
@@ -1067,9 +1071,9 @@ class TelnyxClient(
             stopMediaPlayer()
             try {
 
-                if (it.getRingtoneType() == RingtoneType.URI) {
+                if (it.getRingtoneType() == URI) {
                     mediaPlayer = MediaPlayer.create(context, it as Uri)
-                } else if (it.getRingtoneType() == RingtoneType.RAW) {
+                } else if (it.getRingtoneType() == RAW) {
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
@@ -1092,11 +1096,11 @@ class TelnyxClient(
 
     private fun setSpeakerMode(speakerMode: SpeakerMode) {
         when (speakerMode) {
-            SpeakerMode.SPEAKER -> {
+            SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
 
-            SpeakerMode.EARPIECE -> {
+            EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
 
@@ -1106,8 +1110,8 @@ class TelnyxClient(
 
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> RingtoneType.URI
-            is Int -> RingtoneType.RAW
+            is Uri -> URI
+            is Int -> RAW
             else -> null
         }
     }
@@ -1602,6 +1606,8 @@ class TelnyxClient(
                         webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
                         webRTCReporter?.startStats()
                     }
+                    // Set audio levels listener when peer is created
+                    it.setAudioLevelsListener(audioLevelsListener)
                 }
 
                 peerConnection?.startLocalAudioCapture()
@@ -1764,6 +1770,8 @@ class TelnyxClient(
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
                     webRTCReporter?.startStats()
                 }
+                // Set audio levels listener when peer is created
+                it.setAudioLevelsListener(audioLevelsListener)
             }
 
             peerConnection?.startLocalAudioCapture()
@@ -1824,5 +1832,39 @@ class TelnyxClient(
         resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
+    }
+
+    // LiveData for audio levels (now holding lists)
+    private val _inboundAudioLevel = MutableLiveData(List(AUDIO_LEVEL_HISTORY_SIZE) { 0f })
+    val inboundAudioLevel: LiveData<List<Float>> = _inboundAudioLevel
+
+    private val _outboundAudioLevel = MutableLiveData(List(AUDIO_LEVEL_HISTORY_SIZE) { 0f })
+    val outboundAudioLevel: LiveData<List<Float>> = _outboundAudioLevel
+
+    // Internal storage for audio level history
+    private val inboundAudioHistory = LinkedList(List(AUDIO_LEVEL_HISTORY_SIZE) { 0f })
+    private val outboundAudioHistory = LinkedList(List(AUDIO_LEVEL_HISTORY_SIZE) { 0f })
+
+    // AudioLevelsListener implementation
+    private val audioLevelsListener = object : Peer.AudioLevelsListener {
+        override fun onInboundAudioLevel(level: Float) {
+            synchronized(inboundAudioHistory) {
+                inboundAudioHistory.addLast(level)
+                if (inboundAudioHistory.size > AUDIO_LEVEL_HISTORY_SIZE) {
+                    inboundAudioHistory.removeFirst()
+                }
+                _inboundAudioLevel.postValue(ArrayList(inboundAudioHistory))
+            }
+        }
+
+        override fun onOutboundAudioLevel(level: Float) {
+             synchronized(outboundAudioHistory) {
+                outboundAudioHistory.addLast(level)
+                if (outboundAudioHistory.size > AUDIO_LEVEL_HISTORY_SIZE) {
+                    outboundAudioHistory.removeFirst()
+                }
+                _outboundAudioLevel.postValue(ArrayList(outboundAudioHistory))
+            }
+        }
     }
 }

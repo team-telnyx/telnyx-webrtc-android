@@ -5,6 +5,8 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
@@ -43,6 +45,18 @@ internal class Peer(
     private val callId: UUID,
     val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
+
+    interface AudioLevelsListener {
+        fun onInboundAudioLevel(level: Float)
+        fun onOutboundAudioLevel(level: Float)
+    }
+
+    private var audioLevelsListener: AudioLevelsListener? = null
+    private val audioLevelHandler =
+        Handler(Looper.getMainLooper()) // Or use a background looper if preferred
+    private var audioLevelRunnable: Runnable? = null
+    private var isMonitoringAudioLevels = false
+    private val AUDIO_LEVEL_INTERVAL = 100L // 100ms interval for audio level updates
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
@@ -116,11 +130,17 @@ internal class Peer(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
-            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated from server: $candidate")
+            Logger.d(
+                tag = "Observer",
+                message = "Event-IceCandidate Generated from server: $candidate"
+            )
             // Only add candidates that come from our STUN/TURN servers (non-local)
             candidate?.let {
                 if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
-                    Logger.d(tag = "Observer", message = "Valid ICE candidate generated from server: ${it.serverUrl}")
+                    Logger.d(
+                        tag = "Observer",
+                        message = "Valid ICE candidate generated from server: ${it.serverUrl}"
+                    )
                     if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
                         peerConnection?.addIceCandidate(it)
                         Logger.d(tag = "Observer", message = "ICE candidate added: $it")
@@ -243,19 +263,19 @@ internal class Peer(
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.d(tag="Call", message = "onSetFailure $p0")
+                                Logger.d(tag = "Call", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Call", message = "onSetSuccess")
+                                Logger.d(tag = "Call", message = "onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Logger.d(tag="Call", message = "onCreateSuccess")
+                                Logger.d(tag = "Call", message = "onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Logger.d(tag="Call", message = "onCreateFailure $p0")
+                                Logger.d(tag = "Call", message = "onCreateFailure $p0")
                             }
                         },
                         desc
@@ -280,19 +300,19 @@ internal class Peer(
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.d(tag="Answer", message = "onSetFailure $p0")
+                                Logger.d(tag = "Answer", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Answer", message = "onSetSuccess")
+                                Logger.d(tag = "Answer", message = "onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Logger.d(tag="Answer", message = "onCreateSuccess")
+                                Logger.d(tag = "Answer", message = "onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Logger.d(tag="Answer", message = "onCreateFailure $p0")
+                                Logger.d(tag = "Answer", message = "onCreateFailure $p0")
                             }
                         },
                         desc
@@ -328,20 +348,20 @@ internal class Peer(
             object : SdpObserver {
                 override fun onSetFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Logger.d(tag="RemoteSessionReceived", message = "Set Failure $p0")
+                    Logger.d(tag = "RemoteSessionReceived", message = "Set Failure $p0")
                 }
 
                 override fun onSetSuccess() {
-                    Logger.d(tag="RemoteSessionReceived", message = "Set Success")
+                    Logger.d(tag = "RemoteSessionReceived", message = "Set Success")
                 }
 
                 override fun onCreateSuccess(p0: SessionDescription?) {
-                    Logger.d(tag="RemoteSessionReceived", message = "Create Success")
+                    Logger.d(tag = "RemoteSessionReceived", message = "Create Success")
                 }
 
                 override fun onCreateFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Logger.d(tag="RemoteSessionReceived", message = "Create Failure p0")
+                    Logger.d(tag = "RemoteSessionReceived", message = "Create Failure p0")
                 }
             },
             sessionDescription
@@ -381,7 +401,7 @@ internal class Peer(
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
-        }catch (e: IllegalStateException){
+        } catch (e: IllegalStateException) {
             Logger.e(message = e.toString())
         }
     }
@@ -428,15 +448,79 @@ internal class Peer(
         negotiationTimer = null
     }
 
+    fun setAudioLevelsListener(listener: AudioLevelsListener) {
+        audioLevelsListener = listener
+        startAudioLevelMonitoring()
+    }
+
+    private fun startAudioLevelMonitoring() {
+        if (isMonitoringAudioLevels) return // Already running
+        Logger.d(tag = "AudioLevelPeer", message = "Starting audio level monitoring.")
+        isMonitoringAudioLevels = true
+
+        audioLevelRunnable = object : Runnable {
+            override fun run() {
+                if (!isMonitoringAudioLevels) {
+                     Logger.d(tag = "AudioLevelPeer", message = "Runnable run() stopped (isMonitoringAudioLevels is false).")
+                    return // Stopped
+                }
+
+                 peerConnection?.let { pc ->
+                     pc.getStats { stats ->
+                         var inboundLevel = 0f // Initialize
+                         var outboundLevel = 0f // Initialize
+
+                         stats.statsMap.values.forEach { report ->
+                             when (report.type) {
+                                 "inbound-rtp" -> {
+                                          inboundLevel =
+                                              (report.members["audioLevel"] as? Number)?.toFloat() ?: 0f
+                                          audioLevelsListener?.onInboundAudioLevel(inboundLevel)
+
+                                 }
+
+                                 // This is the local track - outbound
+                                 "media-source" -> {
+                                          outboundLevel =
+                                              (report.members["audioLevel"] as? Number)?.toFloat() ?: 0f
+                                          audioLevelsListener?.onOutboundAudioLevel(outboundLevel)
+                                      }
+                             }
+                         }
+                     } // End getStats callback
+                 } ?: Logger.d(tag = "AudioLevelPeer", message = "Runnable run(): peerConnection is null.")
+
+                // Schedule the next run
+                if (isMonitoringAudioLevels) {
+                    audioLevelHandler.postDelayed(this, AUDIO_LEVEL_INTERVAL)
+                }
+            }
+        }
+
+        // Start the first run
+        audioLevelHandler.post(audioLevelRunnable!!)
+    }
+
+    fun stopAudioLevelMonitoring() {
+        if (!isMonitoringAudioLevels) return // Already stopped
+        Logger.d(tag = "AudioLevelPeer", message = "Stopping audio level monitoring.")
+        isMonitoringAudioLevels = false
+        audioLevelRunnable?.let { audioLevelHandler.removeCallbacks(it) }
+        audioLevelRunnable = null
+        audioLevelsListener = null
+    }
+
     /**
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
+        stopAudioLevelMonitoring()
         stopNegotiationTimer()
         if (peerConnection != null) {
             disconnect()
             peerConnectionFactory.dispose()
         }
+        stopAudioLevelMonitoring() // Stop handler callbacks after potential peerConnection usage
     }
 
     init {

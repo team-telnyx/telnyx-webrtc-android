@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -43,6 +45,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.launch
@@ -50,6 +53,7 @@ import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.AudioWaveform
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import timber.log.Timber
@@ -65,6 +69,10 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
+
+    // Observe audio levels
+    val inboundAudioLevel = telnyxViewModel.inboundAudioLevel.observeAsState(initial = emptyList<Float>())
+    val outboundAudioLevel = telnyxViewModel.outboundAudioLevel.observeAsState(initial = emptyList<Float>())
 
     var showDialpadSection by remember { mutableStateOf(false) }
 
@@ -124,39 +132,79 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                         }
                     }
                     CallUIState.ACTIVE ->  {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                            modifier = Modifier.testTag("callActiveView")) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                                verticalAlignment = Alignment.CenterVertically
+                        Column( // Outer Column for the entire ACTIVE state view
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing), // Spacing between controls and waveforms
+                            modifier = Modifier.fillMaxWidth().testTag("callActiveView")
+                        ) {
+                             // Column specifically for centering the control buttons
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
                             ) {
-                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    telnyxViewModel.currentCall?.onMuteUnmutePressed()
-                                }
+                                Row( // Top Row for Mute, Speaker, Hold, Dialpad
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        telnyxViewModel.currentCall?.onMuteUnmutePressed()
+                                    }
 
-                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    telnyxViewModel.currentCall?.onLoudSpeakerPressed()
-                                }
+                                    HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        telnyxViewModel.currentCall?.onLoudSpeakerPressed()
+                                    }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    telnyxViewModel.holdUnholdCurrentCall(context)
-                                }
+                                    HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        telnyxViewModel.holdUnholdCurrentCall(context)
+                                    }
 
-                                HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    showDialpadSection = true
+                                    HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        showDialpadSection = true
+                                    }
                                 }
-                            }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                                verticalAlignment = Alignment.CenterVertically
+                                Row( // Bottom Row for End Call button
+                                    horizontalArrangement = Arrangement.Center, // Center the single button
+                                    verticalAlignment = Alignment.CenterVertically,
+                                     modifier = Modifier.fillMaxWidth() // Allow centering within the row
+                                ) {
+                                    HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
+                                        telnyxViewModel.endCall(context)
+                                    }
+                                }
+                            } // End of Column for control buttons
+
+                            // Column for the audio waveforms, placed below the controls
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Dimens.mediumPadding),
+                                verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
                             ) {
-                                HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
-                                    telnyxViewModel.endCall(context)
-                                }
-                            }
-                        }
+                                // Inbound audio waveform
+                                MediumTextBold(text = "Inbound Audio")
+                                AudioWaveform(
+                                    audioLevels = inboundAudioLevel.value,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    barColor = telnyxGreen,
+                                    maxBarHeight = 50f // Increased max height
+                                )
 
+                                Spacer(modifier = Modifier.height(Dimens.mediumSpacing))
+
+                                // Outbound audio waveform
+                                MediumTextBold(text = "Outbound Audio")
+                                AudioWaveform(
+                                    audioLevels = outboundAudioLevel.value,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    barColor = MaterialTheme.colorScheme.secondary,
+                                    maxBarHeight = 50f // Increased max height
+                                )
+                            }
+                        } // End of Outer Column for ACTIVE state
                     }
                     CallUIState.INCOMING ->  {
                         Row(
