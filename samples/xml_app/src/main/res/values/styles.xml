@@ -56,27 +56,32 @@
     </style>
 
     <style name="CustomPrimaryButton" parent="Widget.MaterialComponents.Button">
-        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.SmallComponent</item>
         <item name="android:insetTop">2dp</item>
         <item name="android:insetBottom">2dp</item>
         <item name="android:insetLeft">4dp</item>
         <item name="android:insetRight">4dp</item>
-
+        <item name="android:textStyle">bold</item>
     </style>
 
     <style name="CustomOutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
-        <item name="shapeAppearanceOverlay">?attr/shapeAppearanceCornerExtraLarge</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.SmallComponent</item>
 
         <!-- Adjust padding with insets -->
         <item name="android:insetTop">2dp</item>
         <item name="android:insetBottom">2dp</item>
         <item name="android:insetLeft">4dp</item>
         <item name="android:insetRight">4dp</item>
-        <item name="android:textSize">8sp</item>
+        <item name="android:textSize">14sp</item>
 
         <item name="strokeColor">@color/colorPrimary</item>
 
         <!-- Apply the smaller text appearance -->
+    </style>
+    
+    <style name="ShapeAppearance.App.SmallComponent" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">10dp</item>
     </style>
 
 

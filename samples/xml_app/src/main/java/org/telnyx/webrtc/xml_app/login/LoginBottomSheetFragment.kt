@@ -167,8 +167,9 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         telnyxViewModel.setupProfileList(requireContext())
         binding.apply {
             headerInfo.getChildAt(1).setOnClickListener { dismiss() }
-            addNewProfile.setOnClickListener { toggleCredentialLayout(true) }
-            credentialsBinding.cancelButton.setOnClickListener { toggleCredentialLayout(false) }
+            // Show credential layout by default
+            toggleCredentialLayout(true)
+            credentialsBinding.cancelButton.setOnClickListener { dismiss() }
 
             credentialsBinding.sessionSwitch.setOnCheckedChangeListener { _, isChecked ->
                 toggleLoginFields(isChecked)
@@ -180,9 +181,9 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
     private fun toggleCredentialLayout(show: Boolean) {
         isCredentialLayoutVisible = show
-        binding.addNewProfile.visibility = if (show) View.GONE else View.VISIBLE
         binding.credentialGroup.credentialsLayout.visibility = if (show) View.VISIBLE else View.GONE
         binding.allProfiles.visibility = if (show) View.GONE else View.VISIBLE
+        binding.productionText.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     private fun toggleLoginFields(useToken: Boolean) {

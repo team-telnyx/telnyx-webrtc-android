@@ -22,7 +22,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             style="@style/HeaderTextLarge"
-            android:text="@string/existing_profiles" />
+            android:text="@string/add_new_profile" />
 
 
         <ImageView
@@ -33,6 +33,16 @@
             android:layout_alignParentEnd="true"/>
 
     </RelativeLayout>
+    
+    <TextView
+        android:id="@+id/productionText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="production"
+        android:textColor="@color/colorPrimaryVariant"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@+id/headerInfo"
+        app:layout_constraintStart_toStartOf="parent"/>
 
     <include
         android:id="@+id/credentialGroup"
@@ -41,10 +51,8 @@
         android:layout_height="wrap_content"
         android:visibility="gone"
         android:layout_marginTop="@dimen/spacing_normal"
-        app:layout_constraintTop_toBottomOf="@+id/addNewProfile"
+        app:layout_constraintTop_toBottomOf="@+id/productionText"
         />
-
-
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/allProfiles"
@@ -52,19 +60,6 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@+id/credentialGroup"/>
-
-    <Button
-        android:id="@+id/addNewProfile"
-        android:layout_width="wrap_content"
-        android:layout_height="32dp"
-        android:text="@string/add_new_profile"
-        android:textAllCaps="false"
-        android:layout_marginTop="@dimen/spacing_normal"
-        app:icon="@drawable/ic_add"
-        style="@style/AddProfileButton"
-        app:layout_constraintTop_toBottomOf="@+id/headerInfo"
-        app:layout_constraintStart_toStartOf="parent"
-        />
 
 
 
