@@ -5,8 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/white"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:padding="@dimen/spacing_normal"
-    tools:context="org.telnyx.webrtc.xmlapp.org.telnyx.webrtc.xml_app.login.LoginBottomSheetFragment">
+    android:padding="@dimen/spacing_normal">
 
 
     <RelativeLayout
@@ -30,7 +29,8 @@
             android:layout_height="16dp"
             android:contentDescription="@string/close_button_dessc"
             android:src="@drawable/ic_close"
-            android:layout_alignParentEnd="true"/>
+            android:layout_alignParentEnd="true"
+            android:layout_centerInParent="true"/>
 
     </RelativeLayout>
 
@@ -39,19 +39,16 @@
         layout="@layout/credentials_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         android:layout_marginTop="@dimen/spacing_normal"
-        app:layout_constraintTop_toBottomOf="@+id/addNewProfile"
-        />
-
-
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@+id/headerInfo" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/allProfiles"
-        android:layout_marginTop="@dimen/spacing_tiny"
+        android:layout_marginTop="@dimen/spacing_medium"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@+id/credentialGroup"/>
+        app:layout_constraintTop_toBottomOf="@+id/headerInfo"/>
 
     <Button
         android:id="@+id/addNewProfile"
@@ -59,22 +56,37 @@
         android:layout_height="32dp"
         android:text="@string/add_new_profile"
         android:textAllCaps="false"
-        android:layout_marginTop="@dimen/spacing_normal"
+        android:layout_marginTop="@dimen/spacing_medium"
         app:icon="@drawable/ic_add"
         style="@style/AddProfileButton"
-        app:layout_constraintTop_toBottomOf="@+id/headerInfo"
+        app:layout_constraintTop_toBottomOf="@+id/allProfiles"
         app:layout_constraintStart_toStartOf="parent"
         />
 
+    <Button
+        android:id="@+id/profileConfirmButton"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/button_height"
+        android:text="@string/confirm"
+        android:layout_marginTop="@dimen/spacing_medium"
+        android:textSize="12sp"
+        android:textAllCaps="false"
+        style="@style/CustomPrimaryButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
-
-
-
-
-
-
-
-
+    <Button
+        android:id="@+id/profileCancelButton"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/button_height"
+        android:layout_marginEnd="@dimen/spacing_tiny"
+        android:layout_marginTop="@dimen/spacing_medium"
+        android:text="@string/cancel"
+        android:textAllCaps="false"
+        android:textSize="12sp"
+        style="@style/CustomOutlinedButton"
+        app:layout_constraintEnd_toStartOf="@+id/profileConfirmButton"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

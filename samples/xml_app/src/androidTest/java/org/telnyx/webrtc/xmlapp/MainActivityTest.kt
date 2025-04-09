@@ -72,7 +72,7 @@ class MainActivityTest {
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
 
-        onView(withId(R.id.connect))
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
 
@@ -80,7 +80,7 @@ class MainActivityTest {
         val connectIdlingResource = ElapsedTimeIdlingResource(10000)
         IdlingRegistry.getInstance().register(connectIdlingResource)
 
-        onView(withId(R.id.disconnect))
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
             
@@ -97,7 +97,7 @@ class MainActivityTest {
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
 
-        onView(withId(R.id.connect))
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
 

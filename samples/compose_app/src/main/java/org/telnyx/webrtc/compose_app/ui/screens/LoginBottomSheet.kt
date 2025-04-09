@@ -1,11 +1,13 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
@@ -16,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -47,7 +50,12 @@ fun CredentialTokenView(
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-        modifier = Modifier.verticalScroll(rememberScrollState()).testTag("credentialsForm")
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .testTag("credentialsForm")
+            .background(Color.White)
     ) {
 
 
@@ -151,6 +159,7 @@ fun CredentialTokenView(
 @Composable
 fun CredentialTokenSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
+        modifier = Modifier.fillMaxWidth().padding(start = Dimens.spacing32dp),
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
         verticalAlignment = Alignment.CenterVertically
     ) {

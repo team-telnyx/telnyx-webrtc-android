@@ -4,7 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,10 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -70,12 +69,12 @@ import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
+import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
-import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedTextButton
 import timber.log.Timber
 
 @Serializable
@@ -93,6 +92,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
+    var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
     val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
@@ -225,6 +225,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         IconButton(onClick = {
                             scope.launch {
                                 sheetState.hide()
+                                selectedUserProfile = telnyxViewModel.currentProfile.value
                             }.invokeOnCompletion {
                                 if (!sheetState.isVisible) {
                                     showLoginBottomSheet = false
@@ -233,16 +234,82 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_close),
-                                contentDescription = stringResource(id = R.string.close_button_dessc)
+                                contentDescription = stringResource(id = R.string.close_button_dessc),
+                                modifier = Modifier.size(Dimens.size16dp)
                             )
                         }
                     }
 
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
-                    AnimatedContent(isAddProfile, label = "Animated Add Profile") { addProfile ->
-                        when (addProfile) {
-                            true -> {
+                    Box {
+
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.largeSpacing)) {
+                            if (credentialConfigList.isNotEmpty()) {
+                                ProfileListView(
+                                    credentialConfigList,
+                                    selectedUserProfile,
+                                    onItemSelected = { profile ->
+                                        selectedUserProfile = profile
+                                    },
+                                    onEdit = { profile ->
+                                        Timber.d("Edit Profile: $profile")
+                                        editableUserProfile = profile
+                                        isAddProfile = true
+                                    },
+                                    onDelete = { profile ->
+                                        telnyxViewModel.deleteProfile(context, profile)
+                                    })
+
+                            }
+
+                            RoundSmallButton(
+                                modifier = Modifier.height(Dimens.size32dp),
+                                text = stringResource(id = R.string.add_new_profile),
+                                textSize = 12.sp,
+                                backgroundColor = secondary_background_color,
+                                icon = painterResource(R.drawable.ic_add),
+                                iconContentDescription = stringResource(R.string.add_new_profile)
+                            ) {
+                                editableUserProfile = null
+                                isAddProfile = !isAddProfile
+                            }
+
+                            PosNegButton(
+                                positiveText = stringResource(id = R.string.confirm),
+                                negativeText = stringResource(id = R.string.Cancel),
+                                onPositiveClick = {
+                                    scope.launch {
+                                        sheetState.hide()
+                                        selectedUserProfile?.let {
+                                            telnyxViewModel.setCurrentConfig(context, it)
+                                        }
+                                    }.invokeOnCompletion {
+                                        showLoginBottomSheet = false
+                                    }
+                                },
+                                onNegativeClick = {
+                                    scope.launch {
+                                        sheetState.hide()
+                                        selectedUserProfile = telnyxViewModel.currentProfile.value
+                                    }.invokeOnCompletion {
+                                        showLoginBottomSheet = false
+                                    }
+                                })
+                        }
+
+                        Column {
+                            AnimatedVisibility(
+                                visible = isAddProfile,
+                                enter = slideInVertically(
+                                    initialOffsetY = { fullHeight -> fullHeight }
+                                ),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { fullHeight -> fullHeight },
+                                    animationSpec = tween(durationMillis = 150)
+                                ),
+                                label = "Animated Add Profile"
+                            ) {
                                 CredentialTokenView(
                                     editableUserProfile,
                                     onSave = { profile ->
@@ -257,50 +324,6 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                         isAddProfile = !isAddProfile
                                     }
                                 )
-                            }
-
-                            false -> {
-                                Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
-                                    RoundSmallButton(
-                                        modifier = Modifier.height(30.dp),
-                                        text = stringResource(id = R.string.add_new_profile),
-                                        textSize = 12.sp,
-                                        backgroundColor = MaterialTheme.colorScheme.secondary
-                                    ) {
-                                        editableUserProfile = null
-                                        isAddProfile = !isAddProfile
-                                    }
-                                    ProfileListView(
-                                        credentialConfigList,
-                                        telnyxViewModel,
-                                        onEdit = { profile ->
-                                            Timber.d("Edit Profile: $profile")
-                                            editableUserProfile = profile
-                                            isAddProfile = true
-                                        },
-                                        onDelete = { profile ->
-                                            telnyxViewModel.deleteProfile(context, profile)
-                                        })
-
-                                    PosNegButton(
-                                        positiveText = stringResource(id = R.string.confirm),
-                                        negativeText = stringResource(id = R.string.Cancel),
-                                        onPositiveClick = {
-                                            scope.launch {
-                                                sheetState.hide()
-                                            }.invokeOnCompletion {
-                                                showLoginBottomSheet = false
-                                            }
-                                        },
-                                        onNegativeClick = {
-                                            scope.launch {
-                                                sheetState.hide()
-                                            }.invokeOnCompletion {
-                                                showLoginBottomSheet = false
-                                            }
-                                        })
-                                }
-
                             }
                         }
                     }
@@ -450,15 +473,12 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 @Composable
 fun ProfileListView(
     profileList: List<Profile> = emptyList(),
-    telnyxViewModel: TelnyxViewModel,
+    selectedProfile: Profile?,
+    onItemSelected: (Profile) -> Unit = {},
     onEdit: (Profile) -> Unit = {},
     onDelete: (Profile) -> Unit = {}
 ) {
-    val context = LocalContext.current
-
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
-
-        var currentSipId by remember { mutableStateOf("") }
 
         LazyColumn(
             modifier = Modifier.testTag("profileList"),
@@ -466,10 +486,9 @@ fun ProfileListView(
         ) {
             profileList.forEach { item ->
                 item {
-                    ProfileItem(item, selected = currentSipId == item.callerIdName,
+                    ProfileItem(item, selected = selectedProfile?.callerIdName == item.callerIdName,
                         onItemSelected = {
-                            currentSipId = it.callerIdName ?: ""
-                            telnyxViewModel.setCurrentConfig(context, it)
+                            onItemSelected(item)
                         },
                         onEdit = {
                             onEdit(item)
@@ -499,10 +518,13 @@ fun PosNegButton(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RoundedTextButton(text = negativeText) {
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp),
+                text = negativeText,
+                contentColor = MaterialTheme.colorScheme.primary,
+                backgroundColor = Color.White) {
                 onNegativeClick()
             }
-            RoundedOutlinedButton(text = positiveText) {
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp), text = positiveText) {
                 onPositiveClick()
             }
 
@@ -522,7 +544,6 @@ fun ProfileItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent)
             .clickable {
                 onItemSelected(item)
             }
@@ -530,17 +551,20 @@ fun ProfileItem(
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = stringResource(id = R.string.profile)
+        RegularText(text = item.callerIdName, modifier = Modifier
+            .weight(1f)
+            .background(color = if (selected) secondary_background_color else Color.Transparent)
+            .padding(start = Dimens.spacing8dp, top = Dimens.spacing4dp, end = Dimens.spacing8dp, bottom = Dimens.spacing4dp)
         )
-        RegularText(text = item.callerIdName, modifier = Modifier.weight(1f))
-        IconButton(onClick = onEdit) {
-            Icon(imageVector = Icons.Default.Edit, contentDescription = null)
-        }
 
-        IconButton(onClick = onDelete) {
-            Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+        if (selected) {
+            IconButton(onClick = onEdit) {
+                Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null)
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(painter = painterResource(R.drawable.ic_delete), contentDescription = null)
+            }
         }
     }
 }
