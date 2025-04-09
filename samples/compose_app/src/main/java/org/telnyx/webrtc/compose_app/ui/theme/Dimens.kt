@@ -78,6 +78,7 @@ object Dimens {
 
     //Shape
     val shape100Percent = RoundedCornerShape(100)
+    val shape20dp = RoundedCornerShape(20.dp)
     val borderStrokeTransparent = BorderStroke(0.dp, color = Color.Transparent)
 
 
