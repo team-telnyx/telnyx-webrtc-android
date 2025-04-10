@@ -108,4 +108,22 @@
         <item name="android:textColor">@color/mainTextColor</item>
     </style>
 
+    <style name="CustomTextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeColor">@color/colorPrimaryVariant</item>
+        <item name="android:layout_height">32dp</item>
+        <item name="android:layout_width">356dp</item>
+    </style>
+
+    <style name="FieldLabelStyle">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/colorPrimaryVariant</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+
+    <style name="RoundedCornersShape">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">10dp</item>
+    </style>
+
 </resources>
