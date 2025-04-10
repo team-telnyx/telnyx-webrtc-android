@@ -240,6 +240,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         }
                     }
 
+                    RegularText(stringResource(R.string.production_label))
+
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
                     Box {
@@ -509,10 +511,11 @@ fun ProfileListView(
 fun PosNegButton(
     positiveText: String,
     negativeText: String,
+    contentAlignment:Alignment = Alignment.BottomEnd,
     onPositiveClick: () -> Unit = {},
     onNegativeClick: () -> Unit = {}
 ) {
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = contentAlignment) {
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
