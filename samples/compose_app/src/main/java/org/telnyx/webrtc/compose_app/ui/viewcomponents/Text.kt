@@ -8,14 +8,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -29,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.colorPrimaryVariant
 
@@ -174,6 +184,8 @@ fun OutlinedLabeledEdiText(
     imeAction: ImeAction = ImeAction.Next,
     onTextChanged: (String) -> Unit
 ) {
+    var passwordVisible by remember { mutableStateOf(false) }
+
     Column (modifier = Modifier
         .fillMaxWidth()
         .wrapContentHeight(),
@@ -190,12 +202,24 @@ fun OutlinedLabeledEdiText(
             onValueChange = onTextChanged,
             enabled = enabled,
             isError = isError,
-            visualTransformation = if (keyboardType == KeyboardType.Password) PasswordVisualTransformation() else VisualTransformation.None,
+            visualTransformation = if (keyboardType == KeyboardType.Password && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
             label = {
                 Text(hint, color = Color.Gray)
             },
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = keyboardType, imeAction = imeAction),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            trailingIcon = {
+                if (keyboardType == KeyboardType.Password) {
+                    val image = if (passwordVisible)
+                        ImageVector.vectorResource(R.drawable.hide)
+                    else
+                        ImageVector.vectorResource(R.drawable.view)
+
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = if (passwordVisible) "Ukryj hasło" else "Pokaż hasło")
+                    }
+                }
+            }
         )
     }
 }
