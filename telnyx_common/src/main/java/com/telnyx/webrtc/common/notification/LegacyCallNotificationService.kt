@@ -146,7 +146,7 @@ class LegacyCallNotificationService : Service() {
                 this,
                 MyFirebaseMessagingService.OPEN_TO_REPLY_REQUEST_CODE,
                 intent,
-                PendingIntent.FLAG_MUTABLE
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
         val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
