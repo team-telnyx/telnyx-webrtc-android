@@ -75,4 +75,7 @@
 
     <string name="bottom_bar_production_text">Production TelnyxSDK [v1.6.1] - App [v%1$s]</string>
     <string name="production_label">production</string>
+    
+    <string name="phone_number_toggle">Phone number</string>
+    <string name="sip_address_toggle">SIP address</string>
 </resources>

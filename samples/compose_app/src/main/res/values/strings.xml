@@ -87,4 +87,7 @@
     <string name="caller_number_hint">Enter caller number</string>
 
     <string name="production_label">production</string>
+    
+    <string name="phone_number_toggle">Phone number</string>
+    <string name="sip_address_toggle">SIP address</string>
 </resources>

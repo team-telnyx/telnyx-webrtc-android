@@ -102,11 +102,19 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
         var destinationNumber by remember { mutableStateOf("") }
+        var isPhoneNumber by remember { mutableStateOf(true) }
+        
+        // Add the toggle button at the top
+        DestinationTypeSwitcher(isPhoneNumber) {
+            isPhoneNumber = it
+        }
+        
         OutlinedEdiText(
             text = destinationNumber,
             hint = stringResource(R.string.destination),
             modifier = Modifier.fillMaxWidth().testTag("callInput"),
-            imeAction = ImeAction.Done
+            imeAction = ImeAction.Done,
+            keyboardType = if (isPhoneNumber) androidx.compose.ui.text.input.KeyboardType.Phone else androidx.compose.ui.text.input.KeyboardType.Text
         ) {
             destinationNumber = it
         }
@@ -353,6 +361,34 @@ private fun onNumberClicked(number: Int) {
         }
     }
 
+}
+
+@Composable
+fun DestinationTypeSwitcher(isPhoneNumber: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(top = Dimens.spacing8dp)
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .clip(RoundedCornerShape(Dimens.size4dp))
+            .border(Dimens.borderStroke1dp,
+                Color.Black,
+                RoundedCornerShape(Dimens.size4dp)),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.phone_number_toggle),
+            isSelected = isPhoneNumber,
+            onClick = { onCheckedChange(true) }
+        )
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.sip_address_toggle),
+            isSelected = !isPhoneNumber,
+            onClick = { onCheckedChange(false) }
+        )
+    }
 }
 
 private enum class CallUIState {
