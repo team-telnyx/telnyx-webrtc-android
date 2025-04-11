@@ -34,4 +34,7 @@
 
     <dimen name="match_constraint">0dp</dimen>
     <dimen name="no_padding">0dp</dimen>
+
+    <!-- form field -->
+    <dimen name="form_field_normal">48dp</dimen>
 </resources>

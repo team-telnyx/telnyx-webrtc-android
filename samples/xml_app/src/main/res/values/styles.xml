@@ -112,7 +112,6 @@
         <item name="boxStrokeWidth">1dp</item>
         <item name="boxStrokeColor">@color/colorPrimaryVariant</item>
         <item name="android:layout_height">32dp</item>
-        <item name="android:layout_width">356dp</item>
     </style>
 
     <style name="FieldLabelStyle">
