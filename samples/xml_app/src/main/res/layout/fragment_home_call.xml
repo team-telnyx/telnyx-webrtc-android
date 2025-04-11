@@ -13,7 +13,39 @@
         android:padding="24dp"
         >
 
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/callTypeSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:singleSelection="true"
+            app:checkedButton="@id/phoneNumberToggle"
+            app:selectionRequired="true"
+            android:layout_marginTop="10dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/phoneNumberToggle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/phone_number_toggle"
+                style="@style/ToggleButton"
+                app:backgroundTint="@color/main_green"
+                android:textColor="@color/white"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/sipAddressToggle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/sip_address_toggle"
+                style="@style/ToggleButton"
+                app:backgroundTint="@color/white"
+                android:textColor="@color/black"/>
+
+        </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <LinearLayout
             android:id="@+id/destinationInfo"
@@ -22,7 +54,7 @@
             android:orientation="vertical"
             android:layout_marginTop="@dimen/spacing_small"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toBottomOf="@+id/callTypeSwitch">
 
 
             <TextView
@@ -46,6 +78,7 @@
                     android:id="@+id/callInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:inputType="phone"
                     />
 
             </com.google.android.material.textfield.TextInputLayout>

@@ -50,6 +50,20 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun setupUI() {
+        // Setup call type toggle
+        binding.callTypeSwitch.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                when (checkedId) {
+                    R.id.phoneNumberToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_PHONE
+                    }
+                    R.id.sipAddressToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
+                    }
+                }
+            }
+        }
+        
         binding.call.setOnClickListener {
             binding.callInput.text?.let { editable ->
                 if (editable.isNotEmpty()) {
