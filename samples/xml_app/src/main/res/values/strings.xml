@@ -33,7 +33,7 @@
     <string name="connected">Connected</string>
     <string name="disconnect">Disconnect</string>
     <string name="login_token">Login Token</string>
-    <string name="token_login">Token login</string>
+    <string name="token_login">Token Login</string>
     <string name="off">Off</string>
     <string name="on">On</string>
     <string name="audio_settings">Audio Output Device</string>
@@ -74,4 +74,5 @@
     <string name="notification_permission_text">Notification and Audio permissions are required to continue</string>
 
     <string name="bottom_bar_production_text">Production TelnyxSDK [v1.6.1] - App [v%1$s]</string>
+    <string name="production_label">production</string>
 </resources>

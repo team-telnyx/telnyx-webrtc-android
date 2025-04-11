@@ -39,6 +39,7 @@ object Dimens {
 
     //text size
     val textSize12sp = 12.sp
+    val textSize14sp = 14.sp
     val textSize16sp = 16.sp
     val textSize20sp = 20.sp
     val textSize24sp = 24.sp
@@ -48,12 +49,14 @@ object Dimens {
     val size05dp = 0.5.dp
     val size2dp = 2.dp
     val size3dp = 3.dp
+    val size4dp = 4.dp
     val size12dp = 12.dp
     val size14dp = 14.dp
     val size16dp = 16.dp
     val size24dp = 24.dp
     val size30dp = 30.dp
     val size32dp = 32.dp
+    val size36dp = 36.dp
     val size48dp = 48.dp
     val size50dp = 50.dp
     val size60dp = 60.dp

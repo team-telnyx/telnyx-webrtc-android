@@ -24,6 +24,8 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CredentialsLayoutBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
 import android.view.animation.AnimationUtils
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
 
 class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
@@ -114,7 +116,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipUser = usernameTextField.text.toString()
             val sipPass = passwordTextField.text.toString()
 
-            if (sessionSwitch.isChecked) {
+            if (credentialsBinding.sessionSwitch.checkedButtonId == R.id.credentialLogin) {
                 if (sipToken.isEmpty()) {
                     tokenTextField.error = getString(R.string.error_empty_field)
                     isValid = false
@@ -182,8 +184,21 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             addNewProfile.setOnClickListener { toggleCredentialLayout(true) }
             credentialsBinding.cancelButton.setOnClickListener { toggleCredentialLayout(false) }
 
-            credentialsBinding.sessionSwitch.setOnCheckedChangeListener { _, isChecked ->
-                toggleLoginFields(isChecked)
+            credentialsBinding.sessionSwitch.addOnButtonCheckedListener { group, checkedId, isChecked ->
+                if (isChecked) {
+                    when (checkedId) {
+                        R.id.credentialLogin -> {
+                            highlightButton(credentialsBinding.credentialLogin)
+                            resetButton(credentialsBinding.tokenLogin)
+                            toggleLoginFields(false)
+                        }
+                        R.id.tokenLogin -> {
+                            highlightButton(credentialsBinding.tokenLogin)
+                            resetButton(credentialsBinding.credentialLogin)
+                            toggleLoginFields(true)
+                        }
+                    }
+                }
             }
 
             credentialsBinding.confirmButton.setOnClickListener { saveProfile() }
@@ -231,6 +246,16 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             passwordTextFieldLayout.visibility = if (useToken) View.GONE else View.VISIBLE
             tokenTextFieldLayout.visibility = if (useToken) View.VISIBLE else View.GONE
         }
+    }
+
+    private fun highlightButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.main_green))
+        button.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+    }
+
+    private fun resetButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+        button.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.black))
     }
 
     override fun onDestroyView() {

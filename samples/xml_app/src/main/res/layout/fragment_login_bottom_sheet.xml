@@ -18,6 +18,7 @@
 
 
         <TextView
+            android:id="@+id/existingProfiles"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             style="@style/HeaderTextLarge"
@@ -31,6 +32,16 @@
             android:src="@drawable/ic_close"
             android:layout_alignParentEnd="true"
             android:layout_centerInParent="true"/>
+
+        <TextView
+            android:id="@+id/productionText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/production_label"
+            style="@style/SubText"
+            android:layout_marginTop="@dimen/spacing_medium"
+            android:layout_alignParentStart="true"
+            android:layout_below="@id/existingProfiles"/>
 
     </RelativeLayout>
 
