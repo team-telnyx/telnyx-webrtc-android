@@ -14,4 +14,7 @@
     <color name="colorTransparent">#00FFFFFF</color>
     <color name="answer_green">#14F0B8</color>
     <color name="main_green">#008563</color>
+    <color name="reconnecting_icon">#CF7E20</color>
+    <color name="dropped_icon">#D40000</color>
+    <color name="ringing_icon">#3434EF</color>
 </resources>

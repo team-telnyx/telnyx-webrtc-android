@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -13,6 +14,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -31,6 +33,13 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
+import com.telnyx.webrtc.sdk.model.CallState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
@@ -112,6 +121,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.bottomButton.setOnClickListener {
                             telnyxViewModel.disconnect(this@MainActivity)
                         }
+
+                        binding.callState.visibility = View.VISIBLE
+                        binding.callStateLabel.visibility = View.VISIBLE
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -128,6 +140,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                                     telnyxViewModel.credentialLogin(this@MainActivity, currentProfile,null)
                             }
                         }
+
+                        binding.callState.visibility = View.GONE
+                        binding.callStateLabel.visibility = View.GONE
                     }
                 }
             }
@@ -139,10 +154,31 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
+
+        // Listen for call state changes:
+        lifecycleScope.launch {
+            flow {
+                while (true) {
+                    emit(telnyxViewModel.currentCall)
+                    delay(1000)
+                }
+            }.flatMapLatest { currentCall ->
+                currentCall?.callStateFlow ?: flowOf(null)
+            }.collect { callState ->
+                updateCallState(callState ?: CallState.DONE)
+            }
+        }
     }
 
-    fun updateCallState(callState: String) {
-        findViewById<TextView>(R.id.callState).text = callState
+    fun updateCallState(callState: CallState) {
+        val iconDrawable = when (callState) {
+            CallState.RECONNECTING -> R.drawable.reconnecting_indicator
+            CallState.DROPPED -> R.drawable.dropped_indicator
+            CallState.RINGING -> R.drawable.ringing_indicator
+            else -> R.drawable.status_circle
+        }
+        binding.callStateIcon.setBackgroundResource(iconDrawable)
+        binding.callStateInfo.text = callState.name
     }
 
     private fun handleCallNotification(intent: Intent?) {

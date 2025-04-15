@@ -6,15 +6,18 @@ import android.media.ToneGenerator.*
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
@@ -43,11 +48,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
+import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
@@ -98,20 +106,29 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
-        modifier = Modifier.verticalScroll(rememberScrollState())
+        verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
     ) {
         var destinationNumber by remember { mutableStateOf("") }
+        var isPhoneNumber by remember { mutableStateOf(true) }
+        
+        // Add the toggle button at the top
+        DestinationTypeSwitcher(isPhoneNumber) {
+            isPhoneNumber = it
+        }
+        
         OutlinedEdiText(
             text = destinationNumber,
-            hint = stringResource(R.string.destination),
+            hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
             modifier = Modifier.fillMaxWidth().testTag("callInput"),
-            imeAction = ImeAction.Done
+            imeAction = ImeAction.Done,
+            keyboardType = if (isPhoneNumber) androidx.compose.ui.text.input.KeyboardType.Phone else androidx.compose.ui.text.input.KeyboardType.Text
         ) {
             destinationNumber = it
         }
         Box (
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = Dimens.spacing24dp),
             contentAlignment = Alignment.Center
         ) {
 
@@ -139,7 +156,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.pause_24 else R.drawable.play_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
@@ -163,7 +180,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(Dimens.extraLargeSpacing),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
+                            HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
                                 Timber.i("Reject call UI ${inviteResponse.callId}")
                                 telnyxViewModel.rejectCall(context, inviteResponse.callId)
@@ -196,18 +213,18 @@ fun HomeIconButton(
     modifier: Modifier,
     icon: Int,
     backGroundColor: Color,
-    contentColor: Color,
+    contentColor: Color?,
     onClick: () -> Unit
 ) {
 
     IconButton(
         modifier = modifier.size(Dimens.size60dp),
-        colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor),
+        colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor ?: Color.Black),
         onClick = onClick) {
         Image(painter = painterResource(icon),
             contentDescription = "",
             modifier = Modifier.padding(Dimens.smallSpacing),
-            colorFilter = ColorFilter.tint(Color.Black))
+            colorFilter = ColorFilter.tint(contentColor ?: Color.Black))
     }
 }
 
@@ -355,8 +372,49 @@ private fun onNumberClicked(number: Int) {
 
 }
 
+@Composable
+fun DestinationTypeSwitcher(isPhoneNumber: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(top = Dimens.spacing8dp)
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .clip(RoundedCornerShape(Dimens.size4dp))
+            .border(Dimens.borderStroke1dp,
+                Color.Black,
+                RoundedCornerShape(Dimens.size4dp)),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.phone_number_toggle),
+            isSelected = isPhoneNumber,
+            onClick = { onCheckedChange(true) }
+        )
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.sip_address_toggle),
+            isSelected = !isPhoneNumber,
+            onClick = { onCheckedChange(false) }
+        )
+    }
+}
+
 private enum class CallUIState {
     IDLE,
     INCOMING,
     ACTIVE
+}
+
+@Preview
+@Composable
+fun CallScreenPreview() {
+    val fakeViewModel = TelnyxViewModel()
+
+    TelnyxAndroidWebRTCSDKTheme {
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            innerPadding.calculateTopPadding()
+            CallScreen(telnyxViewModel = fakeViewModel)
+        }
+    }
 }
