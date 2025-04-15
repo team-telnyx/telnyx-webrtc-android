@@ -4,9 +4,8 @@
     <string name="connect">Connect</string>
     <string name="socket">Socket</string>
     <string name="session_id">Session ID</string>
-    <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
-    <string name="client_ready">Connected</string>
+    <string name="client_ready">Client-ready</string>
     <string name="dash">-</string>
     <string name="session_pending">-</string>
     <string name="call">Call</string>

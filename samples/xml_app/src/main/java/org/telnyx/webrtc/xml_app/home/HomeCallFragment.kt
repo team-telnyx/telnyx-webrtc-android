@@ -142,19 +142,19 @@ class HomeCallFragment : Fragment() {
 
     private fun onIdle() {
         binding.callIdleView.visibility = View.VISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
-        binding.callIncomingView.visibility = View.INVISIBLE
+        binding.callActiveView.visibility = View.GONE
+        binding.callIncomingView.visibility = View.GONE
     }
 
     private fun onCallActive() {
-        binding.callIdleView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
         binding.callActiveView.visibility = View.VISIBLE
-        binding.callIncomingView.visibility = View.INVISIBLE
+        binding.callIncomingView.visibility = View.GONE
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {
-        binding.callIdleView.visibility = View.INVISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
+        binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.VISIBLE
 
         binding.callAnswer.setOnClickListener {
@@ -171,22 +171,15 @@ class HomeCallFragment : Fragment() {
     private fun registerObservers() {
         telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()
             ?.observe(viewLifecycleOwner) { loudSpeakerOn ->
-                (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_off_24 else R.drawable.speaker_24)
+                (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_24 else R.drawable.speaker_off_24)
             }
 
         telnyxViewModel.currentCall?.getIsMuteStatus()?.observe(viewLifecycleOwner) { muteOn ->
-            (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_24 else R.drawable.mute_off_24)
+            (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_off_24 else R.drawable.mute_24)
         }
 
         telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observe(viewLifecycleOwner) { onHold ->
             (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.play_24 else R.drawable.pause_24)
-        }
-
-        // Listen for call state changes:
-        lifecycleScope.launch {
-            telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                (activity as? MainActivity)?.updateCallState(callState.toString())
-            }
         }
     }
 

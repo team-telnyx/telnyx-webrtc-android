@@ -4,7 +4,6 @@
     <string name="connect">Connect</string>
     <string name="socket">Socket</string>
     <string name="session_id">Session ID</string>
-    <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
     <string name="client_ready">Client-ready</string>
     <string name="dash">-</string>
@@ -31,7 +30,7 @@
     <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
     <string name="message_subscribe_failed">Failed to subscribe to topic</string>
     <string name="message_subscribed">Subscribed to topic</string>
-    <string name="connected">Connected</string>
+    <string name="connected">Client-ready</string>
     <string name="disconnect">Disconnect</string>
     <string name="login_token">Login Token</string>
     <string name="token_login">Token Login</string>
@@ -90,4 +89,6 @@
     
     <string name="phone_number_toggle">Phone number</string>
     <string name="sip_address_toggle">SIP address</string>
+    <string name="phone_number_hint">Enter phone number</string>
+    <string name="sip_address_hint">Enter sip address</string>
 </resources>

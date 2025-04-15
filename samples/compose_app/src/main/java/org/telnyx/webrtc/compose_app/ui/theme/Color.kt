@@ -21,3 +21,7 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
 val MainGreen = Color(0xFF008563)
+
+val ReconnectingIconColor = Color(0xFFCF7E20)
+val DroppedIconColor = Color(0xFFD40000)
+val RingingIconColor = Color(0xFF3434EF)

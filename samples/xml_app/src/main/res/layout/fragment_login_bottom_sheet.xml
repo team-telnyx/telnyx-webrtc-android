@@ -26,12 +26,25 @@
 
 
         <ImageView
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:contentDescription="@string/close_button_dessc"
             android:src="@drawable/ic_close"
             android:layout_alignParentEnd="true"
-            android:layout_centerInParent="true"/>
+            android:layout_alignTop="@id/existingProfiles"
+            android:layout_alignBottom="@id/existingProfiles"/>
+
+        <Button
+            android:id="@+id/addNewProfile"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="@string/add_new_profile"
+            android:textAllCaps="false"
+            android:layout_marginTop="@dimen/spacing_medium"
+            app:icon="@drawable/ic_add"
+            style="@style/AddProfileButton"
+            android:layout_alignParentStart="true"
+            android:layout_below="@id/existingProfiles" />
 
         <TextView
             android:id="@+id/productionText"
@@ -41,7 +54,7 @@
             style="@style/SubText"
             android:layout_marginTop="@dimen/spacing_medium"
             android:layout_alignParentStart="true"
-            android:layout_below="@id/existingProfiles"/>
+            android:layout_below="@id/addNewProfile"/>
 
     </RelativeLayout>
 
@@ -60,19 +73,6 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@+id/headerInfo"/>
-
-    <Button
-        android:id="@+id/addNewProfile"
-        android:layout_width="wrap_content"
-        android:layout_height="32dp"
-        android:text="@string/add_new_profile"
-        android:textAllCaps="false"
-        android:layout_marginTop="@dimen/spacing_medium"
-        app:icon="@drawable/ic_add"
-        style="@style/AddProfileButton"
-        app:layout_constraintTop_toBottomOf="@+id/allProfiles"
-        app:layout_constraintStart_toStartOf="parent"
-        />
 
     <Button
         android:id="@+id/profileConfirmButton"

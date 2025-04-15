@@ -116,7 +116,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipUser = usernameTextField.text.toString()
             val sipPass = passwordTextField.text.toString()
 
-            if (credentialsBinding.sessionSwitch.checkedButtonId == R.id.credentialLogin) {
+            if (credentialsBinding.sessionSwitch.checkedButtonId == R.id.tokenLogin) {
                 if (sipToken.isEmpty()) {
                     tokenTextField.error = getString(R.string.error_empty_field)
                     isValid = false
@@ -181,7 +181,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         telnyxViewModel.setupProfileList(requireContext())
         binding.apply {
             headerInfo.getChildAt(1).setOnClickListener { dismiss() }
-            addNewProfile.setOnClickListener { toggleCredentialLayout(true) }
+            addNewProfile.setOnClickListener { toggleCredentialLayout(!isCredentialLayoutVisible) }
             credentialsBinding.cancelButton.setOnClickListener { toggleCredentialLayout(false) }
 
             credentialsBinding.sessionSwitch.addOnButtonCheckedListener { group, checkedId, isChecked ->
@@ -217,7 +217,6 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
     private fun toggleCredentialLayout(show: Boolean) {
         isCredentialLayoutVisible = show
-        binding.addNewProfile.visibility = if (show) View.GONE else View.VISIBLE
         binding.allProfiles.visibility = if (show) View.GONE else View.VISIBLE
         binding.profileCancelButton.visibility = if (show) View.GONE else View.VISIBLE
         binding.profileConfirmButton.visibility = if (show) View.GONE else View.VISIBLE

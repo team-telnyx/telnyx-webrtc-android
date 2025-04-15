@@ -9,7 +9,7 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:padding="24dp"
         >
 
@@ -55,16 +55,6 @@
             android:layout_marginTop="@dimen/spacing_small"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/callTypeSwitch">
-
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                style="@style/SubText"
-                android:text="@string/destination"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/loginInfo"
-                />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/usernameTextFieldLayout"
@@ -118,7 +108,7 @@
             android:layout_marginTop="@dimen/spacing_normal"
             android:orientation="vertical"
             app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
-            android:visibility="invisible">
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -144,7 +134,7 @@
                     android:layout_height="60dp"
                     android:backgroundTint="@color/colorSecondary"
                     android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/speaker_24"
+                    app:icon="@drawable/speaker_off_24"
                     />
 
                 <Button
@@ -182,7 +172,7 @@
                     android:layout_height="60dp"
                     android:backgroundTint="@color/reject_red"
                     android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/baseline_call_end_24"
+                    app:icon="@drawable/baseline_call_reject_24"
                     app:iconTint="@color/white"
                     />
 
@@ -199,7 +189,7 @@
             android:orientation="horizontal"
             android:gravity="center"
             app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
-            android:visibility="invisible">
+            android:visibility="gone">
 
             <Button
                 style="@style/IconControlButton"
@@ -208,8 +198,8 @@
                 android:layout_height="60dp"
                 android:backgroundTint="@color/reject_red"
                 android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/baseline_call_end_24"
-                app:iconTint="@color/white"
+                app:icon="@drawable/baseline_call_reject_24"
+                app:iconTint="@color/black"
                 android:layout_marginEnd="20dp"
                 />
 

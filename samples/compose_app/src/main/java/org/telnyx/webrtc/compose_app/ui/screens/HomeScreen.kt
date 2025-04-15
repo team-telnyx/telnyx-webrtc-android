@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -67,6 +69,10 @@ import org.telnyx.webrtc.compose_app.BuildConfig
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
+import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
+import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
+import org.telnyx.webrtc.compose_app.ui.theme.ReconnectingIconColor
+import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
@@ -140,25 +146,6 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             }
                     )
                 }
-
-                Column {
-                    MediumTextBold(text = stringResource(id = R.string.login_info))
-                    Spacer(modifier = Modifier.height(Dimens.spacing24dp))
-                    ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
-                    Spacer(modifier = Modifier.height(Dimens.spacing24dp))
-                    CurrentCallState(state = callState)
-                    SessionItem(
-                        sessionId = when (sessionState) {
-                            is TelnyxSessionState.ClientLoggedIn -> {
-                                (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
-                            }
-
-                            is TelnyxSessionState.ClientDisconnected -> {
-                                stringResource(R.string.dash)
-                            }
-                        }
-                    )
-                }
             }
         },
         bottomBar = {
@@ -174,9 +161,30 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             modifier = Modifier.padding(
                 bottom = it.calculateBottomPadding(),
                 top = it.calculateTopPadding()
-            ),
+            )
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
         ) {
+
+            MediumTextBold(text = if (sessionState is TelnyxSessionState.ClientLoggedIn) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
+            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+            ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
+            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+            if (sessionState is TelnyxSessionState.ClientLoggedIn) {
+                CurrentCallState(state = callState)
+                Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+            }
+            SessionItem(
+                sessionId = when (sessionState) {
+                    is TelnyxSessionState.ClientLoggedIn -> {
+                        (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+                    }
+
+                    is TelnyxSessionState.ClientDisconnected -> {
+                        stringResource(R.string.dash)
+                    }
+                }
+            )
 
             Spacer(modifier = Modifier.height(Dimens.spacing24dp))
 
@@ -240,6 +248,18 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         }
                     }
 
+                    RoundSmallButton(
+                        modifier = Modifier.height(Dimens.size32dp),
+                        text = stringResource(id = R.string.add_new_profile),
+                        textSize = 12.sp,
+                        backgroundColor = secondary_background_color,
+                        icon = painterResource(R.drawable.ic_add),
+                        iconContentDescription = stringResource(R.string.add_new_profile)
+                    ) {
+                        editableUserProfile = null
+                        isAddProfile = !isAddProfile
+                    }
+
                     RegularText(stringResource(R.string.production_label))
 
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
@@ -263,18 +283,6 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                         telnyxViewModel.deleteProfile(context, profile)
                                     })
 
-                            }
-
-                            RoundSmallButton(
-                                modifier = Modifier.height(Dimens.size32dp),
-                                text = stringResource(id = R.string.add_new_profile),
-                                textSize = 12.sp,
-                                backgroundColor = secondary_background_color,
-                                icon = painterResource(R.drawable.ic_add),
-                                iconContentDescription = stringResource(R.string.add_new_profile)
-                            ) {
-                                editableUserProfile = null
-                                isAddProfile = !isAddProfile
                             }
 
                             PosNegButton(
@@ -630,10 +638,34 @@ fun ConnectionState(state: Boolean) {
 
 @Composable
 fun CurrentCallState(state: CallState) {
-    if (state == CallState.DONE) return
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)) {
+    val callStateColor = when (state) {
+        CallState.RECONNECTING -> ReconnectingIconColor
+        CallState.DROPPED -> DroppedIconColor
+        CallState.RINGING -> RingingIconColor
+        else -> MainGreen
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
+    ) {
         RegularText(text = stringResource(id = R.string.call_state))
-        RegularText(text = state.name)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(Dimens.size12dp)
+                    .background(
+                        color = callStateColor,
+                        shape = shape100Percent
+                    )
+            )
+            RegularText(
+                text = state.name
+            )
+        }
     }
 }
 
