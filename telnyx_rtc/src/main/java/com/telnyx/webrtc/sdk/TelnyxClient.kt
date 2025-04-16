@@ -38,8 +38,11 @@ import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
+import com.telnyx.webrtc.lib.MediaStreamTrack
+import com.telnyx.webrtc.lib.RtpTransceiver
 import java.util.*
 import kotlin.concurrent.timerTask
+import java.util.regex.Pattern
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -213,21 +216,32 @@ class TelnyxClient(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null
     ): Call {
-        val acceptCall = calls[callId]
-        acceptCall!!.apply {
+        val acceptCall = calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
+
+        val originalOfferSdp = acceptCall.inviteResponse?.sdp
+        if (originalOfferSdp == null) {
+            Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
+            acceptCall.updateCallState(CallState.ERROR)
+            return acceptCall
+        }
+
+        acceptCall.apply {
             val uuid: String = UUID.randomUUID().toString()
-            val sessionDescriptionString =
-                peerConnection?.getLocalDescription()?.description
-            if (sessionDescriptionString == null) {
-                updateCallState(CallState.ERROR)
-            } else {
-                // Set up the negotiation complete callback
-                peerConnection?.setOnNegotiationComplete {
+            peerConnection?.setOnNegotiationComplete {
+                val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
+                if (generatedAnswerSdp == null) {
+                    updateCallState(CallState.ERROR)
+                    Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
+                } else {
+                    val finalAnswerSdp = modifyAnswerSdpToIncludeOfferCodecs(originalOfferSdp, generatedAnswerSdp)
+                    Logger.d(tag = "SDP_Modify", message = "[Original Answer SDP]:\n$generatedAnswerSdp")
+                    Logger.d(tag = "SDP_Modify", message = "[Final Answer SDP]:\n$finalAnswerSdp")
+
                     val answerBodyMessage = SendingMessageBody(
                         uuid, SocketMethod.ANSWER.methodName,
                         CallParams(
                             sessid = sessionId,
-                            sdp = sessionDescriptionString,
+                            sdp = finalAnswerSdp,
                             dialogParams = CallDialogParams(
                                 callId = callId,
                                 destinationNumber = destinationNumber,
@@ -239,15 +253,110 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     socket.send(answerBodyMessage)
                 }
-
-                client.stopMediaPlayer()
-                setSpeakerMode(speakerState)
-                client.callOngoing()
             }
+
+            client.stopMediaPlayer()
+            setSpeakerMode(speakerState)
+            client.callOngoing()
         }
 
         this.addToCalls(acceptCall)
         return acceptCall
+    }
+
+    /**
+     * Modifies the generated Answer SDP to include audio codecs from the Offer SDP
+     * that might have been excluded by the WebRTC library.
+     */
+    private fun modifyAnswerSdpToIncludeOfferCodecs(offerSdp: String, answerSdp: String): String {
+        try {
+            val offerAudioCodecs = extractAudioCodecs(offerSdp)
+            if (offerAudioCodecs.isEmpty()) {
+                Logger.w(tag = "SDP_Modify", message = "No audio codecs found in Offer SDP. Returning original Answer.")
+                return answerSdp
+            }
+
+            val answerAudioCodecs = extractAudioCodecs(answerSdp)
+
+            val missingCodecs = offerAudioCodecs.filterKeys { it !in answerAudioCodecs.keys }
+            if (missingCodecs.isEmpty()) {
+                Logger.d(tag = "SDP_Modify", message = "No missing audio codecs detected. Returning original Answer.")
+                return answerSdp
+            }
+            Logger.d(tag = "SDP_Modify", message = "Missing codecs to add: ${missingCodecs.keys}")
+
+            val answerLines = answerSdp.lines().toMutableList()
+            var audioMLineIndex = -1
+            var firstAudioAttrIndex = -1
+
+            for (i in answerLines.indices) {
+                if (answerLines[i].startsWith("m=audio")) {
+                    audioMLineIndex = i
+                } else if (audioMLineIndex != -1 && answerLines[i].startsWith("a=") && firstAudioAttrIndex == -1) {
+                    firstAudioAttrIndex = i
+                } else if (audioMLineIndex != -1 && answerLines[i].startsWith("m=")) {
+                    if (firstAudioAttrIndex == -1) firstAudioAttrIndex = i
+                    break
+                }
+            }
+
+            if (audioMLineIndex == -1 || firstAudioAttrIndex == -1) {
+                Logger.e(tag = "SDP_Modify", message = "Could not find m=audio line or attribute insertion point in Answer SDP. Returning original.")
+                return answerSdp
+            }
+
+            val originalMLine = answerLines[audioMLineIndex]
+            val mLineParts = originalMLine.split(" ").toMutableList()
+            if (mLineParts.size >= 4) {
+                val existingPayloads = mLineParts.subList(3, mLineParts.size).toSet()
+                val newPayloads = missingCodecs.keys.filter { it !in existingPayloads }
+                mLineParts.addAll(newPayloads)
+                answerLines[audioMLineIndex] = mLineParts.joinToString(" ")
+                Logger.d(tag = "SDP_Modify", message = "Modified m=audio line: ${answerLines[audioMLineIndex]}")
+            } else {
+                Logger.w(tag = "SDP_Modify", message = "Unexpected m=audio line format: $originalMLine")
+            }
+
+            val rtpmapLinesToAdd = missingCodecs.values.toList()
+            answerLines.addAll(firstAudioAttrIndex, rtpmapLinesToAdd)
+            Logger.d(tag = "SDP_Modify", message = "Added rtpmap lines: $rtpmapLinesToAdd")
+
+            return answerLines.joinToString("\r\n")
+
+        } catch (e: Exception) {
+            Logger.e(tag = "SDP_Modify", message = "Error modifying SDP: ${e.message}. Returning original Answer.")
+            Logger.e(tag = "SDP_Modify", message = Log.getStackTraceString(e))
+            return answerSdp
+        }
+    }
+
+    /**
+     * Extracts audio codec payload types and their corresponding a=rtpmap lines from SDP.
+     */
+    private fun extractAudioCodecs(sdp: String): Map<String, String> {
+        val codecs = mutableMapOf<String, String>()
+        val lines = sdp.lines()
+        var inAudioSection = false
+        val rtpmapPattern = Pattern.compile("^a=rtpmap:(\\d+)\\s+(.+)$")
+
+        for (line in lines) {
+            if (line.startsWith("m=audio")) {
+                inAudioSection = true
+            } else if (line.startsWith("m=")) {
+                if (inAudioSection) break
+            }
+
+            if (inAudioSection && line.startsWith("a=rtpmap:")) {
+                val matcher = rtpmapPattern.matcher(line)
+                if (matcher.find()) {
+                    val payloadType = matcher.group(1)
+                    if (payloadType != null) {
+                        codecs[payloadType] = line
+                    }
+                }
+            }
+        }
+        return codecs
     }
 
     /**
