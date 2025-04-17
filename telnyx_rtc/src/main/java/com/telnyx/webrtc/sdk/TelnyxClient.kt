@@ -36,10 +36,7 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
-import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
-import com.telnyx.webrtc.lib.MediaStreamTrack
-import com.telnyx.webrtc.lib.RtpTransceiver
 import java.util.*
 import kotlin.concurrent.timerTask
 import java.util.regex.Pattern
@@ -66,9 +63,6 @@ class TelnyxClient(
         URI
     }
 
-    /*
-    * Add Later: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
-    * */
     /**
      * Enum class that defines the current audio output mode.
      *
@@ -103,6 +97,16 @@ class TelnyxClient(
 
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
+
+        /** Constants for SDP M-Line structure.
+         m=<media> <port> <transport> <fmt list>
+         The minimum requirement for a valid m-line is the <media> <port> <transport> fields*/
+        private const val MINIMUM_M_LINE_PARTS = 3
+
+        /** Index to start adding new payloads to, after the <media> <port> <transport> fields */
+        private const val PAYLOAD_START_INDEX = 3
+        private const val MEDIA_LINE_PREFIX = "m=audio"
+        private const val ATTRIBUTE_PREFIX = "a="
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -197,12 +201,6 @@ class TelnyxClient(
     }
 
 
-    /* Accepts an incoming call
-    * Local user response with both local and remote SDPs
-    * @param callId, the callId provided with the invitation
-    * @param destinationNumber, the number or SIP name that will receive the invitation
-    * @see [Call]
-    */
     /**
      * Accepts an incoming call invitation.
      *
@@ -265,7 +263,7 @@ class TelnyxClient(
     }
 
     /**
-     * Modifies the generated Answer SDP to include audio codecs from the Offer SDP
+     * SDP Munging function to modify the generated Answer SDP to include audio codecs from the Offer SDP
      * that might have been excluded by the WebRTC library.
      */
     private fun modifyAnswerSdpToIncludeOfferCodecs(offerSdp: String, answerSdp: String): String {
@@ -290,11 +288,11 @@ class TelnyxClient(
             var firstAudioAttrIndex = -1
 
             for (i in answerLines.indices) {
-                if (answerLines[i].startsWith("m=audio")) {
+                if (answerLines[i].startsWith(MEDIA_LINE_PREFIX)) {
                     audioMLineIndex = i
-                } else if (audioMLineIndex != -1 && answerLines[i].startsWith("a=") && firstAudioAttrIndex == -1) {
+                } else if (audioMLineIndex != -1 && answerLines[i].startsWith(ATTRIBUTE_PREFIX) && firstAudioAttrIndex == -1) {
                     firstAudioAttrIndex = i
-                } else if (audioMLineIndex != -1 && answerLines[i].startsWith("m=")) {
+                } else if (audioMLineIndex != -1 && answerLines[i].startsWith(MEDIA_LINE_PREFIX)) {
                     if (firstAudioAttrIndex == -1) firstAudioAttrIndex = i
                     break
                 }
@@ -307,15 +305,19 @@ class TelnyxClient(
 
             val originalMLine = answerLines[audioMLineIndex]
             val mLineParts = originalMLine.split(" ").toMutableList()
-            if (mLineParts.size >= 4) {
-                val existingPayloads = mLineParts.subList(3, mLineParts.size).toSet()
-                val newPayloads = missingCodecs.keys.filter { it !in existingPayloads }
-                mLineParts.addAll(newPayloads)
-                answerLines[audioMLineIndex] = mLineParts.joinToString(" ")
-                Logger.d(tag = "SDP_Modify", message = "Modified m=audio line: ${answerLines[audioMLineIndex]}")
-            } else {
-                Logger.w(tag = "SDP_Modify", message = "Unexpected m=audio line format: $originalMLine")
+
+            // Check that the m-line has at least the minimum parts required to be valid
+            if (mLineParts.size < MINIMUM_M_LINE_PARTS) {
+                Logger.w(tag = "SDP_Modify", message = "Unexpected m=audio line format: $originalMLine. It contains less than the minimum number of parts required")
+                return answerSdp
             }
+
+            // Extract the existing payloads
+            val existingPayloads = mLineParts.subList(PAYLOAD_START_INDEX, mLineParts.size).toSet()
+            val newPayloads = missingCodecs.keys.filter { it !in existingPayloads }
+            mLineParts.addAll(newPayloads)
+            answerLines[audioMLineIndex] = mLineParts.joinToString(" ")
+            Logger.d(tag = "SDP_Modify", message = "Modified m=audio line: ${answerLines[audioMLineIndex]}")
 
             val rtpmapLinesToAdd = missingCodecs.values.toList()
             answerLines.addAll(firstAudioAttrIndex, rtpmapLinesToAdd)
@@ -1201,11 +1203,11 @@ class TelnyxClient(
 
     private fun setSpeakerMode(speakerMode: SpeakerMode) {
         when (speakerMode) {
-            SpeakerMode.SPEAKER -> {
+            SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
 
-            SpeakerMode.EARPIECE -> {
+            EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
 
@@ -1215,8 +1217,8 @@ class TelnyxClient(
 
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> RingtoneType.URI
-            is Int -> RingtoneType.RAW
+            is Uri -> URI
+            is Int -> RAW
             else -> null
         }
     }
