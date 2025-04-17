@@ -412,6 +412,77 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * State flow for call quality metrics.
+     * Observe this flow to display real-time call quality metrics in the UI.
+     */
+    private val _callQualityMetrics = MutableStateFlow<com.telnyx.webrtc.sdk.stats.CallQualityMetrics?>(null)
+    val callQualityMetrics: StateFlow<com.telnyx.webrtc.sdk.stats.CallQualityMetrics?> = _callQualityMetrics.asStateFlow()
+
+    /**
+     * Sends an invite with optional debug mode for call quality metrics.
+     *
+     * @param viewContext The application context.
+     * @param callerName The name of the caller.
+     * @param callerNumber The number of the caller.
+     * @param destinationNumber The destination number to call.
+     * @param clientState Additional state information.
+     * @param customHeaders Optional custom SIP headers.
+     * @param debug When true, enables real-time call quality metrics.
+     */
+    fun sendInvite(
+        viewContext: Context,
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val call = SendInvite(viewContext).invoke(
+                callerName,
+                callerNumber,
+                destinationNumber,
+                clientState,
+                customHeaders,
+                debug
+            ) { metrics ->
+                // Update the call quality metrics state flow
+                _callQualityMetrics.value = metrics
+            }
+        }
+    }
+
+    /**
+     * Accepts an incoming call with optional debug mode for call quality metrics.
+     *
+     * @param viewContext The application context.
+     * @param callId The ID of the call to accept.
+     * @param callerIdNumber The caller ID number.
+     * @param customHeaders Optional custom SIP headers.
+     * @param debug When true, enables real-time call quality metrics.
+     */
+    fun acceptCall(
+        viewContext: Context,
+        callId: UUID,
+        callerIdNumber: String,
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val call = AcceptCall(viewContext).invoke(
+                callId,
+                callerIdNumber,
+                customHeaders,
+                debug
+            ) { metrics ->
+                // Update the call quality metrics state flow
+                _callQualityMetrics.value = metrics
+            }
+        }
+    }
+
+    /**
      * Disconnects the current session.
      * 
      * This method will only disconnect if there is no active call and we're not handling

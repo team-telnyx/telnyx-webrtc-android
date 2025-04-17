@@ -3,6 +3,7 @@ package com.telnyx.webrtc.common.domain.call
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import java.util.*
 
 /**
@@ -17,11 +18,26 @@ class AcceptCall(private val context: Context) {
      *
      * @param callId The call ID to accept.
      * @param callerIdNumber The destination number to accept the call.
-     * @param customeHeaders The custom headers to accept the call.
+     * @param customHeaders The custom headers to accept the call.
+     * @param debug When true, enables real-time call quality metrics.
+     * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
+     * @return The accepted incoming call.
      */
-    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null): Call {
+    operator fun invoke(
+        callId: UUID, 
+        callerIdNumber: String, 
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false,
+        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
+    ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customeHeaders)
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug)
+        
+        // Set the call quality change callback if provided
+        if (debug && onCallQualityChange != null) {
+            incomingCall.onCallQualityChange = onCallQualityChange
+        }
+        
         telnyxCommon.setCurrentCall(context, incomingCall)
         telnyxCommon.registerCall(incomingCall)
         return incomingCall

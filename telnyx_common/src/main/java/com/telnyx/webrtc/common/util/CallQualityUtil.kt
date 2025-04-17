@@ -1,0 +1,65 @@
+package com.telnyx.webrtc.common.util
+
+import android.util.Log
+import com.telnyx.webrtc.sdk.stats.CallQuality
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+
+/**
+ * Utility class for handling call quality metrics.
+ */
+object CallQualityUtil {
+
+    private const val TAG = "CallQualityUtil"
+
+    /**
+     * Formats call quality metrics for display or logging.
+     *
+     * @param metrics The call quality metrics to format.
+     * @return A formatted string representation of the metrics.
+     */
+    fun formatMetrics(metrics: CallQualityMetrics): String {
+        return """
+            Call Quality Metrics:
+            - MOS: ${metrics.mos.format(2)}
+            - Quality: ${metrics.quality.toDisplayString()}
+            - Jitter: ${(metrics.jitter * 1000).format(2)} ms
+            - RTT: ${(metrics.rtt * 1000).format(2)} ms
+        """.trimIndent()
+    }
+
+    /**
+     * Formats a double value to a specified number of decimal places.
+     *
+     * @param decimals The number of decimal places to format to.
+     * @return The formatted string.
+     */
+    private fun Double.format(decimals: Int): String {
+        return "%.${decimals}f".format(this)
+    }
+
+    /**
+     * Converts a CallQuality enum value to a user-friendly display string.
+     *
+     * @return A user-friendly string representation of the call quality.
+     */
+    fun CallQuality.toDisplayString(): String {
+        return when (this) {
+            CallQuality.EXCELLENT -> "Excellent"
+            CallQuality.GOOD -> "Good"
+            CallQuality.FAIR -> "Fair"
+            CallQuality.POOR -> "Poor"
+            CallQuality.BAD -> "Bad"
+            CallQuality.UNKNOWN -> "Unknown"
+        }
+    }
+
+    /**
+     * Logs call quality metrics.
+     *
+     * @param metrics The call quality metrics to log.
+     * @param tag Optional custom tag for the log message.
+     */
+    fun logMetrics(metrics: CallQualityMetrics, tag: String = TAG) {
+        Log.d(tag, formatMetrics(metrics))
+    }
+}
