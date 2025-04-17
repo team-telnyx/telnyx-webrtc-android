@@ -44,9 +44,9 @@ object MOSCalculator {
 
         return when {
             mos > 4.2 -> CallQuality.EXCELLENT
-            mos >= 4.1 && mos <= 4.2 -> CallQuality.GOOD
-            mos >= 3.7 && mos <= 4.0 -> CallQuality.FAIR
-            mos >= 3.1 && mos <= 3.6 -> CallQuality.POOR
+            mos in 4.1..4.2 -> CallQuality.GOOD
+            mos in 3.7..4.0 -> CallQuality.FAIR
+            mos in 3.1..3.6 -> CallQuality.POOR
             else -> CallQuality.BAD
         }
     }
