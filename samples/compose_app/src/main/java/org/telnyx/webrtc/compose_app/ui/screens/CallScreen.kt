@@ -68,6 +68,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
 
     var showDialpadSection by remember { mutableStateOf(false) }
+    val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
 
     LaunchedEffect(uiState) {
         callUIState = when (uiState) {
@@ -121,7 +122,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                     CallUIState.IDLE -> {
                         HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                             if (destinationNumber.isNotEmpty())
-                                telnyxViewModel.sendInvite(context, destinationNumber)
+                                telnyxViewModel.sendInvite(context, destinationNumber, true)
                         }
                     }
                     CallUIState.ACTIVE ->  {
@@ -156,6 +157,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
+                            // Display call quality metrics when available
+                            CallQualityDisplay(metrics = callQualityMetrics)
                         }
 
                     }
@@ -171,7 +174,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             }
                             HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
-                                telnyxViewModel.answerCall(context, inviteResponse.callId, inviteResponse.callerIdNumber)
+                                telnyxViewModel.answerCall(context, inviteResponse.callId, inviteResponse.callerIdNumber, true)
                             }
                         }
 

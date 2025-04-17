@@ -55,7 +55,8 @@ class HomeCallFragment : Fragment() {
                 if (editable.isNotEmpty()) {
                     telnyxViewModel.sendInvite(
                         this@HomeCallFragment.requireContext(),
-                        editable.trim().toString()
+                        editable.trim().toString(),
+                        true
                     )
                 }
             }
@@ -148,7 +149,7 @@ class HomeCallFragment : Fragment() {
         binding.callIncomingView.visibility = View.VISIBLE
 
         binding.callAnswer.setOnClickListener {
-            telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber)
+            telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber, true)
             registerObservers()
         }
 
