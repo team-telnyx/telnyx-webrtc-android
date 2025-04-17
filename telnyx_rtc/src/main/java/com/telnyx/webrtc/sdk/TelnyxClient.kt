@@ -98,16 +98,6 @@ class TelnyxClient(
 
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
-
-        /** Constants for SDP M-Line structure.
-         m=<media> <port> <transport> <fmt list>
-         The minimum requirement for a valid m-line is the <media> <port> <transport> fields*/
-        private const val MINIMUM_M_LINE_PARTS = 3
-
-        /** Index to start adding new payloads to, after the <media> <port> <transport> fields */
-        private const val PAYLOAD_START_INDEX = 3
-        private const val MEDIA_LINE_PREFIX = "m=audio"
-        private const val ATTRIBUTE_PREFIX = "a="
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
