@@ -18,62 +18,67 @@ internal object SdpUtils {
      * that might have been excluded by the WebRTC library.
      */
     internal fun modifyAnswerSdpToIncludeOfferCodecs(offerSdp: String, answerSdp: String): String {
+        var resultSdp = answerSdp // Initialize with the original answer
+
         try {
             val offerAudioCodecs = extractAudioCodecs(offerSdp)
             if (offerAudioCodecs.isEmpty()) {
                 Logger.w(tag = "SDP_Modify", message = "No audio codecs found in Offer SDP. Returning original Answer.")
-                return answerSdp
+                // Proceed to return original answerSdp
+            } else {
+                val answerAudioCodecs = extractAudioCodecs(answerSdp)
+                val missingCodecs = offerAudioCodecs.filterKeys { it !in answerAudioCodecs.keys }
+
+                if (missingCodecs.isEmpty()) {
+                    Logger.d(tag = "SDP_Modify", message = "No missing audio codecs detected. Returning original Answer.")
+                    // Proceed to return original answerSdp
+                } else {
+                    Logger.d(tag = "SDP_Modify", message = "Missing codecs to add: ${missingCodecs.keys}")
+
+                    val answerLines = answerSdp.lines().toMutableList()
+                    val (audioMLineIndex, firstAudioAttrIndex) = findAudioIndices(answerLines)
+
+                    if (audioMLineIndex == -1 || firstAudioAttrIndex == -1) { // Check if indices are valid
+                        Logger.e(tag = "SDP_Modify", message = "Could not find m=audio line or attribute insertion point in Answer SDP. Returning original.")
+                        // Proceed to return original answerSdp
+                    } else {
+                        val originalMLine = answerLines[audioMLineIndex]
+                        val mLineParts = originalMLine.split(" ").toMutableList()
+
+                        // Check that the m-line has at least the minimum parts required to be valid
+                        if (mLineParts.size < MINIMUM_M_LINE_PARTS) {
+                            Logger.w(tag = "SDP_Modify", message = "Unexpected m=audio line format: $originalMLine. It contains less than the minimum number of parts required")
+                            // Proceed to return original answerSdp
+                        } else {
+                            // Extract the existing payloads
+                            val existingPayloads = mLineParts.subList(PAYLOAD_START_INDEX, mLineParts.size).toSet()
+                            val newPayloads = missingCodecs.keys.filter { it !in existingPayloads }
+                            mLineParts.addAll(newPayloads)
+                            answerLines[audioMLineIndex] = mLineParts.joinToString(" ")
+                            Logger.d(tag = "SDP_Modify", message = "Modified m=audio line: ${answerLines[audioMLineIndex]}")
+
+                            val rtpmapLinesToAdd = missingCodecs.values.toList()
+                            // Ensure insertion index is valid, handles case where no attributes exist yet.
+                            val insertionPoint = if (firstAudioAttrIndex > answerLines.size) answerLines.size else firstAudioAttrIndex
+                            answerLines.addAll(insertionPoint, rtpmapLinesToAdd)
+                            Logger.d(tag = "SDP_Modify", message = "Added rtpmap lines: $rtpmapLinesToAdd at index $insertionPoint")
+
+                            resultSdp = answerLines.joinToString("\r\n") // Update resultSdp on successful modification
+                        }
+                    }
+                }
             }
-
-            val answerAudioCodecs = extractAudioCodecs(answerSdp)
-            val missingCodecs = offerAudioCodecs.filterKeys { it !in answerAudioCodecs.keys }
-            if (missingCodecs.isEmpty()) {
-                Logger.d(tag = "SDP_Modify", message = "No missing audio codecs detected. Returning original Answer.")
-                return answerSdp
-            }
-            Logger.d(tag = "SDP_Modify", message = "Missing codecs to add: ${missingCodecs.keys}")
-
-            val answerLines = answerSdp.lines().toMutableList()
-            val (audioMLineIndex, firstAudioAttrIndex) = findAudioIndices(answerLines)
-
-            if (audioMLineIndex == -1 || firstAudioAttrIndex == -1) { // Check if indices are valid
-                Logger.e(tag = "SDP_Modify", message = "Could not find m=audio line or attribute insertion point in Answer SDP. Returning original.")
-                return answerSdp
-            }
-
-            val originalMLine = answerLines[audioMLineIndex]
-            val mLineParts = originalMLine.split(" ").toMutableList()
-
-            // Check that the m-line has at least the minimum parts required to be valid
-            if (mLineParts.size < MINIMUM_M_LINE_PARTS) {
-                Logger.w(tag = "SDP_Modify", message = "Unexpected m=audio line format: $originalMLine. It contains less than the minimum number of parts required")
-                return answerSdp
-            }
-
-            // Extract the existing payloads
-            val existingPayloads = mLineParts.subList(PAYLOAD_START_INDEX, mLineParts.size).toSet()
-            val newPayloads = missingCodecs.keys.filter { it !in existingPayloads }
-            mLineParts.addAll(newPayloads)
-            answerLines[audioMLineIndex] = mLineParts.joinToString(" ")
-            Logger.d(tag = "SDP_Modify", message = "Modified m=audio line: ${answerLines[audioMLineIndex]}")
-
-            val rtpmapLinesToAdd = missingCodecs.values.toList()
-            // Ensure insertion index is valid, handles case where no attributes exist yet.
-            val insertionPoint = if (firstAudioAttrIndex > answerLines.size) answerLines.size else firstAudioAttrIndex
-            answerLines.addAll(insertionPoint, rtpmapLinesToAdd)
-            Logger.d(tag = "SDP_Modify", message = "Added rtpmap lines: $rtpmapLinesToAdd at index $insertionPoint")
-
-            return answerLines.joinToString("\r\n")
-
         } catch (ioobe: IndexOutOfBoundsException) {
             Logger.e(tag = "SDP_Modify", message = "Error modifying SDP due to index issue: ${ioobe.message}. Returning original Answer.")
             Logger.e(tag = "SDP_Modify", message = Log.getStackTraceString(ioobe))
-            return answerSdp
+            // resultSdp remains original answerSdp
         } catch (e: Exception) {
             Logger.e(tag = "SDP_Modify", message = "Error modifying SDP: ${e.message}. Returning original Answer.")
             Logger.e(tag = "SDP_Modify", message = Log.getStackTraceString(e))
-            return answerSdp
+            // resultSdp remains original answerSdp
         }
+
+        return resultSdp // Single return point
     }
 
     /**
@@ -144,4 +149,4 @@ internal object SdpUtils {
         }
         return codecs
     }
-} 
+}
