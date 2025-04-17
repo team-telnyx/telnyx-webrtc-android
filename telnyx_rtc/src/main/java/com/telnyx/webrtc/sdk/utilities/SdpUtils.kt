@@ -18,7 +18,7 @@ internal object SdpUtils {
      * that might have been excluded by the WebRTC library.
      */
     internal fun modifyAnswerSdpToIncludeOfferCodecs(offerSdp: String, answerSdp: String): String {
-        var resultSdp = answerSdp // Initialize with the original answer
+        var resultSdp = answerSdp
 
         try {
             val offerAudioCodecs = extractAudioCodecs(offerSdp)
