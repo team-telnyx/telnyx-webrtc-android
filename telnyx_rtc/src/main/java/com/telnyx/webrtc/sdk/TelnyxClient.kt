@@ -242,7 +242,7 @@ class TelnyxClient(
                     socket.send(answerBodyMessage)
                     
                     // Start stats collection if debug is enabled
-                    if (isDebug || debug) {
+                    if (debug) {
                         if (webRTCReporter == null) {
                             webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), peerConnection!!)
                             webRTCReporter?.onCallQualityChange = { metrics ->
@@ -301,7 +301,8 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
                 iceCandidateList.add(it)
             }.also {
-                if (isDebug || debug) {
+                // Create reporter if per-call debug is enabled
+                if (debug) {
                     webRTCReporter =
                         WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
                     webRTCReporter?.onCallQualityChange = { metrics ->
@@ -396,9 +397,9 @@ class TelnyxClient(
             )
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -1440,15 +1441,17 @@ class TelnyxClient(
 
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
-            byeCall.endCall(callId)
+            peerConnection = null
+            answerResponse = null
+            inviteResponse = null
         }
         resetIceCandidateTimer()
     }
@@ -1615,8 +1618,12 @@ class TelnyxClient(
                 peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) {
                     iceCandidateList.add(it)
                 }.also {
+                    // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isDebug) {
                         webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                        webRTCReporter?.onCallQualityChange = { metrics ->
+                            onCallQualityChange?.invoke(metrics)
+                        }
                         webRTCReporter?.startStats()
                     }
                 }
@@ -1777,8 +1784,12 @@ class TelnyxClient(
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+                // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }
