@@ -27,10 +27,24 @@ internal object SdpUtils {
                 // Proceed to return original answerSdp
             } else {
                 val answerAudioCodecs = extractAudioCodecs(answerSdp)
-                val missingCodecs = offerAudioCodecs.filterKeys { it !in answerAudioCodecs.keys }
+
+                // Extract the names of codecs supported in the original answer
+                val supportedAnswerCodecNames = answerAudioCodecs.values
+                    .mapNotNull { parseCodecName(it) }
+                    .map { it.lowercase() } // Normalize to lowercase for comparison
+                    .toSet()
+
+                // Find codecs present in the offer but missing from the answer,
+                // *and* whose codec name is supported by the answer.
+                val missingCodecs = offerAudioCodecs.filter { (payload, offerRtpmapLine) ->
+                    val offerCodecName = parseCodecName(offerRtpmapLine)?.lowercase()
+                    payload !in answerAudioCodecs.keys &&
+                            offerCodecName != null &&
+                            offerCodecName in supportedAnswerCodecNames
+                }
 
                 if (missingCodecs.isEmpty()) {
-                    Logger.d(tag = "SDP_Modify", message = "No missing audio codecs detected. Returning original Answer.")
+                    Logger.d(tag = "SDP_Modify", message = "No missing codecs (matching supported types) detected. Returning original Answer.")
                     // Proceed to return original answerSdp
                 } else {
                     Logger.d(tag = "SDP_Modify", message = "Missing codecs to add: ${missingCodecs.keys}")
@@ -148,5 +162,21 @@ internal object SdpUtils {
             }
         }
         return codecs
+    }
+
+    /**
+     * Parses the codec name (e.g., "opus", "PCMU") from an a=rtpmap line.
+     * Example: "a=rtpmap:102 opus/48000/2" -> "opus"
+     */
+    private fun parseCodecName(rtpmapLine: String): String? {
+        // Regex to capture payload type and encoding name
+        // Format: a=rtpmap:<payload> <encodingName>/<clockRate>[/<encodingParameters>]
+        val pattern = Pattern.compile("""^a=rtpmap:(\d+)\s+([\w-]+)/.*$""")
+        val matcher = pattern.matcher(rtpmapLine)
+        return if (matcher.find() && matcher.groupCount() >= 2) {
+            matcher.group(2) // Group 2 is the encoding name
+        } else {
+            null
+        }
     }
 }
