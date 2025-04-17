@@ -59,7 +59,6 @@
     <string name="username_hint">Enter username</string>
     <string name="token">Token</string>
     <string name="token_hint">Enter token</string>
-    <string name="sign_in">Sign In</string>
     <string name="delete">Delete</string>
     <string name="credential_login">Credential Login</string>
     <string name="confirm">Confirm</string>

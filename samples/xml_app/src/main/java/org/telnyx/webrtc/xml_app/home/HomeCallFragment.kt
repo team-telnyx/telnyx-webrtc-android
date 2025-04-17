@@ -144,22 +144,31 @@ class HomeCallFragment : Fragment() {
         binding.callIdleView.visibility = View.VISIBLE
         binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.GONE
+        binding.callTypeSwitch.visibility = View.VISIBLE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = true
     }
 
     private fun onCallActive() {
         binding.callIdleView.visibility = View.GONE
         binding.callActiveView.visibility = View.VISIBLE
         binding.callIncomingView.visibility = View.GONE
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = false
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {
         binding.callIdleView.visibility = View.GONE
         binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.VISIBLE
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.GONE
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber)
             registerObservers()
+            binding.callInput.setText(callerIdNumber)
         }
 
         binding.callReject.setOnClickListener {

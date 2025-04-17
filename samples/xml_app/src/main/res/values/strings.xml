@@ -52,7 +52,6 @@
     <string name="cancel">Cancel</string>
     <string name="username">Username</string>
     <string name="token">Token</string>
-    <string name="sign_in">Sign In</string>
     <string name="delete">delete</string>
     <string name="credentials_login">Credential Login</string>
     <string name="save">Save</string>

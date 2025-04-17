@@ -17,4 +17,5 @@
     <color name="reconnecting_icon">#CF7E20</color>
     <color name="dropped_icon">#D40000</color>
     <color name="ringing_icon">#3434EF</color>
+    <color name="grey">#E6E3D3</color>
 </resources>

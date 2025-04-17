@@ -115,7 +115,7 @@ class MainActivityTest {
         composeTestRule.onNodeWithTag("callerIDNumber").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
         composeTestRule.onNodeWithTag("credentialsForm").performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.sign_in)).performClick()
+        composeTestRule.onNodeWithText(context.getString(R.string.confirm)).performClick()
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("profileList").onChildAt(0).performClick()

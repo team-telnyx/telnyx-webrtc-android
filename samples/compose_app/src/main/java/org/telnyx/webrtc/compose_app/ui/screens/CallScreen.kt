@@ -75,6 +75,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
 
     var showDialpadSection by remember { mutableStateOf(false) }
+    var destinationNumber by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState) {
         callUIState = when (uiState) {
@@ -91,6 +92,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 CallUIState.ACTIVE
             }
             is TelnyxSocketEvent.OnCallEnded -> {
+                destinationNumber = ""
+
                 if (telnyxViewModel.currentCall != null)
                     CallUIState.ACTIVE
                 else
@@ -108,23 +111,32 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
     ) {
-        var destinationNumber by remember { mutableStateOf("") }
         var isPhoneNumber by remember { mutableStateOf(true) }
         
         // Add the toggle button at the top
-        DestinationTypeSwitcher(isPhoneNumber) {
-            isPhoneNumber = it
+        AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
+            if (callState == CallUIState.IDLE) {
+                DestinationTypeSwitcher(isPhoneNumber) {
+                    isPhoneNumber = it
+                }
+            }
         }
-        
-        OutlinedEdiText(
-            text = destinationNumber,
-            hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
-            modifier = Modifier.fillMaxWidth().testTag("callInput"),
-            imeAction = ImeAction.Done,
-            keyboardType = if (isPhoneNumber) androidx.compose.ui.text.input.KeyboardType.Phone else androidx.compose.ui.text.input.KeyboardType.Text
-        ) {
-            destinationNumber = it
+
+        AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
+            if (callState != CallUIState.INCOMING) {
+                OutlinedEdiText(
+                    text = destinationNumber,
+                    hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
+                    modifier = Modifier.fillMaxWidth().testTag("callInput"),
+                    imeAction = ImeAction.Done,
+                    keyboardType = if (isPhoneNumber) androidx.compose.ui.text.input.KeyboardType.Phone else androidx.compose.ui.text.input.KeyboardType.Text,
+                    enabled = callUIState != CallUIState.ACTIVE
+                ) {
+                    destinationNumber = it
+                }
+            }
         }
+
         Box (
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,6 +200,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
                                 telnyxViewModel.answerCall(context, inviteResponse.callId, inviteResponse.callerIdNumber)
+                                destinationNumber = inviteResponse.callerIdName
                             }
                         }
 

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -126,7 +127,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.25f),
+                        .wrapContentHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Spacer(modifier = Modifier.height(Dimens.spacing32dp))
@@ -145,6 +146,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                 )
                             }
                     )
+                    Spacer(modifier = Modifier.height(Dimens.spacing16dp))
                 }
             }
         },
@@ -163,17 +165,17 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 top = it.calculateTopPadding()
             )
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
         ) {
 
             MediumTextBold(text = if (sessionState is TelnyxSessionState.ClientLoggedIn) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
-            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+
             ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
-            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+
             if (sessionState is TelnyxSessionState.ClientLoggedIn) {
                 CurrentCallState(state = callState)
-                Spacer(modifier = Modifier.height(Dimens.spacing24dp))
             }
+
             SessionItem(
                 sessionId = when (sessionState) {
                     is TelnyxSessionState.ClientLoggedIn -> {
@@ -186,7 +188,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 }
             )
 
-            Spacer(modifier = Modifier.height(Dimens.spacing24dp))
+            Spacer(modifier = Modifier.height(Dimens.spacing8dp))
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
@@ -618,8 +620,7 @@ fun ConnectionState(state: Boolean) {
         RegularText(text = stringResource(id = R.string.socket))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 8.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
@@ -642,7 +643,7 @@ fun CurrentCallState(state: CallState) {
         CallState.RECONNECTING -> ReconnectingIconColor
         CallState.DROPPED -> DroppedIconColor
         CallState.RINGING -> RingingIconColor
-        else -> MainGreen
+        else -> Color.Green
     }
 
     Column(
@@ -651,8 +652,7 @@ fun CurrentCallState(state: CallState) {
         RegularText(text = stringResource(id = R.string.call_state))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 8.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
