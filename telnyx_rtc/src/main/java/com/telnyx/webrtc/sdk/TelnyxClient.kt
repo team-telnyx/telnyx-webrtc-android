@@ -26,6 +26,7 @@ import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -211,7 +212,8 @@ class TelnyxClient(
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
         val acceptCall = calls[callId]
         acceptCall!!.apply {
@@ -238,6 +240,17 @@ class TelnyxClient(
                     )
                     updateCallState(CallState.ACTIVE)
                     socket.send(answerBodyMessage)
+                    
+                    // Start stats collection if debug is enabled
+                    if (isDebug || debug) {
+                        if (webRTCReporter == null) {
+                            webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), peerConnection!!)
+                            webRTCReporter?.onCallQualityChange = { metrics ->
+                                onCallQualityChange?.invoke(metrics)
+                            }
+                            webRTCReporter?.startStats()
+                        }
+                    }
                 }
 
                 client.stopMediaPlayer()
@@ -265,7 +278,8 @@ class TelnyxClient(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
         val inviteCall = call!!.copy(
             context = context,
@@ -287,9 +301,12 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
                 iceCandidateList.add(it)
             }.also {
-                if (isDebug) {
+                if (isDebug || debug) {
                     webRTCReporter =
                         WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }

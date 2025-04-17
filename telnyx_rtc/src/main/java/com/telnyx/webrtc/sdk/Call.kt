@@ -17,6 +17,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
@@ -51,6 +52,12 @@ data class Call(
     val providedStun: String = Config.DEFAULT_STUN,
     internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE),
 ) {
+    
+    /**
+     * Callback for real-time call quality metrics
+     * This is triggered whenever new WebRTC statistics are available
+     */
+    var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400L
@@ -103,6 +110,8 @@ data class Call(
      * @param callerNumber, the number to appear on the invitation
      * @param destinationNumber, the number or SIP name that will receive the invitation
      * @param clientState, the provided client state.
+     * @param customHeaders, optional custom SIP headers to include with the call
+     * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
     fun newInvite(
@@ -110,14 +119,16 @@ data class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ) {
         client.newInvite(
             callerName,
             callerNumber,
             destinationNumber,
             clientState,
-            customHeaders
+            customHeaders,
+            debug
         )
     }
 
@@ -134,15 +145,17 @@ data class Call(
      * Local user response with both local and remote SDPs
      * @param callId, the callId provided with the invitation
      * @param destinationNumber, the number or SIP name that will receive the invitation
+     * @param customHeaders, optional custom SIP headers to include with the response
+     * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ) {
-        client.acceptCall(callId, destinationNumber, customHeaders)
-
+        client.acceptCall(callId, destinationNumber, customHeaders, debug)
     }
 
     /**
