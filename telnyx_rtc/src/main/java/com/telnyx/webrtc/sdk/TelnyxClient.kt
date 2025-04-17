@@ -32,6 +32,7 @@ import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
@@ -40,7 +41,6 @@ import com.telnyx.webrtc.lib.SessionDescription
 import java.util.*
 import kotlin.concurrent.timerTask
 import java.util.regex.Pattern
-import com.telnyx.webrtc.sdk.utilities.SdpUtils
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -207,50 +207,69 @@ class TelnyxClient(
     ): Call {
         val acceptCall = calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
-        val originalOfferSdp = acceptCall.inviteResponse?.sdp
-        if (originalOfferSdp == null) {
-            Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
-            acceptCall.updateCallState(CallState.ERROR)
-            return acceptCall
-        }
-
+        // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
-            val uuid: String = UUID.randomUUID().toString()
-            peerConnection?.setOnNegotiationComplete {
-                val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
-                if (generatedAnswerSdp == null) {
-                    updateCallState(CallState.ERROR)
-                    Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
-                } else {
-                    // Use the SdpUtils to modify the SDP
-                    val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(originalOfferSdp, generatedAnswerSdp)
-                    Logger.d(tag = "SDP_Modify", message = "[Original Answer SDP]:\n$generatedAnswerSdp")
-                    Logger.d(tag = "SDP_Modify", message = "[Final Answer SDP]:\n$finalAnswerSdp")
-
-                    val answerBodyMessage = SendingMessageBody(
-                        uuid, SocketMethod.ANSWER.methodName,
-                        CallParams(
-                            sessid = sessionId,
-                            sdp = finalAnswerSdp,
-                            dialogParams = CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                                customHeaders = customHeaders?.toCustomHeaders()
-                                    ?: arrayListOf()
-                            )
-                        )
-                    )
-                    updateCallState(CallState.ACTIVE)
-                    socket.send(answerBodyMessage)
-                }
+            val originalOfferSdp = inviteResponse?.sdp
+            if (originalOfferSdp == null) {
+                Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
+                updateCallState(CallState.ERROR)
+                return@apply
             }
 
+            // Actions to perform immediately
             client.stopMediaPlayer()
             setSpeakerMode(speakerState)
             client.callOngoing()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    Logger.d(tag="AcceptCall", message="Waiting for first ICE candidate...")
+                    peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
+                    Logger.d(tag="AcceptCall", message="First ICE candidate received. Setting up negotiation complete callback.")
+
+                    // Now set the callback for when ICE negotiation stabilizes (timer expires)
+                    peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
+                        Logger.d(tag="AcceptCall", message="ICE negotiation complete. Proceeding to send answer.")
+                        val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
+                        if (generatedAnswerSdp == null) {
+                            updateCallState(CallState.ERROR)
+                            Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
+                            // Potentially notify UI or handle error state further
+                        } else {
+                            // Use the SdpUtils to modify the SDP
+                            val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(originalOfferSdp, generatedAnswerSdp)
+                            Logger.d(tag = "SDP_Modify", message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp")
+                            Logger.d(tag = "SDP_Modify", message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp")
+
+                            val uuid: String = UUID.randomUUID().toString()
+                            val answerBodyMessage = SendingMessageBody(
+                                uuid, SocketMethod.ANSWER.methodName,
+                                CallParams(
+                                    sessid = sessionId, // Correctly resolves in 'apply' scope
+                                    sdp = finalAnswerSdp,
+                                    dialogParams = CallDialogParams(
+                                        callId = callId,
+                                        destinationNumber = destinationNumber,
+                                        customHeaders = customHeaders?.toCustomHeaders() // Correctly resolves in 'apply' scope
+                                            ?: arrayListOf()
+                                    )
+                                )
+                            )
+                            socket.send(answerBodyMessage) // Correctly resolves in 'apply' scope
+                            updateCallState(CallState.ACTIVE)
+                            Logger.d(tag="AcceptCall", message="Answer sent successfully for call $callId")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e(tag="AcceptCall", message="Error during async accept process for call $callId: ${e.message}")
+                    updateCallState(CallState.ERROR)
+                    // Handle exception (e.g., log, update UI)
+                }
+            }
         }
 
-        this.addToCalls(acceptCall)
+        this.addToCalls(acceptCall) // Keep this outside apply if needed, or it's implicitly done
+        // Return the call object immediately (non-blocking)
         return acceptCall
     }
 

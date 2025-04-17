@@ -28,6 +28,7 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
+import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -53,6 +54,10 @@ internal class Peer(
     private var lastCandidateTime = System.currentTimeMillis()
     private var negotiationTimer: Timer? = null
     private var onNegotiationComplete: (() -> Unit)? = null
+
+    // Deferred to signal when the first ICE candidate (local or remote) is processed
+    internal val firstCandidateDeferred = CompletableDeferred<Unit>()
+    private var firstCandidateReceived = false // Flag to ensure deferred completes only once
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -147,6 +152,13 @@ internal class Peer(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
+            // Signal that the first candidate has been received (only once)
+            if (!firstCandidateReceived) {
+                firstCandidateReceived = true
+                firstCandidateDeferred.complete(Unit)
+                 Logger.d(tag = "Observer", message = "First ICE candidate processed, completing deferred.")
+            }
+
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated from server: $candidate")
             candidate?.let {
                 if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
@@ -540,5 +552,7 @@ internal class Peer(
     init {
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
+        // Reset the flag when a new Peer is created
+        firstCandidateReceived = false
     }
 }
