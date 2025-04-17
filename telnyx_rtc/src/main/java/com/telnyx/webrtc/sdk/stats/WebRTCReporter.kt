@@ -160,6 +160,10 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                     Timber.tag("Stats").d("WebRTC Event")
                     sendStats(it.stats)
                 }
+
+                is StatsData.CallQualityData -> {
+                    Timber.tag("Stats").d("Call Quality Data: ${it.metrics}")
+                }
             }
         }
     }
