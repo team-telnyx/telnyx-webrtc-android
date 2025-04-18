@@ -13,4 +13,10 @@
     <color name="portal_blue">#3434EF</color>
     <color name="colorTransparent">#00FFFFFF</color>
     <color name="answer_green">#14F0B8</color>
+    <color name="quality_excellent">#FF4CAF50</color>
+    <color name="quality_good">#FF8BC34A</color>
+    <color name="quality_fair">#FFFFC107</color>
+    <color name="quality_poor">#FFFF9800</color>
+    <color name="quality_bad">#FFF44336</color>
+    <color name="quality_unknown">#FF9E9E9E</color>
 </resources>

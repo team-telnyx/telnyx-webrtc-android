@@ -27,7 +27,7 @@ sealed class StatsData {
     data class WebRTCEvent(val stats: JsonObject) : StatsData()
     data class Stats(val stats: JsonObject) : StatsData()
     data class PeerEvent<T>(val statsType: WebRTCStatsEvent, val data: T?) : StatsData()
-
+    data class CallQualityData(val metrics: CallQualityMetrics) : StatsData()
 }
 
 enum class WebRTCStatsEvent(val event: String) {
@@ -57,7 +57,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     companion object {
         private const val STATS_INTERVAL: Long = 2000L
         private const val UFRAG_LABEL = "ufrag"
-        private const val ONE_SEC = 1000.0
+        private const val MS_IN_SECONDS = 1000.0
     }
 
     internal var debugStatsId = UUID.randomUUID()
@@ -67,6 +67,12 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private var debugReportJob: Job? = null
 
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
+
+    /**
+     * Callback for real-time call quality metrics
+     * This is triggered whenever new WebRTC statistics are available
+     */
+    var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
     val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
@@ -154,6 +160,10 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                     Timber.tag("Stats").d("WebRTC Event")
                     sendStats(it.stats)
                 }
+
+                is StatsData.CallQualityData -> {
+                    Timber.tag("Stats").d("Call Quality Data: ${it.metrics}")
+                }
             }
         }
     }
@@ -173,14 +183,36 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                     val outBoundStats: JsonArray = JsonArray()
 
                     val outBoundsArray = mutableListOf<MutableMap<String, Any>>()
+                    val inboundAudioMap = mutableMapOf<String, Any>()
+                    val outboundAudioMap = mutableMapOf<String, Any>()
+                    val remoteInboundAudioMap = mutableMapOf<String, Any>()
+                    val remoteOutboundAudioMap = mutableMapOf<String, Any>()
 
                     it.statsMap.forEach { (key, value) ->
                         when (value.type) {
                             "inbound-rtp" -> {
                                 processInboundRtp(key, value, statsData, inBoundStats, audio)
+                                if (value.members["kind"]?.toString()?.equals("audio") == true) {
+                                    inboundAudioMap.putAll(value.members)
+                                }
                             }
                             "outbound-rtp" -> {
                                 processOutboundRtp(key, value, statsData, outBoundsArray)
+                                if (value.members["kind"]?.toString()?.equals("audio") == true) {
+                                    outboundAudioMap.putAll(value.members)
+                                }
+                            }
+                            "remote-inbound-rtp" -> {
+                                if (value.members["kind"]?.toString()?.equals("audio") == true) {
+                                    remoteInboundAudioMap.putAll(value.members)
+                                }
+                                processStatsDataMember(key, value, statsData)
+                            }
+                            "remote-outbound-rtp" -> {
+                                if (value.members["kind"]?.toString()?.equals("audio") == true) {
+                                    remoteOutboundAudioMap.putAll(value.members)
+                                }
+                                processStatsDataMember(key, value, statsData)
                             }
                             "candidate-pair" -> {
                                 processCandidatePair(key, value, statsData, connectionCandidates)
@@ -212,6 +244,22 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                     }
                     audio.add("outbound", outBoundStats)
                     data.add("audio", audio)
+
+                    // Generate call quality metrics if we have audio stats
+                    if (inboundAudioMap.isNotEmpty() || remoteInboundAudioMap.isNotEmpty()) {
+                        val metrics = toRealTimeMetrics(
+                            inboundAudio = inboundAudioMap,
+                            outboundAudio = outboundAudioMap,
+                            remoteInboundAudio = remoteInboundAudioMap,
+                            remoteOutboundAudio = remoteOutboundAudioMap
+                        )
+                        
+                        // Emit metrics through callback
+                        onCallQualityChange?.invoke(metrics)
+                        
+                        // Also emit through the flow
+                        onStatsDataEvent(StatsData.CallQualityData(metrics))
+                    }
 
                     val statsEvent = StatsEvent(WebRTCStatsEvent.STATS.event, WebRTCStatsTag.STATS.tag,
                         peerId.toString(), connectionId ?: "", data, statsData = statsData)
@@ -294,7 +342,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processInboundRtp(key: String, value: RTCStats, statsData: JsonObject, inBoundStats: JsonArray, audio: JsonObject) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
 
         }
@@ -310,7 +358,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processOutboundRtp(key: String, value: RTCStats, statsData: JsonObject, outBoundsArray: MutableList<MutableMap<String, Any>>) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -323,7 +371,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processCandidatePair(key: String, value: RTCStats, statsData: JsonObject, connectionCandidates: MutableMap<String, MutableMap<String, Any>>) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -334,7 +382,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processStatsDataMember(key: String, value: RTCStats, statsData: JsonObject) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -345,6 +393,48 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         outBoundsArray.forEach { outBoundItem ->
             processOutboundItem(outBoundItem, statsData, outBoundStats)
         }
+    }
+    
+    /**
+     * Converts WebRTC statistics to real-time call quality metrics
+     * @param inboundAudio Inbound audio statistics
+     * @param remoteInboundAudio Remote inbound audio statistics
+     * @return CallQualityMetrics object with calculated metrics
+     */
+    private fun toRealTimeMetrics(
+        inboundAudio: Map<String, Any>?,
+        outboundAudio: Map<String, Any>?,
+        remoteInboundAudio: Map<String, Any>?,
+        remoteOutboundAudio: Map<String, Any>?
+    ): CallQualityMetrics {
+        // Extract metrics from stats
+        val jitter = (remoteInboundAudio?.get("jitter") as? Double) ?: Double.POSITIVE_INFINITY
+        val rtt = (remoteInboundAudio?.get("roundTripTime") as? Double) ?: Double.POSITIVE_INFINITY
+        val packetsReceived = (inboundAudio?.get("packetsReceived") as? Number)?.toInt() ?: -1
+        val packetsLost = (inboundAudio?.get("packetsLost") as? Number)?.toInt() ?: -1
+
+        // Calculate MOS score
+        val mos = MOSCalculator.calculateMOS(
+            jitter = jitter * MS_IN_SECONDS, // Convert to ms
+            rtt = rtt * MS_IN_SECONDS, // Convert to ms
+            packetsReceived = packetsReceived,
+            packetsLost = packetsLost
+        )
+
+        // Determine call quality
+        val quality = MOSCalculator.getQuality(mos)
+
+        // Create metrics object
+        return CallQualityMetrics(
+            jitter = jitter,
+            rtt = rtt,
+            mos = mos,
+            quality = quality,
+            inboundAudio = inboundAudio,
+            outboundAudio = outboundAudio,
+            remoteInboundAudio = remoteInboundAudio,
+            remoteOutboundAudio = remoteOutboundAudio
+        )
     }
 
     private fun processOutboundItem(outBoundItem: MutableMap<String, Any>, statsData: JsonObject, outBoundStats: JsonArray) {

@@ -12,11 +12,13 @@ import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
+import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
@@ -51,6 +53,12 @@ data class Call(
     val providedStun: String = Config.DEFAULT_STUN,
     internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE),
 ) {
+    
+    /**
+     * Callback for real-time call quality metrics
+     * This is triggered whenever new WebRTC statistics are available
+     */
+    var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400L
@@ -89,11 +97,11 @@ data class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
+    /**
+     * Sets the call state to the provided value
+     * @param value the new call state
+     */
     internal fun updateCallState(value: CallState) {
-        mutableCallStateFlow.value = value
-    }
-
-    internal fun setCallState(value: CallState) {
         mutableCallStateFlow.value = value
     }
 
@@ -103,6 +111,8 @@ data class Call(
      * @param callerNumber, the number to appear on the invitation
      * @param destinationNumber, the number or SIP name that will receive the invitation
      * @param clientState, the provided client state.
+     * @param customHeaders, optional custom SIP headers to include with the call
+     * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
     fun newInvite(
@@ -110,14 +120,16 @@ data class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ) {
         client.newInvite(
             callerName,
             callerNumber,
             destinationNumber,
             clientState,
-            customHeaders
+            customHeaders,
+            debug
         )
     }
 
@@ -134,15 +146,17 @@ data class Call(
      * Local user response with both local and remote SDPs
      * @param callId, the callId provided with the invitation
      * @param destinationNumber, the number or SIP name that will receive the invitation
+     * @param customHeaders, optional custom SIP headers to include with the response
+     * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ) {
-        client.acceptCall(callId, destinationNumber, customHeaders)
-
+        client.acceptCall(callId, destinationNumber, customHeaders, debug)
     }
 
     /**
@@ -214,6 +228,10 @@ data class Call(
         Timber.e("audioManager.isSpeakerphoneOn ${audioManager.isSpeakerphoneOn}")
     }
 
+    /**
+     * Returns the current mute status
+     * @return [Boolean]
+     */
     fun getLoudSpeakerStatus(): Boolean {
         return loudSpeakerLiveData.value!!
     }
@@ -336,6 +354,11 @@ data class Call(
     }
 
 
+    /**
+     * Converts a JSON array to a list of custom headers
+     * @param jsonArray the JSON array to convert
+     * @return a list of custom headers
+     */
     fun JsonArray.toCustomHeaders(): ArrayList<CustomHeaders> {
         val customHeaders = arrayListOf<CustomHeaders>()
         return try {
@@ -352,6 +375,9 @@ data class Call(
     }
 
 
+    /**
+     * Sets the call state to RECONNECTING when a call is being recovered
+     */
     fun setCallRecovering() {
         mutableCallStateFlow.value  = CallState.RECONNECTING
     }
@@ -363,5 +389,4 @@ data class Call(
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
-
 }

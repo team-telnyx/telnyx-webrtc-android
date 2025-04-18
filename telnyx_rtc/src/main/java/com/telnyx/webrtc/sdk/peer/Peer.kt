@@ -26,7 +26,6 @@ import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.PeerConnectionFactory
 import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
-import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -439,6 +438,9 @@ internal class Peer(
         }
     }
 
+    /**
+     * Initializes the Peer with the provided context and builds the PeerConnection
+     */
     init {
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()

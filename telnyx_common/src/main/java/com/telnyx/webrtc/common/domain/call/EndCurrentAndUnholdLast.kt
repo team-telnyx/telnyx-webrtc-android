@@ -21,7 +21,7 @@ class EndCurrentAndUnholdLast(private val context: Context) {
         telnyxCommon.getTelnyxClient(context).endCall(callId)
         telnyxCommon.unregisterCall(callId)
 
-        telnyxCommon.holdedCalls.value.lastOrNull()?.let { lastHoldedCall ->
+        telnyxCommon.heldCalls.value.lastOrNull()?.let { lastHoldedCall ->
             telnyxCommon.setCurrentCall(context, lastHoldedCall)
             HoldUnholdCall(context).invoke(lastHoldedCall)
         }

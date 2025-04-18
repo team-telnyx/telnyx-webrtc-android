@@ -26,6 +26,7 @@ import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -164,7 +165,7 @@ class TelnyxClient(
      * @param metaData The push notification metadata containing call information
      */
     private fun processCallFromPush(metaData: PushMetaData) {
-        Log.d("processCallFromPush PushMetaData", metaData.toJson())
+        Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
     }
@@ -211,7 +212,8 @@ class TelnyxClient(
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
         val acceptCall = calls[callId]
         acceptCall!!.apply {
@@ -238,6 +240,17 @@ class TelnyxClient(
                     )
                     updateCallState(CallState.ACTIVE)
                     socket.send(answerBodyMessage)
+                    
+                    // Start stats collection if debug is enabled
+                    if (debug) {
+                        if (webRTCReporter == null) {
+                            webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), peerConnection!!)
+                            webRTCReporter?.onCallQualityChange = { metrics ->
+                                onCallQualityChange?.invoke(metrics)
+                            }
+                            webRTCReporter?.startStats()
+                        }
+                    }
                 }
 
                 client.stopMediaPlayer()
@@ -265,7 +278,8 @@ class TelnyxClient(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
         val inviteCall = call!!.copy(
             context = context,
@@ -287,9 +301,13 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
                 iceCandidateList.add(it)
             }.also {
-                if (isDebug) {
+                // Create reporter if per-call debug is enabled
+                if (debug) {
                     webRTCReporter =
                         WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }
@@ -379,9 +397,9 @@ class TelnyxClient(
             )
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -912,7 +930,7 @@ class TelnyxClient(
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
-        Log.d("sending attach Call", attachPushMessage.toString())
+        Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         //reset push params
         pushMetaData = null
@@ -1423,15 +1441,17 @@ class TelnyxClient(
 
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
-            byeCall.endCall(callId)
+            peerConnection = null
+            answerResponse = null
+            inviteResponse = null
         }
         resetIceCandidateTimer()
     }
@@ -1598,8 +1618,12 @@ class TelnyxClient(
                 peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) {
                     iceCandidateList.add(it)
                 }.also {
+                    // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isDebug) {
                         webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                        webRTCReporter?.onCallQualityChange = { metrics ->
+                            onCallQualityChange?.invoke(metrics)
+                        }
                         webRTCReporter?.startStats()
                     }
                 }
@@ -1760,8 +1784,12 @@ class TelnyxClient(
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+                // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }
@@ -1785,7 +1813,7 @@ class TelnyxClient(
                 Call.ICE_CANDIDATE_DELAY
             )
             calls[this.callId]?.updateCallState(CallState.ACTIVE)
-            this.setCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
+            this.updateCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
             calls[this.callId] = this.apply {
                 updateCallState(CallState.ACTIVE)
             }
