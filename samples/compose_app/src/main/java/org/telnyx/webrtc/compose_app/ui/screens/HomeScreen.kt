@@ -188,8 +188,6 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 }
             )
 
-            Spacer(modifier = Modifier.height(Dimens.spacing8dp))
-
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {
                     ProfileSwitcher(
