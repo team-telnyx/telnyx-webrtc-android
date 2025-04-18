@@ -1,6 +1,7 @@
 package org.telnyx.webrtc.xml_app.login
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -17,12 +18,18 @@ enum class ProfileAction {
 class ProfileListAdapter(private val onClick: (Profile, ProfileAction) -> Unit) :
     ListAdapter<Profile, ProfileListAdapter.ProfileViewHolder>(ProfileDiffCallback()) {
 
+    var selectedProfile: Profile? = null
+    private set
+
     // ViewHolder class
     class ProfileViewHolder(val binding: ProfileListBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(profile: Profile) {
+        fun bind(profile: Profile, selectedProfile: Profile?) {
             binding.profileName.text = profile.callerIdName
+            binding.profileName.isSelected = (profile == selectedProfile)
+            binding.editProfile.visibility = if (profile == selectedProfile) View.VISIBLE else View.INVISIBLE
+            binding.deleteProfile.visibility = if (profile == selectedProfile) View.VISIBLE else View.INVISIBLE
         }
     }
 
@@ -46,7 +53,12 @@ class ProfileListAdapter(private val onClick: (Profile, ProfileAction) -> Unit) 
         holder.binding.editProfile.setOnClickListener {
             onClick(profile, ProfileAction.EDIT_PROFILE)
         }
-        holder.bind(profile)
+        holder.bind(profile, selectedProfile)
+    }
+
+    fun setSelectedProfile(profile: Profile?) {
+        selectedProfile = profile
+        notifyDataSetChanged()
     }
 }
 

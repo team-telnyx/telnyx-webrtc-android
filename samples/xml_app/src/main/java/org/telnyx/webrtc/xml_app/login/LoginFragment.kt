@@ -86,18 +86,6 @@ private fun setupListeners() {
             }
         }
 
-        // Connect button click
-        connect.setOnClickListener {
-            telnyxViewModel.currentProfile.value?.let { currentProfile ->
-                if (currentProfile.sipToken?.isEmpty() == false)
-                    telnyxViewModel.tokenLogin(this@LoginFragment.requireContext(), currentProfile,null)
-                else
-                    telnyxViewModel.credentialLogin(this@LoginFragment.requireContext(), currentProfile,null)
-            }
-
-        }
-
-
     }
 }
 

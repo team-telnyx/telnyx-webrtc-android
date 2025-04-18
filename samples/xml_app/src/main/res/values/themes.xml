@@ -13,7 +13,8 @@
         <item name="colorSecondary">@color/telnyx_green</item>
         <item name="colorOnSecondary">@color/white</item>
 
-
+        <!-- Splash screen configuration for Android 12+ -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/telnyx_green</item>
     </style>
 
     <style name="Theme.TelnyxAndroidWebRTCSDK" parent="Base.Theme.TelnyxAndroidWebRTCSDK" />

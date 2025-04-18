@@ -1,14 +1,27 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,15 +29,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.model.Profile
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
+import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
+import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedLabeledEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 
@@ -47,7 +69,12 @@ fun CredentialTokenView(
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-        modifier = Modifier.verticalScroll(rememberScrollState()).testTag("credentialsForm")
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .testTag("credentialsForm")
+            .background(Color.White)
     ) {
 
 
@@ -56,17 +83,21 @@ fun CredentialTokenView(
         }
 
         if (!isTokenState) {
-            OutlinedEdiText(
+
+            OutlinedLabeledEdiText(
                 text = sipUsername,
-                hint = "SIP Username",
+                hint = stringResource(R.string.username_hint),
+                label = stringResource(R.string.username),
                 imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().testTag("sipUsername")
             ) { value ->
                 sipUsername = value
             }
-            OutlinedEdiText(
+
+            OutlinedLabeledEdiText(
                 text = sipPassword,
-                hint = "SIP Password",
+                hint = stringResource(R.string.password_hint),
+                label = stringResource(R.string.password),
                 keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth().testTag("sipPassword")
@@ -74,9 +105,10 @@ fun CredentialTokenView(
                 sipPassword = value
             }
         } else {
-            OutlinedEdiText(
+            OutlinedLabeledEdiText(
                 text = sipToken,
-                hint = "Token",
+                hint = stringResource(R.string.token_hint),
+                label = stringResource(R.string.token),
                 imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth()
             ) { value ->
@@ -84,18 +116,20 @@ fun CredentialTokenView(
             }
         }
 
-        OutlinedEdiText(
+        OutlinedLabeledEdiText(
             text = callerIdName,
-            hint = "Caller ID Name",
+            hint = stringResource(R.string.caller_name_hint),
+            label = stringResource(R.string.caller_name),
             imeAction = ImeAction.Next,
             modifier = Modifier.fillMaxWidth().testTag("callerIDName")
         ) { value ->
             callerIdName = value
         }
 
-        OutlinedEdiText(
+        OutlinedLabeledEdiText(
             text = callerIdNumber,
-            hint = "Caller ID Number",
+            hint = stringResource(R.string.caller_number_hint),
+            label = stringResource(R.string.caller_number),
             keyboardType = KeyboardType.Phone,
             imeAction = ImeAction.Done,
             modifier = Modifier.fillMaxWidth().testTag("callerIDNumber")
@@ -103,10 +137,13 @@ fun CredentialTokenView(
             callerIdNumber = value
         }
 
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+        Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+
+        Box(modifier = Modifier.fillMaxWidth()) {
             PosNegButton(
-                positiveText = stringResource(id = R.string.save),
+                positiveText = stringResource(id = R.string.confirm),
                 negativeText = stringResource(id = R.string.Cancel),
+                contentAlignment = Alignment.BottomStart,
                 onPositiveClick = {
                     if (!isTokenState) {
                         if (sipUsername.isEmpty() || sipPassword.isEmpty() || callerIdName.isEmpty()) {
@@ -147,18 +184,83 @@ fun CredentialTokenView(
 
 }
 
-
 @Composable
 fun CredentialTokenSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) -> Unit) {
+
     Row(
-        horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier
+            .padding(top = Dimens.spacing8dp)
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .clip(RoundedCornerShape(Dimens.size4dp))
+            .border(Dimens.borderStroke1dp,
+                Color.Black,
+                RoundedCornerShape(Dimens.size4dp)),
+        horizontalArrangement = Arrangement.Center
     ) {
-        Switch(checked = isTokenState, onCheckedChange = onCheckedChange)
-        RegularText(
-            text = if (!isTokenState) stringResource(id = R.string.credential_login) else stringResource(
-                id = R.string.token_login
-            )
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.credential_login),
+            isSelected = !isTokenState,
+            onClick = { onCheckedChange(false) }
         )
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.token_login),
+            isSelected = isTokenState,
+            onClick = { onCheckedChange(true) }
+        )
+    }
+}
+
+@Composable
+fun ToggleButton(
+    modifier: Modifier,
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor = if (isSelected) {
+        MainGreen
+    } else {
+        Color.White
+    }
+
+    val textColor = if (isSelected) {
+        Color.White
+    } else {
+        Color.Black
+    }
+
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backgroundColor,
+            contentColor = textColor
+        ),
+        modifier = modifier
+            .height(Dimens.size48dp),
+        shape = RoundedCornerShape(0.dp),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp
+        )
+    ) {
+        Text(text,
+            fontSize = Dimens.textSize16sp,
+            fontWeight = FontWeight.Medium)
+    }
+}
+
+@Preview
+@Composable
+fun CredentialTokenViewPreview() {
+    TelnyxAndroidWebRTCSDKTheme {
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            innerPadding.calculateTopPadding()
+            CredentialTokenView(null, {}) { }
+        }
     }
 }

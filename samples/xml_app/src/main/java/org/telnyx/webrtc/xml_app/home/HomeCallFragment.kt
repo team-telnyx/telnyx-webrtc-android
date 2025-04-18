@@ -50,6 +50,20 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun setupUI() {
+        // Setup call type toggle
+        binding.callTypeSwitch.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                when (checkedId) {
+                    R.id.phoneNumberToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_PHONE
+                    }
+                    R.id.sipAddressToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
+                    }
+                }
+            }
+        }
+        
         binding.call.setOnClickListener {
             binding.callInput.text?.let { editable ->
                 if (editable.isNotEmpty()) {
@@ -71,10 +85,6 @@ class HomeCallFragment : Fragment() {
 
         binding.loudSpeaker.setOnClickListener {
             telnyxViewModel.currentCall?.onLoudSpeakerPressed()
-        }
-
-        binding.disconnect.setOnClickListener {
-            telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
         }
 
         binding.hold.setOnClickListener {
@@ -132,24 +142,33 @@ class HomeCallFragment : Fragment() {
 
     private fun onIdle() {
         binding.callIdleView.visibility = View.VISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
-        binding.callIncomingView.visibility = View.INVISIBLE
+        binding.callActiveView.visibility = View.GONE
+        binding.callIncomingView.visibility = View.GONE
+        binding.callTypeSwitch.visibility = View.VISIBLE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = true
     }
 
     private fun onCallActive() {
-        binding.callIdleView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
         binding.callActiveView.visibility = View.VISIBLE
-        binding.callIncomingView.visibility = View.INVISIBLE
+        binding.callIncomingView.visibility = View.GONE
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = false
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {
-        binding.callIdleView.visibility = View.INVISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
+        binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.VISIBLE
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.GONE
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber)
             registerObservers()
+            binding.callInput.setText(callerIdNumber)
         }
 
         binding.callReject.setOnClickListener {
@@ -161,22 +180,15 @@ class HomeCallFragment : Fragment() {
     private fun registerObservers() {
         telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()
             ?.observe(viewLifecycleOwner) { loudSpeakerOn ->
-                (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_off_24 else R.drawable.speaker_24)
+                (binding.loudSpeaker as? MaterialButton)?.setIconResource(if (loudSpeakerOn) R.drawable.speaker_24 else R.drawable.speaker_off_24)
             }
 
         telnyxViewModel.currentCall?.getIsMuteStatus()?.observe(viewLifecycleOwner) { muteOn ->
-            (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_24 else R.drawable.mute_off_24)
+            (binding.mute as? MaterialButton)?.setIconResource(if (muteOn) R.drawable.mute_off_24 else R.drawable.mute_24)
         }
 
         telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observe(viewLifecycleOwner) { onHold ->
             (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.play_24 else R.drawable.pause_24)
-        }
-
-        // Listen for call state changes:
-        lifecycleScope.launch {
-            telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                (activity as? MainActivity)?.updateCallState(callState.toString())
-            }
         }
     }
 
