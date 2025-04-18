@@ -13,9 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 import java.util.*
-import com.telnyx.webrtc.common.utils.CredentialsParser
-import com.telnyx.webrtc.common.utils.DispatcherProvider
-import com.telnyx.webrtc.common.utils.launchCatching
 
 /**
  * Singleton class responsible for managing Telnyx client and call states.
