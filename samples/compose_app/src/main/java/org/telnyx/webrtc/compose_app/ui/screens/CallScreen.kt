@@ -200,7 +200,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                         .fillMaxWidth()
                                         .height(50.dp),
                                     barColor = MaterialTheme.colorScheme.secondary,
-                                    maxBarHeight = 50f 
+                                    maxBarHeight = 50f )
                             }
                         } 
                     }
