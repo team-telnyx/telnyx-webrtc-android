@@ -38,6 +38,7 @@ import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.Job
 import java.io.IOException
 import java.util.*
@@ -412,11 +413,10 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
-     * State flow for call quality metrics.
+     * State flow for call quality metrics of the current call, observed from TelnyxCommon.
      * Observe this flow to display real-time call quality metrics in the UI.
      */
-    private val _callQualityMetrics = MutableStateFlow<com.telnyx.webrtc.sdk.stats.CallQualityMetrics?>(null)
-    val callQualityMetrics: StateFlow<com.telnyx.webrtc.sdk.stats.CallQualityMetrics?> = _callQualityMetrics.asStateFlow()
+    val callQualityMetrics: StateFlow<CallQualityMetrics?> = TelnyxCommon.getInstance().callQualityMetrics
 
     /**
      * Disconnects the current session.
@@ -435,7 +435,6 @@ class TelnyxViewModel : ViewModel() {
                 Disconnect(viewContext).invoke()
                 // if we are disconnecting, there is no call so we should stop service if one is running
                 TelnyxCommon.getInstance().stopCallService(viewContext)
-                setupCallQualityUpdates(null) // Clear metrics on disconnect
             } else {
                 // We have an active call, don't disconnect
                 Timber.d("Socket disconnect prevented: Active call in progress")
@@ -559,10 +558,9 @@ class TelnyxViewModel : ViewModel() {
             }
 
             _uiState.value = currentCall?.let {
-                setupCallQualityUpdates(it) // Setup updates for remaining call if any
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse).also {
-                setupCallQualityUpdates(null) // Clear metrics if no calls left
+                // TelnyxCommon will clear metrics if no calls left via setCurrentCall(null)
             }
         }
     }
@@ -605,7 +603,6 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug
                 )
-                setupCallQualityUpdates(currentCall) // Set up callback for new call
             }
         }
     }
@@ -623,8 +620,6 @@ class TelnyxViewModel : ViewModel() {
                 EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
                 // If we are handling a push notification, set the flag to false
                 TelnyxCommon.getInstance().setHandlingPush(false)
-                // If there's a call left after ending one, set up its updates, else clear.
-                setupCallQualityUpdates(TelnyxCommon.getInstance().currentCall)
             }
         }
     }
@@ -641,7 +636,6 @@ class TelnyxViewModel : ViewModel() {
             RejectCall(viewContext).invoke(callId)
             // If we are handling a push notification, set the flag to false
             TelnyxCommon.getInstance().setHandlingPush(false)
-            setupCallQualityUpdates(null) // Clear metrics on reject
         }
     }
 
@@ -680,7 +674,6 @@ class TelnyxViewModel : ViewModel() {
             }
             _uiState.value =
                 TelnyxSocketEvent.OnCallAnswered(callId)
-            setupCallQualityUpdates(currentCall) // Set up callback for answered call
         }
     }
 
@@ -709,28 +702,5 @@ class TelnyxViewModel : ViewModel() {
         currentCall?.let { call ->
             call.dtmf(call.callId, key)
         }
-    }
-
-    /**
-     * Sets up or tears down the call quality metric updates for a given call.
-     *
-     * @param call The call to monitor, or null to clear metrics.
-     */
-    private fun setupCallQualityUpdates(call: Call?) {
-        if (call == null) {
-            _callQualityMetrics.value = null
-            Timber.d("Cleared call quality metrics.")
-        } else {
-            call.onCallQualityChange = { metrics ->
-                _callQualityMetrics.value = metrics
-                Timber.d("ViewModel received CallQualityMetrics: MOS=${String.format("%.2f", metrics.mos)}, Quality=${metrics.quality}, Jitter=${String.format("%.2f ms", metrics.jitter * 1000)}, RTT=${String.format("%.2f ms", metrics.rtt * 1000)}")
-            }
-            Timber.d("Set up call quality callback for call: ${call.callId}")
-        }
-        // Ensure any previously monitored call has its callback cleared
-        // This might be redundant if currentCall logic replaces the object entirely,
-        TelnyxCommon.getInstance().telnyxClient
-            ?.getActiveCalls()?.values?.filter { it != call }
-            ?.forEach { it.onCallQualityChange = null }
     }
 }
