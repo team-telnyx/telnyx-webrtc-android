@@ -32,9 +32,9 @@ class TelnyxCommon private constructor() {
     val currentCall
         get() = _currentCall
 
-    private val _heldedCalls = MutableStateFlow<List<Call>>(emptyList())
+    private val _heldCalls = MutableStateFlow<List<Call>>(emptyList())
     val heldCalls: StateFlow<List<Call>>
-        get() = _heldedCalls
+        get() = _heldCalls
 
     /**
      * State flow for call quality metrics of the current call.
@@ -215,7 +215,7 @@ class TelnyxCommon private constructor() {
      * by filtering the active calls from the `TelnyxClient`.
      */
     private fun updateHeldCalls() {
-        _heldedCalls.value = telnyxClient?.getActiveCalls()?.entries?.filter { it.value.getIsOnHoldStatus().value == true }?.map { it.value } ?: emptyList()
+        _heldCalls.value = telnyxClient?.getActiveCalls()?.entries?.filter { it.value.getIsOnHoldStatus().value == true }?.map { it.value } ?: emptyList()
     }
 
     /**
