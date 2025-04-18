@@ -10,6 +10,8 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 object CallQualityUtil {
 
     private const val TAG = "CallQualityUtil"
+    private const val DECIMAL_PLACES = 2
+    private const val MS_IN_SECONDS_INT = 1000
 
     /**
      * Formats call quality metrics for display or logging.
@@ -20,10 +22,10 @@ object CallQualityUtil {
     fun formatMetrics(metrics: CallQualityMetrics): String {
         return """
             Call Quality Metrics:
-            - MOS: ${metrics.mos.format(2)}
+            - MOS: ${metrics.mos.format(DECIMAL_PLACES)}
             - Quality: ${metrics.quality.toDisplayString()}
-            - Jitter: ${(metrics.jitter * 1000).format(2)} ms
-            - RTT: ${(metrics.rtt * 1000).format(2)} ms
+            - Jitter: ${(metrics.jitter * MS_IN_SECONDS_INT).format(DECIMAL_PLACES)} ms
+            - RTT: ${(metrics.rtt * MS_IN_SECONDS_INT).format(DECIMAL_PLACES)} ms
         """.trimIndent()
     }
 

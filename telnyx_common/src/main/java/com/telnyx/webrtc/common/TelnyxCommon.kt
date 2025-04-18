@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 import java.util.*
+import com.telnyx.webrtc.common.utils.CredentialsParser
+import com.telnyx.webrtc.common.utils.DispatcherProvider
+import com.telnyx.webrtc.common.utils.launchCatching
 
 /**
  * Singleton class responsible for managing Telnyx client and call states.
@@ -95,7 +98,7 @@ class TelnyxCommon private constructor() {
 
     /**
      * Registers a call to observe its hold status.
-     * When the hold status changes, `updateHoldedCalls` is triggered.
+     * When the hold status changes, `updateHeldCalls` is triggered.
      *
      * @param call The call to register.
      */
@@ -246,7 +249,7 @@ class TelnyxCommon private constructor() {
                 call.onCallQualityChange = { metrics: CallQualityMetrics ->
                     _callQualityMetrics.value = metrics
                     // Reduced log frequency might be needed in production
-                    Timber.v("TelnyxCommon received CallQualityMetrics: MOS=${String.format("%.2f", metrics.mos)}, Quality=${metrics.quality}")
+                    Timber.v("TelnyxCommon received CallQualityMetrics: MOS=${String.format(Locale.US, "%.2f", metrics.mos)}, Quality=${metrics.quality}")
                 }
                 Timber.d("Set up call quality callback for current call: ${call.callId}")
             }

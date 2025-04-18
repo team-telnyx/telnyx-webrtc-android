@@ -57,7 +57,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     companion object {
         private const val STATS_INTERVAL: Long = 2000L
         private const val UFRAG_LABEL = "ufrag"
-        private const val ONE_SEC = 1000.0
+        private const val MS_IN_SECONDS = 1000.0
     }
 
     internal var debugStatsId = UUID.randomUUID()
@@ -342,7 +342,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processInboundRtp(key: String, value: RTCStats, statsData: JsonObject, inBoundStats: JsonArray, audio: JsonObject) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
 
         }
@@ -358,7 +358,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processOutboundRtp(key: String, value: RTCStats, statsData: JsonObject, outBoundsArray: MutableList<MutableMap<String, Any>>) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -371,7 +371,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processCandidatePair(key: String, value: RTCStats, statsData: JsonObject, connectionCandidates: MutableMap<String, MutableMap<String, Any>>) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -382,7 +382,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     private fun processStatsDataMember(key: String, value: RTCStats, statsData: JsonObject) {
         val dataMap = value.members.apply {
             this["id"] = value.id
-            this["timestamp"] = value.timestampUs / ONE_SEC
+            this["timestamp"] = value.timestampUs / MS_IN_SECONDS
             this["type"] = value.type
         }
 
@@ -415,8 +415,8 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
 
         // Calculate MOS score
         val mos = MOSCalculator.calculateMOS(
-            jitter = jitter * 1000, // Convert to ms
-            rtt = rtt * 1000, // Convert to ms
+            jitter = jitter * MS_IN_SECONDS, // Convert to ms
+            rtt = rtt * MS_IN_SECONDS, // Convert to ms
             packetsReceived = packetsReceived,
             packetsLost = packetsLost
         )
