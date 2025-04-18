@@ -12,6 +12,7 @@ import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
+import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
@@ -96,11 +97,11 @@ data class Call(
         loudSpeakerLiveData.postValue(audioManager.isSpeakerphoneOn)
     }
 
+    /**
+     * Sets the call state to the provided value
+     * @param value the new call state
+     */
     internal fun updateCallState(value: CallState) {
-        mutableCallStateFlow.value = value
-    }
-
-    internal fun setCallState(value: CallState) {
         mutableCallStateFlow.value = value
     }
 
@@ -227,6 +228,10 @@ data class Call(
         Timber.e("audioManager.isSpeakerphoneOn ${audioManager.isSpeakerphoneOn}")
     }
 
+    /**
+     * Returns the current mute status
+     * @return [Boolean]
+     */
     fun getLoudSpeakerStatus(): Boolean {
         return loudSpeakerLiveData.value!!
     }
@@ -349,6 +354,11 @@ data class Call(
     }
 
 
+    /**
+     * Converts a JSON array to a list of custom headers
+     * @param jsonArray the JSON array to convert
+     * @return a list of custom headers
+     */
     fun JsonArray.toCustomHeaders(): ArrayList<CustomHeaders> {
         val customHeaders = arrayListOf<CustomHeaders>()
         return try {
@@ -365,6 +375,9 @@ data class Call(
     }
 
 
+    /**
+     * Sets the call state to RECONNECTING when a call is being recovered
+     */
     fun setCallRecovering() {
         mutableCallStateFlow.value  = CallState.RECONNECTING
     }
@@ -376,5 +389,4 @@ data class Call(
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
-
 }

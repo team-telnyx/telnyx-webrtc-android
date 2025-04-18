@@ -165,7 +165,7 @@ class TelnyxClient(
      * @param metaData The push notification metadata containing call information
      */
     private fun processCallFromPush(metaData: PushMetaData) {
-        Log.d("processCallFromPush PushMetaData", metaData.toJson())
+        Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
     }
@@ -930,7 +930,7 @@ class TelnyxClient(
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
-        Log.d("sending attach Call", attachPushMessage.toString())
+        Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         //reset push params
         pushMetaData = null
@@ -1813,7 +1813,7 @@ class TelnyxClient(
                 Call.ICE_CANDIDATE_DELAY
             )
             calls[this.callId]?.updateCallState(CallState.ACTIVE)
-            this.setCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
+            this.updateCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
             calls[this.callId] = this.apply {
                 updateCallState(CallState.ACTIVE)
             }
