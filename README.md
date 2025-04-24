@@ -409,8 +409,10 @@ please keep in mind that you will need to add the following rules to the proguar
 
 #### **`app/proguard-rules.pro`**
 ```gradle
--keep class org.webrtc.** { *; }
--keep class com.telnyx.webrtc.sdk.** { *; }
+-keep class com.telnyx.webrtc.** { *; }
+-dontwarn kotlin.Experimental$Level
+-dontwarn kotlin.Experimental
+-dontwarn kotlinx.coroutines.scheduling.ExperimentalCoroutineDispatcher
 ```
 
 -----
