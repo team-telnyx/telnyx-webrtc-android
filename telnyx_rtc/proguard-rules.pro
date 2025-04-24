@@ -20,3 +20,8 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
+# Kotlin experimental features warnings
+-dontwarn kotlin.Experimental$Level
+-dontwarn kotlin.Experimental
+-dontwarn kotlinx.coroutines.scheduling.ExperimentalCoroutineDispatcher
+
