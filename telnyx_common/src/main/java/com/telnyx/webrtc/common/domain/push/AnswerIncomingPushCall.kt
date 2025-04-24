@@ -71,6 +71,7 @@ class AnswerIncomingPushCall(private val context: Context) {
         if (response.status == SocketStatus.MESSAGERECEIVED) {
             if (response.data?.method == SocketMethod.INVITE.methodName) {
                 (response.data?.result as? InviteResponse)?.let { inviteResponse ->
+                    Thread.sleep(Call.ICE_CANDIDATE_DELAY) // Minor delay to ensure ICE candidates are gathered.
                     val answeredCall = AcceptCall(context).invoke(
                         inviteResponse.callId,
                         inviteResponse.callerIdNumber,

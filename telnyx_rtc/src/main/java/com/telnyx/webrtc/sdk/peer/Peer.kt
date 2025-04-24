@@ -26,9 +26,6 @@ import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.PeerConnectionFactory
 import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
-import com.telnyx.webrtc.lib.RtpTransceiver
-import com.telnyx.webrtc.lib.MediaStreamTrack
-import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -48,16 +45,13 @@ internal class Peer(
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
+        private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
     private var negotiationTimer: Timer? = null
     private var onNegotiationComplete: (() -> Unit)? = null
-
-    // Deferred to signal when the first ICE candidate (local or remote) is processed
-    internal val firstCandidateDeferred = CompletableDeferred<Unit>()
-    private var firstCandidateReceived = false // Flag to ensure deferred completes only once
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -79,7 +73,7 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Logger.d(message = "Start collection of ice servers")
+        Logger.e(message = "Start collection of ice servers")
         iceServers.add(
             PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
                 PASSWORD
@@ -90,7 +84,7 @@ internal class Peer(
                 PASSWORD
             ).createIceServer()
         )
-        Logger.d(message = "End collection of ice servers")
+        Logger.e(message = "End collection of ice servers")
         return iceServers
     }
 
@@ -98,33 +92,6 @@ internal class Peer(
     internal var peerConnection: PeerConnection? = null
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
-    private var localAudioTrack: AudioTrack? = null
-
-    private fun logAudioTrackAndTransceiverState(contextTag: String) {
-        if (peerConnection == null) {
-            Logger.w(tag = "Peer:AudioState", message = "$contextTag - PeerConnection is null.")
-            return
-        }
-        Logger.d(tag = "Peer:AudioState", message = "$contextTag - Checking audio state...")
-        val localTrackId = localAudioTrack?.id()
-        Logger.d(tag = "Peer:AudioState", message = "$contextTag - LocalAudioTrack ID: $localTrackId, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}")
-
-        val audioTransceiver = peerConnection?.transceivers?.find {
-            it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
-        }
-
-        if (audioTransceiver == null) {
-            Logger.w(tag = "Peer:AudioState", message = "$contextTag - No audio transceiver found.")
-        } else {
-            val senderTrackId = audioTransceiver.sender.track()?.id()
-            Logger.d(tag = "Peer:AudioState", message = "$contextTag - Audio Transceiver Found: Mid: ${audioTransceiver.mid}, Direction: ${audioTransceiver.direction}, CurrentDirection: ${audioTransceiver.currentDirection}, Sender Track ID: $senderTrackId, Receiver Track ID: ${audioTransceiver.receiver.track()?.id()}, Stopped: ${audioTransceiver.isStopped}")
-            if (senderTrackId != null && localTrackId != null && senderTrackId != localTrackId) {
-                 Logger.w(tag = "Peer:AudioState", message = "$contextTag - Audio transceiver sender track ID [$senderTrackId] does NOT match localAudioTrack ID [$localTrackId]")
-            } else if (senderTrackId == null && localTrackId != null) {
-                 Logger.w(tag = "Peer:AudioState", message = "$contextTag - Audio transceiver sender track is null, but localAudioTrack ID is [$localTrackId]")
-            }
-        }
-    }
 
     private val observer = object : PeerConnection.Observer {
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
@@ -132,13 +99,9 @@ internal class Peer(
             peerConnectionObserver?.onSignalingChange(p0)
         }
 
-        override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
-            peerConnectionObserver?.onIceConnectionChange(newState)
-
-            if (newState == PeerConnection.IceConnectionState.CONNECTED || newState == PeerConnection.IceConnectionState.COMPLETED) {
-                logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
-            }
+        override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {
+            Logger.d(tag = "Observer", message = "ICE Connection State Change: $p0")
+            peerConnectionObserver?.onIceConnectionChange(p0)
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
@@ -152,14 +115,8 @@ internal class Peer(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
-            // Signal that the first candidate has been received (only once)
-            if (!firstCandidateReceived) {
-                firstCandidateReceived = true
-                firstCandidateDeferred.complete(Unit)
-                 Logger.d(tag = "Observer", message = "First ICE candidate processed, completing deferred.")
-            }
-
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated from server: $candidate")
+            // Only add candidates that come from our STUN/TURN servers (non-local)
             candidate?.let {
                 if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
                     Logger.d(tag = "Observer", message = "Valid ICE candidate generated from server: ${it.serverUrl}")
@@ -167,6 +124,7 @@ internal class Peer(
                         peerConnection?.addIceCandidate(it)
                         Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                         onIceCandidateAdd?.invoke(it.serverUrl)
+                        // Reset the negotiation timer when we receive a new candidate
                         lastCandidateTime = System.currentTimeMillis()
                     }
                 } else {
@@ -210,6 +168,7 @@ internal class Peer(
         val options = PeerConnectionFactory.InitializationOptions.builder(context)
             .setEnableInternalTracer(true)
             .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+            // .setFieldTrials("WebRTC-IntelVP8/Enabled/")
             .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
     }
@@ -245,10 +204,8 @@ internal class Peer(
      */
     private fun buildPeerConnection(): PeerConnection? {
         val config = PeerConnection.RTCConfiguration(iceServer).apply {
-            sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
-            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             iceTransportsType = PeerConnection.IceTransportsType.NOHOST
+            bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)
@@ -258,32 +215,18 @@ internal class Peer(
      * Starts local audio capture to be used during call
      * @see [AudioSource]
      * @see [AudioTrack]
-     * @see [RtpTransceiver]
      */
     fun startLocalAudioCapture() {
-        Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
         val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
-        localAudioTrack = peerConnectionFactory.createAudioTrack(
+        val localAudioTrack = peerConnectionFactory.createAudioTrack(
             AUDIO_LOCAL_TRACK_ID,
             audioSource
         )
-
-        if (localAudioTrack == null) {
-            Logger.e(tag = "Peer:Audio", message = "Failed to create local audio track.")
-            return
-        }
-
-        localAudioTrack?.setEnabled(true)
-        Logger.d(tag = "Peer:Audio", message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}")
-
-        val audioTransceiverInit = RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV)
-        val transceiver = peerConnection?.addTransceiver(localAudioTrack, audioTransceiverInit)
-
-        if (transceiver == null) {
-             Logger.e(tag = "Peer:Audio", message = "Failed to add audio transceiver.")
-        } else {
-             Logger.d(tag = "Peer:Audio", message = "Audio transceiver added. Mid: ${transceiver.mid}, Direction: ${transceiver.direction}, CurrentDirection: ${transceiver.currentDirection}")
-        }
+        val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
+        localAudioTrack.setEnabled(true)
+        localAudioTrack.setVolume(1.0)
+        localStream.addTrack(localAudioTrack)
+        peerConnection?.addTrack(localAudioTrack)
     }
 
     /**
@@ -293,40 +236,30 @@ internal class Peer(
      * @see [SdpObserver]
      */
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
-        if (localAudioTrack == null) {
-            Logger.w(tag = "Call", message = "Local audio track not initialized before creating offer.")
-        }
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(tag="Call", message = "setLocalDescription onSetFailure $p0")
+                                Logger.d(tag="Call", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Call", message = "setLocalDescription onSetSuccess")
+                                Logger.d(tag="Call", message = "onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Logger.d(tag = "Call", message = "createOffer onCreateSuccess")
+                                Logger.d(tag="Call", message = "onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
-                                sdpObserver.onCreateFailure(p0)
+                                Logger.d(tag="Call", message = "onCreateFailure $p0")
                             }
                         },
                         desc
                     )
                     sdpObserver.onCreateSuccess(desc)
-                    Logger.d(tag = "SDP", message = "[Local Offer SDP]:\n${desc?.description}")
-                }
-
-                override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
-                    sdpObserver.onCreateFailure(p0)
                 }
             },
             mediaConstraints
@@ -340,75 +273,34 @@ internal class Peer(
      * @see [SdpObserver]
      */
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
-        Logger.d(tag = "Answer", message = "Preparing to create answer...")
-
-        Logger.d(tag = "Answer", message = "Adjusting transceiver directions before createAnswer...")
-        this.transceivers.forEach { transceiver ->
-            when (transceiver.mediaType) {
-                MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO -> {
-                    if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.SEND_RECV) {
-                         Logger.w(tag = "Answer", message = "Audio transceiver direction was ${transceiver.direction}. Setting to SEND_RECV.")
-                         transceiver.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
-                    } else {
-                         Logger.d(tag = "Answer", message = "Audio transceiver direction already SEND_RECV.")
-                    }
-                }
-                MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
-                    if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.INACTIVE) {
-                        transceiver.direction = RtpTransceiver.RtpTransceiverDirection.INACTIVE
-                        Logger.d(tag = "Answer", message = "Setting video transceiver [Mid: ${transceiver.mid}] direction to INACTIVE")
-                    } else {
-                        Logger.d(tag = "Answer", message = "Video transceiver [Mid: ${transceiver.mid}] direction already INACTIVE.")
-                    }
-                }
-                else -> {
-                     Logger.d(tag = "Answer", message = "Ignoring transceiver with unknown media type: ${transceiver.mediaType}")
-                }
-            }
-        }
-        logAllTransceiverStates("Before createAnswer")
-
         createAnswer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
-                    logAllTransceiverStates("After createAnswer success, before setLocalDescription")
-
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(tag="Answer", message = "setLocalDescription onSetFailure $p0")
+                                Logger.d(tag="Answer", message = "onSetFailure $p0")
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Answer", message = "setLocalDescription onSetSuccess")
-                                logAllTransceiverStates("After setLocalDescription success")
+                                Logger.d(tag="Answer", message = "onSetSuccess")
                             }
 
-                            override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
-                            override fun onCreateFailure(p0: String?) { /* No-op */ }
+                            override fun onCreateSuccess(p0: SessionDescription?) {
+                                Logger.d(tag="Answer", message = "onCreateSuccess")
+                            }
+
+                            override fun onCreateFailure(p0: String?) {
+                                Logger.d(tag="Answer", message = "onCreateFailure $p0")
+                            }
                         },
                         desc
                     )
                     sdpObserver.onCreateSuccess(desc)
-                    Logger.d(tag = "SDP", message = "[Local Answer SDP]:\n${desc?.description}")
-                }
-
-                override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag = "Answer", message = "createAnswer onCreateFailure $p0")
-                    sdpObserver.onCreateFailure(p0)
                 }
             },
             mediaConstraints
         )
-    }
-
-    private fun logAllTransceiverStates(contextTag: String) {
-         if (peerConnection == null) return
-         Logger.d(tag = "TransceiverState", message = "--- Transceiver States [$contextTag] ---")
-         peerConnection?.transceivers?.forEachIndexed { index, t ->
-              Logger.d(tag = "TransceiverState", message = "[$contextTag] Transceiver[$index]: Mid=${t.mid}, MediaType=${t.mediaType}, Direction=${t.direction}, CurrentDirection=${t.currentDirection}, Stopped=${t.isStopped}, SenderTrack=${t.sender.track()?.id()}, ReceiverTrack=${t.receiver.track()?.id()}")
-         }
-         Logger.d(tag = "TransceiverState", message = "--- End Transceiver States [$contextTag] ---")
     }
 
     /**
@@ -431,24 +323,24 @@ internal class Peer(
      * @see [SessionDescription]
      */
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
-        Logger.d(tag = "SDP", message = "[Remote Offer/Answer SDP Received]:\n${sessionDescription.description}")
         peerConnection?.setRemoteDescription(
             object : SdpObserver {
                 override fun onSetFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Logger.e(tag="RemoteSessionReceived", message = "Set Remote Description Failed: $p0")
+                    Logger.d(tag="RemoteSessionReceived", message = "Set Failure $p0")
                 }
 
                 override fun onSetSuccess() {
-                    Logger.d(tag="RemoteSessionReceived", message = "Set Remote Description Success")
-                    logAllTransceiverStates("After setRemoteDescription success")
+                    Logger.d(tag="RemoteSessionReceived", message = "Set Success")
                 }
 
-                override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
+                override fun onCreateSuccess(p0: SessionDescription?) {
+                    Logger.d(tag="RemoteSessionReceived", message = "Create Success")
+                }
 
                 override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag="RemoteSessionReceived", message = "Set Remote Description reported onCreateFailure: $p0")
                     client.onRemoteSessionErrorReceived(p0)
+                    Logger.d(tag="RemoteSessionReceived", message = "Create Failure p0")
                 }
             },
             sessionDescription
@@ -489,7 +381,7 @@ internal class Peer(
             peerConnection?.dispose()
             peerConnection = null
         }catch (e: IllegalStateException){
-            Logger.e(message = "Error during peer connection disconnect: ${e.toString()}")
+            Logger.e(message = e.toString())
         }
     }
 
@@ -505,9 +397,6 @@ internal class Peer(
      * Starts the negotiation timer that checks for ICE candidate timeout
      */
     private fun startNegotiationTimer() {
-        negotiationTimer?.cancel()
-        negotiationTimer?.purge()
-
         negotiationTimer = Timer()
         negotiationTimer?.schedule(
             timerTask {
@@ -520,9 +409,9 @@ internal class Peer(
                 )
 
                 if (timeSinceLastCandidate >= NEGOTIATION_TIMEOUT) {
-                    Logger.d(tag = "NegotiationTimer", message = "Negotiation timeout reached - Invoking onNegotiationComplete")
-                    stopNegotiationTimer()
+                    Logger.d(tag = "NegotiationTimer", message = "Negotiation timeout reached")
                     onNegotiationComplete?.invoke()
+                    stopNegotiationTimer()
                 }
             },
             NEGOTIATION_TIMEOUT, NEGOTIATION_TIMEOUT
@@ -536,17 +425,16 @@ internal class Peer(
         negotiationTimer?.cancel()
         negotiationTimer?.purge()
         negotiationTimer = null
-         Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
     }
 
     /**
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
-        Logger.d(message="Releasing Peer resources...")
         stopNegotiationTimer()
         if (peerConnection != null) {
             disconnect()
+            peerConnectionFactory.dispose()
         }
     }
 
@@ -556,7 +444,5 @@ internal class Peer(
     init {
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
-        // Reset the flag when a new Peer is created
-        firstCandidateReceived = false
     }
 }

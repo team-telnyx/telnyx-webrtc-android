@@ -1,14 +1,8 @@
-## [1.6.4](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.3) (2025-04-23)
-
-### Bug Fixing
-- Natively use transceivers to handle audio and video tracks instead of using separate streams. This change improves the handling of audio and video tracks in WebRTC calls, ensuring better compatibility with various devices and networks.
-- Further enhance Ice Candidate Collection when answering calls to ensure more suitable candidates are used in the SDP.
-- SDP Munging is now handled natively in the WebRTC library, which improves the overall performance and reliability of the call setup process.
-
 ## [1.6.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.3) (2025-04-08)
 
 ### Bug Fixing
 - Enhanced Ice Candidate Collection when answering calls to ensure more suitable candidates are used in the SDP.
+
 
 ## [1.6.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.2) (2025-03-28)
 
