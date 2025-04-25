@@ -39,6 +39,7 @@ import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
 import kotlin.concurrent.timerTask
 
