@@ -195,18 +195,13 @@ class TelnyxClient(
     }
 
 
-    /* Accepts an incoming call
-    * Local user response with both local and remote SDPs
-    * @param callId, the callId provided with the invitation
-    * @param destinationNumber, the number or SIP name that will receive the invitation
-    * @see [Call]
-    */
     /**
      * Accepts an incoming call invitation.
      *
      * @param callId The unique identifier of the incoming call
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
+     * @param debug When true, enables real-time call quality metrics
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -215,53 +210,111 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false
     ): Call {
-        val acceptCall = calls[callId]
-        acceptCall!!.apply {
-            val uuid: String = UUID.randomUUID().toString()
-            val sessionDescriptionString =
-                peerConnection?.getLocalDescription()?.description
-            if (sessionDescriptionString == null) {
+        val acceptCall =
+            calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
+
+        // Use apply block to get the correct context for Call members/extensions
+        acceptCall.apply {
+            val originalOfferSdp = inviteResponse?.sdp
+            if (originalOfferSdp == null) {
+                Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
                 updateCallState(CallState.ERROR)
-            } else {
-                // Set up the negotiation complete callback
-                peerConnection?.setOnNegotiationComplete {
-                    val answerBodyMessage = SendingMessageBody(
-                        uuid, SocketMethod.ANSWER.methodName,
-                        CallParams(
-                            sessid = sessionId,
-                            sdp = sessionDescriptionString,
-                            dialogParams = CallDialogParams(
-                                callId = callId,
-                                destinationNumber = destinationNumber,
-                                customHeaders = customHeaders?.toCustomHeaders()
-                                    ?: arrayListOf()
-                            )
-                        )
+                return@apply
+            }
+
+            // Actions to perform immediately
+            client.stopMediaPlayer()
+            setSpeakerMode(speakerState)
+            client.callOngoing()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
+                    peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
+                    Logger.d(
+                        tag = "AcceptCall",
+                        message = "First ICE candidate received. Setting up negotiation complete callback."
                     )
-                    updateCallState(CallState.ACTIVE)
-                    socket.send(answerBodyMessage)
-                    
-                    // Start stats collection if debug is enabled
-                    if (debug) {
-                        if (webRTCReporter == null) {
-                            webRTCReporter = WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), peerConnection!!)
-                            webRTCReporter?.onCallQualityChange = { metrics ->
-                                onCallQualityChange?.invoke(metrics)
+
+                    // Now set the callback for when ICE negotiation stabilizes (timer expires)
+                    peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
+                        Logger.d(
+                            tag = "AcceptCall",
+                            message = "ICE negotiation complete. Proceeding to send answer."
+                        )
+                        val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
+                        if (generatedAnswerSdp == null) {
+                            updateCallState(CallState.ERROR)
+                            Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
+                        } else {
+                            // Use the SdpUtils to modify the SDP
+                            val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
+                                originalOfferSdp,
+                                generatedAnswerSdp
+                            )
+                            Logger.d(
+                                tag = "SDP_Modify",
+                                message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp"
+                            )
+                            Logger.d(
+                                tag = "SDP_Modify",
+                                message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp"
+                            )
+
+                            val uuid: String = UUID.randomUUID().toString()
+                            val answerBodyMessage = SendingMessageBody(
+                                uuid, SocketMethod.ANSWER.methodName,
+                                CallParams(
+                                    sessid = sessionId,
+                                    sdp = finalAnswerSdp,
+                                    dialogParams = CallDialogParams(
+                                        callId = callId,
+                                        destinationNumber = destinationNumber,
+                                        customHeaders = customHeaders?.toCustomHeaders()
+                                            ?: arrayListOf()
+                                    )
+                                )
+                            )
+                            socket.send(answerBodyMessage)
+                            updateCallState(CallState.ACTIVE)
+
+                            // Start stats collection if debug is enabled
+                            if (debug) {
+                                if (webRTCReporter == null) {
+                                    webRTCReporter = WebRTCReporter(
+                                        socket,
+                                        callId,
+                                        getTelnyxLegId()?.toString(),
+                                        peerConnection!!
+                                    )
+                                    webRTCReporter?.onCallQualityChange = { metrics ->
+                                        onCallQualityChange?.invoke(metrics)
+                                    }
+                                    webRTCReporter?.startStats()
+                                }
                             }
-                            webRTCReporter?.startStats()
+
+                            Logger.d(
+                                tag = "AcceptCall",
+                                message = "Answer sent successfully for call $callId"
+                            )
                         }
                     }
+                } catch (e: Exception) {
+                    Logger.e(
+                        tag = "AcceptCall",
+                        message = "Error during async accept process for call $callId: ${e.message}"
+                    )
+                    updateCallState(CallState.ERROR)
                 }
-
-                client.stopMediaPlayer()
-                setSpeakerMode(speakerState)
-                client.callOngoing()
             }
         }
 
-        this.addToCalls(acceptCall)
+        this.addToCalls(acceptCall) // Keep this outside apply if needed, or it's implicitly done
+        // Return the call object immediately (non-blocking)
         return acceptCall
     }
+
 
     /**
      * Creates a new outgoing call invitation.
