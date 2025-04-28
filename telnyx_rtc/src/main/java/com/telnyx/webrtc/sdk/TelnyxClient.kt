@@ -408,21 +408,20 @@ class TelnyxClient(
         return inviteCall
     }
 
+    /**
+     * Resets the call options to default values.
+     */
     private fun resetIceCandidateTimer() {
         iceCandidateTimer?.cancel()
+        iceCandidateTimer?.purge()
+        iceCandidateTimer = null
         iceCandidateList.clear()
     }
-
 
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
      * @param callId, the callId provided with the invitation
      * @see [Call]
-     */
-    /**
-     * Ends an active call.
-     *
-     * @param callId The unique identifier of the call to end
      */
     fun endCall(callId: UUID) {
         val endCall = calls[callId]
