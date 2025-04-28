@@ -1904,6 +1904,7 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.disconnect())
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
+        resetIceCandidateTimer()
         unregisterNetworkCallback()
         socket.destroy()
     }
