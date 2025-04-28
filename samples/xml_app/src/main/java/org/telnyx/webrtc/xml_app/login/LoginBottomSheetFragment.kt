@@ -26,6 +26,7 @@ import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
 import android.view.animation.AnimationUtils
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import org.telnyx.webrtc.xml_app.MainActivity
 
 class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
@@ -188,13 +189,13 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                 if (isChecked) {
                     when (checkedId) {
                         R.id.credentialLogin -> {
-                            highlightButton(credentialsBinding.credentialLogin)
-                            resetButton(credentialsBinding.tokenLogin)
+                            (activity as? MainActivity)?.highlightButton(credentialsBinding.credentialLogin)
+                            (activity as? MainActivity)?.resetButton(credentialsBinding.tokenLogin)
                             toggleLoginFields(false)
                         }
                         R.id.tokenLogin -> {
-                            highlightButton(credentialsBinding.tokenLogin)
-                            resetButton(credentialsBinding.credentialLogin)
+                            (activity as? MainActivity)?.highlightButton(credentialsBinding.tokenLogin)
+                            (activity as? MainActivity)?.resetButton(credentialsBinding.credentialLogin)
                             toggleLoginFields(true)
                         }
                     }
@@ -245,16 +246,6 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             passwordTextFieldLayout.visibility = if (useToken) View.GONE else View.VISIBLE
             tokenTextFieldLayout.visibility = if (useToken) View.VISIBLE else View.GONE
         }
-    }
-
-    private fun highlightButton(button: MaterialButton) {
-        button.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.main_green))
-        button.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-    }
-
-    private fun resetButton(button: MaterialButton) {
-        button.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-        button.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.black))
     }
 
     override fun onDestroyView() {

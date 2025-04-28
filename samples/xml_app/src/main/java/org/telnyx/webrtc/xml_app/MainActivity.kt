@@ -4,9 +4,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.View
-import android.widget.TextView
 import android.widget.Toast
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -18,11 +16,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
+import com.google.android.material.button.MaterialButton
 import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
@@ -30,16 +30,12 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.common.TelnyxSessionState
+import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
@@ -157,28 +153,41 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         // Listen for call state changes:
         lifecycleScope.launch {
-            flow {
-                while (true) {
-                    emit(telnyxViewModel.currentCall)
-                    delay(1000)
-                }
-            }.flatMapLatest { currentCall ->
-                currentCall?.callStateFlow ?: flowOf(null)
-            }.collect { callState ->
-                updateCallState(callState ?: CallState.DONE)
+            telnyxViewModel.uiState.collect { uiState ->
+                updateCallState(uiState)
             }
         }
     }
 
-    fun updateCallState(callState: CallState) {
-        val iconDrawable = when (callState) {
-            CallState.RECONNECTING -> R.drawable.reconnecting_indicator
-            CallState.DROPPED -> R.drawable.dropped_indicator
-            CallState.RINGING -> R.drawable.ringing_indicator
+    fun updateCallState(uiState: TelnyxSocketEvent) {
+        val iconDrawable = when (uiState) {
+            is TelnyxSocketEvent.OnIncomingCall -> R.drawable.incoming_indicator
+            is TelnyxSocketEvent.OnCallEnded -> R.drawable.done_indicator
+            is TelnyxSocketEvent.OnRinging -> R.drawable.ringing_indicator
+            is TelnyxSocketEvent.OnClientError -> R.drawable.dropped_indicator
             else -> R.drawable.status_circle
         }
+
+        val callStateName = when (uiState) {
+            is TelnyxSocketEvent.InitState -> getString(R.string.call_state_connecting)
+            is TelnyxSocketEvent.OnIncomingCall -> getString(R.string.call_state_incoming)
+            is TelnyxSocketEvent.OnCallEnded -> getString(R.string.call_state_ended)
+            is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
+            is TelnyxSocketEvent.OnClientError -> getString(R.string.call_state_error)
+            else -> getString(R.string.call_state_active)
+        }
         binding.callStateIcon.setBackgroundResource(iconDrawable)
-        binding.callStateInfo.text = callState.name
+        binding.callStateInfo.text = callStateName
+    }
+
+    fun highlightButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(this, R.color.main_green))
+        button.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+    }
+
+    fun resetButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(this, android.R.color.white))
+        button.setTextColor(ContextCompat.getColor(this, android.R.color.black))
     }
 
     private fun handleCallNotification(intent: Intent?) {

@@ -19,20 +19,10 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             app:singleSelection="true"
-            app:checkedButton="@id/phoneNumberToggle"
+            app:checkedButton="@id/sipAddressToggle"
             app:selectionRequired="true"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/phoneNumberToggle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/phone_number_toggle"
-                style="@style/ToggleButton"
-                app:backgroundTint="@color/main_green"
-                android:textColor="@color/white"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/sipAddressToggle"
@@ -40,6 +30,16 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/sip_address_toggle"
+                style="@style/ToggleButton"
+                app:backgroundTint="@color/main_green"
+                android:textColor="@color/white"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/phoneNumberToggle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/phone_number_toggle"
                 style="@style/ToggleButton"
                 app:backgroundTint="@color/white"
                 android:textColor="@color/black"/>

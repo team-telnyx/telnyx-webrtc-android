@@ -75,6 +75,7 @@ import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.ReconnectingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
+import org.telnyx.webrtc.compose_app.ui.theme.colorPrimaryVariant
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
@@ -173,7 +174,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
 
             if (sessionState is TelnyxSessionState.ClientLoggedIn) {
-                CurrentCallState(state = callState)
+                CurrentCallState(state = uiState)
             }
 
             SessionItem(
@@ -636,12 +637,22 @@ fun ConnectionState(state: Boolean) {
 }
 
 @Composable
-fun CurrentCallState(state: CallState) {
+fun CurrentCallState(state: TelnyxSocketEvent) {
     val callStateColor = when (state) {
-        CallState.RECONNECTING -> ReconnectingIconColor
-        CallState.DROPPED -> DroppedIconColor
-        CallState.RINGING -> RingingIconColor
+        is TelnyxSocketEvent.OnIncomingCall -> Color.Black
+        is TelnyxSocketEvent.OnCallEnded -> MaterialTheme.colorScheme.tertiary
+        is TelnyxSocketEvent.OnRinging -> RingingIconColor
+        is TelnyxSocketEvent.OnClientError -> DroppedIconColor
         else -> Color.Green
+    }
+
+    val callStateName = when (state) {
+        is TelnyxSocketEvent.InitState -> stringResource(R.string.call_state_connecting)
+        is TelnyxSocketEvent.OnIncomingCall -> stringResource(R.string.call_state_incoming)
+        is TelnyxSocketEvent.OnCallEnded -> stringResource(R.string.call_state_ended)
+        is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
+        is TelnyxSocketEvent.OnClientError -> stringResource(R.string.call_state_error)
+        else -> stringResource(R.string.call_state_active)
     }
 
     Column(
@@ -661,7 +672,7 @@ fun CurrentCallState(state: CallState) {
                     )
             )
             RegularText(
-                text = state.name
+                text = callStateName
             )
         }
     }

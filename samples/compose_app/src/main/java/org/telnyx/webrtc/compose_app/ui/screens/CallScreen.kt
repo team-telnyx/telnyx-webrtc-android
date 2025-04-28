@@ -111,7 +111,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
     ) {
-        var isPhoneNumber by remember { mutableStateOf(true) }
+        var isPhoneNumber by remember { mutableStateOf(false) }
         
         // Add the toggle button at the top
         AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
@@ -400,15 +400,15 @@ fun DestinationTypeSwitcher(isPhoneNumber: Boolean, onCheckedChange: (Boolean) -
     ) {
         ToggleButton(
             modifier = Modifier.weight(1f),
-            text = stringResource(id = R.string.phone_number_toggle),
-            isSelected = isPhoneNumber,
-            onClick = { onCheckedChange(true) }
-        )
-        ToggleButton(
-            modifier = Modifier.weight(1f),
             text = stringResource(id = R.string.sip_address_toggle),
             isSelected = !isPhoneNumber,
             onClick = { onCheckedChange(false) }
+        )
+        ToggleButton(
+            modifier = Modifier.weight(1f),
+            text = stringResource(id = R.string.phone_number_toggle),
+            isSelected = isPhoneNumber,
+            onClick = { onCheckedChange(true) }
         )
     }
 }

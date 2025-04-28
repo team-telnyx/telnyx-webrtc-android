@@ -56,9 +56,13 @@ class HomeCallFragment : Fragment() {
                 when (checkedId) {
                     R.id.phoneNumberToggle -> {
                         binding.callInput.inputType = android.text.InputType.TYPE_CLASS_PHONE
+                        (activity as? MainActivity)?.highlightButton(binding.phoneNumberToggle)
+                        (activity as? MainActivity)?.resetButton(binding.sipAddressToggle)
                     }
                     R.id.sipAddressToggle -> {
                         binding.callInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
+                        (activity as? MainActivity)?.highlightButton(binding.sipAddressToggle)
+                        (activity as? MainActivity)?.resetButton(binding.phoneNumberToggle)
                     }
                 }
             }
