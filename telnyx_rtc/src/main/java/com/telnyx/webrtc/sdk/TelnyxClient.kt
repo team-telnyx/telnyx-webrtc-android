@@ -26,21 +26,22 @@ import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
-import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
 import kotlin.concurrent.timerTask
-import java.util.regex.Pattern
 
 /**
  * The TelnyxClient class that can be used to control the SDK. Create / Answer calls, change audio device, etc.
@@ -64,6 +65,9 @@ class TelnyxClient(
         URI
     }
 
+    /*
+    * Add Later: Support current audio device i.e speaker or earpiece or bluetooth for incoming calls
+    * */
     /**
      * Enum class that defines the current audio output mode.
      *
@@ -162,7 +166,7 @@ class TelnyxClient(
      * @param metaData The push notification metadata containing call information
      */
     private fun processCallFromPush(metaData: PushMetaData) {
-        Log.d("processCallFromPush PushMetaData", metaData.toJson())
+        Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
     }
@@ -198,14 +202,17 @@ class TelnyxClient(
      * @param callId The unique identifier of the incoming call
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
+     * @param debug When true, enables real-time call quality metrics
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
-        val acceptCall = calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
+        val acceptCall =
+            calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
@@ -223,47 +230,83 @@ class TelnyxClient(
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    Logger.d(tag="AcceptCall", message="Waiting for first ICE candidate...")
+                    Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
                     peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
-                    Logger.d(tag="AcceptCall", message="First ICE candidate received. Setting up negotiation complete callback.")
+                    Logger.d(
+                        tag = "AcceptCall",
+                        message = "First ICE candidate received. Setting up negotiation complete callback."
+                    )
 
                     // Now set the callback for when ICE negotiation stabilizes (timer expires)
                     peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
-                        Logger.d(tag="AcceptCall", message="ICE negotiation complete. Proceeding to send answer.")
+                        Logger.d(
+                            tag = "AcceptCall",
+                            message = "ICE negotiation complete. Proceeding to send answer."
+                        )
                         val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
                         if (generatedAnswerSdp == null) {
                             updateCallState(CallState.ERROR)
                             Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
-                            // Potentially notify UI or handle error state further
                         } else {
                             // Use the SdpUtils to modify the SDP
-                            val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(originalOfferSdp, generatedAnswerSdp)
-                            Logger.d(tag = "SDP_Modify", message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp")
-                            Logger.d(tag = "SDP_Modify", message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp")
+                            val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
+                                originalOfferSdp,
+                                generatedAnswerSdp
+                            )
+                            Logger.d(
+                                tag = "SDP_Modify",
+                                message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp"
+                            )
+                            Logger.d(
+                                tag = "SDP_Modify",
+                                message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp"
+                            )
 
                             val uuid: String = UUID.randomUUID().toString()
                             val answerBodyMessage = SendingMessageBody(
                                 uuid, SocketMethod.ANSWER.methodName,
                                 CallParams(
-                                    sessid = sessionId, // Correctly resolves in 'apply' scope
+                                    sessid = sessionId,
                                     sdp = finalAnswerSdp,
                                     dialogParams = CallDialogParams(
                                         callId = callId,
                                         destinationNumber = destinationNumber,
-                                        customHeaders = customHeaders?.toCustomHeaders() // Correctly resolves in 'apply' scope
+                                        customHeaders = customHeaders?.toCustomHeaders()
                                             ?: arrayListOf()
                                     )
                                 )
                             )
-                            socket.send(answerBodyMessage) // Correctly resolves in 'apply' scope
+                            socket.send(answerBodyMessage)
                             updateCallState(CallState.ACTIVE)
-                            Logger.d(tag="AcceptCall", message="Answer sent successfully for call $callId")
+
+                            // Start stats collection if debug is enabled
+                            if (debug) {
+                                if (webRTCReporter == null) {
+                                    webRTCReporter = WebRTCReporter(
+                                        socket,
+                                        callId,
+                                        getTelnyxLegId()?.toString(),
+                                        peerConnection!!
+                                    )
+                                    webRTCReporter?.onCallQualityChange = { metrics ->
+                                        onCallQualityChange?.invoke(metrics)
+                                    }
+                                    webRTCReporter?.startStats()
+                                }
+                            }
+
+                            Logger.d(
+                                tag = "AcceptCall",
+                                message = "Answer sent successfully for call $callId"
+                            )
                         }
                     }
                 } catch (e: Exception) {
-                    Logger.e(tag="AcceptCall", message="Error during async accept process for call $callId: ${e.message}")
+                    Logger.e(
+                        tag = "AcceptCall",
+                        message = "Error during async accept process for call $callId: ${e.message}"
+                    )
                     updateCallState(CallState.ERROR)
-                    // Handle exception (e.g., log, update UI)
                 }
             }
         }
@@ -272,6 +315,7 @@ class TelnyxClient(
         // Return the call object immediately (non-blocking)
         return acceptCall
     }
+
 
     /**
      * Creates a new outgoing call invitation.
@@ -288,7 +332,8 @@ class TelnyxClient(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false
     ): Call {
         val inviteCall = call!!.copy(
             context = context,
@@ -310,9 +355,13 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
                 iceCandidateList.add(it)
             }.also {
-                if (isDebug) {
+                // Create reporter if per-call debug is enabled
+                if (debug) {
                     webRTCReporter =
                         WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }
@@ -359,21 +408,20 @@ class TelnyxClient(
         return inviteCall
     }
 
+    /**
+     * Resets the call options to default values.
+     */
     private fun resetIceCandidateTimer() {
         iceCandidateTimer?.cancel()
+        iceCandidateTimer?.purge()
+        iceCandidateTimer = null
         iceCandidateList.clear()
     }
-
 
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
      * @param callId, the callId provided with the invitation
      * @see [Call]
-     */
-    /**
-     * Ends an active call.
-     *
-     * @param callId The unique identifier of the call to end
      */
     fun endCall(callId: UUID) {
         val endCall = calls[callId]
@@ -402,9 +450,9 @@ class TelnyxClient(
             )
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -935,7 +983,7 @@ class TelnyxClient(
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
-        Log.d("sending attach Call", attachPushMessage.toString())
+        Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         //reset push params
         pushMetaData = null
@@ -1115,11 +1163,11 @@ class TelnyxClient(
 
     private fun setSpeakerMode(speakerMode: SpeakerMode) {
         when (speakerMode) {
-            SPEAKER -> {
+            SpeakerMode.SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
 
-            EARPIECE -> {
+            SpeakerMode.EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
 
@@ -1129,8 +1177,8 @@ class TelnyxClient(
 
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> URI
-            is Int -> RAW
+            is Uri -> RingtoneType.URI
+            is Int -> RingtoneType.RAW
             else -> null
         }
     }
@@ -1446,15 +1494,17 @@ class TelnyxClient(
 
             updateCallState(CallState.DONE)
 
-            if (isDebug)
-                webRTCReporter?.stopStats()
-
+            // Stop reporter before releasing the peer connection
+            webRTCReporter?.stopStats()
+            webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
-            byeCall.endCall(callId)
+            peerConnection = null
+            answerResponse = null
+            inviteResponse = null
         }
         resetIceCandidateTimer()
     }
@@ -1621,8 +1671,12 @@ class TelnyxClient(
                 peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) {
                     iceCandidateList.add(it)
                 }.also {
+                    // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isDebug) {
                         webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                        webRTCReporter?.onCallQualityChange = { metrics ->
+                            onCallQualityChange?.invoke(metrics)
+                        }
                         webRTCReporter?.startStats()
                     }
                 }
@@ -1783,8 +1837,12 @@ class TelnyxClient(
 
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+                // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
+                    }
                     webRTCReporter?.startStats()
                 }
             }
@@ -1808,7 +1866,7 @@ class TelnyxClient(
                 Call.ICE_CANDIDATE_DELAY
             )
             calls[this.callId]?.updateCallState(CallState.ACTIVE)
-            this.setCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
+            this.updateCallState(calls[this.callId]?.callStateFlow?.value ?: CallState.ACTIVE)
             calls[this.callId] = this.apply {
                 updateCallState(CallState.ACTIVE)
             }
@@ -1845,6 +1903,7 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.disconnect())
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
+        resetIceCandidateTimer()
         unregisterNetworkCallback()
         socket.destroy()
     }

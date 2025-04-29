@@ -38,6 +38,7 @@ import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.Job
 import java.io.IOException
 import java.util.*
@@ -412,6 +413,12 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * State flow for call quality metrics of the current call, observed from TelnyxCommon.
+     * Observe this flow to display real-time call quality metrics in the UI.
+     */
+    val callQualityMetrics: StateFlow<CallQualityMetrics?> = TelnyxCommon.getInstance().callQualityMetrics
+
+    /**
      * Disconnects the current session.
      * 
      * This method will only disconnect if there is no active call and we're not handling
@@ -552,7 +559,9 @@ class TelnyxViewModel : ViewModel() {
 
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
-            } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
+            } ?: TelnyxSocketEvent.OnCallEnded(byeResponse).also {
+                // TelnyxCommon will clear metrics if no calls left via setCurrentCall(null)
+            }
         }
     }
 
@@ -576,10 +585,12 @@ class TelnyxViewModel : ViewModel() {
      *
      * @param viewContext The application context.
      * @param destinationNumber The phone number to call.
+     * @param debug Whether to enable debug mode for call quality metrics.
      */
     fun sendInvite(
         viewContext: Context,
-        destinationNumber: String
+        destinationNumber: String,
+        debug: Boolean
     ) {
         viewModelScope.launch {
             ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
@@ -589,10 +600,10 @@ class TelnyxViewModel : ViewModel() {
                     currentProfile.callerIdNumber ?: "",
                     destinationNumber,
                     "Sample Client State",
-                    mapOf(Pair("X-test", "123456"))
+                    mapOf(Pair("X-test", "123456")),
+                    debug
                 )
             }
-
         }
     }
 
@@ -607,7 +618,6 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             currentCall?.let { currentCall ->
                 EndCurrentAndUnholdLast(viewContext).invoke(currentCall.callId)
-
                 // If we are handling a push notification, set the flag to false
                 TelnyxCommon.getInstance().setHandlingPush(false)
             }
@@ -624,7 +634,6 @@ class TelnyxViewModel : ViewModel() {
         viewModelScope.launch {
             Timber.i("Reject call $callId")
             RejectCall(viewContext).invoke(callId)
-
             // If we are handling a push notification, set the flag to false
             TelnyxCommon.getInstance().setHandlingPush(false)
         }
@@ -639,27 +648,30 @@ class TelnyxViewModel : ViewModel() {
      * @param viewContext The application context.
      * @param callId The UUID of the call to answer.
      * @param callerIdNumber The caller ID number for the call.
+     * @param debug Whether to enable debug mode for call quality metrics.
      */
     fun answerCall(
         viewContext: Context,
         callId: UUID,
-        callerIdNumber: String
+        callerIdNumber: String,
+        debug: Boolean
     ) {
         viewModelScope.launch {
             currentCall?.let {
                 HoldCurrentAndAcceptIncoming(viewContext).invoke(
                     callId,
                     callerIdNumber,
-                    mapOf(Pair("X-test", "123456"))
+                    mapOf(Pair("X-test", "123456")),
+                    debug
                 )
             } ?: run {
                 AcceptCall(viewContext).invoke(
                     callId,
                     callerIdNumber,
-                    mapOf(Pair("X-test", "123456"))
+                    mapOf(Pair("X-test", "123456")),
+                    debug
                 )
             }
-
             _uiState.value =
                 TelnyxSocketEvent.OnCallAnswered(callId)
         }

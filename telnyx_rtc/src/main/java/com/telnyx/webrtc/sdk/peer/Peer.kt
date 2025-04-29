@@ -248,7 +248,6 @@ internal class Peer(
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
-            iceTransportsType = PeerConnection.IceTransportsType.NOHOST
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)
@@ -550,6 +549,9 @@ internal class Peer(
         }
     }
 
+    /**
+     * Initializes the Peer with the provided context and builds the PeerConnection
+     */
     init {
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
