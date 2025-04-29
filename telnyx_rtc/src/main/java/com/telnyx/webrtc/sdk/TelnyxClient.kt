@@ -348,8 +348,11 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
+
+                // Create reporter if per-call debug is enabled
                 if (debug) {
-                    webRTCReporter = WebRTCReporter(socket, inviteCallId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter =
+                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
@@ -373,6 +376,7 @@ class TelnyxClient(
         this.addToCalls(inviteCall)
         return inviteCall
     }
+
 
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
