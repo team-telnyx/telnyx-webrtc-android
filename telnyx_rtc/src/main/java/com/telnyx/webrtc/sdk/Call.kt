@@ -12,7 +12,7 @@ import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
-import com.telnyx.webrtc.lib.MediaStream
+import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
@@ -20,12 +20,15 @@ import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import java.util.*
+import java.util.Timer
+import kotlin.concurrent.timerTask
 
 /**
  * Data class to represent custom headers
@@ -89,6 +92,11 @@ data class Call(
 
     // Loud speaker toggle live data
     private val loudSpeakerLiveData = MutableLiveData(false)
+
+    // Per-call ICE candidate management
+    private var iceCandidateTimer: Timer? = null
+    private val iceCandidateList: MutableList<String> = mutableListOf()
+    private var outgoingInviteUUID: String? = null // To store the UUID for the outgoing invite message
 
     init {
         updateCallState(CallState.CONNECTING)
@@ -351,6 +359,8 @@ data class Call(
         muteLiveData.postValue(false)
         loudSpeakerLiveData.postValue(false)
         earlySDP = false
+        // Reset the call-specific timer and list
+        resetIceCandidateTimer()
     }
 
 
@@ -388,5 +398,119 @@ data class Call(
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
+    }
+
+    /**
+     * Internal function called by the Peer when a new ICE candidate is generated.
+     * Adds the candidate to this Call's specific list.
+     * @param candidate The ICE candidate string.
+     */
+    internal fun addIceCandidateInternal(candidate: String) {
+        // Potentially add logic here if needed when a candidate is received,
+        // but the primary action is adding it to the list for the timer.
+        iceCandidateList.add(candidate)
+        Logger.d(message = "Call [$callId] received ICE candidate. List size: ${iceCandidateList.size}")
+    }
+
+    /**
+     * Internal function to start the process for an outgoing call initiated by this Call object.
+     * Creates the SDP offer and starts the ICE candidate gathering timer.
+     */
+    internal fun startOutgoingCallInternal(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>?
+    ) {
+        // Ensure peerConnection is initialized for this Call instance before proceeding
+        if (peerConnection == null) {
+            Logger.e(message = "PeerConnection not initialized for Call [$callId] before starting outgoing call.")
+            updateCallState(CallState.ERROR)
+            return
+        }
+
+        outgoingInviteUUID = UUID.randomUUID().toString() // Generate UUID for the invite message
+
+        // Create offer using this Call's peerConnection
+        peerConnection?.createOfferForSdp(object : AppSdpObserver() {
+            override fun onCreateSuccess(sessionDescription: SessionDescription?) {
+                startIceCandidateTimer(
+                    callerName,
+                    callerNumber,
+                    destinationNumber,
+                    clientState,
+                    customHeaders
+                )
+            }
+
+            override fun onCreateFailure(p0: String?) {
+                 Logger.e(message = "Failed to create SDP offer for Call [$callId]: $p0")
+                 updateCallState(CallState.ERROR)
+            }
+        })
+    }
+
+    /**
+     * Starts the timer that periodically checks for gathered ICE candidates and sends the invite.
+     */
+    private fun startIceCandidateTimer(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>?
+    ) {
+        resetIceCandidateTimer() // Ensure any previous timer is cancelled
+        iceCandidateTimer = Timer("call-${this.callId}-iceTimer") // Name the timer thread
+        iceCandidateTimer?.schedule(
+            timerTask {
+                // Check this Call instance's list
+                if (iceCandidateList.isNotEmpty()) {
+                    // Send invite with gathered candidates
+                    val sdpDescription = peerConnection?.getLocalDescription()?.description
+                    if (sdpDescription != null && outgoingInviteUUID != null) {
+                        val inviteMessageBody = SendingMessageBody(
+                            id = outgoingInviteUUID!!, // Use the stored UUID
+                            method = SocketMethod.INVITE.methodName,
+                            params = CallParams(
+                                sessid = sessionId, // Use the session ID associated with this Call
+                                sdp = sdpDescription,
+                                dialogParams = CallDialogParams(
+                                    callerIdName = callerName,
+                                    callerIdNumber = callerNumber,
+                                    clientState = clientState.encodeBase64(),
+                                    callId = callId, // Use the specific call ID assigned to this Call instance
+                                    destinationNumber = destinationNumber,
+                                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                                )
+                            )
+                        )
+                        socket.send(inviteMessageBody)
+                        resetIceCandidateTimer() // Stop timer after sending
+                    } else {
+                         if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")
+                         if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [$callId]. Cannot send invite.")
+                         resetIceCandidateTimer() // Reset timer even on failure
+                         updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
+                    }
+                } else {
+                    Logger.d(message = "Call [$callId] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                }
+            },
+            ICE_CANDIDATE_DELAY, ICE_CANDIDATE_PERIOD
+        )
+    }
+
+
+    /**
+     * Resets the ICE candidate timer and clears the candidate list for this specific call.
+     */
+    private fun resetIceCandidateTimer() {
+        iceCandidateTimer?.cancel()
+        iceCandidateTimer?.purge()
+        iceCandidateTimer = null
+        iceCandidateList.clear()
+        Logger.d(message =  "Call [${this.callId}] ICE candidate timer reset.")
     }
 }
