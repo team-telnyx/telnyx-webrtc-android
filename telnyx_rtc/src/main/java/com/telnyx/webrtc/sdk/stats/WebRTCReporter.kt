@@ -52,10 +52,17 @@ enum class WebRTCStatsTag(val tag: String) {
     GETUSERMEDIA("getUserMedia")
 }
 
-internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connectionId: String?, val peer: Peer) {
+internal class WebRTCReporter(
+    val socket: TxSocket,
+    val peerId: UUID,
+    val connectionId: String?,
+    val peer: Peer,
+    val callDebug: Boolean,
+    val socketDebug: Boolean
+) {
 
     companion object {
-        private const val STATS_INTERVAL: Long = 2000L
+        private const val STATS_INTERVAL: Long = 500L
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
     }
@@ -113,6 +120,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     internal fun pauseStats() {
         debugReportJob?.cancel()
     }
+
     internal fun onStatsDataEvent(event: StatsData) {
         CoroutineScope(Dispatchers.IO).launch {
             statsDataFlow.emit(event)
@@ -144,6 +152,7 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                         WebRTCStatsEvent.ON_RENEGOTIATION_NEEDED -> {
                             processOnRenegotationNeeded(it)
                         }
+
                         WebRTCStatsEvent.ON_DATA_CHANNEL -> {}
                         WebRTCStatsEvent.ON_ICE_CONNECTION_STATE_CHANGE -> {}
                         WebRTCStatsEvent.ON_ICE_CANDIDATE_ERROR -> {}
@@ -157,12 +166,10 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
 
 
                 is StatsData.WebRTCEvent -> {
-                    Timber.tag("Stats").d("WebRTC Event")
                     sendStats(it.stats)
                 }
 
                 is StatsData.CallQualityData -> {
-                    Timber.tag("Stats").d("Call Quality Data: ${it.metrics}")
                 }
             }
         }
@@ -171,16 +178,15 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     internal suspend fun startTimer() {
 
         CoroutineScope(Dispatchers.IO).launch {
-            while(isActive) {
+            while (isActive) {
                 peer.peerConnection?.getStats {
-                    Timber.tag("Stats").d("Stats Timer ${it.statsMap}")
-
-                    val statsData: JsonObject = JsonObject()
-                    val data: JsonObject = JsonObject()
-                    val audio: JsonObject = JsonObject()
-                    val connectionCandidates: MutableMap<String, MutableMap<String, Any>> = mutableMapOf()
-                    val inBoundStats: JsonArray = JsonArray()
-                    val outBoundStats: JsonArray = JsonArray()
+                    val statsData = JsonObject()
+                    val data = JsonObject()
+                    val audio = JsonObject()
+                    val connectionCandidates: MutableMap<String, MutableMap<String, Any>> =
+                        mutableMapOf()
+                    val inBoundStats = JsonArray()
+                    val outBoundStats = JsonArray()
 
                     val outBoundsArray = mutableListOf<MutableMap<String, Any>>()
                     val inboundAudioMap = mutableMapOf<String, Any>()
@@ -196,27 +202,32 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                                     inboundAudioMap.putAll(value.members)
                                 }
                             }
+
                             "outbound-rtp" -> {
                                 processOutboundRtp(key, value, statsData, outBoundsArray)
                                 if (value.members["kind"]?.toString()?.equals("audio") == true) {
                                     outboundAudioMap.putAll(value.members)
                                 }
                             }
+
                             "remote-inbound-rtp" -> {
                                 if (value.members["kind"]?.toString()?.equals("audio") == true) {
                                     remoteInboundAudioMap.putAll(value.members)
                                 }
                                 processStatsDataMember(key, value, statsData)
                             }
+
                             "remote-outbound-rtp" -> {
                                 if (value.members["kind"]?.toString()?.equals("audio") == true) {
                                     remoteOutboundAudioMap.putAll(value.members)
                                 }
                                 processStatsDataMember(key, value, statsData)
                             }
+
                             "candidate-pair" -> {
                                 processCandidatePair(key, value, statsData, connectionCandidates)
                             }
+
                             else -> {
                                 processStatsDataMember(key, value, statsData)
                             }
@@ -227,21 +238,23 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                     processOutbounds(outBoundsArray, statsData, outBoundStats)
 
                     //find proper connection object
-                    statsData.get("T01")?.asJsonObject?.get("selectedCandidatePairId")?.let { selectedCandidatePairId ->
-                        val connectionCandidateMap = connectionCandidates[selectedCandidatePairId.asString].apply {
-                            this?.get("localCandidateId")?.let { localId ->
-                                val local = statsData.get(localId.toString())
-                                local.asJsonObject.addProperty("id", localId.toString())
-                                this["local"] = local
-                            }
-                            this?.get("remoteCandidateId")?.let { remoteId ->
-                                val remote = statsData.get(remoteId.toString())
-                                remote.asJsonObject.addProperty("id", remoteId.toString())
-                                this["remote"] = remote
-                            }
+                    statsData.get("T01")?.asJsonObject?.get("selectedCandidatePairId")
+                        ?.let { selectedCandidatePairId ->
+                            val connectionCandidateMap =
+                                connectionCandidates[selectedCandidatePairId.asString].apply {
+                                    this?.get("localCandidateId")?.let { localId ->
+                                        val local = statsData.get(localId.toString())
+                                        local.asJsonObject.addProperty("id", localId.toString())
+                                        this["local"] = local
+                                    }
+                                    this?.get("remoteCandidateId")?.let { remoteId ->
+                                        val remote = statsData.get(remoteId.toString())
+                                        remote.asJsonObject.addProperty("id", remoteId.toString())
+                                        this["remote"] = remote
+                                    }
+                                }
+                            data.add("connection", gson.toJsonTree(connectionCandidateMap))
                         }
-                        data.add("connection", gson.toJsonTree(connectionCandidateMap))
-                    }
                     audio.add("outbound", outBoundStats)
                     data.add("audio", audio)
 
@@ -253,16 +266,20 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                             remoteInboundAudio = remoteInboundAudioMap,
                             remoteOutboundAudio = remoteOutboundAudioMap
                         )
-                        
-                        // Emit metrics through callback
-                        onCallQualityChange?.invoke(metrics)
-                        
-                        // Also emit through the flow
-                        onStatsDataEvent(StatsData.CallQualityData(metrics))
+
+                        if (callDebug) {
+                            // Emit metrics through callback
+                            onCallQualityChange?.invoke(metrics)
+
+                            // Also emit through the flow
+                            onStatsDataEvent(StatsData.CallQualityData(metrics))
+                        }
                     }
 
-                    val statsEvent = StatsEvent(WebRTCStatsEvent.STATS.event, WebRTCStatsTag.STATS.tag,
-                        peerId.toString(), connectionId ?: "", data, statsData = statsData)
+                    val statsEvent = StatsEvent(
+                        WebRTCStatsEvent.STATS.event, WebRTCStatsTag.STATS.tag,
+                        peerId.toString(), connectionId ?: "", data, statsData = statsData
+                    )
                     onStatsDataEvent(StatsData.WebRTCEvent(statsEvent.toJson()))
                 }
 
@@ -292,8 +309,10 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
             addProperty("signalingState", "have-local-offer")
         }
         val statsEvent =
-            StatsEvent(peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
-                peerId.toString(), connectionId ?: "", data)
+            StatsEvent(
+                peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
+                peerId.toString(), connectionId ?: "", data
+            )
         onStatsEvent(statsEvent)
     }
 
@@ -301,8 +320,10 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         if (peerEvent.data is PeerConnection.IceGatheringState) {
             Timber.tag("Stats").d("Peer Event: ${peerEvent.statsType} ${peerEvent.data.name}")
 
-            val statsEvent = StatsEvent(peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
-                peerId.toString(), connectionId ?: "", dataString = peerEvent.data.name.lowercase())
+            val statsEvent = StatsEvent(
+                peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
+                peerId.toString(), connectionId ?: "", dataString = peerEvent.data.name.lowercase()
+            )
             onStatsEvent(statsEvent)
         }
     }
@@ -321,25 +342,38 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
                 var ufrag = ""
                 val ufragIndex = iceCandidate.sdp.indexOf(UFRAG_LABEL)
                 if (ufragIndex > 0) {
-                    ufrag = iceCandidate.sdp.substring(ufragIndex+UFRAG_LABEL.length + 1, ufragIndex + (2*UFRAG_LABEL.length))
+                    ufrag = iceCandidate.sdp.substring(
+                        ufragIndex + UFRAG_LABEL.length + 1,
+                        ufragIndex + (2 * UFRAG_LABEL.length)
+                    )
                 }
                 add("usernameFragment", gson.toJsonTree(ufrag))
             }
             val statsEvent =
-                StatsEvent(peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
-                    peerId.toString(), connectionId ?: "", data)
+                StatsEvent(
+                    peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
+                    peerId.toString(), connectionId ?: "", data
+                )
             onStatsEvent(statsEvent)
         }
     }
 
     private fun processOnRenegotationNeeded(peerEvent: StatsData.PeerEvent<*>) {
         val statsEvent =
-            StatsEvent(peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
-                peerId.toString(), connectionId ?: "", dataString = "")
+            StatsEvent(
+                peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
+                peerId.toString(), connectionId ?: "", dataString = ""
+            )
         onStatsEvent(statsEvent)
     }
 
-    private fun processInboundRtp(key: String, value: RTCStats, statsData: JsonObject, inBoundStats: JsonArray, audio: JsonObject) {
+    private fun processInboundRtp(
+        key: String,
+        value: RTCStats,
+        statsData: JsonObject,
+        inBoundStats: JsonArray,
+        audio: JsonObject
+    ) {
         val dataMap = value.members.apply {
             this["id"] = value.id
             this["timestamp"] = value.timestampUs / MS_IN_SECONDS
@@ -355,7 +389,12 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         }
     }
 
-    private fun processOutboundRtp(key: String, value: RTCStats, statsData: JsonObject, outBoundsArray: MutableList<MutableMap<String, Any>>) {
+    private fun processOutboundRtp(
+        key: String,
+        value: RTCStats,
+        statsData: JsonObject,
+        outBoundsArray: MutableList<MutableMap<String, Any>>
+    ) {
         val dataMap = value.members.apply {
             this["id"] = value.id
             this["timestamp"] = value.timestampUs / MS_IN_SECONDS
@@ -368,7 +407,12 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         }
     }
 
-    private fun processCandidatePair(key: String, value: RTCStats, statsData: JsonObject, connectionCandidates: MutableMap<String, MutableMap<String, Any>>) {
+    private fun processCandidatePair(
+        key: String,
+        value: RTCStats,
+        statsData: JsonObject,
+        connectionCandidates: MutableMap<String, MutableMap<String, Any>>
+    ) {
         val dataMap = value.members.apply {
             this["id"] = value.id
             this["timestamp"] = value.timestampUs / MS_IN_SECONDS
@@ -389,12 +433,16 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         statsData.add(key, gson.toJsonTree(dataMap))
     }
 
-    private fun processOutbounds(outBoundsArray: MutableList<MutableMap<String, Any>>, statsData: JsonObject, outBoundStats: JsonArray) {
+    private fun processOutbounds(
+        outBoundsArray: MutableList<MutableMap<String, Any>>,
+        statsData: JsonObject,
+        outBoundStats: JsonArray
+    ) {
         outBoundsArray.forEach { outBoundItem ->
             processOutboundItem(outBoundItem, statsData, outBoundStats)
         }
     }
-    
+
     /**
      * Converts WebRTC statistics to real-time call quality metrics
      * @param inboundAudio Inbound audio statistics
@@ -437,7 +485,11 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
         )
     }
 
-    private fun processOutboundItem(outBoundItem: MutableMap<String, Any>, statsData: JsonObject, outBoundStats: JsonArray) {
+    private fun processOutboundItem(
+        outBoundItem: MutableMap<String, Any>,
+        statsData: JsonObject,
+        outBoundStats: JsonArray
+    ) {
         outBoundItem["mediaSourceId"]?.let { mediaSourceId ->
             (mediaSourceId as? String)?.let { mediaId ->
                 statsData.get(mediaId)?.let { mediaSource ->
@@ -477,7 +529,13 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
             add("peerConfiguration", gson.toJsonTree(peerConfiguration))
         }
         Timber.d("debug_report_ ${data}")
-        val statsEvent = StatsEvent(WebRTCStatsEvent.ADD_CONNECTION.event, WebRTCStatsTag.PEER.tag, peerId.toString(), connectionId ?: "", data)
+        val statsEvent = StatsEvent(
+            WebRTCStatsEvent.ADD_CONNECTION.event,
+            WebRTCStatsTag.PEER.tag,
+            peerId.toString(),
+            connectionId ?: "",
+            data
+        )
         onStatsEvent(statsEvent)
     }
 
@@ -487,12 +545,14 @@ internal class WebRTCReporter(val socket: TxSocket, val peerId: UUID, val connec
     }
 
     private fun sendStats(data: JsonObject) {
-        debugStatsId?.let {
-            val statsMessage = StatPrams(
-                debugReportId = debugStatsId.toString(),
-                reportData = data
-            )
-            socket.send(statsMessage)
+        if (socketDebug) {
+            debugStatsId?.let {
+                val statsMessage = StatPrams(
+                    debugReportId = debugStatsId.toString(),
+                    reportData = data
+                )
+                socket.send(statsMessage)
+            }
         }
     }
 }
