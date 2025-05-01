@@ -138,6 +138,14 @@ internal class Peer(
 
             if (newState == PeerConnection.IceConnectionState.CONNECTED || newState == PeerConnection.IceConnectionState.COMPLETED) {
                 logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
+                
+                // Create and update local media stream when connected
+                val localStream = MediaStream(peerConnectionFactory)
+                if (localAudioTrack != null) {
+                    localStream.addTrack(localAudioTrack)
+                    Logger.d(tag = "Observer", message = "Added local audio track to local media stream")
+                    client.calls[callId]?.updateLocalMediaStream(localStream)
+                }
             }
         }
 
@@ -181,14 +189,28 @@ internal class Peer(
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
         }
 
-        override fun onAddStream(p0: MediaStream?) {
-            Logger.d(tag = "Observer", message = "Stream Added: $p0")
-            peerConnectionObserver?.onAddStream(p0)
+        override fun onAddStream(mediaStream: MediaStream?) {
+            Logger.d(tag = "Observer", message = "Stream Added: $mediaStream")
+            
+            // Update the remote media stream in the Call object
+            if (mediaStream != null) {
+                client.calls[callId]?.updateRemoteMediaStream(mediaStream)
+                Logger.d(tag = "Observer", message = "Remote media stream updated in Call object")
+            }
+            
+            peerConnectionObserver?.onAddStream(mediaStream)
         }
 
-        override fun onRemoveStream(p0: MediaStream?) {
-            Logger.d(tag = "Observer", message = "Stream Removed: $p0")
-            peerConnectionObserver?.onRemoveStream(p0)
+        override fun onRemoveStream(mediaStream: MediaStream?) {
+            Logger.d(tag = "Observer", message = "Stream Removed: $mediaStream")
+            
+            // Clear the remote media stream in the Call object if it matches
+            if (mediaStream != null && client.calls[callId]?.remoteStream == mediaStream) {
+                client.calls[callId]?.updateRemoteMediaStream(null)
+                Logger.d(tag = "Observer", message = "Remote media stream cleared in Call object")
+            }
+            
+            peerConnectionObserver?.onRemoveStream(mediaStream)
         }
 
         override fun onDataChannel(p0: DataChannel?) {
@@ -283,6 +305,12 @@ internal class Peer(
         } else {
              Logger.d(tag = "Peer:Audio", message = "Audio transceiver added. Mid: ${transceiver.mid}, Direction: ${transceiver.direction}, CurrentDirection: ${transceiver.currentDirection}")
         }
+        
+        // Create and update local media stream
+        val localStream = MediaStream(peerConnectionFactory)
+        localStream.addTrack(localAudioTrack)
+        Logger.d(tag = "Peer:Audio", message = "Created local media stream with audio track")
+        client.calls[callId]?.updateLocalMediaStream(localStream)
     }
 
     /**
