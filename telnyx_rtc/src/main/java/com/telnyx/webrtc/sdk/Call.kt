@@ -80,22 +80,6 @@ data class Call(
 
     private val callStateLiveData = callStateFlow.asLiveData()
 
-    // Media streams for audio visualization
-    private val _localMediaStream = MutableLiveData<MediaStream?>(null)
-    private val _remoteMediaStream = MutableLiveData<MediaStream?>(null)
-
-    /**
-     * The local media stream containing audio from the user's microphone
-     */
-    val localStream: MediaStream?
-        get() = _localMediaStream.value
-
-    /**
-     * The remote media stream containing audio from the remote party
-     */
-    val remoteStream: MediaStream?
-        get() = _remoteMediaStream.value
-
     // Ongoing call options
     // Mute toggle live data
     private val muteLiveData = MutableLiveData(false)
@@ -405,34 +389,4 @@ data class Call(
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
-    
-    /**
-     * Updates the local media stream
-     * @param mediaStream The local media stream from the user's microphone
-     */
-    internal fun updateLocalMediaStream(mediaStream: MediaStream?) {
-        _localMediaStream.postValue(mediaStream)
-        Logger.d(tag = "Call", message = "Local media stream updated: $mediaStream")
-    }
-    
-    /**
-     * Updates the remote media stream
-     * @param mediaStream The remote media stream from the remote party
-     */
-    internal fun updateRemoteMediaStream(mediaStream: MediaStream?) {
-        _remoteMediaStream.postValue(mediaStream)
-        Logger.d(tag = "Call", message = "Remote media stream updated: $mediaStream")
-    }
-    
-    /**
-     * Returns the local media stream as LiveData for observation
-     * @return LiveData containing the local MediaStream
-     */
-    fun getLocalMediaStreamLiveData(): LiveData<MediaStream?> = _localMediaStream
-    
-    /**
-     * Returns the remote media stream as LiveData for observation
-     * @return LiveData containing the remote MediaStream
-     */
-    fun getRemoteMediaStreamLiveData(): LiveData<MediaStream?> = _remoteMediaStream
 }

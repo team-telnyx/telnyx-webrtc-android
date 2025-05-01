@@ -2,10 +2,8 @@ package com.telnyx.webrtc.common
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import com.telnyx.webrtc.common.service.CallForegroundService
-import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
@@ -254,44 +252,5 @@ class TelnyxCommon private constructor() {
             }
         }
     }
-    
-    /**
-     * Gets the local media stream from the current active call.
-     * This stream contains audio from the user's microphone.
-     * 
-     * @return The local MediaStream or null if no active call or stream is available
-     */
-    fun getLocalMediaStream(): MediaStream? {
-        return currentCall?.localStream
-    }
-    
-    /**
-     * Gets the remote media stream from the current active call.
-     * This stream contains audio from the remote party.
-     * 
-     * @return The remote MediaStream or null if no active call or stream is available
-     */
-    fun getRemoteMediaStream(): MediaStream? {
-        return currentCall?.remoteStream
-    }
-    
-    /**
-     * Gets the local media stream as LiveData for observation.
-     * This stream contains audio from the user's microphone.
-     * 
-     * @return LiveData containing the local MediaStream
-     */
-    fun getLocalMediaStreamLiveData(): LiveData<MediaStream?>? {
-        return currentCall?.getLocalMediaStreamLiveData()
-    }
-    
-    /**
-     * Gets the remote media stream as LiveData for observation.
-     * This stream contains audio from the remote party.
-     * 
-     * @return LiveData containing the remote MediaStream
-     */
-    fun getRemoteMediaStreamLiveData(): LiveData<MediaStream?>? {
-        return currentCall?.getRemoteMediaStreamLiveData()
-    }
+
 }
