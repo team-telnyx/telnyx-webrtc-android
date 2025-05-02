@@ -103,6 +103,22 @@ fun CallQualityDisplay(
                     label = "Round-trip Time:",
                     value = String.format("%.2f ms", metrics.rtt * 1000)
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Inbound Audio Level
+                MetricRow(
+                    label = "Inbound Level:",
+                    value = String.format("%.2f", metrics.inboundAudioLevel)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Outbound Audio Level
+                MetricRow(
+                    label = "Outbound Level:",
+                    value = String.format("%.2f", metrics.outboundAudioLevel)
+                )
             }
         }
     }

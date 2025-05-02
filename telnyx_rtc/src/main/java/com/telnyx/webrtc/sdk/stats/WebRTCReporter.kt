@@ -3,7 +3,6 @@ package com.telnyx.webrtc.sdk.stats
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.peer.PeerConnectionObserver
@@ -20,7 +19,7 @@ import kotlinx.coroutines.launch
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.RTCStats
-import timber.log.Timber
+import com.telnyx.webrtc.sdk.utilities.Logger
 import java.util.*
 
 sealed class StatsData {
@@ -131,7 +130,7 @@ internal class WebRTCReporter(
         statsDataFlow.collect {
             when (it) {
                 is StatsData.PeerEvent<*> -> {
-                    Timber.tag("Stats").d("Peer Event: ${it.statsType}")
+                    Logger.d(tag = "stats", "Peer Event: ${it.statsType}")
                     when (it.statsType) {
                         WebRTCStatsEvent.SIGNALING_CHANGE -> {
                             processSignalingChange(it)
@@ -180,6 +179,7 @@ internal class WebRTCReporter(
         CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
                 peer.peerConnection?.getStats {
+                    Logger.d(tag = "stats", "Stats: ${it.statsMap}")
                     val statsData = JsonObject()
                     val data = JsonObject()
                     val audio = JsonObject()
@@ -194,12 +194,16 @@ internal class WebRTCReporter(
                     val remoteInboundAudioMap = mutableMapOf<String, Any>()
                     val remoteOutboundAudioMap = mutableMapOf<String, Any>()
 
+                    var inboundAudioLevel = 0f
+                    var outboundAudioLevel = 0f
+
                     it.statsMap.forEach { (key, value) ->
                         when (value.type) {
                             "inbound-rtp" -> {
                                 processInboundRtp(key, value, statsData, inBoundStats, audio)
                                 if (value.members["kind"]?.toString()?.equals("audio") == true) {
                                     inboundAudioMap.putAll(value.members)
+                                    inboundAudioLevel = (value.members["audioLevel"] as? Number)?.toFloat() ?: 0f
                                 }
                             }
 
@@ -222,6 +226,12 @@ internal class WebRTCReporter(
                                     remoteOutboundAudioMap.putAll(value.members)
                                 }
                                 processStatsDataMember(key, value, statsData)
+                            }
+
+                            "media-source" -> {
+                                processStatsDataMember(key, value, statsData)
+                                outboundAudioLevel = (value.members["audioLevel"] as? Number)?.toFloat() ?: 0f
+                                Logger.i(message=  "media-source audioLevel read: $outboundAudioLevel")
                             }
 
                             "candidate-pair" -> {
@@ -264,7 +274,9 @@ internal class WebRTCReporter(
                             inboundAudio = inboundAudioMap,
                             outboundAudio = outboundAudioMap,
                             remoteInboundAudio = remoteInboundAudioMap,
-                            remoteOutboundAudio = remoteOutboundAudioMap
+                            remoteOutboundAudio = remoteOutboundAudioMap,
+                            inboundAudioLevel = inboundAudioLevel,
+                            outboundAudioLevel = outboundAudioLevel
                         )
 
                         if (callDebug) {
@@ -291,7 +303,7 @@ internal class WebRTCReporter(
     }
 
     private fun processSignalingChange(peerEvent: StatsData.PeerEvent<*>) {
-        Timber.tag("Stats").d("Peer Event: ${peerEvent.statsType}")
+        Logger.d(tag = "stats", "Peer Event: ${peerEvent.statsType}")
 
         val localDescription = JsonObject().apply {
             addProperty("sdp", peer.getLocalDescription()?.description)
@@ -318,7 +330,7 @@ internal class WebRTCReporter(
 
     private fun processIceGatherChange(peerEvent: StatsData.PeerEvent<*>) {
         if (peerEvent.data is PeerConnection.IceGatheringState) {
-            Timber.tag("Stats").d("Peer Event: ${peerEvent.statsType} ${peerEvent.data.name}")
+            Logger.d(tag = "stats", "Peer Event: ${peerEvent.statsType} ${peerEvent.data.name}")
 
             val statsEvent = StatsEvent(
                 peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
@@ -330,7 +342,7 @@ internal class WebRTCReporter(
 
     private fun processOnIceCandidate(peerEvent: StatsData.PeerEvent<*>) {
         if (peerEvent.data is IceCandidate) {
-            Timber.tag("Stats").d("Peer Event: ${peerEvent.statsType}")
+            Logger.d(tag = "stats", "Peer Event: ${peerEvent.statsType}")
             val iceCandidate = peerEvent.data
 
 
@@ -453,7 +465,9 @@ internal class WebRTCReporter(
         inboundAudio: Map<String, Any>?,
         outboundAudio: Map<String, Any>?,
         remoteInboundAudio: Map<String, Any>?,
-        remoteOutboundAudio: Map<String, Any>?
+        remoteOutboundAudio: Map<String, Any>?,
+        inboundAudioLevel: Float,
+        outboundAudioLevel: Float
     ): CallQualityMetrics {
         // Extract metrics from stats
         val jitter = (remoteInboundAudio?.get("jitter") as? Double) ?: Double.POSITIVE_INFINITY
@@ -481,7 +495,9 @@ internal class WebRTCReporter(
             inboundAudio = inboundAudio,
             outboundAudio = outboundAudio,
             remoteInboundAudio = remoteInboundAudio,
-            remoteOutboundAudio = remoteOutboundAudio
+            remoteOutboundAudio = remoteOutboundAudio,
+            inboundAudioLevel = inboundAudioLevel,
+            outboundAudioLevel = outboundAudioLevel
         )
     }
 
@@ -528,7 +544,7 @@ internal class WebRTCReporter(
             add("options", gson.toJsonTree(options))
             add("peerConfiguration", gson.toJsonTree(peerConfiguration))
         }
-        Timber.d("debug_report_ ${data}")
+        Logger.d(tag = "stats", "debug_report_ $data")
         val statsEvent = StatsEvent(
             WebRTCStatsEvent.ADD_CONNECTION.event,
             WebRTCStatsTag.PEER.tag,
@@ -540,7 +556,7 @@ internal class WebRTCReporter(
     }
 
     private fun onStatsEvent(statsEvent: StatsEvent) {
-        Timber.tag("Stats").d("Stats Event: ${statsEvent.toJson()}")
+        Logger.d(tag = "stats", "Stats Event: ${statsEvent.toJson()}")
         sendStats(statsEvent.toJson())
     }
 

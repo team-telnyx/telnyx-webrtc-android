@@ -488,7 +488,7 @@ internal class Peer(
             peerConnection?.dispose()
             peerConnection = null
         }catch (e: IllegalStateException){
-            Logger.e(message = "Error during peer connection disconnect: ${e.toString()}")
+            Logger.e(message = "Error during peer connection disconnect: $e")
         }
     }
 
