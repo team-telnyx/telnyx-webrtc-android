@@ -61,7 +61,7 @@ internal class WebRTCReporter(
 ) {
 
     companion object {
-        private const val STATS_INTERVAL: Long = 500L
+        private const val STATS_INTERVAL: Long = 100L
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
     }
@@ -231,7 +231,6 @@ internal class WebRTCReporter(
                             "media-source" -> {
                                 processStatsDataMember(key, value, statsData)
                                 outboundAudioLevel = (value.members["audioLevel"] as? Number)?.toFloat() ?: 0f
-                                Logger.i(message=  "media-source audioLevel read: $outboundAudioLevel")
                             }
 
                             "candidate-pair" -> {
