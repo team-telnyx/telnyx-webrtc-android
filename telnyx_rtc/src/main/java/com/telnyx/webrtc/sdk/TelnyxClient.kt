@@ -26,6 +26,7 @@ import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -36,6 +37,7 @@ import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
@@ -104,8 +106,6 @@ class TelnyxClient(
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
-    private val iceCandidateList: MutableList<String> = mutableListOf()
-
     private var reconnecting = false
 
     // Reconnection timeout timer
@@ -126,7 +126,6 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
-    private var iceCandidateTimer: Timer? = null
 
     private var isDebug = false
 
@@ -209,9 +208,6 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isDebug
-
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
@@ -281,15 +277,13 @@ class TelnyxClient(
                             updateCallState(CallState.ACTIVE)
 
                             // Start stats collection if debug is enabled
-                            if (callDebug || socketPortalDebug) {
+                            if (debug) {
                                 if (webRTCReporter == null) {
                                     webRTCReporter = WebRTCReporter(
                                         socket,
                                         callId,
                                         getTelnyxLegId()?.toString(),
-                                        peerConnection!!,
-                                        callDebug,
-                                        socketPortalDebug
+                                        peerConnection!!
                                     )
                                     webRTCReporter?.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
@@ -338,9 +332,9 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isDebug
-        val inviteCall = call!!.copy(
+        val inviteCallId: UUID = UUID.randomUUID()
+
+        val inviteCall = Call(
             context = context,
             client = this,
             socket = socket,
@@ -349,62 +343,33 @@ class TelnyxClient(
             providedTurn = providedTurn!!,
             providedStun = providedStun!!
         ).apply {
-            val uuid: String = UUID.randomUUID().toString()
-            val inviteCallId: UUID = UUID.randomUUID()
-
             callId = inviteCallId
-            val call = this
 
-            // Create new peer
-            peerConnection = Peer(context, client, providedTurn, providedStun, callId) {
-                iceCandidateList.add(it)
+            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
+                addIceCandidateInternal(candidate)
             }.also {
-                // Create reporter if per-call debug is enabled or config debug is enabled
-                if (callDebug || socketPortalDebug) {
+
+                // Create reporter if per-call debug is enabled
+                if (debug) {
                     webRTCReporter =
-                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it, callDebug, socketPortalDebug)
-                    if (callDebug) {
-                        webRTCReporter?.onCallQualityChange = { metrics ->
-                            onCallQualityChange?.invoke(metrics)
-                        }
+                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
+                    webRTCReporter?.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
                     }
                     webRTCReporter?.startStats()
                 }
             }
 
             peerConnection?.startLocalAudioCapture()
-            peerConnection?.createOfferForSdp(AppSdpObserver())
 
-            iceCandidateTimer = Timer()
-            iceCandidateTimer?.schedule(
-                timerTask {
-                    if (iceCandidateList.size > 0) {
-                        // set localInfo and ice candidate and able to create correct offer
-                        val inviteMessageBody = SendingMessageBody(
-                            id = uuid,
-                            method = SocketMethod.INVITE.methodName,
-                            params = CallParams(
-                                sessid = sessionId,
-                                sdp = peerConnection?.getLocalDescription()?.description.toString(),
-                                dialogParams = CallDialogParams(
-                                    callerIdName = callerName,
-                                    callerIdNumber = callerNumber,
-                                    clientState = clientState.encodeBase64(),
-                                    callId = inviteCallId,
-                                    destinationNumber = destinationNumber,
-                                    customHeaders = customHeaders?.toCustomHeaders()
-                                        ?: arrayListOf()
-                                )
-                            )
-                        )
-                        socket.send(inviteMessageBody)
-                        resetIceCandidateTimer()
-                    } else {
-                        Logger.d(message = "Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
-                    }
-                },
-                Call.ICE_CANDIDATE_DELAY, Call.ICE_CANDIDATE_PERIOD
+            startOutgoingCallInternal(
+                callerName = callerName,
+                callerNumber = callerNumber,
+                destinationNumber = destinationNumber,
+                clientState = clientState,
+                customHeaders = customHeaders
             )
+
             client.callOngoing()
             client.playRingBackTone()
         }
@@ -412,15 +377,6 @@ class TelnyxClient(
         return inviteCall
     }
 
-    /**
-     * Resets the call options to default values.
-     */
-    private fun resetIceCandidateTimer() {
-        iceCandidateTimer?.cancel()
-        iceCandidateTimer?.purge()
-        iceCandidateTimer = null
-        iceCandidateList.clear()
-    }
 
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
@@ -467,7 +423,6 @@ class TelnyxClient(
             answerResponse = null
             inviteResponse = null
         }
-        resetIceCandidateTimer()
     }
 
     /**
@@ -1510,7 +1465,6 @@ class TelnyxClient(
             answerResponse = null
             inviteResponse = null
         }
-        resetIceCandidateTimer()
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
@@ -1672,12 +1626,12 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
-                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) {
-                    iceCandidateList.add(it)
+                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) { candidate ->
+                    addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
@@ -1843,7 +1797,7 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
-                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
@@ -1907,7 +1861,6 @@ class TelnyxClient(
         socketResponseLiveData.postValue(SocketResponse.disconnect())
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
-        resetIceCandidateTimer()
         unregisterNetworkCallback()
         socket.destroy()
     }
