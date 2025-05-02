@@ -208,6 +208,9 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false
     ): Call {
+        var callDebug = debug
+        var socketPortalDebug = isDebug
+
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
@@ -277,13 +280,15 @@ class TelnyxClient(
                             updateCallState(CallState.ACTIVE)
 
                             // Start stats collection if debug is enabled
-                            if (debug) {
+                            if (callDebug || socketPortalDebug) {
                                 if (webRTCReporter == null) {
                                     webRTCReporter = WebRTCReporter(
                                         socket,
                                         callId,
                                         getTelnyxLegId()?.toString(),
-                                        peerConnection!!
+                                        peerConnection!!,
+                                        callDebug,
+                                        socketPortalDebug
                                     )
                                     webRTCReporter?.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
@@ -332,6 +337,8 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false
     ): Call {
+        var callDebug = debug
+        var socketPortalDebug = isDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
         val inviteCall = Call(
@@ -349,12 +356,14 @@ class TelnyxClient(
                 addIceCandidateInternal(candidate)
             }.also {
 
-                // Create reporter if per-call debug is enabled
-                if (debug) {
+                // Create reporter if per-call debug is enabled or config debug is enabled
+                if (callDebug || socketPortalDebug) {
                     webRTCReporter =
-                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it)
-                    webRTCReporter?.onCallQualityChange = { metrics ->
-                        onCallQualityChange?.invoke(metrics)
+                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it, callDebug, socketPortalDebug)
+                    if (callDebug) {
+                        webRTCReporter?.onCallQualityChange = { metrics ->
+                            onCallQualityChange?.invoke(metrics)
+                        }
                     }
                     webRTCReporter?.startStats()
                 }
@@ -1631,7 +1640,7 @@ class TelnyxClient(
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
@@ -1797,7 +1806,7 @@ class TelnyxClient(
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
-                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it)
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
