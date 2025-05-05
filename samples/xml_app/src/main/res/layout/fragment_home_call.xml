@@ -7,60 +7,66 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context="org.telnyx.webrtc.xmlapp.org.telnyx.webrtc.xml_app.login.LoginFragment">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="24dp"
-        >
+        android:layout_height="match_parent"
+        android:layout_marginBottom="?attr/actionBarSize" >
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/callTypeSwitch"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            app:singleSelection="true"
-            app:checkedButton="@id/sipAddressToggle"
-            app:selectionRequired="true"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            android:padding="24dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/sipAddressToggle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/sip_address_toggle"
-                style="@style/ToggleButton"
-                app:backgroundTint="@color/main_green"
-                android:textColor="@color/white"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/phoneNumberToggle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/phone_number_toggle"
-                style="@style/ToggleButton"
-                app:backgroundTint="@color/white"
-                android:textColor="@color/black"/>
-
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
-        <LinearLayout
-            android:id="@+id/destinationInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/callTypeSwitch">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/usernameTextFieldLayout"
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/callTypeSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_tiny"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                >
+                android:layout_gravity="center"
+                app:singleSelection="true"
+                app:checkedButton="@id/sipAddressToggle"
+                app:selectionRequired="true"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/sipAddressToggle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sip_address_toggle"
+                    style="@style/ToggleButton"
+                    app:backgroundTint="@color/main_green"
+                    android:textColor="@color/white"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/phoneNumberToggle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/phone_number_toggle"
+                    style="@style/ToggleButton"
+                    app:backgroundTint="@color/white"
+                    android:textColor="@color/black"/>
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+
+            <LinearLayout
+                android:id="@+id/destinationInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/callTypeSwitch">
+
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/usernameTextFieldLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_tiny"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    >
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/callInput"
@@ -69,151 +75,160 @@
                     android:inputType="text"
                     />
 
-            </com.google.android.material.textfield.TextInputLayout>
+                </com.google.android.material.textfield.TextInputLayout>
 
 
 
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/callIdleView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="@dimen/spacing_tiny"
-            android:layout_marginTop="@dimen/spacing_normal"
-            android:orientation="horizontal"
-            android:gravity="center"
-            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
-            android:visibility="visible">
-
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/call"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/answer_green"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/baseline_call_24"
-                app:iconTint="@color/black" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/callActiveView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="@dimen/spacing_tiny"
-            android:layout_marginTop="@dimen/spacing_normal"
-            android:orientation="vertical"
-            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="@dimen/spacing_tiny"
-                android:gravity="center"
-                android:orientation="horizontal">
-
-                <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/mute"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/mute_24"
-                    />
-
-                <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/loudSpeaker"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/speaker_off_24"
-                    />
-
-                <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/hold"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/pause_24"
-                    />
-
-                <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/dialpad"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/dialpad_24"
-                    />
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/callIdleView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:padding="@dimen/spacing_tiny"
                 android:layout_marginTop="@dimen/spacing_normal"
+                android:orientation="horizontal"
                 android:gravity="center"
-                android:orientation="horizontal">
+                app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+                android:visibility="visible">
 
                 <Button
                     style="@style/IconControlButton"
-                    android:id="@+id/endCall"
+                    android:id="@+id/call"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/answer_green"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/baseline_call_24"
+                    app:iconTint="@color/black" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/callActiveView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/spacing_tiny"
+                android:layout_marginTop="@dimen/spacing_normal"
+                android:orientation="vertical"
+                app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="@dimen/spacing_tiny"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/mute"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/mute_24"
+                        />
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/loudSpeaker"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/speaker_off_24"
+                        />
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/hold"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/pause_24"
+                        />
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/dialpad"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/dialpad_24"
+                        />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_normal"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/endCall"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/reject_red"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/baseline_call_reject_24"
+                        app:iconTint="@color/white"
+                        />
+
+                </LinearLayout>
+
+                <include
+                    android:id="@+id/call_quality_display"
+                    layout="@layout/call_quality_display"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/callIncomingView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/spacing_tiny"
+                android:layout_marginTop="@dimen/spacing_normal"
+                android:orientation="horizontal"
+                android:gravity="center"
+                app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
+                android:visibility="gone">
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/callReject"
                     android:layout_width="60dp"
                     android:layout_height="60dp"
                     android:backgroundTint="@color/reject_red"
                     android:contentDescription="@string/fab_transformation_scrim_behavior"
                     app:icon="@drawable/baseline_call_reject_24"
-                    app:iconTint="@color/white"
+                    app:iconTint="@color/black"
+                    android:layout_marginEnd="20dp"
                     />
+
+                <Button
+                    style="@style/IconControlButton"
+                    android:id="@+id/callAnswer"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:backgroundTint="@color/answer_green"
+                    android:contentDescription="@string/fab_transformation_scrim_behavior"
+                    app:icon="@drawable/baseline_call_24"
+                    app:iconTint="@color/black"
+                    android:layout_marginStart="20dp"/>
 
             </LinearLayout>
 
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/callIncomingView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="@dimen/spacing_tiny"
-            android:layout_marginTop="@dimen/spacing_normal"
-            android:orientation="horizontal"
-            android:gravity="center"
-            app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
-            android:visibility="gone">
-
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/callReject"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/reject_red"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/baseline_call_reject_24"
-                app:iconTint="@color/black"
-                android:layout_marginEnd="20dp"
-                />
-
-            <Button
-                style="@style/IconControlButton"
-                android:id="@+id/callAnswer"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:backgroundTint="@color/answer_green"
-                android:contentDescription="@string/fab_transformation_scrim_behavior"
-                app:icon="@drawable/baseline_call_24"
-                app:iconTint="@color/black"
-                android:layout_marginStart="20dp"/>
-
-        </LinearLayout>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -18,7 +18,12 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
      * @param callerIdNumber The destination number to accept the call.
      * @param customeHeaders The custom headers to accept the call.
      */
-    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null) {
+    operator fun invoke(
+        callId: UUID,
+        callerIdNumber: String,
+        customeHeaders: Map<String, String>? = null,
+        debug: Boolean
+    ) {
         val telnyxCommon = TelnyxCommon.getInstance()
 
         telnyxCommon.currentCall?.let { currentCall ->
@@ -27,6 +32,6 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
             }
         }
 
-        AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders)
+        AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders, debug)
     }
 }

@@ -127,7 +127,8 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
-            context, MyFirebaseMessagingService.OPEN_TO_REPLY_REQUEST_CODE, fullScreenIntent, PendingIntent.FLAG_MUTABLE
+            context, MyFirebaseMessagingService.OPEN_TO_REPLY_REQUEST_CODE, fullScreenIntent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Answer call intent

@@ -3,16 +3,22 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <color name="telnyx_green">#00E3AA</color>
+    <color name="telnyx_green">#31b886</color>
     <color name="reject_red">#ff4d4f</color>
     <color name="background_color">#FEFDF5</color>
     <color name="colorPrimary">#1D1D1D</color>
-    <color name="colorSecondary">#F5F3E4</color>
+    <color name="colorSecondary">#E6E3D3</color>
     <color name="colorPrimaryVariant">#525252</color>
     <color name="mainTextColor">#272727</color>
     <color name="portal_blue">#3434EF</color>
     <color name="colorTransparent">#00FFFFFF</color>
     <color name="answer_green">#14F0B8</color>
+    <color name="quality_excellent">#FF4CAF50</color>
+    <color name="quality_good">#FF8BC34A</color>
+    <color name="quality_fair">#FFFFC107</color>
+    <color name="quality_poor">#FFFF9800</color>
+    <color name="quality_bad">#FFF44336</color>
+    <color name="quality_unknown">#FF9E9E9E</color>
     <color name="main_green">#008563</color>
     <color name="reconnecting_icon">#CF7E20</color>
     <color name="dropped_icon">#D40000</color>
