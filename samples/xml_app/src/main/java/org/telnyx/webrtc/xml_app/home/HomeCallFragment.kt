@@ -113,10 +113,6 @@ class HomeCallFragment : Fragment() {
                         onIdle()
                     }
 
-                    is TelnyxSocketEvent.OnClientError -> {
-                        Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
-                    }
-
                     is TelnyxSocketEvent.OnIncomingCall -> {
                         onCallIncoming(uiState.message.callId, uiState.message.callerIdNumber)
                     }

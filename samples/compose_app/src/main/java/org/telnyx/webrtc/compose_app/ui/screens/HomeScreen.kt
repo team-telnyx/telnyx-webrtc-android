@@ -71,11 +71,8 @@ import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
-import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
-import org.telnyx.webrtc.compose_app.ui.theme.ReconnectingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
-import org.telnyx.webrtc.compose_app.ui.theme.colorPrimaryVariant
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
@@ -108,10 +105,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
-    LaunchedEffect(uiState) {
-        when (uiState) {
-            is TelnyxSocketEvent.OnClientError -> {
-                val errorMessage = (uiState as TelnyxSocketEvent.OnClientError).message
+    LaunchedEffect(sessionState) {
+        when (sessionState) {
+            is TelnyxSessionState.OnClientError -> {
+                val errorMessage = (sessionState as TelnyxSessionState.OnClientError).message
                 Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                 telnyxViewModel.stopLoading()
             }
@@ -154,7 +151,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         bottomBar = {
             if (callState == CallState.DONE || callState == CallState.ERROR)
             BottomBar(
-                state = (sessionState is TelnyxSessionState.ClientLoggedIn),
+                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel,
                 currentConfig
             )
@@ -169,18 +166,19 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
         ) {
 
-            MediumTextBold(text = if (sessionState is TelnyxSessionState.ClientLoggedIn) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
+            MediumTextBold(text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
 
-            ConnectionState(state = (sessionState is TelnyxSessionState.ClientLoggedIn))
+            ConnectionState(state = (sessionState !is TelnyxSessionState.ClientDisconnected))
 
-            if (sessionState is TelnyxSessionState.ClientLoggedIn) {
+            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
                 CurrentCallState(state = uiState)
             }
 
             SessionItem(
                 sessionId = when (sessionState) {
-                    is TelnyxSessionState.ClientLoggedIn -> {
-                        (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+                    is TelnyxSessionState.ClientLoggedIn,
+                    is TelnyxSessionState.OnClientError -> {
+                        (sessionState as? TelnyxSessionState.ClientLoggedIn)?.message?.sessid ?: ""
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -370,7 +368,6 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                     popUpTo(CallScreenNav) { inclusive = true }
                 }
             }
-
             else -> {}
         }
     }
@@ -414,7 +411,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
                     when (sessionState) {
-                        is TelnyxSessionState.ClientLoggedIn -> {
+                        is TelnyxSessionState.ClientLoggedIn,
+                        is TelnyxSessionState.OnClientError -> {
                             RoundSmallButton(
                                 modifier = Modifier.fillMaxWidth(),
                                 text = stringResource(id = R.string.copy_fcm_token),
@@ -642,7 +640,8 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
         is TelnyxSocketEvent.OnIncomingCall -> Color.Black
         is TelnyxSocketEvent.OnCallEnded -> MaterialTheme.colorScheme.tertiary
         is TelnyxSocketEvent.OnRinging -> RingingIconColor
-        is TelnyxSocketEvent.OnClientError -> DroppedIconColor
+        is TelnyxSocketEvent.OnCallDropped -> DroppedIconColor
+        is TelnyxSocketEvent.OnCallReconnecting -> RingingIconColor
         else -> Color.Green
     }
 
@@ -651,7 +650,8 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
         is TelnyxSocketEvent.OnIncomingCall -> stringResource(R.string.call_state_incoming)
         is TelnyxSocketEvent.OnCallEnded -> stringResource(R.string.call_state_ended)
         is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
-        is TelnyxSocketEvent.OnClientError -> stringResource(R.string.call_state_error)
+        is TelnyxSocketEvent.OnCallDropped -> stringResource(R.string.call_state_dropped)
+        is TelnyxSocketEvent.OnCallReconnecting -> stringResource(R.string.call_state_reconnecting)
         else -> stringResource(R.string.call_state_active)
     }
 

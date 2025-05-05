@@ -83,4 +83,6 @@
     <string name="call_state_ringing">Ringing</string>
     <string name="call_state_error">Error</string>
     <string name="call_state_connecting">Connecting</string>
+    <string name="call_state_dropped">Dropped</string>
+    <string name="call_state_reconnecting">Reconnecting</string>
 </resources>

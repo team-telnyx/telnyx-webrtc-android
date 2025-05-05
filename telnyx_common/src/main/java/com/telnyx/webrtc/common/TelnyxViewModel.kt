@@ -37,8 +37,10 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import java.io.IOException
 import java.util.*
 import kotlin.coroutines.resume
@@ -47,19 +49,20 @@ import kotlin.coroutines.suspendCoroutine
 
 sealed class TelnyxSocketEvent {
     data object OnClientReady : TelnyxSocketEvent()
-    data class OnClientError(val message: String) : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
     data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
     data class OnCallEnded(val message: ByeResponse) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
     data object InitState : TelnyxSocketEvent()
-
+    data object OnCallDropped : TelnyxSocketEvent()
+    data object OnCallReconnecting : TelnyxSocketEvent()
 }
 
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
     data object ClientDisconnected : TelnyxSessionState()
+    data class OnClientError(val message: String): TelnyxSessionState()
 }
 
 /**
@@ -561,14 +564,35 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        _uiState.value =
-            TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
+        if (currentCall == null) {
+            _sessionsState.value = TelnyxSessionState.ClientDisconnected
+            _uiState.value = TelnyxSocketEvent.InitState
+        } else {
+            _sessionsState.value = TelnyxSessionState.OnClientError(
+                    response.errorMessage ?: "An Unknown Error Occurred"
+                )
+        }
     }
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
+    }
+
+    private fun handleCallState(callState: CallState) {
+        when (callState) {
+            CallState.ACTIVE  -> {
+                _uiState.value = TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
+            }
+            CallState.DROPPED -> {
+                _uiState.value = TelnyxSocketEvent.OnCallDropped
+            }
+            CallState.RECONNECTING -> {
+                _uiState.value = TelnyxSocketEvent.OnCallReconnecting
+            }
+            else -> {}
+        }
     }
 
     /**
@@ -657,7 +681,9 @@ class TelnyxViewModel : ViewModel() {
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456"))
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             }
 
             _uiState.value =

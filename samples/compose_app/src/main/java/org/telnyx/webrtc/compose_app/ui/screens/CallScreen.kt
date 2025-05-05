@@ -78,17 +78,15 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     var destinationNumber by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState) {
+        Timber.d("UI State: $uiState")
         callUIState = when (uiState) {
             is TelnyxSocketEvent.OnClientReady -> CallUIState.IDLE
-            is TelnyxSocketEvent.OnClientError -> {
-                val errorMessage = (uiState as TelnyxSocketEvent.OnClientError).message
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-                CallUIState.IDLE
-            }
             is TelnyxSocketEvent.OnIncomingCall -> {
                 CallUIState.INCOMING
             }
-            is TelnyxSocketEvent.OnCallAnswered -> {
+            is TelnyxSocketEvent.OnCallAnswered,
+            is TelnyxSocketEvent.OnCallDropped,
+            is TelnyxSocketEvent.OnCallReconnecting -> {
                 CallUIState.ACTIVE
             }
             is TelnyxSocketEvent.OnCallEnded -> {

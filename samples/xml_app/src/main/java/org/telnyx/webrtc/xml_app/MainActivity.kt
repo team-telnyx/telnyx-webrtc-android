@@ -108,6 +108,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
                 when (sessionState) {
+                    is TelnyxSessionState.OnClientError -> {
+                        Toast.makeText(this@MainActivity, sessionState.message, Toast.LENGTH_LONG).show()
+                    }
                     is TelnyxSessionState.ClientLoggedIn -> {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
@@ -164,7 +167,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             is TelnyxSocketEvent.OnIncomingCall -> R.drawable.incoming_indicator
             is TelnyxSocketEvent.OnCallEnded -> R.drawable.done_indicator
             is TelnyxSocketEvent.OnRinging -> R.drawable.ringing_indicator
-            is TelnyxSocketEvent.OnClientError -> R.drawable.dropped_indicator
+            is TelnyxSocketEvent.OnCallDropped -> R.drawable.done_indicator
+            is TelnyxSocketEvent.OnCallReconnecting -> R.drawable.ringing_indicator
             else -> R.drawable.status_circle
         }
 
@@ -173,7 +177,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             is TelnyxSocketEvent.OnIncomingCall -> getString(R.string.call_state_incoming)
             is TelnyxSocketEvent.OnCallEnded -> getString(R.string.call_state_ended)
             is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
-            is TelnyxSocketEvent.OnClientError -> getString(R.string.call_state_error)
+            is TelnyxSocketEvent.OnCallDropped -> getString(R.string.call_state_dropped)
+            is TelnyxSocketEvent.OnCallReconnecting -> getString(R.string.call_state_reconnecting)
             else -> getString(R.string.call_state_active)
         }
         binding.callStateIcon.setBackgroundResource(iconDrawable)

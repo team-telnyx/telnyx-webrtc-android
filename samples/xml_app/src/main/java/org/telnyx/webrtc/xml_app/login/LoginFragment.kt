@@ -64,9 +64,6 @@ class LoginFragment : Fragment() {
                             findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
                             cancel()
                         }
-                        is TelnyxSocketEvent.OnClientError -> {
-                            Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
-                        }
                         else -> {}
                     }
                 }
