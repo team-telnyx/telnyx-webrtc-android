@@ -107,7 +107,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+        verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
     ) {
         var isPhoneNumber by remember { mutableStateOf(false) }
         

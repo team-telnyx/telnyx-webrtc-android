@@ -71,8 +71,9 @@
 
     <string name="notification_permission_text">Notification and Audio permissions are required to continue</string>
 
-    <string name="bottom_bar_production_text">Production TelnyxSDK [v1.6.1] - App [v%1$s]</string>
+    <string name="bottom_bar_production_text">%1$s TelnyxSDK [v%2$s] - App [v%3$s]</string>
     <string name="production_label">production</string>
+    <string name="development_label">development</string>
     
     <string name="phone_number_toggle">Phone number</string>
     <string name="sip_address_toggle">SIP address</string>

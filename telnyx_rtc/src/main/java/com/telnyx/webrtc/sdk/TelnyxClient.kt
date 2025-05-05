@@ -99,6 +99,9 @@ class TelnyxClient(
 
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
+
+        /** SDK version*/
+        val SDK_VERSION = BuildConfig.SDK_VERSION
     }
 
     private var credentialSessionConfig: CredentialConfig? = null

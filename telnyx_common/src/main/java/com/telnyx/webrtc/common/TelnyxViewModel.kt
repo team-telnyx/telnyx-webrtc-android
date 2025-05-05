@@ -37,10 +37,10 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collect
 import java.io.IOException
 import java.util.*
 import kotlin.coroutines.resume
@@ -108,6 +108,12 @@ class TelnyxViewModel : ViewModel() {
     private var serverConfiguration = TxServerConfiguration()
 
     /**
+     * Flag indicating whether the server configuration is in development environment.
+     */
+    var serverConfigurationIsDev = false
+    private set
+
+    /**
      * State flow for the list of user profiles.
      * Observe this flow to display the list of profiles in the UI.
      */
@@ -145,7 +151,6 @@ class TelnyxViewModel : ViewModel() {
      */
     private var handlingResponses = false
 
-
     /**
      * Stops the loading indicator.
      */
@@ -159,6 +164,7 @@ class TelnyxViewModel : ViewModel() {
      * @param isDev If true, uses the development environment; otherwise, uses production.
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
+        serverConfigurationIsDev = isDev
         serverConfiguration = serverConfiguration.copy(
             host = if (isDev) {
                 "rtcdev.telnyx.com"

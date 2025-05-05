@@ -17,6 +17,7 @@ object Dimens {
 
     val extraSmallSpacing = 6.dp
     val smallSpacing = 12.dp
+    val spacingNormal = 16.dp
     val mediumSpacing = 24.dp
     val largeSpacing = 36.dp
     val extraLargeSpacing = 48.dp

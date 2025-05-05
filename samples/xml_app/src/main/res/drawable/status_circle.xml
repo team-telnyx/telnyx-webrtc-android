@@ -3,7 +3,7 @@
     <!-- Enabled state: Green -->
     <item android:state_enabled="true">
         <shape android:shape="oval">
-            <solid android:color="#099B76" /> <!-- Green color -->
+            <solid android:color="@color/main_green" /> <!-- Green color -->
             <size android:width="12dp" android:height="12dp" />
         </shape>
     </item>

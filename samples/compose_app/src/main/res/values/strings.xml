@@ -77,7 +77,7 @@
     <string name="switched_to_production">Switched to Production</string>
     <string name="switched_to_development">Switched to Development</string>
     <string name="push_notifications_disabled">Push Notifications Disabled</string>
-    <string name="bottom_bar_production_text">Production TelnyxSDK [v1.6.1] - App [v%1$s]</string>
+    <string name="bottom_bar_production_text">%1$s TelnyxSDK [v%2$s] - App [v%3$s]</string>
 
     <string name="caller_name">Caller name</string>
     <string name="caller_name_hint">Enter caller name</string>
@@ -85,11 +85,12 @@
     <string name="caller_number_hint">Enter caller number</string>
 
     <string name="production_label">production</string>
+    <string name="development_label">development</string>
     
     <string name="phone_number_toggle">Phone number</string>
     <string name="sip_address_toggle">SIP address</string>
     <string name="phone_number_hint">Enter phone number</string>
-    <string name="sip_address_hint">Enter sip address</string>
+    <string name="sip_address_hint">Enter SIP address</string>
 
     <string name="call_state_incoming">New</string>
     <string name="call_state_active">Active</string>

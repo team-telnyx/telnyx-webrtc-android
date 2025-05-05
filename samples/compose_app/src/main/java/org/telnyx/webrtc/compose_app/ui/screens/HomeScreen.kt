@@ -63,6 +63,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -71,6 +72,7 @@ import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
+import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
@@ -163,7 +165,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 top = it.calculateTopPadding()
             )
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spacingNormal),
         ) {
 
             MediumTextBold(text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
@@ -454,6 +456,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                     R.string.switched_to_development,
                                     Toast.LENGTH_LONG
                                 ).show()
+                                showEnvironmentBottomSheet = false
                             }
 
                             RoundSmallButton(
@@ -468,7 +471,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                     R.string.switched_to_production,
                                     Toast.LENGTH_LONG
                                 ).show()
-
+                                showEnvironmentBottomSheet = false
                             }
                         }
                     }
@@ -637,12 +640,12 @@ fun ConnectionState(state: Boolean) {
 @Composable
 fun CurrentCallState(state: TelnyxSocketEvent) {
     val callStateColor = when (state) {
-        is TelnyxSocketEvent.OnIncomingCall -> Color.Black
+        is TelnyxSocketEvent.OnIncomingCall -> MaterialTheme.colorScheme.tertiary
         is TelnyxSocketEvent.OnCallEnded -> MaterialTheme.colorScheme.tertiary
         is TelnyxSocketEvent.OnRinging -> RingingIconColor
         is TelnyxSocketEvent.OnCallDropped -> DroppedIconColor
         is TelnyxSocketEvent.OnCallReconnecting -> RingingIconColor
-        else -> Color.Green
+        else -> MainGreen
     }
 
     val callStateName = when (state) {
@@ -722,9 +725,15 @@ fun BottomBar(
             .padding(bottom = Dimens.mediumPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
-                RegularText(text = stringResource(R.string.bottom_bar_production_text, BuildConfig.VERSION_NAME),
-                    color = MaterialTheme.colorScheme.tertiary,
-                    textAlign = TextAlign.Center)
+                val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                    stringResource(R.string.development_label)
+                } else {
+                    stringResource(R.string.production_label)
+                }.replaceFirstChar { it.uppercaseChar() }
+
+                RegularText(text = stringResource(R.string.bottom_bar_production_text, environmentLabel, TelnyxClient.SDK_VERSION, BuildConfig.VERSION_NAME),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        textAlign = TextAlign.Center)
         }
     }
 

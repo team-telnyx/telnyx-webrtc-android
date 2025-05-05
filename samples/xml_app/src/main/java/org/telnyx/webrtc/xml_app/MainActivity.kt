@@ -34,6 +34,7 @@ import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,9 +100,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     }
 
     private fun setupUI() {
-        binding.apply {
-            versionInfo.text = String.format(getString(R.string.bottom_bar_production_text), BuildConfig.VERSION_NAME)
-        }
+        refreshVersionInfoText()
     }
 
     private fun bindEvents() {
@@ -256,6 +255,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 R.string.switched_to_development,
                 Toast.LENGTH_LONG
             ).show()
+            refreshVersionInfoText()
             bottomSheetDialog.dismiss()
         }
 
@@ -266,6 +266,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 R.string.switched_to_production,
                 Toast.LENGTH_LONG
             ).show()
+            refreshVersionInfoText()
             bottomSheetDialog.dismiss()
         }
 
@@ -330,5 +331,17 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     token?.continuePermissionRequest()
                 }
             }).check()
+    }
+
+    private fun refreshVersionInfoText() {
+        binding.apply {
+            val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                getString(R.string.development_label)
+            } else {
+                getString(R.string.production_label)
+            }.replaceFirstChar { it.uppercaseChar() }
+
+            versionInfo.text = String.format(getString(R.string.bottom_bar_production_text), environmentLabel, TelnyxClient.SDK_VERSION.toString(), BuildConfig.VERSION_NAME)
+        }
     }
 }
