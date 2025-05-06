@@ -626,7 +626,7 @@ fun ConnectionState(state: Boolean) {
                 modifier = Modifier
                     .size(Dimens.size12dp)
                     .background(
-                        color = if (state) Color.Green else Color.Red,
+                        color = if (state) MainGreen else Color.Red,
                         shape = shape100Percent
                     )
             )
