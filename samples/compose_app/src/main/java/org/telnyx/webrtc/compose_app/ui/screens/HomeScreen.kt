@@ -107,6 +107,9 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
+    val missingSessionIdLabel = stringResource(R.string.dash)
+    var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
+
     LaunchedEffect(sessionState) {
         when (sessionState) {
             is TelnyxSessionState.OnClientError -> {
@@ -114,8 +117,13 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                 telnyxViewModel.stopLoading()
             }
+            is TelnyxSessionState.ClientLoggedIn -> {
+                sessionId = (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+            }
 
-            else -> {}
+            is TelnyxSessionState.ClientDisconnected -> {
+                sessionId = missingSessionIdLabel
+            }
         }
     }
 
@@ -176,18 +184,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 CurrentCallState(state = uiState)
             }
 
-            SessionItem(
-                sessionId = when (sessionState) {
-                    is TelnyxSessionState.ClientLoggedIn,
-                    is TelnyxSessionState.OnClientError -> {
-                        (sessionState as? TelnyxSessionState.ClientLoggedIn)?.message?.sessid ?: ""
-                    }
-
-                    is TelnyxSessionState.ClientDisconnected -> {
-                        stringResource(R.string.dash)
-                    }
-                }
-            )
+            SessionItem(sessionId = sessionId)
 
             NavHost(navController = navController, startDestination = LoginScreenNav) {
                 composable<LoginScreenNav> {

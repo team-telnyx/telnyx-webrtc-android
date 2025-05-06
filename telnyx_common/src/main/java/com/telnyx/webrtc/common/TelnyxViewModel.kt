@@ -52,7 +52,7 @@ sealed class TelnyxSocketEvent {
     data object OnClientReady : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
     data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
-    data class OnCallEnded(val message: ByeResponse) : TelnyxSocketEvent()
+    data class OnCallEnded(val message: ByeResponse?) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
     data object InitState : TelnyxSocketEvent()
@@ -146,6 +146,11 @@ class TelnyxViewModel : ViewModel() {
      * Coroutine job for user session operations.
      */
     private var userSessionJob: Job? = null
+
+    /**
+     * Coroutine job for call state operations.
+     */
+    private var callStateJob: Job? = null
 
     /**
      * Flag to prevent handling multiple responses simultaneously.
@@ -606,6 +611,9 @@ class TelnyxViewModel : ViewModel() {
             CallState.RECONNECTING -> {
                 _uiState.value = TelnyxSocketEvent.OnCallReconnecting
             }
+            CallState.ERROR -> {
+                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+            }
             else -> {}
         }
     }
@@ -622,7 +630,11 @@ class TelnyxViewModel : ViewModel() {
         destinationNumber: String,
         debug: Boolean
     ) {
-        viewModelScope.launch {
+
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
             ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
                 Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
                 SendInvite(viewContext).invoke(
@@ -632,7 +644,9 @@ class TelnyxViewModel : ViewModel() {
                     "Sample Client State",
                     mapOf(Pair("X-test", "123456")),
                     debug
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             }
         }
     }
@@ -686,14 +700,22 @@ class TelnyxViewModel : ViewModel() {
         callerIdNumber: String,
         debug: Boolean
     ) {
-        viewModelScope.launch {
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            _uiState.value =
+                TelnyxSocketEvent.OnCallAnswered(callId)
+
             currentCall?.let {
                 HoldCurrentAndAcceptIncoming(viewContext).invoke(
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             } ?: run {
                 AcceptCall(viewContext).invoke(
                     callId,
@@ -704,8 +726,6 @@ class TelnyxViewModel : ViewModel() {
                     handleCallState(it)
                 }
             }
-            _uiState.value =
-                TelnyxSocketEvent.OnCallAnswered(callId)
         }
     }
 

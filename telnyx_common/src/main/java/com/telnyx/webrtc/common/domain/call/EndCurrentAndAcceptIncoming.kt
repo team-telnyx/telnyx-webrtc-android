@@ -2,6 +2,7 @@ package com.telnyx.webrtc.common.domain.call
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.sdk.Call
 import java.util.*
 
 /**
@@ -17,14 +18,15 @@ class EndCurrentAndAcceptIncoming(private val context: Context) {
      * @param callId The call ID to accept.
      * @param callerIdNumber The destination number to accept the call.
      * @param customeHeaders The custom headers to accept the call.
+     * @return The accepted incoming call.
      */
-    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null) {
+    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         telnyxCommon.currentCall?.let { currentCall ->
             telnyxCommon.getTelnyxClient(context).endCall(currentCall.callId)
             telnyxCommon.unregisterCall(currentCall.callId)
         }
 
-        AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders)
+        return AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders)
     }
 }
