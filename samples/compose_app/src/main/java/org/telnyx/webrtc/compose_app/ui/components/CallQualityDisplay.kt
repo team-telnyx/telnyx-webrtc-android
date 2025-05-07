@@ -23,19 +23,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.AudioWaveform
 
 /**
  * A composable that displays call quality metrics.
  *
  * @param metrics The call quality metrics to display.
+ * @param inboundLevels The inbound audio levels to display.
+ * @param outboundLevels The outbound audio levels to display.
  * @param modifier Optional modifier for the component.
  */
 @Composable
 fun CallQualityDisplay(
     metrics: CallQualityMetrics?,
+    inboundLevels: List<Float>,
+    outboundLevels: List<Float>,
     modifier: Modifier = Modifier
 ) {
-    if (metrics == null) return
+    if (metrics == null && inboundLevels.isEmpty() && outboundLevels.isEmpty()) return
 
     Card(
         modifier = modifier
@@ -58,7 +63,7 @@ fun CallQualityDisplay(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (metrics.quality == CallQuality.UNKNOWN) {
+            if (metrics?.quality == CallQuality.UNKNOWN) {
                 // Show loading indicator if quality is unknown
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -81,7 +86,7 @@ fun CallQualityDisplay(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    QualityIndicator(quality = metrics.quality)
+                    QualityIndicator(quality = metrics?.quality ?: CallQuality.UNKNOWN)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -89,19 +94,53 @@ fun CallQualityDisplay(
                 // MOS score
                 MetricRow(
                     label = "MOS Score:",
-                    value = String.format("%.2f", metrics.mos)
+                    value = String.format("%.2f", metrics?.mos ?: 0.0)
                 )
 
                 // Jitter
                 MetricRow(
                     label = "Jitter:",
-                    value = String.format("%.2f ms", metrics.jitter * 1000)
+                    value = String.format("%.2f ms", metrics?.jitter?.times(1000) ?: 0.0)
                 )
 
                 // Round-trip time
                 MetricRow(
                     label = "Round-trip Time:",
-                    value = String.format("%.2f ms", metrics.rtt * 1000)
+                    value = String.format("%.2f ms", metrics?.rtt?.times(1000) ?: 0.0)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Inbound Waveform
+                Text(
+                    text = "Inbound Level:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                AudioWaveform(
+                    audioLevels = inboundLevels,
+                    barColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Outbound Waveform
+                Text(
+                    text = "Outbound Level:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                AudioWaveform(
+                    audioLevels = outboundLevels,
+                    barColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
                 )
             }
         }

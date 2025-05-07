@@ -48,6 +48,7 @@ internal class Peer(
 
     companion object {
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
+        private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
     }
 
@@ -273,16 +274,12 @@ internal class Peer(
         }
 
         localAudioTrack?.setEnabled(true)
+        localAudioTrack?.setVolume(1.0)
         Logger.d(tag = "Peer:Audio", message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}")
 
-        val audioTransceiverInit = RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV)
-        val transceiver = peerConnection?.addTransceiver(localAudioTrack, audioTransceiverInit)
-
-        if (transceiver == null) {
-             Logger.e(tag = "Peer:Audio", message = "Failed to add audio transceiver.")
-        } else {
-             Logger.d(tag = "Peer:Audio", message = "Audio transceiver added. Mid: ${transceiver.mid}, Direction: ${transceiver.direction}, CurrentDirection: ${transceiver.currentDirection}")
-        }
+        val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
+        localStream.addTrack(localAudioTrack)
+        peerConnection?.addTrack(localAudioTrack)
     }
 
     /**
@@ -488,7 +485,7 @@ internal class Peer(
             peerConnection?.dispose()
             peerConnection = null
         }catch (e: IllegalStateException){
-            Logger.e(message = "Error during peer connection disconnect: ${e.toString()}")
+            Logger.e(message = "Error during peer connection disconnect: $e")
         }
     }
 

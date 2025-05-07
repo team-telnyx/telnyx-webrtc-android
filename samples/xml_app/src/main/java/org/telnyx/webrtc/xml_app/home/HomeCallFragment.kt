@@ -228,6 +228,8 @@ class HomeCallFragment : Fragment() {
             callQualityBinding.textMosValue.text = String.format(Locale.US, "%.2f", metrics.mos)
             callQualityBinding.textJitterValue.text = String.format(Locale.US, "%.2f ms", metrics.jitter * 1000)
             callQualityBinding.textRttValue.text = String.format(Locale.US, "%.2f ms", metrics.rtt * 1000)
+            callQualityBinding.textInboundLevelValue.text = String.format(Locale.US, "%.2f", metrics.inboundAudioLevel)
+            callQualityBinding.textOutboundLevelValue.text = String.format(Locale.US, "%.2f", metrics.outboundAudioLevel)
         }
     }
 
