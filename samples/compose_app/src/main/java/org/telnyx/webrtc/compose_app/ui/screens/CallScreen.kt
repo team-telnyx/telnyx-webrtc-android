@@ -78,6 +78,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     var showDialpadSection by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
+    val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
+    val outboundLevels by telnyxViewModel.outboundAudioLevels.collectAsState()
 
     LaunchedEffect(uiState) {
         callUIState = when (uiState) {
@@ -184,7 +186,11 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 }
                             }
                             // Display call quality metrics when available
-                            CallQualityDisplay(metrics = callQualityMetrics)
+                            CallQualityDisplay(
+                                metrics = callQualityMetrics,
+                                inboundLevels = inboundLevels,
+                                outboundLevels = outboundLevels
+                            )
                         }
 
                     }

@@ -25,6 +25,16 @@ data class CallQualityMetrics(
     val quality: CallQuality,
 
     /**
+     * Instantaneous inbound audio level (typically 0.0 to 1.0)
+     */
+    val inboundAudioLevel: Float,
+
+    /**
+     * Instantaneous outbound (local) audio level (typically 0.0 to 1.0)
+     */
+    val outboundAudioLevel: Float,
+
+    /**
      * Inbound audio statistics
      */
     val inboundAudio: Map<String, Any>? = null,
@@ -53,7 +63,9 @@ data class CallQualityMetrics(
             "jitter" to jitter,
             "rtt" to rtt,
             "mos" to mos,
-            "quality" to quality.name.lowercase()
+            "quality" to quality.name.lowercase(),
+            "inboundAudioLevel" to inboundAudioLevel,
+            "outboundAudioLevel" to outboundAudioLevel
         )
 
         inboundAudio?.let { map["inboundAudio"] = it }

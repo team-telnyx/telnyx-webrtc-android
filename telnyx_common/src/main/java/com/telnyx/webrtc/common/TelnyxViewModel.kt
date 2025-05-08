@@ -68,7 +68,7 @@ sealed class TelnyxSessionState {
 
 /**
  * Main ViewModel for interacting with the Telnyx WebRTC SDK.
- * 
+ *
  * This ViewModel provides methods for authentication, call management, and handling
  * incoming calls. It exposes state flows for observing socket events, session state,
  * and loading state.
@@ -156,6 +156,23 @@ class TelnyxViewModel : ViewModel() {
      * Flag to prevent handling multiple responses simultaneously.
      */
     private var handlingResponses = false
+
+    /**
+     * State flow for inbound audio levels.
+     */
+    private val _inboundAudioLevels = MutableStateFlow<List<Float>>(emptyList())
+    val inboundAudioLevels: StateFlow<List<Float>> = _inboundAudioLevels.asStateFlow()
+
+    /**
+     * State flow for outbound audio levels.
+     */
+    private val _outboundAudioLevels = MutableStateFlow<List<Float>>(emptyList())
+    val outboundAudioLevels: StateFlow<List<Float>> = _outboundAudioLevels.asStateFlow()
+
+    /**
+     * Job for collecting audio levels.
+     */
+    private var audioLevelCollectorJob: Job? = null
 
     /**
      * Stops the loading indicator.
@@ -430,11 +447,12 @@ class TelnyxViewModel : ViewModel() {
      * State flow for call quality metrics of the current call, observed from TelnyxCommon.
      * Observe this flow to display real-time call quality metrics in the UI.
      */
-    val callQualityMetrics: StateFlow<CallQualityMetrics?> = TelnyxCommon.getInstance().callQualityMetrics
+    val callQualityMetrics: StateFlow<CallQualityMetrics?> =
+        TelnyxCommon.getInstance().callQualityMetrics
 
     /**
      * Disconnects the current session.
-     * 
+     *
      * This method will only disconnect if there is no active call and we're not handling
      * a push notification. If there is an active call, the disconnect will be prevented.
      *
@@ -459,7 +477,7 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Connects using the last used profile configuration.
-     * 
+     *
      * This method will automatically choose between token and credential login
      * based on the available information in the last used profile.
      *
@@ -512,7 +530,7 @@ class TelnyxViewModel : ViewModel() {
         response: SocketResponse<ReceivedMessageBody>,
         isPushConnection: Boolean
     ) {
-        val data = response.data as? ReceivedMessageBody
+        val data = response.data
         when (data?.method) {
             SocketMethod.CLIENT_READY.methodName -> handleClientReady()
             SocketMethod.LOGIN.methodName -> handleLogin(data, isPushConnection)
@@ -649,11 +667,15 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+
+        if (debug) {
+            collectAudioLevels()
+        }
     }
 
     /**
      * Ends the current active call.
-     * 
+     *
      * If there was a previous call on hold, it will be automatically unholded.
      *
      * @param viewContext The application context.
@@ -685,7 +707,7 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Answers an incoming call.
-     * 
+     *
      * If there is already an active call, the current call will be put on hold
      * before answering the new call.
      *
@@ -727,11 +749,15 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+
+        if (debug) {
+            collectAudioLevels()
+        }
     }
 
     /**
      * Toggles the hold state of the current call.
-     * 
+     *
      * If the call is active, it will be put on hold.
      * If the call is on hold, it will be unholded.
      *
@@ -754,5 +780,53 @@ class TelnyxViewModel : ViewModel() {
         currentCall?.let { call ->
             call.dtmf(call.callId, key)
         }
+    }
+
+    private fun collectAudioLevels() {
+        // Cancel any previous collector job FIRST to avoid multiple collectors
+        audioLevelCollectorJob?.cancel()
+        audioLevelCollectorJob = viewModelScope.launch {
+            Timber.d("Audio level collection started.")
+            TelnyxCommon.getInstance().callQualityMetrics.collect { metrics ->
+                if (metrics == null) {
+                    // Clear levels when call ends or metrics are null
+                    if (_inboundAudioLevels.value.isNotEmpty()) {
+                        _inboundAudioLevels.value = emptyList()
+                    }
+                    if (_outboundAudioLevels.value.isNotEmpty()) {
+                        _outboundAudioLevels.value = emptyList()
+                    }
+                    // Cancel the job itself when metrics become null (call ended)
+                    audioLevelCollectorJob?.cancel()
+                    Timber.d("Audio level collection stopped as call ended.")
+                } else {
+                    // Update inbound levels
+                    val currentInbound = _inboundAudioLevels.value.toMutableList()
+                    currentInbound.add(metrics.inboundAudioLevel)
+                    while (currentInbound.size > MAX_AUDIO_LEVELS) {
+                        currentInbound.removeAt(0)
+                    }
+                    _inboundAudioLevels.value = currentInbound
+
+                    // Update outbound levels
+                    val currentOutbound = _outboundAudioLevels.value.toMutableList()
+                    currentOutbound.add(metrics.outboundAudioLevel)
+                    while (currentOutbound.size > MAX_AUDIO_LEVELS) {
+                        currentOutbound.removeAt(0)
+                    }
+                    _outboundAudioLevels.value = currentOutbound
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioLevelCollectorJob?.cancel()
+        userSessionJob?.cancel()
+    }
+
+    companion object {
+        private const val MAX_AUDIO_LEVELS = 100
     }
 }
