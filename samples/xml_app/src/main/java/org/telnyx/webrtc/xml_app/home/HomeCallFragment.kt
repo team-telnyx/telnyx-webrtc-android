@@ -59,6 +59,24 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun setupUI() {
+        // Setup call type toggle
+        binding.callTypeSwitch.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                when (checkedId) {
+                    R.id.phoneNumberToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_PHONE
+                        (activity as? MainActivity)?.highlightButton(binding.phoneNumberToggle)
+                        (activity as? MainActivity)?.resetButton(binding.sipAddressToggle)
+                    }
+                    R.id.sipAddressToggle -> {
+                        binding.callInput.inputType = android.text.InputType.TYPE_CLASS_TEXT
+                        (activity as? MainActivity)?.highlightButton(binding.sipAddressToggle)
+                        (activity as? MainActivity)?.resetButton(binding.phoneNumberToggle)
+                    }
+                }
+            }
+        }
+
         binding.call.setOnClickListener {
             binding.callInput.text?.let { editable ->
                 if (editable.isNotEmpty()) {
@@ -83,10 +101,6 @@ class HomeCallFragment : Fragment() {
             telnyxViewModel.currentCall?.onLoudSpeakerPressed()
         }
 
-        binding.disconnect.setOnClickListener {
-            telnyxViewModel.disconnect(this@HomeCallFragment.requireContext())
-        }
-
         binding.hold.setOnClickListener {
             telnyxViewModel.holdUnholdCurrentCall(this@HomeCallFragment.requireContext())
         }
@@ -107,11 +121,6 @@ class HomeCallFragment : Fragment() {
                 when (uiState) {
                     is TelnyxSocketEvent.OnClientReady -> {
                         onIdle()
-                    }
-
-                    is TelnyxSocketEvent.OnClientError -> {
-                        Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
-                        onIdle() // Reset UI on error
                     }
 
                     is TelnyxSocketEvent.OnIncomingCall -> {
@@ -145,27 +154,36 @@ class HomeCallFragment : Fragment() {
 
     private fun onIdle() {
         binding.callIdleView.visibility = View.VISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
-        binding.callIncomingView.visibility = View.INVISIBLE
+        binding.callActiveView.visibility = View.GONE
+        binding.callIncomingView.visibility = View.GONE
+        binding.callTypeSwitch.visibility = View.VISIBLE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = true
         callQualityBinding.root.visibility = View.GONE // Hide quality display on idle
     }
 
     private fun onCallActive() {
-        binding.callIdleView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
         binding.callActiveView.visibility = View.VISIBLE
         binding.callIncomingView.visibility = View.INVISIBLE
         // Quality display visibility is handled by observeCallQuality based on metrics
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.VISIBLE
+        binding.callInput.isEnabled = false
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {
-        binding.callIdleView.visibility = View.INVISIBLE
-        binding.callActiveView.visibility = View.INVISIBLE
+        binding.callIdleView.visibility = View.GONE
+        binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.VISIBLE
+        binding.callTypeSwitch.visibility = View.GONE
+        binding.destinationInfo.visibility = View.GONE
         callQualityBinding.root.visibility = View.GONE // Hide quality display for incoming call
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber, true) // Enable call quality stats
             // Observers will be registered in OnCallAnswered
+            binding.callInput.setText(callerIdNumber)
         }
 
         binding.callReject.setOnClickListener {
@@ -185,14 +203,7 @@ class HomeCallFragment : Fragment() {
         }
 
         telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observe(viewLifecycleOwner) { onHold ->
-            (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.pause_24 else R.drawable.play_24)
-        }
-
-        // Listen for call state changes:
-        lifecycleScope.launch {
-            telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                (activity as? MainActivity)?.updateCallState(callState.toString())
-            }
+            (binding.hold as? MaterialButton)?.setIconResource(if (onHold) R.drawable.play_24 else R.drawable.pause_24)
         }
     }
 

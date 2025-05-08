@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.Job
@@ -48,19 +50,20 @@ import kotlin.coroutines.suspendCoroutine
 
 sealed class TelnyxSocketEvent {
     data object OnClientReady : TelnyxSocketEvent()
-    data class OnClientError(val message: String) : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
     data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
-    data class OnCallEnded(val message: ByeResponse) : TelnyxSocketEvent()
+    data class OnCallEnded(val message: ByeResponse?) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
     data object InitState : TelnyxSocketEvent()
-
+    data object OnCallDropped : TelnyxSocketEvent()
+    data object OnCallReconnecting : TelnyxSocketEvent()
 }
 
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
     data object ClientDisconnected : TelnyxSessionState()
+    data class OnClientError(val message: String): TelnyxSessionState()
 }
 
 /**
@@ -106,6 +109,12 @@ class TelnyxViewModel : ViewModel() {
     private var serverConfiguration = TxServerConfiguration()
 
     /**
+     * Flag indicating whether the server configuration is in development environment.
+     */
+    var serverConfigurationIsDev = false
+    private set
+
+    /**
      * State flow for the list of user profiles.
      * Observe this flow to display the list of profiles in the UI.
      */
@@ -139,6 +148,11 @@ class TelnyxViewModel : ViewModel() {
     private var userSessionJob: Job? = null
 
     /**
+     * Coroutine job for call state operations.
+     */
+    private var callStateJob: Job? = null
+
+    /**
      * Flag to prevent handling multiple responses simultaneously.
      */
     private var handlingResponses = false
@@ -160,7 +174,6 @@ class TelnyxViewModel : ViewModel() {
      */
     private var audioLevelCollectorJob: Job? = null
 
-
     /**
      * Stops the loading indicator.
      */
@@ -174,6 +187,7 @@ class TelnyxViewModel : ViewModel() {
      * @param isDev If true, uses the development environment; otherwise, uses production.
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
+        serverConfigurationIsDev = isDev
         serverConfiguration = serverConfiguration.copy(
             host = if (isDev) {
                 "rtcdev.telnyx.com"
@@ -588,14 +602,38 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        _uiState.value =
-            TelnyxSocketEvent.OnClientError(response.errorMessage ?: "An Unknown Error Occurred")
+        if (currentCall == null) {
+            _sessionsState.value = TelnyxSessionState.ClientDisconnected
+            _uiState.value = TelnyxSocketEvent.InitState
+        } else {
+            _sessionsState.value = TelnyxSessionState.OnClientError(
+                    response.errorMessage ?: "An Unknown Error Occurred"
+                )
+        }
     }
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
+    }
+
+    private fun handleCallState(callState: CallState) {
+        when (callState) {
+            CallState.ACTIVE  -> {
+                _uiState.value = TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
+            }
+            CallState.DROPPED -> {
+                _uiState.value = TelnyxSocketEvent.OnCallDropped
+            }
+            CallState.RECONNECTING -> {
+                _uiState.value = TelnyxSocketEvent.OnCallReconnecting
+            }
+            CallState.ERROR -> {
+                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+            }
+            else -> {}
+        }
     }
 
     /**
@@ -610,7 +648,11 @@ class TelnyxViewModel : ViewModel() {
         destinationNumber: String,
         debug: Boolean
     ) {
-        viewModelScope.launch {
+
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
             ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
                 Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
                 SendInvite(viewContext).invoke(
@@ -620,7 +662,9 @@ class TelnyxViewModel : ViewModel() {
                     "Sample Client State",
                     mapOf(Pair("X-test", "123456")),
                     debug
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             }
         }
 
@@ -678,24 +722,32 @@ class TelnyxViewModel : ViewModel() {
         callerIdNumber: String,
         debug: Boolean
     ) {
-        viewModelScope.launch {
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            _uiState.value =
+                TelnyxSocketEvent.OnCallAnswered(callId)
+
             currentCall?.let {
                 HoldCurrentAndAcceptIncoming(viewContext).invoke(
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             } ?: run {
                 AcceptCall(viewContext).invoke(
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug
-                )
+                ).callStateFlow.collect {
+                    handleCallState(it)
+                }
             }
-            _uiState.value =
-                TelnyxSocketEvent.OnCallAnswered(callId)
         }
 
         if (debug) {

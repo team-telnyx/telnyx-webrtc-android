@@ -64,9 +64,6 @@ class LoginFragment : Fragment() {
                             findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
                             cancel()
                         }
-                        is TelnyxSocketEvent.OnClientError -> {
-                            Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
-                        }
                         else -> {}
                     }
                 }
@@ -85,18 +82,6 @@ private fun setupListeners() {
                 )
             }
         }
-
-        // Connect button click
-        connect.setOnClickListener {
-            telnyxViewModel.currentProfile.value?.let { currentProfile ->
-                if (currentProfile.sipToken?.isEmpty() == false)
-                    telnyxViewModel.tokenLogin(this@LoginFragment.requireContext(), currentProfile,null)
-                else
-                    telnyxViewModel.credentialLogin(this@LoginFragment.requireContext(), currentProfile,null)
-            }
-
-        }
-
 
     }
 }

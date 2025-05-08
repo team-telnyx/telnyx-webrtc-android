@@ -4,7 +4,6 @@
     <string name="connect">Connect</string>
     <string name="socket">Socket</string>
     <string name="session_id">Session ID</string>
-    <string name="destination">Destination</string>
     <string name="disconnected">Disconnected</string>
     <string name="client_ready">Client-ready</string>
     <string name="dash">-</string>
@@ -12,6 +11,7 @@
     <string name="call">Call</string>
     <string name="sip_username">SIP Username</string>
     <string name="password">Password</string>
+    <string name="password_hint">Enter password</string>
     <string name="caller_id_name">Caller ID Name</string>
     <string name="caller_id_number">Caller ID Number</string>
     <string name="decline">Decline</string>
@@ -30,10 +30,10 @@
     <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
     <string name="message_subscribe_failed">Failed to subscribe to topic</string>
     <string name="message_subscribed">Subscribed to topic</string>
-    <string name="connected">Connected</string>
+    <string name="connected">Client-ready</string>
     <string name="disconnect">Disconnect</string>
     <string name="login_token">Login Token</string>
-    <string name="token_login">Token login</string>
+    <string name="token_login">Token Login</string>
     <string name="off">Off</string>
     <string name="on">On</string>
     <string name="audio_settings">Audio Output Device</string>
@@ -50,14 +50,15 @@
     <string name="profile">Profile</string>
     <string name="missing_profile">No Profile</string>
     <string name="icon">icon</string>
-    <string name="switch_profile">Switch Profile</string>
+    <string name="switch_profile">Switch profile</string>
     <string name="existing_profiles">Existing profiles</string>
     <string name="close_button_dessc">close button</string>
     <string name="add_new_profile">Add new profile</string>
     <string name="Cancel">Cancel</string>
     <string name="username">Username</string>
+    <string name="username_hint">Enter username</string>
     <string name="token">Token</string>
-    <string name="sign_in">Sign In</string>
+    <string name="token_hint">Enter token</string>
     <string name="delete">Delete</string>
     <string name="credential_login">Credential Login</string>
     <string name="confirm">Confirm</string>
@@ -76,5 +77,27 @@
     <string name="switched_to_production">Switched to Production</string>
     <string name="switched_to_development">Switched to Development</string>
     <string name="push_notifications_disabled">Push Notifications Disabled</string>
+    <string name="bottom_bar_production_text">%1$s TelnyxSDK [v%2$s] - App [v%3$s]</string>
 
+    <string name="caller_name">Caller name</string>
+    <string name="caller_name_hint">Enter caller name</string>
+    <string name="caller_number">Caller number</string>
+    <string name="caller_number_hint">Enter caller number</string>
+
+    <string name="production_label">production</string>
+    <string name="development_label">development</string>
+    
+    <string name="phone_number_toggle">Phone number</string>
+    <string name="sip_address_toggle">SIP address</string>
+    <string name="phone_number_hint">Enter phone number</string>
+    <string name="sip_address_hint">Enter SIP address</string>
+
+    <string name="call_state_incoming">New</string>
+    <string name="call_state_active">Active</string>
+    <string name="call_state_ended">Done</string>
+    <string name="call_state_ringing">Ringing</string>
+    <string name="call_state_error">Error</string>
+    <string name="call_state_connecting">Connecting</string>
+    <string name="call_state_dropped">Dropped</string>
+    <string name="call_state_reconnecting">Reconnecting</string>
 </resources>

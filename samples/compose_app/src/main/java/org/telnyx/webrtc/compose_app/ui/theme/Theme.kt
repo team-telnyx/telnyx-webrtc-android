@@ -23,7 +23,7 @@ private val LightColorScheme = lightColorScheme(
     secondary = colorSecondary,
     tertiary = colorPrimaryVariant,
     background = background_color,
-    surface =surface,
+    surface = surface,
     primaryContainer = primaryContainer
     /* Other default colors to override
 

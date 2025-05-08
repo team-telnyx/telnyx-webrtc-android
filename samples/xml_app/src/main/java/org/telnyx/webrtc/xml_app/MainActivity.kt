@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.widget.TextView
 import android.widget.Toast
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -13,14 +12,17 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
+import com.google.android.material.button.MaterialButton
 import com.google.firebase.FirebaseApp
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
@@ -28,10 +30,15 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.common.TelnyxSessionState
+import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
+import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 
@@ -73,6 +80,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             setOf(R.id.loginFragment)
         )
 
+        setupUI()
         setupGestureDetector()
         bindEvents()
     }
@@ -91,20 +99,48 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         telnyxViewModel.disconnect(this)
     }
 
+    private fun setupUI() {
+        refreshVersionInfoText()
+    }
+
     private fun bindEvents() {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
                 when (sessionState) {
+                    is TelnyxSessionState.OnClientError -> {
+                        Toast.makeText(this@MainActivity, sessionState.message, Toast.LENGTH_LONG).show()
+                    }
                     is TelnyxSessionState.ClientLoggedIn -> {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
                         binding.sessionId.text = sessionState.message.sessid
+
+                        binding.bottomButton.text = getString(R.string.disconnect)
+                        binding.bottomButton.setOnClickListener {
+                            telnyxViewModel.disconnect(this@MainActivity)
+                        }
+
+                        binding.callState.visibility = View.VISIBLE
+                        binding.callStateLabel.visibility = View.VISIBLE
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
                         binding.socketStatusIcon.isEnabled = false
                         binding.socketStatusInfo.text = getString(R.string.disconnected)
                         binding.sessionId.text = getString(R.string.dash)
+
+                        binding.bottomButton.text = getString(R.string.connect)
+                        binding.bottomButton.setOnClickListener {
+                            telnyxViewModel.currentProfile.value?.let { currentProfile ->
+                                if (currentProfile.sipToken?.isEmpty() == false)
+                                    telnyxViewModel.tokenLogin(this@MainActivity, currentProfile,null)
+                                else
+                                    telnyxViewModel.credentialLogin(this@MainActivity, currentProfile,null)
+                            }
+                        }
+
+                        binding.callState.visibility = View.GONE
+                        binding.callStateLabel.visibility = View.GONE
                     }
                 }
             }
@@ -116,10 +152,46 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     if (isLoading) View.VISIBLE else View.INVISIBLE
             }
         }
+
+        // Listen for call state changes:
+        lifecycleScope.launch {
+            telnyxViewModel.uiState.collect { uiState ->
+                updateCallState(uiState)
+            }
+        }
     }
 
-    fun updateCallState(callState: String) {
-        findViewById<TextView>(R.id.callState).text = callState
+    fun updateCallState(uiState: TelnyxSocketEvent) {
+        val iconDrawable = when (uiState) {
+            is TelnyxSocketEvent.OnIncomingCall -> R.drawable.incoming_indicator
+            is TelnyxSocketEvent.OnCallEnded -> R.drawable.done_indicator
+            is TelnyxSocketEvent.OnRinging -> R.drawable.ringing_indicator
+            is TelnyxSocketEvent.OnCallDropped -> R.drawable.done_indicator
+            is TelnyxSocketEvent.OnCallReconnecting -> R.drawable.ringing_indicator
+            else -> R.drawable.status_circle
+        }
+
+        val callStateName = when (uiState) {
+            is TelnyxSocketEvent.InitState -> getString(R.string.call_state_connecting)
+            is TelnyxSocketEvent.OnIncomingCall -> getString(R.string.call_state_incoming)
+            is TelnyxSocketEvent.OnCallEnded -> getString(R.string.call_state_ended)
+            is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
+            is TelnyxSocketEvent.OnCallDropped -> getString(R.string.call_state_dropped)
+            is TelnyxSocketEvent.OnCallReconnecting -> getString(R.string.call_state_reconnecting)
+            else -> getString(R.string.call_state_active)
+        }
+        binding.callStateIcon.setBackgroundResource(iconDrawable)
+        binding.callStateInfo.text = callStateName
+    }
+
+    fun highlightButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(this, R.color.main_green))
+        button.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+    }
+
+    fun resetButton(button: MaterialButton) {
+        button.setBackgroundColor(ContextCompat.getColor(this, android.R.color.white))
+        button.setTextColor(ContextCompat.getColor(this, android.R.color.black))
     }
 
     private fun handleCallNotification(intent: Intent?) {
@@ -183,6 +255,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 R.string.switched_to_development,
                 Toast.LENGTH_LONG
             ).show()
+            refreshVersionInfoText()
             bottomSheetDialog.dismiss()
         }
 
@@ -193,6 +266,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 R.string.switched_to_production,
                 Toast.LENGTH_LONG
             ).show()
+            refreshVersionInfoText()
             bottomSheetDialog.dismiss()
         }
 
@@ -257,5 +331,17 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     token?.continuePermissionRequest()
                 }
             }).check()
+    }
+
+    private fun refreshVersionInfoText() {
+        binding.apply {
+            val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                getString(R.string.development_label)
+            } else {
+                getString(R.string.production_label)
+            }.replaceFirstChar { it.uppercaseChar() }
+
+            versionInfo.text = String.format(getString(R.string.bottom_bar_production_text), environmentLabel, TelnyxClient.SDK_VERSION.toString(), BuildConfig.VERSION_NAME)
+        }
     }
 }

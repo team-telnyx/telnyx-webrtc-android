@@ -20,7 +20,7 @@ data class LoginParam(
     val loginParams: Map<Any,Any>?,
     val sessid: String ,
     @SerializedName("User-Agent")
-    val userAgent: String = "Android-" + BuildConfig.SDK_VERSION.toString(),
+    val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
 ) : ParamRequest()
 
 data class StatPrams(
@@ -53,7 +53,7 @@ data class CallParams(
     val sessid: String,
     val sdp: String,
     @SerializedName("User-Agent")
-    val userAgent: String = "Android-" + BuildConfig.SDK_VERSION.toString(),
+    val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
     val dialogParams: CallDialogParams
 ) : ParamRequest()
 

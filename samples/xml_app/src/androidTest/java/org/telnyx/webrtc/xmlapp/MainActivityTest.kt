@@ -6,6 +6,7 @@ import androidx.test.espresso.IdlingRegistry
 import androidx.test.espresso.action.ViewActions.clearText
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
+import androidx.test.espresso.action.ViewActions.scrollTo
 import androidx.test.espresso.action.ViewActions.typeText
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.assertion.ViewAssertions.matches
@@ -51,15 +52,15 @@ class MainActivityTest {
 
         onView(withId(R.id.usernameTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_USERNAME))
+            .perform(typeText(BuildConfig.TEST_SIP_USERNAME), closeSoftKeyboard())
 
         onView(withId(R.id.passwordTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD))
+            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD), closeSoftKeyboard())
 
         onView(withId(R.id.callerIdNameTextField))
             .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME))
+            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME), closeSoftKeyboard())
 
         onView(withId(R.id.callerIdNumberTextField))
             .check(matches(isDisplayed()))
@@ -72,7 +73,11 @@ class MainActivityTest {
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
 
-        onView(withId(R.id.connect))
+        onView(withId(R.id.profileConfirmButton))
+            .check(matches(isDisplayed()))
+            .perform(click())
+
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
 
@@ -80,7 +85,7 @@ class MainActivityTest {
         val connectIdlingResource = ElapsedTimeIdlingResource(10000)
         IdlingRegistry.getInstance().register(connectIdlingResource)
 
-        onView(withId(R.id.disconnect))
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
             
@@ -97,7 +102,11 @@ class MainActivityTest {
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
 
-        onView(withId(R.id.connect))
+        onView(withId(R.id.profileConfirmButton))
+            .check(matches(isDisplayed()))
+            .perform(click())
+
+        onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
 
@@ -113,12 +122,13 @@ class MainActivityTest {
 
         onView(withId(R.id.call))
             .check(matches(isDisplayed()))
-            .perform(click())
+            .perform(scrollTo(), click())
 
         onView(withId(R.id.callActiveView))
             .perform(waitUntilVisible(30000))
 
         onView(withId(R.id.mute))
+            .perform(scrollTo())
             .check(matches(isDisplayed()))
             .perform(click())
 
@@ -153,6 +163,7 @@ class MainActivityTest {
             .perform(click())
 
         onView(withId(R.id.endCall))
+            .perform(scrollTo())
             .check(matches(isDisplayed()))
             .perform(click())
 

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
@@ -72,7 +73,7 @@ class MainActivityTest {
 
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithTag("call").performClick()
+        composeTestRule.onNodeWithTag("call").performScrollTo().assertIsDisplayed().performClick()
 
         composeTestRule.waitForIdle()
 
@@ -80,14 +81,14 @@ class MainActivityTest {
             composeTestRule.onNodeWithTag("callActiveView").isDisplayed()
         }
 
-        composeTestRule.onNodeWithTag("mute").performClick()
-        composeTestRule.onNodeWithTag("mute").performClick()
+        composeTestRule.onNodeWithTag("mute").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("mute").performScrollTo().performClick()
 
-        composeTestRule.onNodeWithTag("loudSpeaker").performClick()
-        composeTestRule.onNodeWithTag("loudSpeaker").performClick()
+        composeTestRule.onNodeWithTag("loudSpeaker").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("loudSpeaker").performScrollTo().performClick()
 
 
-        composeTestRule.onNodeWithTag("endCall").performClick()
+        composeTestRule.onNodeWithTag("endCall").performScrollTo().performClick()
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).performClick()
@@ -105,16 +106,16 @@ class MainActivityTest {
         composeTestRule.onNodeWithText(context.getString(R.string.add_new_profile)).performClick()
         composeTestRule.onNodeWithText(context.getString(R.string.credential_login)).assertIsDisplayed()
 
-        composeTestRule.onNodeWithTag("sipUsername").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("sipUsername").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("sipUsername").performTextInput(BuildConfig.TEST_SIP_USERNAME)
-        composeTestRule.onNodeWithTag("sipPassword").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("sipPassword").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("sipPassword").performTextInput(BuildConfig.TEST_SIP_PASSWORD)
-        composeTestRule.onNodeWithTag("callerIDName").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("callerIDName").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("callerIDName").performTextInput(BuildConfig.TEST_SIP_CALLER_NAME)
-        composeTestRule.onNodeWithTag("callerIDNumber").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("callerIDNumber").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
         composeTestRule.onNodeWithTag("credentialsForm").performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.save)).performClick()
+        composeTestRule.onNodeWithText(context.getString(R.string.confirm)).performClick()
 
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("profileList").onChildAt(0).performClick()

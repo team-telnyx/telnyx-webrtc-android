@@ -2,6 +2,7 @@ package com.telnyx.webrtc.common.domain.call
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.sdk.Call
 import java.util.*
 
 /**
@@ -17,13 +18,14 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
      * @param callId The call ID to accept.
      * @param callerIdNumber The destination number to accept the call.
      * @param customeHeaders The custom headers to accept the call.
+     * @return The accepted incoming call.
      */
     operator fun invoke(
         callId: UUID,
         callerIdNumber: String,
         customeHeaders: Map<String, String>? = null,
         debug: Boolean
-    ) {
+    ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
 
         telnyxCommon.currentCall?.let { currentCall ->
@@ -32,6 +34,6 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
             }
         }
 
-        AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders, debug)
+        return AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders, debug)
     }
 }

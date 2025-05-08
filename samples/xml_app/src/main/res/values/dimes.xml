@@ -30,7 +30,11 @@
     <dimen name="button_padding_start_end">@dimen/spacing_normal</dimen>
     <dimen name="button_padding_top_bottom">@dimen/spacing_small</dimen>
     <dimen name="button_icon_margin">8dp</dimen>
+    <dimen name="button_height">32dp</dimen>
 
     <dimen name="match_constraint">0dp</dimen>
     <dimen name="no_padding">0dp</dimen>
+
+    <!-- form field -->
+    <dimen name="form_field_normal">48dp</dimen>
 </resources>

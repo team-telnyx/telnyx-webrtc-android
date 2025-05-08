@@ -1,9 +1,13 @@
 package org.telnyx.webrtc.xml_app.login
 
+import android.animation.ObjectAnimator
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import androidx.core.animation.doOnEnd
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -19,6 +23,10 @@ import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CredentialsLayoutBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
+import android.view.animation.AnimationUtils
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
+import org.telnyx.webrtc.xml_app.MainActivity
 
 class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
@@ -31,6 +39,8 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
     private val credentialsBinding get() = _credentialsBinding!!
 
     private var isCredentialLayoutVisible = false
+
+    private lateinit var adapter: ProfileListAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -107,7 +117,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipUser = usernameTextField.text.toString()
             val sipPass = passwordTextField.text.toString()
 
-            if (sessionSwitch.isChecked) {
+            if (credentialsBinding.sessionSwitch.checkedButtonId == R.id.tokenLogin) {
                 if (sipToken.isEmpty()) {
                     tokenTextField.error = getString(R.string.error_empty_field)
                     isValid = false
@@ -128,11 +138,10 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
     private fun setupRecyclerView() {
         binding.allProfiles.layoutManager = LinearLayoutManager(requireContext())
-        val adapter = ProfileListAdapter() { profile,action ->
+        adapter = ProfileListAdapter() { profile,action ->
             when(action) {
                 ProfileAction.DELETE_PROFILE -> {
                     telnyxViewModel.deleteProfile(requireContext(), profile)
-
                 }
                 ProfileAction.EDIT_PROFILE -> {
                     toggleCredentialLayout(true)
@@ -146,18 +155,24 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                     }
                 }
                 ProfileAction.SELECT_PROFILE -> {
-                    telnyxViewModel.setCurrentConfig(requireContext(), profile)
-                    dismiss()
+                    adapter.setSelectedProfile(profile)
                 }
             }
-            telnyxViewModel.setCurrentConfig(requireContext(), profile)
         }
         binding.allProfiles.adapter = adapter
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                telnyxViewModel.profileList.collectLatest { profiles ->
-                    adapter.submitList(profiles) // Submit the new list to the adapter
+                launch {
+                    telnyxViewModel.profileList.collectLatest { profiles ->
+                        adapter.submitList(profiles) // Submit the new list to the adapter
+                    }
+                }
+
+                launch {
+                    telnyxViewModel.currentProfile.collectLatest { selectedProfile ->
+                        adapter.setSelectedProfile(selectedProfile)
+                    }
                 }
             }
         }
@@ -167,22 +182,62 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         telnyxViewModel.setupProfileList(requireContext())
         binding.apply {
             headerInfo.getChildAt(1).setOnClickListener { dismiss() }
-            addNewProfile.setOnClickListener { toggleCredentialLayout(true) }
+            addNewProfile.setOnClickListener { toggleCredentialLayout(!isCredentialLayoutVisible) }
             credentialsBinding.cancelButton.setOnClickListener { toggleCredentialLayout(false) }
 
-            credentialsBinding.sessionSwitch.setOnCheckedChangeListener { _, isChecked ->
-                toggleLoginFields(isChecked)
+            credentialsBinding.sessionSwitch.addOnButtonCheckedListener { group, checkedId, isChecked ->
+                if (isChecked) {
+                    when (checkedId) {
+                        R.id.credentialLogin -> {
+                            (activity as? MainActivity)?.highlightButton(credentialsBinding.credentialLogin)
+                            (activity as? MainActivity)?.resetButton(credentialsBinding.tokenLogin)
+                            toggleLoginFields(false)
+                        }
+                        R.id.tokenLogin -> {
+                            (activity as? MainActivity)?.highlightButton(credentialsBinding.tokenLogin)
+                            (activity as? MainActivity)?.resetButton(credentialsBinding.credentialLogin)
+                            toggleLoginFields(true)
+                        }
+                    }
+                }
             }
 
             credentialsBinding.confirmButton.setOnClickListener { saveProfile() }
+            profileCancelButton.setOnClickListener {
+                adapter.setSelectedProfile(null)
+                dismiss()
+            }
+            profileConfirmButton.setOnClickListener {
+                adapter.selectedProfile?.let {
+                    telnyxViewModel.setCurrentConfig(requireContext(), it)
+                }
+                dismiss()
+            }
         }
     }
 
     private fun toggleCredentialLayout(show: Boolean) {
         isCredentialLayoutVisible = show
-        binding.addNewProfile.visibility = if (show) View.GONE else View.VISIBLE
-        binding.credentialGroup.credentialsLayout.visibility = if (show) View.VISIBLE else View.GONE
         binding.allProfiles.visibility = if (show) View.GONE else View.VISIBLE
+        binding.profileCancelButton.visibility = if (show) View.GONE else View.VISIBLE
+        binding.profileConfirmButton.visibility = if (show) View.GONE else View.VISIBLE
+        
+        val credentialsLayout = binding.credentialGroup.credentialsLayout
+        if (show) {
+            credentialsLayout.visibility = View.VISIBLE
+            val slideDown = AnimationUtils.loadAnimation(requireContext(), R.anim.slide_down)
+            credentialsLayout.startAnimation(slideDown)
+        } else {
+            val slideUp = AnimationUtils.loadAnimation(requireContext(), R.anim.slide_up)
+            slideUp.setAnimationListener(object : android.view.animation.Animation.AnimationListener {
+                override fun onAnimationStart(animation: android.view.animation.Animation?) {}
+                override fun onAnimationRepeat(animation: android.view.animation.Animation?) {}
+                override fun onAnimationEnd(animation: android.view.animation.Animation?) {
+                    credentialsLayout.visibility = View.GONE
+                }
+            })
+            credentialsLayout.startAnimation(slideUp)
+        }
     }
 
     private fun toggleLoginFields(useToken: Boolean) {
