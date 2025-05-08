@@ -1,3 +1,11 @@
+## [1.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.7.0) (2025-05-08)
+
+### Enhancement
+- Add Call Quality metrics to the SDK to provide insights into call performance and quality. This is handled on a per call basis via a debug parameter and is different to the debug parameter passed at a config level.
+
+### Bug Fixing
+- Ice Candidate Collection is now handled in the call object rather than universally in TelnyxClient, allowing for concurrent outgoing calls to be made without interference. This change improves the handling of multiple calls and ensures that each call's ICE candidates are managed independently.
+
 ## [1.6.4](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.3) (2025-04-23)
 
 ### Bug Fixing
