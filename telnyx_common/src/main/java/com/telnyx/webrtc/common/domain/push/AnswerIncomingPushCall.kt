@@ -7,6 +7,7 @@ import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.common.domain.call.AcceptCall
 import com.telnyx.webrtc.common.util.toCredentialConfig
+import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -50,9 +51,18 @@ class AnswerIncomingPushCall(private val context: Context) {
 
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
+            val fcmToken = lastProfile.fcmToken ?: ""
+            
+            // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
+            val config = if (lastProfile.sipToken != null) {
+                lastProfile.toTokenConfig(fcmToken)
+            } else {
+                lastProfile.toCredentialConfig(fcmToken)
+            }
+            
             telnyxClient.connect(
                 TxServerConfiguration(),
-                lastProfile.toCredentialConfig(lastProfile.fcmToken ?: ""),
+                config,
                 txPushMetaData,
                 true
             )
