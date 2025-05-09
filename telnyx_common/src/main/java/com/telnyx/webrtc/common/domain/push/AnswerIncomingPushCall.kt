@@ -54,18 +54,23 @@ class AnswerIncomingPushCall(private val context: Context) {
             val fcmToken = lastProfile.fcmToken ?: ""
             
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
-            val config = if (lastProfile.sipToken != null) {
-                lastProfile.toTokenConfig(fcmToken)
+            if (lastProfile.sipToken != null) {
+                telnyxClient.connect(
+                    TxServerConfiguration(),
+                    lastProfile.toTokenConfig(fcmToken),
+                    txPushMetaData,
+                    true
+                )
             } else {
-                lastProfile.toCredentialConfig(fcmToken)
+                telnyxClient.connect(
+                    TxServerConfiguration(),
+                    lastProfile.toCredentialConfig(fcmToken),
+                    txPushMetaData,
+                    true
+                )
             }
             
-            telnyxClient.connect(
-                TxServerConfiguration(),
-                config,
-                txPushMetaData,
-                true
-            )
+
             telnyxClient.getSocketResponse().observeForever(incomingCallObserver)
         }
 
