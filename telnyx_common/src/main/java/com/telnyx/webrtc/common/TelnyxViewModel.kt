@@ -330,7 +330,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
-        TelnyxCommon.getInstance().setHandlingPush(true)
+        TelnyxCommon.getInstance().setHandlingPush(false)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
