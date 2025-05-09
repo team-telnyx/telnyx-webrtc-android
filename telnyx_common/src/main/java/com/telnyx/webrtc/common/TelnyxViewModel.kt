@@ -610,7 +610,7 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (currentCall == null) {
+        if (currentCall == null || currentCall?.state == CallState.ERROR || currentCall?.state == CallState.DROPPED) {
             _sessionsState.value = TelnyxSessionState.ClientDisconnected
             _uiState.value = TelnyxSocketEvent.InitState
         }
