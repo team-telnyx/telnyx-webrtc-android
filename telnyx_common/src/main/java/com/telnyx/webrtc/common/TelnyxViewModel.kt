@@ -610,6 +610,7 @@ class TelnyxViewModel : ViewModel() {
                     response.errorMessage ?: "An Unknown Error Occurred"
                 )
         }
+        _isLoading.value = false
     }
 
     private fun handleDisconnect() {
