@@ -107,9 +107,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             telnyxViewModel.sessionsState.collect { sessionState ->
                 when (sessionState) {
-                    is TelnyxSessionState.OnClientError -> {
-                        Toast.makeText(this@MainActivity, sessionState.message, Toast.LENGTH_LONG).show()
-                    }
                     is TelnyxSessionState.ClientLoggedIn -> {
                         binding.socketStatusIcon.isEnabled = true
                         binding.socketStatusInfo.text = getString(R.string.client_ready)
@@ -143,6 +140,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.callStateLabel.visibility = View.GONE
                     }
                 }
+            }
+        }
+
+        lifecycleScope.launch {
+            telnyxViewModel.sessionStateError.collect { error ->
+                error?.let { Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show() }
             }
         }
 

@@ -1249,6 +1249,14 @@ class TelnyxClient(
 
     // TxSocketListener Overrides
     override fun onClientReady(jsonObject: JsonObject) {
+        val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
+        if (voiceSdkID != null) {
+            Logger.d(message = "Voice SDK ID _ $voiceSdkID")
+            this@TelnyxClient.voiceSDKID = voiceSdkID
+        } else {
+            Logger.e(message = "No Voice SDK ID")
+        }
+
         if (gatewayState != GatewayState.REGED.state) {
             Logger.d(
                 message = Logger.formatMessage(

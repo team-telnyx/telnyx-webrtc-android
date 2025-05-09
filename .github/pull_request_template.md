@@ -1,8 +1,10 @@
 [WebRTC-XXX - Ticket Description.](https://telnyx.atlassian.net/browse/WEBRTC-XXX)
 
 ---
-<!-- Describe your changed here -->
+<!-- Describe your changes here -->
 
+<!-- Doing a release? Please remove the section above and instead copy the following test matrix markdown: -->
+<!-- https://app.getguru.com/card/ijMaorgT/WebRTC-Squad-Mobile-Voice-SDK-Release-Checklist- -->
 
 ## :older_man: :baby: Behaviors
 ### Before changes

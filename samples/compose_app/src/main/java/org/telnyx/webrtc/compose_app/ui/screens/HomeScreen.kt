@@ -65,6 +65,7 @@ import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.BuildConfig
@@ -112,17 +113,21 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
     LaunchedEffect(sessionState) {
         when (sessionState) {
-            is TelnyxSessionState.OnClientError -> {
-                val errorMessage = (sessionState as TelnyxSessionState.OnClientError).message
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-                telnyxViewModel.stopLoading()
-            }
             is TelnyxSessionState.ClientLoggedIn -> {
                 sessionId = (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
             }
 
             is TelnyxSessionState.ClientDisconnected -> {
                 sessionId = missingSessionIdLabel
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
+            errorMessage?.let {
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                telnyxViewModel.stopLoading()
             }
         }
     }
@@ -410,8 +415,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)) {
                     when (sessionState) {
-                        is TelnyxSessionState.ClientLoggedIn,
-                        is TelnyxSessionState.OnClientError -> {
+                        is TelnyxSessionState.ClientLoggedIn -> {
                             RoundSmallButton(
                                 modifier = Modifier.fillMaxWidth(),
                                 text = stringResource(id = R.string.copy_fcm_token),
