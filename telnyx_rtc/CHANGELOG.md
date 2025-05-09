@@ -5,6 +5,7 @@
 
 ### Bug Fixing
 - Ice Candidate Collection is now handled in the call object rather than universally in TelnyxClient, allowing for concurrent outgoing calls to be made without interference. This change improves the handling of multiple calls and ensures that each call's ICE candidates are managed independently.
+- Connection is now recovered after Network lost
 
 ## [1.6.4](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.6.3) (2025-04-23)
 
