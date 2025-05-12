@@ -2,7 +2,9 @@ package com.telnyx.webrtc.common.domain.authentication
 
 import android.content.Context
 import androidx.lifecycle.LiveData
+import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
@@ -28,6 +30,16 @@ class AuthenticateByToken(private val context: Context) {
             tokenConfig,
             txPushMetaData,
             autoLogin
+        )
+
+        ProfileManager.saveProfile(
+            context, Profile(
+                sipToken = tokenConfig.sipToken,
+                callerIdName = tokenConfig.sipCallerIDName,
+                callerIdNumber = tokenConfig.sipCallerIDNumber,
+                isUserLoggedIn = true,
+                fcmToken = tokenConfig.fcmToken
+            )
         )
 
         return telnyxClient.getSocketResponse()
