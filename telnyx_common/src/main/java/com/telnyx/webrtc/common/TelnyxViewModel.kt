@@ -609,8 +609,15 @@ class TelnyxViewModel : ViewModel() {
         Timber.i("Loading...")
     }
 
+    /**
+     * Handles an error response from the socket.
+     * It will navigate to the login screen only in two cases:
+     * - there is an error and there is not active call
+     * - there is an error during active call. This is happening after unsuccessfully reconnection.
+     * @param response The error response to handle.
+     */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (currentCall == null) {
+        if (currentCall == null || currentCall?.callStateFlow?.value == CallState.ERROR) {
             _sessionsState.value = TelnyxSessionState.ClientDisconnected
             _uiState.value = TelnyxSocketEvent.InitState
         }
