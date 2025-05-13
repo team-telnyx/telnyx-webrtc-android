@@ -597,6 +597,9 @@ class TelnyxViewModel : ViewModel() {
                 OnByeReceived().invoke(context, byeResponse.callId)
             }
 
+            // If we are handling a push notification, set the flag to false
+            TelnyxCommon.getInstance().setHandlingPush(false)
+
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse).also {
