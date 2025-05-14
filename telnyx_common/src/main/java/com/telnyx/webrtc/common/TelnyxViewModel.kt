@@ -42,6 +42,8 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import java.io.IOException
 import java.util.*
 import kotlin.coroutines.resume
@@ -63,7 +65,6 @@ sealed class TelnyxSocketEvent {
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
     data object ClientDisconnected : TelnyxSessionState()
-    data class OnClientError(val message: String): TelnyxSessionState()
 }
 
 /**
@@ -90,6 +91,13 @@ class TelnyxViewModel : ViewModel() {
     private val _sessionsState: MutableStateFlow<TelnyxSessionState> =
         MutableStateFlow(TelnyxSessionState.ClientDisconnected)
     val sessionsState: StateFlow<TelnyxSessionState> = _sessionsState.asStateFlow()
+
+    /**
+     * State flow for socket errors.
+     * Observe this flow to react to errors in the socket connection.
+     */
+    private val _sessionStateError = MutableSharedFlow<String?>()
+    val sessionStateError: SharedFlow<String?> = _sessionStateError
 
     /**
      * State flow for loading state.
@@ -589,6 +597,9 @@ class TelnyxViewModel : ViewModel() {
                 OnByeReceived().invoke(context, byeResponse.callId)
             }
 
+            // If we are handling a push notification, set the flag to false
+            TelnyxCommon.getInstance().setHandlingPush(false)
+
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse).also {
@@ -601,15 +612,24 @@ class TelnyxViewModel : ViewModel() {
         Timber.i("Loading...")
     }
 
+    /**
+     * Handles an error response from the socket.
+     * It will navigate to the login screen only in two cases:
+     * - there is an error and there is not active call
+     * - there is an error during active call. This is happening after unsuccessfully reconnection.
+     * @param response The error response to handle.
+     */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (currentCall == null) {
+        if (currentCall == null || currentCall?.callStateFlow?.value == CallState.ERROR) {
             _sessionsState.value = TelnyxSessionState.ClientDisconnected
             _uiState.value = TelnyxSocketEvent.InitState
-        } else {
-            _sessionsState.value = TelnyxSessionState.OnClientError(
-                    response.errorMessage ?: "An Unknown Error Occurred"
-                )
         }
+
+        viewModelScope.launch {
+            _sessionStateError.emit(response.errorMessage ?: "An Unknown Error Occurred")
+        }
+
+        _isLoading.value = false
     }
 
     private fun handleDisconnect() {

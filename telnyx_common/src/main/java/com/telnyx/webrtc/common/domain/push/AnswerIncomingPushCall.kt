@@ -15,6 +15,7 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import timber.log.Timber
 
 /**
  * Class responsible for handling the acceptance of incoming push calls.
@@ -52,7 +53,7 @@ class AnswerIncomingPushCall(private val context: Context) {
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
             val fcmToken = lastProfile.fcmToken ?: ""
-            
+
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (lastProfile.sipToken != null) {
                 telnyxClient.connect(
@@ -69,7 +70,6 @@ class AnswerIncomingPushCall(private val context: Context) {
                     true
                 )
             }
-            
 
             telnyxClient.getSocketResponse().observeForever(incomingCallObserver)
         }
