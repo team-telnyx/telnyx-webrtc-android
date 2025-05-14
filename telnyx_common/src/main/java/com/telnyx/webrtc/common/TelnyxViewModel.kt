@@ -338,7 +338,7 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
-        TelnyxCommon.getInstance().setHandlingPush(false)
+        TelnyxCommon.getInstance().setHandlingPush(true)
         viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
@@ -596,6 +596,9 @@ class TelnyxViewModel : ViewModel() {
             context?.let {
                 OnByeReceived().invoke(context, byeResponse.callId)
             }
+
+            // If we are handling a push notification, set the flag to false
+            TelnyxCommon.getInstance().setHandlingPush(false)
 
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
