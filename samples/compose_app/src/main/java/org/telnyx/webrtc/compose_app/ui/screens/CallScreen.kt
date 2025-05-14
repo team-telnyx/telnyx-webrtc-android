@@ -6,21 +6,29 @@ import android.media.ToneGenerator.*
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +36,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import org.telnyx.webrtc.compose_app.ui.components.CallQualityDisplay
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +61,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
+import com.telnyx.webrtc.sdk.stats.CallQuality
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
@@ -76,6 +90,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
 
     var showDialpadSection by remember { mutableStateOf(false) }
+    var showCallQualityMetrics by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
     val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
@@ -157,6 +172,78 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                             modifier = Modifier.testTag("callActiveView")) {
+                            
+                            // Call quality summary (only shown when metrics are available)
+                            if (callQualityMetrics != null) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = Dimens.spacing16dp)
+                                ) {
+                                    // Label: Call quality
+                                    MediumTextBold(
+                                        text = "Call quality",
+                                        textSize = 16.sp,
+                                        modifier = Modifier.padding(bottom = Dimens.spacing4dp)
+                                    )
+                                    
+                                    // Quality indicator row with button
+                                    Row(
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        // Quality indicator with colored dot
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val (color, text) = when (callQualityMetrics?.quality) {
+                                                CallQuality.EXCELLENT -> Color(0xFF4CAF50) to "Excellent"
+                                                CallQuality.GOOD -> Color(0xFF8BC34A) to "Good"
+                                                CallQuality.FAIR -> Color(0xFFFFC107) to "Fair"
+                                                CallQuality.POOR -> Color(0xFFFF9800) to "Poor"
+                                                CallQuality.BAD -> Color(0xFFF44336) to "Bad"
+                                                else -> Color(0xFF9E9E9E) to "Unknown"
+                                            }
+                                            
+                                            // Colored dot
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .background(color, RoundedCornerShape(6.dp))
+                                            )
+                                            
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            
+                                            // Quality text
+                                            Text(
+                                                text = text,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                        
+                                        // "View all call metrics" button
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = Color.Transparent,
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        ) {
+                                            Button(
+                                                onClick = { showCallQualityMetrics = true },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color.Transparent,
+                                                    contentColor = MaterialTheme.colorScheme.primary
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                            ) {
+                                                Text("View all call metrics", fontSize = 14.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
@@ -185,12 +272,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
-                            // Display call quality metrics when available
-                            CallQualityDisplay(
-                                metrics = callQualityMetrics,
-                                inboundLevels = inboundLevels,
-                                outboundLevels = outboundLevels
-                            )
                         }
 
                     }
@@ -224,9 +305,77 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             showDialpadSection = false
         }
     }
+    
+    if (showCallQualityMetrics && callQualityMetrics != null) {
+        CallQualityMetricsBottomSheet(
+            metrics = callQualityMetrics,
+            inboundLevels = inboundLevels,
+            outboundLevels = outboundLevels
+        ) {
+            showCallQualityMetrics = false
+        }
+    }
 }
 
 
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CallQualityMetricsBottomSheet(
+    metrics: com.telnyx.webrtc.sdk.stats.CallQualityMetrics,
+    inboundLevels: List<Float>,
+    outboundLevels: List<Float>,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
+
+    ModalBottomSheet(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        onDismissRequest = {
+            onDismiss.invoke()
+        },
+        containerColor = Color.White,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.mediumSpacing)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                MediumTextBold(
+                    text = "Call Quality Metrics",
+                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                )
+                IconButton(onClick = {
+                    scope.launch {
+                        sheetState.hide()
+                    }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            onDismiss.invoke()
+                        }
+                    }
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = stringResource(id = R.string.close_button_dessc)
+                    )
+                }
+            }
+            
+            // Display detailed call quality metrics
+            CallQualityDisplay(
+                metrics = metrics,
+                inboundLevels = inboundLevels,
+                outboundLevels = outboundLevels
+            )
+        }
+    }
+}
 
 @Composable
 fun HomeIconButton(
