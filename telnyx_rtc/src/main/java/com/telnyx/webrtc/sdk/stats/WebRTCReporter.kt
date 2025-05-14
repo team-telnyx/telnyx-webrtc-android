@@ -92,7 +92,10 @@ internal class WebRTCReporter(
             type = "debug_report_start",
             debugReportId = debugStatsId.toString(),
         )
-        socket.send(debugStartMessage)
+
+        if (socketDebug)
+            socket.send(debugStartMessage)
+
         peer.peerConnectionObserver = PeerConnectionObserver(this)
 
         sendAddConnectionMessage()
@@ -109,7 +112,9 @@ internal class WebRTCReporter(
         val debugStopMessage = InitiateOrStopStatPrams(
             debugReportId = debugStatsId.toString(),
         )
-        socket.send(debugStopMessage)
+
+        if (socketDebug)
+            socket.send(debugStopMessage)
 
         debugStatsId = null
 
