@@ -390,7 +390,7 @@ data class Call(
      * Sets the call state to RECONNECTING when a call is being recovered
      */
     fun setCallRecovering() {
-        mutableCallStateFlow.value  = CallState.RECONNECTING
+        mutableCallStateFlow.value = CallState.RECONNECTING(Reason.NETWORK_SWITCH)
     }
     
     /**

@@ -483,7 +483,7 @@ class TelnyxClient(
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
-                        call.updateCallState(CallState.DROPPED)
+                        call.updateCallState(CallState.DROPPED(Reason.NETWORK_LOST))
                     }
                     socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
                 } else {
@@ -507,7 +507,7 @@ class TelnyxClient(
         getActiveCalls().forEach { (_, call) ->
             webRTCReporter?.pauseStats()
             call.peerConnection?.disconnect()
-            call.updateCallState(CallState.RECONNECTING)
+            call.updateCallState(CallState.RECONNECTING(Reason.NETWORK_SWITCH))
         }
 
         //Delay for network to be properly established
