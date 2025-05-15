@@ -230,27 +230,19 @@ class TxSocket(
                                 val errorCode =
                                     jsonObject.get("error").asJsonObject.get("code").asInt
                                 Logger.v(
-                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s]",
+                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] with code [%d]",
+                                    this@TxSocket.javaClass.simpleName,
+                                    jsonObject.get("error").asJsonObject.get("message").toString(),
+                                    errorCode)
+                                )
+                                listener.onErrorReceived(jsonObject, errorCode)
+                            } else {
+                                Logger.v(
+                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] (no code provided)",
                                     this@TxSocket.javaClass.simpleName,
                                     jsonObject.get("error").asJsonObject.get("message").toString())
                                 )
-                                when (errorCode) {
-                                    CREDENTIAL_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    TOKEN_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    SocketError.CODEC_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    else -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-                                }
+                                listener.onErrorReceived(jsonObject, null)
                             }
                         }
                     }

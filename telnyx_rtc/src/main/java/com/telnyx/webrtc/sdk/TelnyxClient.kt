@@ -494,7 +494,8 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+
+                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
@@ -656,7 +657,7 @@ class TelnyxClient(
 
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -722,7 +723,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -786,7 +787,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -1290,7 +1291,7 @@ class TelnyxClient(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
                         }
                     },
                     GATEWAY_RESPONSE_DELAY
@@ -1332,12 +1333,12 @@ class TelnyxClient(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
             }
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
             }
 
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
@@ -1352,13 +1353,13 @@ class TelnyxClient(
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
-                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
                 }
             }
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
             }
 
             GatewayState.UNREGED.state -> {
@@ -1379,7 +1380,7 @@ class TelnyxClient(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error", null))
             }
         }
     }
@@ -1418,7 +1419,7 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"))
+                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds", null))
 
                     // Reset reconnection state
                     reconnecting = false
@@ -1451,10 +1452,10 @@ class TelnyxClient(
 
     }
 
-    override fun onErrorReceived(jsonObject: JsonObject) {
+    override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-        Logger.d(message = "onErrorReceived $errorMessage")
-        socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
+        Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
+        socketResponseLiveData.postValue(SocketResponse.error(errorMessage, errorCode))
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
