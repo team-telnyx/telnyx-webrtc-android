@@ -13,9 +13,9 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
 import com.telnyx.webrtc.lib.SessionDescription
-import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -55,7 +55,7 @@ data class Call(
     val audioManager: AudioManager,
     val providedTurn: String = Config.DEFAULT_TURN,
     val providedStun: String = Config.DEFAULT_STUN,
-    internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE),
+    internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE()),
 ) {
     
     /**
@@ -390,7 +390,7 @@ data class Call(
      * Sets the call state to RECONNECTING when a call is being recovered
      */
     fun setCallRecovering() {
-        mutableCallStateFlow.value  = CallState.RECONNECTING
+        mutableCallStateFlow.value = CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)
     }
     
     /**

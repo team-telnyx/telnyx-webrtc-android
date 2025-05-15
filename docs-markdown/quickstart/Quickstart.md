@@ -181,3 +181,94 @@ class CallActivity : AppCompatActivity() {
 - If calls disconnect when the app is minimized, ensure the `CallForegroundService` is properly started.
 - For notification issues, check that notification permissions are granted and channels are properly configured. Also double check the portal to make sure the push credentials are assigned properly.
 - If authentication fails, verify the credentials and ensure the device has internet connectivity.
+
+### Observe Call State Changes
+
+For each `Call` object obtained (e.g., from `telnyxClient.newInvite(...)` or from an incoming call event), you should observe its `callStateFlow` to react to state changes:
+
+```kotlin
+val ongoingCall = telnyxClient.newInvite(/* ... params ... */)
+
+// In your Activity or ViewModel scope
+lifecycleScope.launch {
+    ongoingCall.callStateFlow.collect { callState ->
+        when (callState) {
+            is CallState.NEW -> {
+                // Call object created locally
+                updateUi("Call initializing...")
+            }
+            is CallState.CONNECTING -> {
+                updateUi("Connecting call...")
+            }
+            is CallState.RINGING -> {
+                updateUi("Ringing...")
+            }
+            is CallState.ACTIVE -> {
+                updateUi("Call is active")
+                // Start call timer, enable in-call controls, etc.
+            }
+            is CallState.DONE -> {
+                // Call has ended
+                val reason = callState.reason
+                val endMessage = if (reason != null) {
+                    "Call ended: ${reason.cause ?: "Unknown cause"}" +
+                            (reason.sipCode?.let { " (SIP: $it ${reason.sipReason ?: ""})" } ?: "")
+                } else {
+                    "Call ended."
+                }
+                updateUi(endMessage)
+                showToast(endMessage)
+                // Navigate back or reset UI
+            }
+            is CallState.HELD -> {
+                updateUi("Call on hold")
+            }
+            is CallState.DROPPED -> {
+                val dropMessage = "Call dropped: ${callState.callNetworkChangeReason.description}"
+                updateUi(dropMessage)
+                showToast(dropMessage)
+                // Attempt to reconnect or inform user
+            }
+            is CallState.RECONNECTING -> {
+                val reconnectMessage = "Call reconnecting: ${callState.callNetworkChangeReason.description}"
+                updateUi(reconnectMessage)
+            }
+            is CallState.ERROR -> {
+                updateUi("Error with call.")
+                showToast("An error occurred with the call.")
+                // Navigate back or reset UI
+            }
+        }
+    }
+}
+```
+
+Remember to replace `updateUi` and `showToast` with your actual UI update logic.
+
+### Handling Incoming Calls
+
+When `TelnyxClient.socketResponseLiveData` emits a message with `SocketMethod.INVITE`, it signifies an incoming call. You would typically display an incoming call UI and provide options to accept or reject.
+
+```kotlin
+// Inside the observer for telnyxClient.socketResponseLiveData
+if (response.data?.method == SocketMethod.INVITE.methodName) {
+    val inviteResponse = response.data.result as InviteResponse
+    val incomingCallId = inviteResponse.callId
+    val callerIdName = inviteResponse.callerIdName
+    val callerIdNumber = inviteResponse.callerIdNumber
+
+    // Display incoming call screen
+    showIncomingCallUi(callerIdName, callerIdNumber, incomingCallId)
+
+    // Store the inviteResponse or callId to accept/reject later
+    currentIncomingCallId = incomingCallId
+}
+
+// To accept the call:
+telnyxClient.acceptCall(currentIncomingCallId, "your_destination_number")
+
+// To reject the call:
+telnyxClient.endCall(currentIncomingCallId) // Or a specific reject method if available
+```
+
+This quickstart covers the basic setup and core functionalities. Explore the SDK's classes and methods for more advanced features like call hold, DTMF, and custom headers.

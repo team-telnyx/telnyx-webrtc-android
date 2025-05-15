@@ -97,3 +97,70 @@ With the current call object, you can perform actions such as:
 2. Mute/UnMute `currentCall.onMuteUnmutePressed()`
 3. AcceptCall `currentCall.acceptCall(...)`
 4. EndCall `currentCall.endCall(callId: UUID)`
+
+The `Call` class is a fundamental part of the Telnyx WebRTC SDK, representing an active or pending call session. It provides properties to observe the call's state and methods to control the call, such as ending it, muting/unmuting audio, and managing hold states.
+
+## Key Properties
+
+- **`callId: UUID`**: A unique identifier for the call.
+- **`sessionId: String`**: The session ID associated with the Telnyx connection.
+- **`callStateFlow: StateFlow<CallState>`**: A Kotlin Flow that emits updates to the call's current state. This is the primary way to observe real-time changes to the call. States include:
+    - `CallState.NEW`: The call has been locally initiated but not yet sent.
+    - `CallState.CONNECTING`: The call is in the process of connecting.
+    - `CallState.RINGING`: The call invitation has been sent, and the remote party is being alerted.
+    - `CallState.ACTIVE`: The call is established and active.
+    - `CallState.HELD`: The call is on hold.
+    - `CallState.DONE(reason: CallTerminationReason?)`: The call has ended. The optional `reason` parameter provides details about why the call terminated (e.g., normal hangup, call rejected, busy, SIP error). `CallTerminationReason` contains `cause`, `causeCode`, `sipCode`, and `sipReason`.
+    - `CallState.ERROR`: An error occurred related to this call.
+    - `CallState.DROPPED(reason: CallNetworkChangeReason)`: The call was dropped, typically due to network issues. The `reason` (`CallNetworkChangeReason.NETWORK_LOST` or `CallNetworkChangeReason.NETWORK_SWITCH`) provides context.
+    - `CallState.RECONNECTING(reason: CallNetworkChangeReason)`: The SDK is attempting to reconnect the call after a network disruption. The `reason` provides context.
+- **`onCallQualityChange: ((CallQualityMetrics) -> Unit)?`**: A callback for real-time call quality metrics.
+- **`audioManager: AudioManager`**: Reference to the Android `AudioManager` for controlling audio settings.
+- **`peerConnection: Peer?`**: Represents the underlying WebRTC peer connection.
+
+## Key Methods
+
+- **`newInvite(...)`**: (Typically initiated via `TelnyxClient`) Initiates a new outgoing call.
+- **`acceptCall(...)`**: (Typically initiated via `TelnyxClient`) Accepts an incoming call.
+- **`endCall(callId: UUID)`**: Terminates the call. This is usually called on the `TelnyxClient` which then manages the specific `Call` object.
+- **`onMuteUnmutePressed()`**: Toggles the microphone mute state.
+- **`onLoudSpeakerPressed()`**: Toggles the loudspeaker state.
+- **`onHoldUnholdPressed(callId: UUID)`**: Toggles the hold state for the call.
+- **`dtmf(callId: UUID, tone: String)`**: Sends DTMF tones.
+
+## Observing Call State
+
+Applications should observe the `callStateFlow` to react to changes in the call's status and update the UI accordingly. For example, displaying call duration when `ACTIVE`, showing a "reconnecting" indicator when `RECONNECTING`, or presenting termination reasons when `DONE`.
+
+```kotlin
+// Example: Observing call state in a ViewModel or Composable
+viewModelScope.launch {
+    myCall.callStateFlow.collect { state ->
+        when (state) {
+            is CallState.ACTIVE -> {
+                // Update UI to show active call controls
+            }
+            is CallState.DONE -> {
+                // Call has ended, update UI
+                // Access state.reason for termination details
+                val reasonDetails = state.reason?.let {
+                    "Cause: ${it.cause}, SIP Code: ${it.sipCode}"
+                } ?: "No specific reason provided."
+                Log.d("Call Ended", "Reason: $reasonDetails")
+            }
+            is CallState.DROPPED -> {
+                // Call dropped, possibly show a message with state.reason.description
+                Log.d("Call Dropped", "Reason: ${state.callNetworkChangeReason.description}")
+            }
+            is CallState.RECONNECTING -> {
+                // Call is reconnecting, update UI
+                Log.d("Call Reconnecting", "Reason: ${state.callNetworkChangeReason.description}")
+            }
+            // Handle other states like NEW, CONNECTING, RINGING, HELD, ERROR
+            else -> { /* ... */ }
+        }
+    }
+}
+```
+
+For more details on specific parameters and advanced usage, refer to the SDK's source code and the main `TelnyxClient` documentation.

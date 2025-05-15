@@ -180,11 +180,9 @@ internal class WebRTCReporter(
     }
 
     internal suspend fun startTimer() {
-
         CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
                 peer.peerConnection?.getStats {
-                    Logger.d(tag = "stats", "Stats: ${it.statsMap}")
                     val statsData = JsonObject()
                     val data = JsonObject()
                     val audio = JsonObject()

@@ -40,8 +40,16 @@ data class LoginResponse(
 
 
 data class ByeResponse(
-    @SerializedName("sessid")
-    val callId : UUID
+    @SerializedName("callID")
+    val callId : UUID,
+    @SerializedName("cause")
+    val cause: String? = null,
+    @SerializedName("causeCode")
+    val causeCode: Int? = null,
+    @SerializedName("sipCode")
+    val sipCode: Int? = null,
+    @SerializedName("sipReason")
+    val sipReason: String? = null
 ) : ReceivedResult()
 
 /**

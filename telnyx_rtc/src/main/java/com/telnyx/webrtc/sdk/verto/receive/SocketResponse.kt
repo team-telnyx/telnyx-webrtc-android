@@ -6,11 +6,17 @@ package com.telnyx.webrtc.sdk.verto.receive
 
 import com.telnyx.webrtc.sdk.model.SocketStatus
 
-data class SocketResponse<out T>(var status: SocketStatus, val data: T?, val errorMessage: String?) {
+data class SocketResponse<out T>(
+    var status: SocketStatus,
+    val data: T?,
+    val errorMessage: String?,
+    val errorCode: Int? = null
+) {
     companion object {
         fun <T> established(): SocketResponse<T> {
             return SocketResponse(
                 SocketStatus.ESTABLISHED,
+                null,
                 null,
                 null
             )
@@ -20,6 +26,7 @@ data class SocketResponse<out T>(var status: SocketStatus, val data: T?, val err
             return SocketResponse(
                 SocketStatus.ESTABLISHED,
                 null,
+                null,
                 null
             )
         }
@@ -28,20 +35,22 @@ data class SocketResponse<out T>(var status: SocketStatus, val data: T?, val err
             return SocketResponse(
                 SocketStatus.MESSAGERECEIVED,
                 data,
+                null,
                 null
             )
         }
 
-        fun <T> error(msg: String): SocketResponse<T> {
-            return SocketResponse(SocketStatus.ERROR, null, msg)
+        fun <T> error(msg: String, errorCode: Int? = null): SocketResponse<T> {
+            return SocketResponse(SocketStatus.ERROR, null, msg, errorCode)
         }
         fun <T> disconnect(): SocketResponse<T> {
-            return SocketResponse(SocketStatus.DISCONNECT, null, null)
+            return SocketResponse(SocketStatus.DISCONNECT, null, null, null)
         }
 
         fun <T> loading(): SocketResponse<T> {
             return SocketResponse(
                 SocketStatus.LOADING,
+                null,
                 null,
                 null
             )

@@ -1,3 +1,88 @@
+`TelnyxClient` is the main entry point for interacting with the Telnyx WebRTC SDK. It handles connection management, call creation, and responses from the Telnyx platform.
+
+## Core Functionalities
+
+- **Connection Management**: Establishes and maintains a WebSocket connection to the Telnyx RTC platform.
+- **Authentication**: Supports authentication via SIP credentials or tokens.
+- **Call Control**: Provides methods to initiate (`newInvite`), accept (`acceptCall`), and end (`endCall`) calls.
+- **Event Handling**: Uses `TxSocketListener` to process events from the socket, such as incoming calls (`onOfferReceived`), call answers (`onAnswerReceived`), call termination (`onByeReceived`), and errors (`onErrorReceived`).
+- **State Exposure**: Exposes connection status, session information, and call events via `LiveData` (e.g., `socketResponseLiveData`) for UI consumption.
+
+## Key Components and Interactions
+
+- **`TxSocket`**: Manages the underlying WebSocket communication.
+- **`TxSocketListener`**: An interface implemented by `TelnyxClient` to receive and process socket events. Notably:
+    - `onOfferReceived(jsonObject: JsonObject)`: Handles incoming call invitations.
+    - `onAnswerReceived(jsonObject: JsonObject)`: Processes answers to outgoing calls.
+    - `onByeReceived(jsonObject: JsonObject)`: Handles call termination notifications. The `jsonObject` now contains richer details including `cause`, `causeCode`, `sipCode`, and `sipReason`, allowing the client to populate `CallState.DONE` with a detailed `CallTerminationReason`.
+    - `onErrorReceived(jsonObject: JsonObject)`: Manages errors reported by the socket or platform.
+    - `onClientReady(jsonObject: JsonObject)`: Indicates the client is ready for operations after connection and initial setup.
+    - `onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)`: Provides updates on the registration status with the Telnyx gateway.
+- **`Call` Class**: Represents individual call sessions. `TelnyxClient` creates and manages instances of `Call`.
+- **`CallState`**: The client updates the `CallState` of individual `Call` objects based on socket events and network conditions. This includes states like `DROPPED(reason: CallNetworkChangeReason)`, `RECONNECTING(reason: CallNetworkChangeReason)`, and `DONE(reason: CallTerminationReason?)` which now provide more context.
+- **`socketResponseLiveData: LiveData<SocketResponse<ReceivedMessageBody>>`**: This LiveData stream is crucial for applications. It emits `SocketResponse` objects that wrap messages received from the Telnyx platform. For `BYE` messages, the `ReceivedMessageBody` will contain a `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` which is now enriched with termination cause details.
+
+## Usage Example
+
+```kotlin
+// Initializing the client
+val telnyxClient = TelnyxClient(context)
+
+// Observing responses (including errors and BYE messages)
+telnyxClient.socketResponseLiveData.observe(lifecycleOwner, Observer { response ->
+    when (response.status) {
+        SocketStatus.MESSAGERECEIVED -> {
+            response.data?.let {
+                when (it.method) {
+                    SocketMethod.INVITE.methodName -> {
+                        val invite = it.result as InviteResponse
+                        // Handle incoming call invitation
+                    }
+                    SocketMethod.BYE.methodName -> {
+                        val bye = it.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+                        // Call ended by remote party, bye.cause, bye.sipCode etc. are available
+                        Log.d("TelnyxClient", "Call ended: ${bye.callId}, Reason: ${bye.cause}")
+                    }
+                    // Handle other methods like ANSWER, RINGING, etc.
+                }
+            }
+        }
+        SocketStatus.ERROR -> {
+            // Handle errors
+            Log.e("TelnyxClient", "Error: ${response.errorMessage}")
+        }
+        // Handle other statuses: ESTABLISHED, LOADING, DISCONNECT
+    }
+})
+
+// Connecting and Logging In (example with credentials)
+telnyxClient.connect(
+    credentialConfig = CredentialConfig(
+        sipUser = "your_sip_username",
+        sipPassword = "your_sip_password",
+        // ... other config ...
+    )
+)
+
+// Making a call
+val outgoingCall = telnyxClient.newInvite(
+    callerName = "My App",
+    callerNumber = "+11234567890",
+    destinationNumber = "+10987654321",
+    clientState = "some_state"
+)
+
+// Observing the specific call's state
+outgoingCall.callStateFlow.collect { state ->
+    if (state is CallState.DONE) {
+        Log.d("TelnyxClient", "Outgoing call ended. Reason: ${state.reason?.cause}")
+    }
+    // Handle other states
+}
+```
+
+Refer to the SDK's implementation and specific method documentation for detailed usage patterns and configuration options.
+
 ## Telnyx Client
 NOTE:
 Remember to add and handle INTERNET, RECORD_AUDIO and ACCESS_NETWORK_STATE permissions

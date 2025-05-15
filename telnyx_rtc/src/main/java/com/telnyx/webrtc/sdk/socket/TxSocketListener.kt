@@ -37,16 +37,17 @@ interface TxSocketListener {
     /**
      * Fires when an error has occurred with the TxSocket
      * @param jsonObject, the socket response in a jsonObject format
+     * @param errorCode, the integer error code if available
      * @see [TxSocket]
      */
-    fun onErrorReceived(jsonObject: JsonObject)
+    fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?)
 
     /**
      * Fires when the TxSocket has received an indication the a call has ended or been rejected
-     * @param callId, UUID of the call that has ended or been rejected
+     * @param jsonObject, the socket response in a jsonObject format
      * @see [TxSocket]
      */
-    fun onByeReceived(callId: UUID)
+    fun onByeReceived(jsonObject: JsonObject)
 
     /**
      * Fires when a user has provided an answer to a call attempt

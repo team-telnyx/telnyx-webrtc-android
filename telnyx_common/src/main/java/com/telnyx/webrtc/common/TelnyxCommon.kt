@@ -245,8 +245,6 @@ class TelnyxCommon private constructor() {
             if (call.onCallQualityChange == null) {
                 call.onCallQualityChange = { metrics: CallQualityMetrics ->
                     _callQualityMetrics.value = metrics
-                    // Reduced log frequency might be needed in production
-                    Timber.v("TelnyxCommon received CallQualityMetrics: MOS=${String.format(Locale.US, "%.2f", metrics.mos)}, Quality=${metrics.quality}")
                 }
                 Timber.d("Set up call quality callback for current call: ${call.callId}")
             }
