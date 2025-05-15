@@ -140,6 +140,21 @@ When implementing error handling for the Telnyx WebRTC Android SDK:
 - **Cause**: Device is offline or has poor connectivity
 - **Solution**: Monitor network state changes and reconnect when network becomes available
 
+## Error Constants Reference
+
+The following table lists all error constants used in the SDK:
+
+| ERROR MESSAGE | ERROR CODE | DESCRIPTION |
+|---------------|------------|-------------|
+| Token registration error | -32000 | Error during token registration |
+| Credential registration error | -32001 | Error during credential registration |
+| Codec error | -32002 | Error related to codec operation |
+| Gateway registration timeout | -32003 | Gateway registration timed out |
+| Gateway registration failed | -32004 | Gateway registration failed |
+| Call not found | N/A | The specified call cannot be found |
+
+These error constants are defined in the SDK's error handling system and can be used to identify specific error conditions in your application code.
+
 ## Additional Resources
 
 - [Telnyx WebRTC Android SDK GitHub Repository](https://github.com/team-telnyx/telnyx-webrtc-android)
