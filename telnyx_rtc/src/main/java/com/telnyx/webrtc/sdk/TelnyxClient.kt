@@ -405,17 +405,15 @@ class TelnyxClient(
                 uuid, SocketMethod.BYE.methodName,
                 ByeParams(
                     sessionId,
-                    causeCode, // Use the defined causeCode
-                    causeName, // Use the defined causeName
+                    causeCode,
+                    causeName,
                     ByeDialogParams(
                         callId
                     )
                 )
             )
-            // The ByeResponse sent to UI. For local termination, we might not have SIP codes.
-            // If ByeResponse is to reflect what's in CallState.DONE, it should align.
-            // For now, the ticket focuses on CallState, so this part is secondary.
-            val byeResponseForUi = com.telnyx.webrtc.sdk.verto.receive.ByeResponse(
+
+            val byeResponseForUi = ByeResponse(
                 callId = callId,
                 cause = causeName,
                 causeCode = causeCode
@@ -437,6 +435,7 @@ class TelnyxClient(
             webRTCReporter = null // Clear the reporter instance
             client.removeFromCalls(callId)
             client.callNotOngoing()
+            socket.send(byeMessageBody)
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
