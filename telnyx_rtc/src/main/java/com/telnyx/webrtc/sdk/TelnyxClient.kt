@@ -1465,7 +1465,7 @@ class TelnyxClient(
             val callIdString = params?.get("callID")?.asString
 
             if (callIdString == null) {
-                Logger.e("Received BYE without callID in params: $jsonObject")
+                Logger.e(message = "Received BYE without callID in params: $jsonObject")
                 return
             }
             val callId = UUID.fromString(callIdString)
@@ -1515,10 +1515,10 @@ class TelnyxClient(
                 answerResponse = null
                 inviteResponse = null
             } ?: run {
-                Logger.w("Received BYE for a callId not found in active calls: $callId")
+                Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
             }
         } catch (e: Exception) {
-            Logger.e("Error processing onByeReceived: ${e.message}", e)
+            Logger.e(message = "Error processing onByeReceived: ${e.message}")
         }
     }
 
