@@ -38,7 +38,7 @@ class TelecomCallManager @Inject constructor(
     private var pendingPushInvitation = false
     private var acceptPushCall: Boolean? = null
 
-    private val _callState = MutableStateFlow(CallState.NEW)
+    private val _callState: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE())
     val callState: StateFlow<CallState> = _callState
 
     init {
@@ -110,7 +110,7 @@ class TelecomCallManager @Inject constructor(
             SocketMethod.BYE.methodName -> {
                 Timber.i("CallManager: Call ended")
                 // The call ended from the remote side
-                _callState.value = CallState.DONE
+                _callState.value = CallState.DONE()
                 currentCall = null
             }
         }
@@ -157,11 +157,11 @@ class TelecomCallManager @Inject constructor(
         }
         currentCall?.let { c ->
             telnyxClient.endCall(c.callId)
-            _callState.value = CallState.DONE
+            _callState.value = CallState.DONE()
             currentCall = null
         } ?: currentInvite?.let { invite ->
             telnyxClient.endCall(invite.callId)
-            _callState.value = CallState.DONE
+            _callState.value = CallState.DONE()
             currentInvite = null
         }
     }
@@ -173,7 +173,7 @@ class TelecomCallManager @Inject constructor(
             return
         }
         telnyxClient.endCall(callId)
-        _callState.value = CallState.DONE
+        _callState.value = CallState.DONE()
         currentCall = null
     }
 
