@@ -286,7 +286,7 @@ class CallTest : BaseTest() {
             //write a way to test this
             //
 
-            call.client.onErrorReceived(jsonObject)
+            call.client.onErrorReceived(jsonObject, 0)
         }
     }
 }

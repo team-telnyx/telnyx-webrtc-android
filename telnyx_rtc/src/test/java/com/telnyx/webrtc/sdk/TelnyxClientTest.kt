@@ -491,10 +491,10 @@ class TelnyxClientTest : BaseTest() {
         val errorMessageBody = JsonObject()
         errorMessageBody.addProperty("message", "my error message")
         errorJson.add("error", errorMessageBody)
-        client.onErrorReceived(errorJson)
+        client.onErrorReceived(errorJson, 0)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("my error message")
+            SocketResponse.error("my error message", 0)
         )
     }
 
@@ -507,11 +507,19 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
-        Mockito.`when`(client.call).thenReturn(fakeCall)
         val callId = UUID.randomUUID()
-        client.onByeReceived(callId)
-        Mockito.verify(client, Mockito.atLeast(1))?.onByeReceived(callId)
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        fakeCall.callId = callId
+        client.calls[callId] = fakeCall
+
+        val mockByeJsonObject = JsonObject()
+        val paramsObject = JsonObject()
+        paramsObject.addProperty("callID", callId.toString())
+        mockByeJsonObject.add("params", paramsObject)
+
+        client.onByeReceived(mockByeJsonObject)
+
+        Mockito.verify(client, Mockito.atLeastOnce())?.onByeReceived(mockByeJsonObject)
     }
 
     @Test
