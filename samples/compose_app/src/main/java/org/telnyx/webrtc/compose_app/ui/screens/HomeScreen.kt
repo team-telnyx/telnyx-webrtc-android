@@ -103,8 +103,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
-    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
-        ?: remember { mutableStateOf(CallState.DONE) }
+    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState(initial = CallState.DONE())
+        ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
@@ -164,7 +164,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             }
         },
         bottomBar = {
-            if (callState == CallState.DONE || callState == CallState.ERROR)
+            if (callState is CallState.DONE || callState is CallState.ERROR)
             BottomBar(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel,
