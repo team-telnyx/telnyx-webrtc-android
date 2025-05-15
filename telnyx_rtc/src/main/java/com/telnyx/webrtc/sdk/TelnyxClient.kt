@@ -354,6 +354,7 @@ class TelnyxClient(
             providedStun = providedStun!!
         ).apply {
             callId = inviteCallId
+            updateCallState(CallState.RINGING)
 
             peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
                 addIceCandidateInternal(candidate)

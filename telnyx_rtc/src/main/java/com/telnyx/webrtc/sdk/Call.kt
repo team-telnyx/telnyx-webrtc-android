@@ -16,6 +16,7 @@ import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.Reason
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
