@@ -1,219 +1,166 @@
-This document describes the error handling mechanisms and call state event details in the Telnyx WebRTC Android SDK, specifically focusing on when and why error events are triggered, how call state changes are reported, and how they are processed through the SDK.
+This document describes the error handling mechanisms and call state event details in the Telnyx WebRTC Android SDK. It is divided into a **Reference** section detailing possible errors and states, and a **Guide** section on how to consume and manage them.
 
-## Error Handling Architecture
+## Error & Call State Reference
 
-The Android SDK implements a structured approach to error handling through several key components:
+This section provides a reference for the various error conditions and call states you might encounter when using the SDK.
 
-1. **TxSocketListener Interface**: Defines the `onErrorReceived` method that is triggered when socket errors occur. It also defines methods like `onByeReceived` which now provide more detailed information for call termination.
-2. **SocketResponse Class**: Provides a data structure for encapsulating error states with the `error()` factory method, and for successful message responses.
-3. **TelnyxClient Implementation**: Processes errors and exposes them through LiveData for application consumption. It also manages and exposes call state transitions.
-4. **CallState Sealed Class**: Represents various states a call can be in, with some states now carrying detailed reasons for transitions (e.g., `DROPPED`, `RECONNECTING`, `DONE`).
+### 1. Socket-Level Errors (via `SocketResponse`)
 
-## Error Scenarios and Informative Call State Transitions
+These errors are typically reported through the `TelnyxClient.socketResponseLiveData` when `SocketResponse.status` is `SocketStatus.ERROR`.
 
-### 1. Gateway Registration Status
+*   **Gateway Registration Issues**:
+    *   `"Gateway registration has timed out"`: Triggered if the gateway status is not "REGED" (registered) after an initial attempt and retry (e.g., `GatewayState.NOREG`).
+    *   `"Gateway registration has failed"`: Triggered if the gateway status is "FAILED" after multiple retries.
+*   **WebSocket Error Messages**:
+    *   Custom error messages from the server sent via WebSocket (e.g., authentication failures, server-side issues). The `errorMessage` field in `SocketResponse` will contain the server-provided message.
+*   **No Network Connection (on initial connect)**:
+    *   `"No Network Connection"`: Triggered if an attempt to connect to the Telnyx platform is made when the device has no active network connection.
 
-The SDK monitors the gateway registration status and triggers errors in the following scenarios:
+### 2. Call-Specific States & Reasons (via `Call.callStateFlow`)
 
-* When the gateway status is not "REGED" (registered) after an initial attempt and retry
-* When the gateway status is "FAILED" after multiple retries
-* Location: [TelnyxClient.kt](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt)
-* This ensures that the client is properly connected to the Telnyx network
+Individual `Call` objects emit their state changes through `callStateFlow`. Several states now include detailed reasons:
 
-Example:
-```kotlin
-when (gatewayState) {
-    GatewayState.NOREG.state -> {
-        invalidateGatewayResponseTimer()
-        socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
-    }
-    
-    GatewayState.FAILED.state -> {
-        invalidateGatewayResponseTimer()
-        socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
-    }
-}
-```
+*   **`CallState.DROPPED(reason: CallNetworkChangeReason)`**:
+    *   Indicates a call was dropped, usually due to network problems.
+    *   `reason` (of type `CallNetworkChangeReason`) provides context:
+        *   `CallNetworkChangeReason.NETWORK_LOST`: Network connectivity was completely lost.
+        *   `CallNetworkChangeReason.NETWORK_SWITCH`: A network switch occurred (e.g., Wi-Fi to Cellular), and while reconnection might be attempted, this state can be hit if it ultimately fails in that context, or if it's a direct drop without a reconnect attempt.
+*   **`CallState.RECONNECTING(reason: CallNetworkChangeReason)`**:
+    *   The SDK is attempting to reconnect a call after a network disruption.
+    *   `reason` (of type `CallNetworkChangeReason`) provides context:
+        *   `CallNetworkChangeReason.NETWORK_SWITCH`: Typically seen when the SDK tries to recover a call after a network handover.
+*   **`CallState.DONE(reason: CallTerminationReason?)`**:
+    *   The call has ended. The optional `reason` parameter (of type `CallTerminationReason`) provides details about *why* the call terminated.
+    *   `CallTerminationReason` fields:
+        *   `cause: String?`: A high-level cause string (e.g., "CALL_REJECTED", "USER_BUSY", "NORMAL_CLEARING").
+        *   `causeCode: Int?`: A numerical code associated with the cause (e.g., 21 for CALL_REJECTED, 17 for USER_BUSY, 16 for NORMAL_CLEARING).
+        *   `sipCode: Int?`: The SIP response code, if applicable (e.g., 403, 486, 404).
+        *   `sipReason: String?`: The SIP reason phrase, if applicable (e.g., "Forbidden", "Busy Here", "Not Found").
+*   **`CallState.ERROR`**:
+    *   A general error occurred related to this specific call (e.g., failure to create offer/answer, media negotiation issues).
 
-### 2. WebSocket Error Messages
+### 3. Enriched `ByeResponse` Details (via `socketResponseLiveData`)
 
-The SDK handles error messages received through the WebSocket connection:
+When a call is terminated by the remote party, a `BYE` message is received. The `TxSocketListener.onByeReceived(jsonObject: JsonObject)` method is triggered, and `TelnyxClient` processes this.
 
-* When the server sends an error message via WebSocket
-* Location: [TelnyxClient.kt - onErrorReceived method](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt)
-* These errors typically indicate issues with the connection or server-side problems
+*   The `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` object, which is delivered as the `result` within `ReceivedMessageBody` (when `method` is `SocketMethod.BYE.methodName`) via `socketResponseLiveData`, is now enriched.
+*   It contains the same detailed termination fields as `CallTerminationReason`: `callId`, `cause`, `causeCode`, `sipCode`, and `sipReason`.
 
-Example:
-```kotlin
-override fun onErrorReceived(jsonObject: JsonObject) {
-    val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-    Logger.d(message = "onErrorReceived " + errorMessage)
-    socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
-}
-```
+### 4. Error/Cause Code Reference Table
 
-### 3. Network Connectivity Issues and Related Call States
+This table provides common causes, codes, and potential SIP responses. For a comprehensive list of SIP codes and detailed troubleshooting, always refer to the [Telnyx Troubleshooting Guide for Call Completion](https://support.telnyx.com/en/articles/5025298-troubleshooting-call-completion).
 
-The SDK detects network connectivity problems and reports them as errors or specific call states:
+| Category                      | `cause` String (Example) | `causeCode` (Example) | `sipCode` (Example) | `sipReason` (Example)         | Description / Common Scenario                                                               |
+|-------------------------------|--------------------------|-----------------------|---------------------|-------------------------------|---------------------------------------------------------------------------------------------|
+| **General Call Clearing**     | `NORMAL_CLEARING`        | 16                    | N/A                 | N/A                           | Call ended normally by one of the parties.                                                    |
+|                               | `USER_BUSY`              | 17                    | 486                 | "Busy Here"                   | The called party is busy.                                                                     |
+|                               | `CALL_REJECTED`          | 21                    | 403                 | "Forbidden"                   | Call was rejected (e.g., invalid caller ID, destination not whitelisted, authentication failure). |
+|                               | `UNALLOCATED_NUMBER`     | 1                     | 404                 | "Not Found" / "Invalid Number" | The dialed number does not exist or is not assigned.                                          |
+|                               | `NO_ANSWER`              | 19                    | 480                 | "Temporarily Unavailable"     | Callee did not answer.                                                                        |
+|                               | `INCOMPATIBLE_DESTINATION`| 88                   | 488/606             | "Not Acceptable Here"       | Media negotiation failure (codec mismatch, SRTP issues).                                     |
+|                               | `RECOVERY_ON_TIMER_EXPIRE`| 102                  | N/A (often 408)     | "Request Timeout"             | A necessary response was not received in time (e.g., INVITE timeout).                         |
+| **Gateway/Network Issues**    | N/A                      | N/A                   | N/A                 | N/A                           | Refer to `CallState.DROPPED` or `CallState.RECONNECTING` with their `CallNetworkChangeReason`. |
+| **SDK Internal Errors**       | `AnswerError`            | N/A                   | N/A                 | "No SDP in answer response"   | SDK specific error during call setup                                                |
+|                               | `MediaError`             | N/A                   | N/A                 | "No SDP in media response"    | SDK specific error during media processing                                      |
+| **Registration Errors**       | N/A                      | -32000                | N/A                 | N/A                           | Token registration error                                           |
+|                               | N/A                      | -32001                | N/A                 | N/A                           | Credential registration error                                         |
+|                               | N/A                      | -32003                | N/A                 | N/A                           | Gateway registration timeout                                              |
+|                               | N/A                      | -32004                | N/A                 | N/A                           | Gateway registration failed                                              |
 
-* **Error on Connect Attempt**: When attempting to connect without an active network connection
-* **CallState.DROPPED**: When network is lost during an active session and reconnection is not possible or fails
-* **CallState.RECONNECTING**: When the SDK attempts to reconnect a call after a network disruption (e.g., switching from Wi-Fi to LTE)
+*Note: `cause`, `causeCode`, `sipCode`, and `sipReason` may not all be present for every `DONE` state. Presence depends on how the call was terminated.*
 
-Example:
-```kotlin
-if (!ConnectivityHelper.isNetworkEnabled(context)) {
-    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
-    return
-}
-```
+More SIP codes and their meanings can be found in the [Telnyx Troubleshooting Guide for Call Completion](https://support.telnyx.com/en/articles/4409457-telnyx-sip-response-codes).
 
-### 4. Call Termination Details (`CallState.DONE` and `ByeResponse`)
+## Guide: Consuming Errors and Call Events
 
-When a call ends, the SDK provides detailed reasons for termination:
+This section explains how to effectively use the error and state information provided by the SDK.
 
-* **CallState.DONE**: This state now optionally includes a `CallTerminationReason` object
-* **Bye Event (`onByeReceived`)**: The `TxSocketListener.onByeReceived` method now accepts a `JsonObject`
+### Observing `socketResponseLiveData` (for General SDK Events & Errors)
 
-Example of consuming `CallState.DONE`:
-```kotlin
-// In your ViewModel or UI observer for Call.callStateFlow
-aCall.callStateFlow.collect { state ->
-    if (state is CallState.DONE) {
-        val reason = state.reason
-        if (reason != null) {
-            // Display detailed termination reason to the user
-            val message = "Call ended: ${reason.cause ?: "Unknown cause"}" +
-                          (reason.sipCode?.let { " (SIP: $it ${reason.sipReason ?: ""})" } ?: "")
-            Log.i("CallEnd", message)
-            // Show popup or toast with this message
-        } else {
-            Log.i("CallEnd", "Call ended without a specific reason provided.")
-        }
-    }
-}
-```
-
-Example of consuming the enriched `ByeResponse` from `socketResponseLiveData`:
-```kotlin
-// In your observer for TelnyxClient.socketResponseLiveData
-telnyxClient.socketResponseLiveData.observe(this, Observer { response ->
-    if (response.status == SocketStatus.MESSAGERECEIVED && response.data?.method == SocketMethod.BYE.methodName) {
-        val byeResponse = response.data.result as? com.telnyx.webrtc.sdk.verto.receive.ByeResponse
-        if (byeResponse != null) {
-            val terminationMessage = "Remote party ended call (${byeResponse.callId}). " +
-                                     "Reason: ${byeResponse.cause ?: "N/A"}" +
-                                     (byeResponse.sipCode?.let { " (SIP: $it ${byeResponse.sipReason ?: ""})" } ?: "")
-            Log.i("TelnyxSDK", terminationMessage)
-            // Update UI accordingly
-        }
-    }
-    // ... handle other statuses and methods
-})
-```
-
-## SocketResponse.error Implementation
-
-The `SocketResponse` class provides a standardized way to handle errors throughout the SDK:
+`TelnyxClient.socketResponseLiveData` is the primary channel for general SDK events, including connection status, errors, and messages like incoming `BYE`.
 
 ```kotlin
-fun <T> error(msg: String): SocketResponse<T> {
-    return SocketResponse(SocketStatus.ERROR, null, msg)
-}
-```
-
-This factory method creates a `SocketResponse` object with:
-- `SocketStatus.ERROR` status
-- `null` data (since there is no valid data during an error)
-- An error message describing what went wrong
-
-## Consuming Errors and Call Events in Your Application
-
-The SDK exposes errors and call-related events through the `socketResponseLiveData` LiveData object and individual `Call` objects' `callStateFlow`. Applications should observe these to handle events appropriately.
-
-Example implementation for general errors:
-```kotlin
+// In your Activity or ViewModel
 telnyxClient.socketResponseLiveData.observe(this, Observer { response ->
     when (response.status) {
         SocketStatus.ERROR -> {
-            // Log the error
-            Log.e("TelnyxSDK", "Error: ${response.errorMessage}")
-            
-            // Handle specific error types
-            when {
-                response.errorMessage?.contains("Gateway registration") == true -> {
-                    // Handle gateway registration failure
-                    // attemptReconnection()
+            Log.e("TelnyxSDK", "General SDK Error: ${response.errorMessage}")
+            // Handle gateway registration issues, WebSocket errors, no network on connect, etc.
+            // Example: if (response.errorMessage?.contains("Gateway registration") == true) { ... }
+        }
+        SocketStatus.MESSAGERECEIVED -> {
+            response.data?.let { receivedMessageBody ->
+                if (receivedMessageBody.method == SocketMethod.BYE.methodName) {
+                    val byeResponse = receivedMessageBody.result as? com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+                    byeResponse?.let {
+                        val terminationMessage = "Remote party ended call (${it.callId}). " +
+                                                 "Reason: ${it.cause ?: "N/A"}" +
+                                                 (it.sipCode?.let { sc -> " (SIP: $sc ${it.sipReason ?: ""})" } ?: "")
+                        Log.i("TelnyxSDK_Bye", terminationMessage)
+                        // This provides info that remote ended the call.
+                        // The specific Call object's callStateFlow will also transition to CallState.DONE with this reason.
+                    }
                 }
-                response.errorMessage?.contains("No Network Connection") == true -> {
-                    // Handle network connectivity issues
-                    // showOfflineUI()
-                }
-                else -> {
-                    // Handle other types of errors
-                    // showErrorToUser(response.errorMessage)
-                }
+                // Handle other methods like INVITE, ANSWER, LOGIN, CLIENT_READY etc.
             }
         }
-        // Handle other socket statuses...
+        // Handle other statuses: ESTABLISHED, LOADING, DISCONNECT
     }
 })
 ```
 
-## Error Handling and Call State Best Practices
+### Observing `Call.callStateFlow` (for Per-Call State and Reasons)
 
-When implementing error handling and observing call states:
+For each individual `Call` object, observe its `callStateFlow` to get detailed state transitions and associated reasons.
 
-1. **Always observe `socketResponseLiveData`**: For general SDK errors and message-based events like incoming `bye`.
-2. **Observe `call.callStateFlow` for each `Call` object**: For detailed state transitions of individual calls (e.g., `ACTIVE`, `DROPPED`, `RECONNECTING`, `DONE` with reasons).
-3. **Log errors and state changes for debugging purposes**: Capture messages for troubleshooting.
-4. **Implement appropriate recovery mechanisms**: Different errors or states may require different recovery strategies (e.g., reconnection for `DROPPED` or `RECONNECTING` states).
-5. **Display user-friendly messages**: Translate technical errors or state reasons into clear notifications.
-    * For `CallState.DONE(reason)`, use the `CallTerminationReason` fields (`cause`, `sipCode`, `sipReason`) to inform the user. The Telnyx support documentation can be helpful for mapping these to user-friendly messages.
-6. **Implement reconnection logic when appropriate**: For network or gateway issues.
+```kotlin
+// Assuming 'myCall' is an active Call object
+myCall.callStateFlow.collect { state ->
+    when (state) {
+        is CallState.ACTIVE -> {
+            Log.i("CallState", "Call ${myCall.callId} is ACTIVE")
+            // Update UI for active call
+        }
+        is CallState.DONE -> {
+            val reason = state.reason
+            val message = "Call ${myCall.callId} ENDED. " +
+                          (reason?.let {
+                              "Cause: ${it.cause ?: "Unknown"} (${it.causeCode ?: "N/A"}), " +
+                              "SIP: ${it.sipCode ?: "N/A"} ${it.sipReason ?: ""}"
+                          } ?: "No specific reason provided.")
+            Log.i("CallState_Done", message)
+            // Display termination reason to user, clean up call UI
+        }
+        is CallState.DROPPED -> {
+            Log.w("CallState", "Call ${myCall.callId} DROPPED. Reason: ${state.callNetworkChangeReason.description}")
+            // Inform user, potentially offer retry or end call UI
+        }
+        is CallState.RECONNECTING -> {
+            Log.i("CallState", "Call ${myCall.callId} RECONNECTING. Reason: ${state.callNetworkChangeReason.description}")
+            // Show reconnecting indicator
+        }
+        is CallState.ERROR -> {
+            Log.e("CallState", "Call ${myCall.callId} entered ERROR state.")
+            // Display error to user, clean up call UI
+        }
+        // Handle other states: NEW, CONNECTING, RINGING, HELD
+        else -> Log.d("CallState", "Call ${myCall.callId} is now ${state.javaClass.simpleName}")
+    }
+}
+```
 
-## SIP Response Codes and Common Causes
+## Best Practices for Error and State Handling
 
-For a detailed understanding of SIP response codes and common call failure reasons, refer to the official Telnyx troubleshooting guide:
-[Troubleshooting Call Completion](https://support.telnyx.com/en/articles/5025298-troubleshooting-call-completion)
-
-This guide provides valuable insights into why calls might fail with specific SIP codes (e.g., 403 Forbidden, 404 Not Found, 503 Service Unavailable) and their corresponding causes (e.g., Invalid Caller ID, Unallocated Number). Use this information in conjunction with the `sipCode` and `sipReason` from `CallTerminationReason` to provide more accurate feedback to users.
-
-## Common Error Scenarios and Solutions
-
-### Gateway Registration Failure
-- **Cause**: Network connectivity issues or invalid credentials
-- **Solution**: Check network connection and credential validity, then attempt reconnection
-
-### WebSocket Connection Errors
-- **Cause**: Network interruption or server issues
-- **Solution**: Implement automatic reconnection with exponential backoff
-
-### No Network Connection / Call Dropped
-- **Cause**: Device is offline or has poor connectivity. `CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST)` will be triggered.
-- **Solution**: Monitor network state changes. Inform the user. Reconnect when network becomes available.
-
-### Call Reconnecting
-- **Cause**: Temporary network disruption, like a network switch (e.g., Wi-Fi to mobile data). `CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)` will be triggered.
-- **Solution**: Inform the user that the call is attempting to reconnect. The SDK handles the reconnection attempt.
-
-## Error Constants Reference
-
-The following table lists some error constants/messages that might be observed:
-
-| ERROR MESSAGE                 | ERROR CODE (Example) | DESCRIPTION                                                                                                    |
-|-------------------------------|----------------------|----------------------------------------------------------------------------------------------------------------|
-| Token registration error      | -32000               | The token used for authentication was invalid.                                                                 |
-| Credential registration error | -32001               | Either the username or password used for authentication was invalid.                                           |
-| Codec error                   | -32002               | SDP handshake failed; no matching codecs and/or ICE Candidates.                                                |
-| Gateway registration timeout  | -32003               | Gateway registration timed out.                                                                                |
-| Gateway registration failed   | -32004               | Gateway registration has timed out multiple times and has now failed.                                          |
-| Call not found                | N/A                  | An action on a call was attempted (e.g., hold, DTMF) but the call no longer exists.                            |
-| *Various SIP Errors*          | *SIP Codes (e.g. 403, 404)* | Refer to `sipCode` and `sipReason` in `CallTerminationReason` and the [Telnyx Troubleshooting Guide](https://support.telnyx.com/en/articles/5025298-troubleshooting-call-completion). |
-
-These error constants are defined in the SDK's error handling system and can be used to identify specific error conditions in your application code.
+1.  **Observe Both Channels**: Use `socketResponseLiveData` for global SDK status/errors and `call.callStateFlow` for individual call lifecycle management.
+2.  **Log Extensively**: During development, log error messages, call states, and reasons to aid in debugging.
+3.  **Provide Clear User Feedback**: Translate technical error codes and states into user-understandable messages.
+    *   For `CallState.DONE` with a `reason`, use the `cause`, `sipCode`, and `sipReason` to provide specific feedback (e.g., "User Busy", "Invalid Number", "Call Rejected: Restricted Area"). Refer to the [Telnyx Troubleshooting Guide](https://support.telnyx.com/en/articles/5025298-troubleshooting-call-completion) for common interpretations.
+    *   For `CallState.DROPPED` or `CallState.RECONNECTING`, inform the user about network issues.
+4.  **Implement Recovery/Retry Logic**: For network-related drops or gateway issues, consider implementing reconnection attempts or prompting the user.
+5.  **Graceful Degradation**: If critical errors occur (e.g., persistent gateway failure), ensure your app handles this gracefully, perhaps by disabling calling features and informing the user.
 
 ## Additional Resources
 
 - [Telnyx WebRTC Android SDK GitHub Repository](https://github.com/team-telnyx/telnyx-webrtc-android)
 - [API Documentation](https://developers.telnyx.com/docs/v2/webrtc)
+- [Telnyx Troubleshooting Guide for Call Completion](https://support.telnyx.com/en/articles/5025298-troubleshooting-call-completion) (Essential for interpreting SIP codes and call failure reasons)
