@@ -1465,7 +1465,7 @@ class TelnyxClient(
             val callIdString = params?.get("callID")?.asString
 
             if (callIdString == null) {
-                Logger.e(message = "Received BYE without callID in params: $jsonObject")
+                Logger.e("Received BYE without callID in params: $jsonObject")
                 return
             }
             val callId = UUID.fromString(callIdString)
@@ -1485,8 +1485,8 @@ class TelnyxClient(
                 )
                 updateCallState(CallState.DONE(terminationReason))
 
-                // Create the rich ByeResponse
-                val byeResponseWithDetails = ByeResponse(
+                // Create the rich ByeResponse to be sent to the UI/ViewModel
+                val byeResponseForUi = com.telnyx.webrtc.sdk.verto.receive.ByeResponse(
                     callId = callId,
                     cause = cause,
                     causeCode = causeCode,
@@ -1498,7 +1498,7 @@ class TelnyxClient(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.BYE.methodName,
-                            byeResponseWithDetails
+                            byeResponseForUi
                         )
                     )
                 )
@@ -1515,10 +1515,10 @@ class TelnyxClient(
                 answerResponse = null
                 inviteResponse = null
             } ?: run {
-                Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                Logger.w("Received BYE for a callId not found in active calls: $callId")
             }
         } catch (e: Exception) {
-            Logger.e(message = "Error processing onByeReceived: ${e.message}")
+            Logger.e("Error processing onByeReceived: ${e.message}", e)
         }
     }
 
