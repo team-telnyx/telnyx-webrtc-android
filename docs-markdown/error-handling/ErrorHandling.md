@@ -144,14 +144,14 @@ When implementing error handling for the Telnyx WebRTC Android SDK:
 
 The following table lists all error constants used in the SDK:
 
-| ERROR MESSAGE | ERROR CODE | DESCRIPTION |
-|---------------|------------|-------------|
-| Token registration error | -32000 | Error during token registration |
-| Credential registration error | -32001 | Error during credential registration |
-| Codec error | -32002 | Error related to codec operation |
-| Gateway registration timeout | -32003 | Gateway registration timed out |
-| Gateway registration failed | -32004 | Gateway registration failed |
-| Call not found | N/A | The specified call cannot be found |
+| ERROR MESSAGE | ERROR CODE | DESCRIPTION                                                                                                                     |
+|---------------|------------|---------------------------------------------------------------------------------------------------------------------------------|
+| Token registration error | -32000 | The token used for authentication was invalid                                                                                   |
+| Credential registration error | -32001 | Either the username or password used for authentication was invalid                                                             |
+| Codec error | -32002 | This means that the SDP handhsake failed and there were no matching codecs and / or ICE Candidates to use to establish the call |
+| Gateway registration timeout | -32003 | Gateway registration timed out while trying to register                                                                         |
+| Gateway registration failed | -32004 | Gateway registration has timed out multiple times and has now failed                                                            |
+| Call not found | N/A | An action on a call was attemped (such as hold, DTMF) however the call no longer exists and was not found                       |
 
 These error constants are defined in the SDK's error handling system and can be used to identify specific error conditions in your application code.
 
