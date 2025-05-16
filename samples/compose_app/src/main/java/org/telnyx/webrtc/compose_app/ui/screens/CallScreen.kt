@@ -50,6 +50,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import org.telnyx.webrtc.compose_app.ui.components.CallQualityDisplay
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -67,14 +69,25 @@ import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.stats.CallQuality
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityBadColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityFairColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityGoodColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityPoorColor
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
+import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
+import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
+import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
+import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
@@ -174,74 +187,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             modifier = Modifier.testTag("callActiveView")) {
                             
                             // Call quality summary (only shown when metrics are available)
-                            if (callQualityMetrics != null) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = Dimens.spacing16dp)
-                                ) {
-                                    // Label: Call quality
-                                    MediumTextBold(
-                                        text = "Call quality",
-                                        textSize = 16.sp,
-                                        modifier = Modifier.padding(bottom = Dimens.spacing4dp)
-                                    )
-                                    
-                                    // Quality indicator row with button
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        // Quality indicator with colored dot
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val (color, text) = when (callQualityMetrics?.quality) {
-                                                CallQuality.EXCELLENT -> Color(0xFF4CAF50) to "Excellent"
-                                                CallQuality.GOOD -> Color(0xFF8BC34A) to "Good"
-                                                CallQuality.FAIR -> Color(0xFFFFC107) to "Fair"
-                                                CallQuality.POOR -> Color(0xFFFF9800) to "Poor"
-                                                CallQuality.BAD -> Color(0xFFF44336) to "Bad"
-                                                else -> Color(0xFF9E9E9E) to "Unknown"
-                                            }
-                                            
-                                            // Colored dot
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .background(color, RoundedCornerShape(6.dp))
-                                            )
-                                            
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            
-                                            // Quality text
-                                            Text(
-                                                text = text,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                        
-                                        // "View all call metrics" button
-                                        Surface(
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = Color.Transparent,
-                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                                            modifier = Modifier.padding(start = 8.dp)
-                                        ) {
-                                            Button(
-                                                onClick = { showCallQualityMetrics = true },
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = Color.Transparent,
-                                                    contentColor = MaterialTheme.colorScheme.primary
-                                                ),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                            ) {
-                                                Text("View all call metrics", fontSize = 14.sp)
-                                            }
-                                        }
-                                    }
-                                }
+                            callQualityMetrics?.let {
+                                CallMetricsState(it) { showCallQualityMetrics = true }
                             }
                             
                             Row(
@@ -308,7 +255,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     
     if (showCallQualityMetrics && callQualityMetrics != null) {
         CallQualityMetricsBottomSheet(
-            metrics = callQualityMetrics,
+            metrics = callQualityMetrics!!,
             inboundLevels = inboundLevels,
             outboundLevels = outboundLevels
         ) {
@@ -317,12 +264,65 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     }
 }
 
+@Composable
+fun CallMetricsState(metrics: CallQualityMetrics, onClick: () -> Unit) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = Dimens.spacing24dp),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        // Label: Call quality
+        RegularText(text = stringResource(id = R.string.call_metrics_label))
 
+        // Quality indicator row with button
+        Box (contentAlignment = Alignment.Center) {
+            // Quality indicator with colored dot
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val color = when (metrics.quality) {
+                    CallQuality.EXCELLENT -> MainGreen
+                    CallQuality.GOOD -> CallQualityGoodColor
+                    CallQuality.FAIR -> CallQualityFairColor
+                    CallQuality.POOR -> CallQualityPoorColor
+                    CallQuality.BAD -> CallQualityBadColor
+                    else -> DroppedIconColor
+                }
+
+                val text = metrics.quality.name.capitalizeFirstChar()
+
+                // Colored dot
+                Box(
+                    modifier = Modifier
+                        .size(Dimens.size12dp)
+                        .background(
+                            color = color,
+                            shape = shape100Percent
+                        )
+                )
+                RegularText(
+                    text = text
+                )
+            }
+
+            RoundSmallButton(
+                text = stringResource(R.string.call_metrics_button),
+                textSize = 14.sp,
+                backgroundColor = MaterialTheme.colorScheme.background
+            ) {
+                onClick.invoke()
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallQualityMetricsBottomSheet(
-    metrics: com.telnyx.webrtc.sdk.stats.CallQualityMetrics,
+    metrics: CallQualityMetrics,
     inboundLevels: List<Float>,
     outboundLevels: List<Float>,
     onDismiss: () -> Unit
@@ -331,9 +331,7 @@ fun CallQualityMetricsBottomSheet(
     val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight(),
+        modifier = Modifier.fillMaxSize(),
         onDismissRequest = {
             onDismiss.invoke()
         },
@@ -341,14 +339,15 @@ fun CallQualityMetricsBottomSheet(
         sheetState = sheetState
     ) {
         Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing)
+            modifier = Modifier.padding(Dimens.mediumSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 MediumTextBold(
-                    text = "Call Quality Metrics",
+                    text = stringResource(id = R.string.call_quality_metrics_title),
                     modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                 )
                 IconButton(onClick = {
@@ -362,11 +361,12 @@ fun CallQualityMetricsBottomSheet(
                 }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = stringResource(id = R.string.close_button_dessc)
+                        contentDescription = stringResource(id = R.string.close_button_dessc),
+                        modifier = Modifier.size(Dimens.size16dp)
                     )
                 }
             }
-            
+
             // Display detailed call quality metrics
             CallQualityDisplay(
                 metrics = metrics,
