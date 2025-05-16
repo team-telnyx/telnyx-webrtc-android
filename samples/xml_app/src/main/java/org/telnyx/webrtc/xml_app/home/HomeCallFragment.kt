@@ -44,7 +44,7 @@ class HomeCallFragment : Fragment() {
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
 
     private lateinit var dialpadFragment: DialpadFragment
-    private var callQualityBottomSheetFragment: CallQualityBottomSheetFragment? = null
+    private lateinit var callQualityBottomSheetFragment: CallQualityBottomSheetFragment
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -59,6 +59,7 @@ class HomeCallFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         dialpadFragment = DialpadFragment()
+        callQualityBottomSheetFragment = CallQualityBottomSheetFragment()
 
         setupUI()
         bindEvents()
@@ -128,14 +129,12 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun showCallQualityBottomSheet() {
-        if (callQualityBottomSheetFragment == null) {
-            callQualityBottomSheetFragment = CallQualityBottomSheetFragment()
+        if (!callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.show(
+                requireActivity().supportFragmentManager,
+                CallQualityBottomSheetFragment.TAG
+            )
         }
-        
-        callQualityBottomSheetFragment?.show(
-            requireActivity().supportFragmentManager,
-            CallQualityBottomSheetFragment.TAG
-        )
     }
 
     private fun bindEvents() {
@@ -184,6 +183,9 @@ class HomeCallFragment : Fragment() {
         binding.callInput.isEnabled = true
         callQualitySummaryBinding.root.visibility = View.GONE
         callQualityBinding.root.visibility = View.GONE
+        if (callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.dismiss()
+        }
     }
 
     private fun onCallActive() {
@@ -204,6 +206,10 @@ class HomeCallFragment : Fragment() {
         binding.destinationInfo.visibility = View.GONE
         callQualitySummaryBinding.root.visibility = View.GONE
         callQualityBinding.root.visibility = View.GONE
+
+        if (callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.dismiss()
+        }
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber, true) // Enable call quality stats
@@ -276,14 +282,21 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun getQualityIndicatorData(quality: CallQuality): Pair<Int, String> {
-        return when (quality) {
-            CallQuality.EXCELLENT -> R.color.quality_excellent to "Excellent"
-            CallQuality.GOOD -> R.color.quality_good to "Good"
-            CallQuality.FAIR -> R.color.quality_fair to "Fair"
-            CallQuality.POOR -> R.color.quality_poor to "Poor"
-            CallQuality.BAD -> R.color.quality_bad to "Bad"
-            CallQuality.UNKNOWN -> R.color.quality_unknown to "Unknown"
+        val color = when (quality) {
+            CallQuality.EXCELLENT -> R.color.quality_excellent
+            CallQuality.GOOD -> R.color.quality_good
+            CallQuality.FAIR -> R.color.quality_fair
+            CallQuality.POOR -> R.color.quality_poor
+            CallQuality.BAD -> R.color.quality_bad
+            CallQuality.UNKNOWN -> R.color.quality_unknown
         }
+
+        return Pair(color, capitalizeFirstChar(quality.name))
+    }
+
+    private fun capitalizeFirstChar(str: String?): String {
+        if (str.isNullOrEmpty()) return ""
+        return str.lowercase().replaceFirstChar { it.uppercase() }
     }
 
     override fun onDestroyView() {

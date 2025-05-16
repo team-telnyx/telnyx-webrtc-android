@@ -1,5 +1,7 @@
 package org.telnyx.webrtc.xml_app.home
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,10 +9,15 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.sdk.utilities.Logger
+import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xml_app.utils.dpToPx
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CallQualityBottomSheetBinding
 import java.util.Locale
@@ -21,7 +28,10 @@ class CallQualityBottomSheetFragment : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
-    private var metrics: CallQualityMetrics? = null
+
+    companion object {
+        const val TAG = "CallQualityBottomSheetFragment"
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -39,9 +49,32 @@ class CallQualityBottomSheetFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        // Get the current metrics from the ViewModel
-        metrics = telnyxViewModel.callQualityMetrics.value
-        updateUI(metrics)
+        observeMetrics()
+        observeWaveforms()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val dialog = dialog as? BottomSheetDialog
+        dialog?.let {
+            val bottomSheet =
+                it.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+
+            bottomSheet?.let { sheet ->
+                val behavior = BottomSheetBehavior.from(sheet)
+                //behavior.isDraggable = false
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED // Fullscreen
+                sheet.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+        }
+    }
+
+    private fun observeMetrics() {
+        lifecycleScope.launch {
+            telnyxViewModel.callQualityMetrics.collect { metrics ->
+                updateUI(metrics)
+            }
+        }
     }
 
     private fun updateUI(metrics: CallQualityMetrics?) {
@@ -71,9 +104,20 @@ class CallQualityBottomSheetFragment : BottomSheetDialogFragment() {
         metrics.outboundAudio?.forEach { (key, value) ->
             addMetricRow(binding.outboundAudioContainer, capitalizeFirstChar(key), value.toString())
         }
+    }
 
-        // In a real implementation, you would update the waveform views here
-        // For now, we'll just use placeholder views
+    private fun observeWaveforms() {
+        lifecycleScope.launch {
+            telnyxViewModel.inboundAudioLevels.collect { levels ->
+                renderOrUpdateWaveform(binding.inboundAudioWaveform, levels)
+            }
+        }
+
+        lifecycleScope.launch {
+            telnyxViewModel.outboundAudioLevels.collect { levels ->
+                renderOrUpdateWaveform(binding.outboundAudioWaveform, levels)
+            }
+        }
     }
 
     private fun addMetricRow(container: LinearLayout, label: String, value: String) {
@@ -96,7 +140,58 @@ class CallQualityBottomSheetFragment : BottomSheetDialogFragment() {
         _binding = null
     }
 
-    companion object {
-        const val TAG = "CallQualityBottomSheetFragment"
+    private fun renderOrUpdateWaveform(
+        container: LinearLayout,
+        audioLevels: List<Float>,
+        barColor: Int = Color.BLACK,
+        minBarHeight: Float = 2f,
+        maxBarHeight: Float = 50f
+    ) {
+        val barMargin = 2.dpToPx(container.context)
+        val barWidth = 2.dpToPx(container.context)
+
+        container.post {
+            val containerWidth = container.width
+            val maxElements = containerWidth / (barWidth + barMargin)
+
+            val levels = buildList {
+                val lastItems = audioLevels.takeLast(maxElements)
+                addAll(lastItems)
+                repeat(maxElements - lastItems.size) {
+                    add(0f)
+                }
+            }
+
+            if (container.childCount != levels.size) {
+                container.removeAllViews()
+                levels.forEach { _ ->
+                    val barView = View(container.context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            barWidth,
+                            minBarHeight.dpToPx(context)
+                        ).apply {
+                            leftMargin = barMargin
+                            rightMargin = barMargin
+                        }
+
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            cornerRadius = 4.dpToPx(context).toFloat()
+                            setColor(barColor)
+                        }
+                    }
+                    container.addView(barView)
+                }
+            }
+
+            levels.forEachIndexed { index, level ->
+                val clamped = level.coerceIn(0f, 1f)
+                val barHeight = minBarHeight + (clamped * (maxBarHeight - minBarHeight))
+
+                val barView = container.getChildAt(index)
+                barView?.layoutParams?.height = barHeight.dpToPx(container.context)
+                barView?.requestLayout()
+            }
+        }
     }
 }

@@ -4,7 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:focusable="true"
+    >
 
     <LinearLayout
         android:id="@+id/header_container"
@@ -34,7 +36,7 @@
             android:src="@drawable/ic_close" />
     </LinearLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
@@ -224,11 +226,15 @@
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
                     android:textStyle="bold" />
 
-                <View
+                <LinearLayout
                     android:id="@+id/inbound_audio_waveform"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:background="@color/colorSecondary" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_margin="8dp"
+                    android:baselineAligned="false"
+                    android:background="@color/colorSecondary"/>
 
                 <!-- Outbound Level -->
                 <TextView
@@ -240,13 +246,17 @@
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
                     android:textStyle="bold" />
 
-                <View
+                <LinearLayout
                     android:id="@+id/outbound_audio_waveform"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:background="@color/colorSecondary" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_margin="8dp"
+                    android:baselineAligned="false"
+                    android:background="@color/colorSecondary"/>
 
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>

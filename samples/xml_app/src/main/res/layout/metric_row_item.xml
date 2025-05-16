@@ -13,7 +13,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-        tools:text="Metric Label" />
+        tools:text="Metric Label"
+        android:layout_marginEnd="@dimen/spacing_tiny"/>
 
     <Space
         android:layout_width="0dp"
@@ -26,5 +27,7 @@
         android:layout_height="wrap_content"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
         android:textStyle="bold"
-        tools:text="Metric Value" />
+        tools:text="Metric Value"
+        android:ellipsize="end"
+        android:maxLines="1"/>
 </LinearLayout>
