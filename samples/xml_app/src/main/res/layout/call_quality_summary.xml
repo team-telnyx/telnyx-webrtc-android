@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/call_quality_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/call_quality_label"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/quality_indicator_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/call_quality_label">
+
+        <View
+            android:id="@+id/quality_dot"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:background="@drawable/quality_dot_shape" />
+
+        <TextView
+            android:id="@+id/quality_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+            tools:text="Good" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/view_all_metrics_button"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="@string/view_all_call_metrics"
+            android:textSize="14sp"
+            app:cornerRadius="16dp"
+            app:strokeColor="@color/main_green"
+            app:strokeWidth="1dp" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
