@@ -114,6 +114,14 @@
                 app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
                 android:visibility="gone">
 
+                <!-- Call Quality Summary - New UI -->
+                <include
+                    android:id="@+id/call_quality_summary"
+                    layout="@layout/call_quality_summary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -182,6 +190,7 @@
 
                 </LinearLayout>
 
+                <!-- Old Call Quality Display - Will be shown in bottom sheet now -->
                 <include
                     android:id="@+id/call_quality_display"
                     layout="@layout/call_quality_display"

@@ -6,21 +6,29 @@ import android.media.ToneGenerator.*
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +36,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import org.telnyx.webrtc.compose_app.ui.components.CallQualityDisplay
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,19 +60,34 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
+import com.telnyx.webrtc.sdk.stats.CallQuality
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityBadColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityFairColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityGoodColor
+import org.telnyx.webrtc.compose_app.ui.theme.CallQualityPoorColor
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
+import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
+import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
+import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.callRed
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
+import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
@@ -76,6 +103,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
 
     var showDialpadSection by remember { mutableStateOf(false) }
+    var showCallQualityMetrics by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
     val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
@@ -157,6 +185,12 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                             modifier = Modifier.testTag("callActiveView")) {
+                            
+                            // Call quality summary (only shown when metrics are available)
+                            callQualityMetrics?.let {
+                                CallMetricsState(it) { showCallQualityMetrics = true }
+                            }
+                            
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
@@ -185,12 +219,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
-                            // Display call quality metrics when available
-                            CallQualityDisplay(
-                                metrics = callQualityMetrics,
-                                inboundLevels = inboundLevels,
-                                outboundLevels = outboundLevels
-                            )
                         }
 
                     }
@@ -224,9 +252,130 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             showDialpadSection = false
         }
     }
+    
+    if (showCallQualityMetrics && callQualityMetrics != null) {
+        CallQualityMetricsBottomSheet(
+            metrics = callQualityMetrics!!,
+            inboundLevels = inboundLevels,
+            outboundLevels = outboundLevels
+        ) {
+            showCallQualityMetrics = false
+        }
+    }
 }
 
+@Composable
+fun CallMetricsState(metrics: CallQualityMetrics, onClick: () -> Unit) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(bottom = Dimens.spacing24dp),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        // Label: Call quality
+        RegularText(text = stringResource(id = R.string.call_metrics_label))
 
+        // Quality indicator row with button
+        Box (contentAlignment = Alignment.Center) {
+            // Quality indicator with colored dot
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val color = when (metrics.quality) {
+                    CallQuality.EXCELLENT -> MainGreen
+                    CallQuality.GOOD -> CallQualityGoodColor
+                    CallQuality.FAIR -> CallQualityFairColor
+                    CallQuality.POOR -> CallQualityPoorColor
+                    CallQuality.BAD -> CallQualityBadColor
+                    else -> DroppedIconColor
+                }
+
+                val text = metrics.quality.name.capitalizeFirstChar()
+
+                // Colored dot
+                Box(
+                    modifier = Modifier
+                        .size(Dimens.size12dp)
+                        .background(
+                            color = color,
+                            shape = shape100Percent
+                        )
+                )
+                RegularText(
+                    text = text
+                )
+            }
+
+            RoundSmallButton(
+                text = stringResource(R.string.call_metrics_button),
+                textSize = 14.sp,
+                backgroundColor = MaterialTheme.colorScheme.background
+            ) {
+                onClick.invoke()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CallQualityMetricsBottomSheet(
+    metrics: CallQualityMetrics,
+    inboundLevels: List<Float>,
+    outboundLevels: List<Float>,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
+
+    ModalBottomSheet(
+        modifier = Modifier.fillMaxSize(),
+        onDismissRequest = {
+            onDismiss.invoke()
+        },
+        containerColor = Color.White,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.mediumSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                MediumTextBold(
+                    text = stringResource(id = R.string.call_quality_metrics_title),
+                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                )
+                IconButton(onClick = {
+                    scope.launch {
+                        sheetState.hide()
+                    }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            onDismiss.invoke()
+                        }
+                    }
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = stringResource(id = R.string.close_button_dessc),
+                        modifier = Modifier.size(Dimens.size16dp)
+                    )
+                }
+            }
+
+            // Display detailed call quality metrics
+            CallQualityDisplay(
+                metrics = metrics,
+                inboundLevels = inboundLevels,
+                outboundLevels = outboundLevels
+            )
+        }
+    }
+}
 
 @Composable
 fun HomeIconButton(
