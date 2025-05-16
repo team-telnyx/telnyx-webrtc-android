@@ -952,14 +952,20 @@ class TelnyxClient(
     }
 
 
+    private var attachCallId: String? = null
+    /**
+     * Attaches push notifications to current call invite.
+     * Backend responds with INVITE message
+     * */
     private fun attachCall() {
 
+        attachCallId = UUID.randomUUID().toString()
         val params = AttachCallParams(
             userVariables = AttachUserVariables()
         )
 
         val attachPushMessage = SendingMessageBody(
-            id = UUID.randomUUID().toString(),
+            id = attachCallId!!,
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
@@ -968,7 +974,6 @@ class TelnyxClient(
         //reset push params
         pushMetaData = null
         isCallPendingFromPush = false
-
     }
 
 
@@ -1452,6 +1457,12 @@ class TelnyxClient(
     }
 
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
+        val id = jsonObject.get("id").asString
+        if (errorCode == null && attachCallId == id) {
+            Logger.d(message = "Call Failed Error Received")
+            socketResponseLiveData.postValue(SocketResponse.error("Call Failed", null))
+            return
+        }
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         socketResponseLiveData.postValue(SocketResponse.error(errorMessage, errorCode))
