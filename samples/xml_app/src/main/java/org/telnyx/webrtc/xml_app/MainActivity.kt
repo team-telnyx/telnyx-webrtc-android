@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         }
     }
 
-    fun updateCallState(uiState: TelnyxSocketEvent) {
+    private fun updateCallState(uiState: TelnyxSocketEvent) {
         val iconDrawable = when (uiState) {
             is TelnyxSocketEvent.OnIncomingCall -> R.drawable.incoming_indicator
             is TelnyxSocketEvent.OnCallEnded -> R.drawable.done_indicator
@@ -177,11 +177,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val callStateName = when (uiState) {
             is TelnyxSocketEvent.InitState -> getString(R.string.call_state_connecting)
             is TelnyxSocketEvent.OnIncomingCall -> getString(R.string.call_state_incoming)
-            is TelnyxSocketEvent.OnCallEnded -> getString(R.string.call_state_ended)
             is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
             is TelnyxSocketEvent.OnCallDropped -> getString(R.string.call_state_dropped)
             is TelnyxSocketEvent.OnCallReconnecting -> getString(R.string.call_state_reconnecting)
-            else -> getString(R.string.call_state_active)
+            is TelnyxSocketEvent.OnCallAnswered -> getString(R.string.call_state_active)
+            else -> getString(R.string.call_state_ended)
         }
         binding.callStateIcon.setBackgroundResource(iconDrawable)
         binding.callStateInfo.text = callStateName
