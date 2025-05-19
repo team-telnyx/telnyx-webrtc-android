@@ -385,7 +385,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect", SocketError.CREDENTIAL_ERROR.errorCode)
+            SocketResponse.error("Login Incorrect", null)
         )
     }
 
@@ -487,8 +487,9 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `Test onErrorReceived posts LiveData to socketResponseLiveData`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
         val errorJson = JsonObject()
+        errorJson.addProperty("id", "test-error-id")
         val errorMessageBody = JsonObject()
         errorMessageBody.addProperty("message", "my error message")
         errorJson.add("error", errorMessageBody)

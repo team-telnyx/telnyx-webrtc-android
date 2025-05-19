@@ -20,6 +20,11 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
+import io.mockk.spyk
+import io.mockk.mockkObject
+import android.net.NetworkRequest
+import android.net.NetworkCapabilities
+import android.net.ConnectivityManager
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -29,18 +34,21 @@ import org.junit.rules.TestRule
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 import org.mockito.Spy
-import timber.log.Timber
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
+import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class CallTest : BaseTest() {
 
     @MockK
     private lateinit var mockContext: Context
+
+    @MockK
+    lateinit var mockConnectivityManager: ConnectivityManager
 
     @Spy
     lateinit var client: TelnyxClient
@@ -60,6 +68,12 @@ class CallTest : BaseTest() {
     @Before
     fun setup() {
         MockKAnnotations.init(this, true, true, true)
+
+        every { mockContext.getSystemService(Context.CONNECTIVITY_SERVICE) } returns mockConnectivityManager
+
+        mockkObject(ConnectivityHelper)
+        every { ConnectivityHelper.registerNetworkStatusCallback(any(), any()) } just Runs
+
         socket = TxSocket(
             host_address = "rtc.telnyx.com",
             port = 14938,
@@ -74,7 +88,7 @@ class CallTest : BaseTest() {
         every { audioManager.isMicrophoneMute } returns false
         every { audioManager.mode = AudioManager.MODE_IN_COMMUNICATION } just Runs
 
-        client = Mockito.spy(
+        client = spyk(
             TelnyxClient(
                 mockContext
             )
@@ -274,17 +288,15 @@ class CallTest : BaseTest() {
                     port = 14938,
                 )
             )
-            call = Mockito.spy(
+            call = spyk(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
             val jsonObject = JsonObject().apply {
+                addProperty("id", "test-call-id")
                 add("error", JsonObject().apply {
                     addProperty("message", "Your error message here")
                 })
             }
-
-            //write a way to test this
-            //
 
             call.client.onErrorReceived(jsonObject, 0)
         }
