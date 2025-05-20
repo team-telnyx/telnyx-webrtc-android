@@ -147,15 +147,6 @@ class TxSocket(
                         params = jsonObject.get("params").asJsonObject
                     }
 
-                    if (jsonObject.get("error") != null) {
-                        // Handle Generic Error without Result and Code
-                        Logger.v(
-                            message = "Generic Error Received"
-                        )
-                        listener.onErrorReceived(jsonObject, null)
-                        return
-                    }
-
                     when {
                         jsonObject.has("result") -> {
                             if (jsonObject.get("result").asJsonObject.has("params")) {

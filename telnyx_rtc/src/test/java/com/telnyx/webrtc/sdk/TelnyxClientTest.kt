@@ -385,7 +385,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect", null)
+            SocketResponse.error("Login Incorrect", -32001)
         )
     }
 
