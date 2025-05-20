@@ -35,6 +35,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -111,6 +114,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
 
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var dialogErrorMessage by remember { mutableStateOf<String?>(null) }
+    var lastShownErrorMessage by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(sessionState) {
         when (sessionState) {
             is TelnyxSessionState.ClientLoggedIn -> {
@@ -126,10 +133,27 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     LaunchedEffect(Unit) {
         telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
             errorMessage?.let {
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                if (it != lastShownErrorMessage) {
+                    dialogErrorMessage = it
+                    showErrorDialog = true
+                    lastShownErrorMessage = it
+                }
                 telnyxViewModel.stopLoading()
             }
         }
+    }
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text(text = "Error") },
+            text = { dialogErrorMessage?.let { Text(text = it) } },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog = false }) {
+                    Text(stringResource(id = android.R.string.ok))
+                }
+            }
+        )
     }
 
     Scaffold(
