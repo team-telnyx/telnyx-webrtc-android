@@ -57,10 +57,6 @@ class LoginFragment : Fragment() {
                 telnyxViewModel.uiState.collect { uiState ->
                     when (uiState) {
                         is TelnyxSocketEvent.OnClientReady -> {
-                            telnyxViewModel.currentProfile.value?.let { profile ->
-                                profile.isUserLoggedIn = true
-                                telnyxViewModel.setCurrentConfig(requireContext(), profile)
-                            }
                             findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
                             cancel()
                         }
