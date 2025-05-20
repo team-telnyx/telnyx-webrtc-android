@@ -263,8 +263,45 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Logger.i(tag = "TxSocket", 
-                        message = "Socket is closed: $response $t :: Will attempt to reconnect")
+                    Logger.i(tag = "TxSocket",
+                        message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
+
+                    var errorCode: Int? = null
+                    var errorMessage: String = t.message ?: "Unknown socket failure"
+
+                    val unknownHostErrorCode = SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    val socketTimeoutErrorCode = SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    val genericNetworkErrorCode = SocketError.GATEWAY_FAILURE_ERROR.errorCode
+
+                    when (t) {
+                        is java.net.UnknownHostException -> {
+                            errorMessage = "Unable to resolve host: ${t.message ?: host_address}"
+                            errorCode = unknownHostErrorCode
+                        }
+                        is java.net.SocketTimeoutException -> {
+                            errorMessage = "Socket connection timeout: ${t.message}"
+                            errorCode = socketTimeoutErrorCode
+                        }
+                        is java.io.IOException -> {
+                            // Catch other IOExceptions that might occur during connection attempts
+                            errorMessage = "Network I/O error: ${t.message}"
+                            errorCode = genericNetworkErrorCode
+                        }
+                    }
+
+                    // Construct a JsonObject to pass to onErrorReceived
+                    val errorPayload = JsonObject().apply {
+                        addProperty("message", errorMessage)
+                        errorCode?.let { addProperty("code", it) }
+                    }
+                    val fullJson = JsonObject().apply {
+                        add("error", errorPayload)
+                        addProperty("jsonrpc", "2.0")
+                        // Add a unique ID as it's often expected by the receiver logic
+                        addProperty("id", UUID.randomUUID().toString())
+                    }
+                    listener.onErrorReceived(fullJson, errorCode)
+
                     if (ongoingCall) {
                         listener.call?.setCallRecovering()
                     }
