@@ -98,6 +98,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
+    var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -209,7 +210,196 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         }
 
         //BottomSheet
-        if (showLoginBottomSheet) {
+        // Pre-call diagnosis bottom sheet
+    if (showPreCallDiagnosisBottomSheet) {
+        ModalBottomSheet(
+            modifier = Modifier.fillMaxSize(),
+            onDismissRequest = {
+                showPreCallDiagnosisBottomSheet = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier.padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = "Pre-call Diagnosis",
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showPreCallDiagnosisBottomSheet = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc)
+                        )
+                    }
+                }
+                
+                var diagnosisStatus by remember { mutableStateOf("Running diagnosis...") }
+                var showResults by remember { mutableStateOf(false) }
+                var mosValue by remember { mutableStateOf("--") }
+                var rttValue by remember { mutableStateOf("--") }
+                var jitterValue by remember { mutableStateOf("--") }
+                var packetLossValue by remember { mutableStateOf("--") }
+                
+                RegularText(
+                    text = diagnosisStatus,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = telnyxGreen,
+                        modifier = Modifier.padding(Dimens.mediumSpacing)
+                    )
+                }
+                
+                AnimatedVisibility(visible = showResults) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
+                    ) {
+                        MediumTextBold(text = "Call Quality Metrics:")
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            RegularText(text = "MOS:")
+                            RegularText(text = mosValue)
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            RegularText(text = "RTT:")
+                            RegularText(text = rttValue)
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            RegularText(text = "Jitter:")
+                            RegularText(text = jitterValue)
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            RegularText(text = "Packet Loss:")
+                            RegularText(text = packetLossValue)
+                        }
+                    }
+                }
+                
+                // Start the diagnosis call
+                LaunchedEffect(Unit) {
+                    try {
+                        // Get texml_number from local.properties
+                        val properties = java.util.Properties()
+                        val localPropertiesFile = java.io.File(context.filesDir.parentFile?.parentFile?.parentFile?.parentFile, "local.properties")
+                        if (localPropertiesFile.exists()) {
+                            properties.load(java.io.FileInputStream(localPropertiesFile))
+                            val texmlNumber = properties.getProperty("texml_number", "+15551234567")
+                            
+                            // Make a call to the texml_number
+                            telnyxViewModel.sendInvite(context, texmlNumber, true)
+                            
+                            // Wait for call to connect and collect metrics
+                            var callConnected = false
+                            var metricsCollected = false
+                            var callEndedManually = false
+                            
+                            // Collect call state
+                            val callStateJob = launch {
+                                telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
+                                    when (callState) {
+                                        CallState.ACTIVE -> {
+                                            callConnected = true
+                                            diagnosisStatus = "Call connected. Collecting metrics..."
+                                            
+                                            // Wait a bit to collect metrics
+                                            delay(5000)
+                                            
+                                            // End the call after collecting metrics
+                                            if (!callEndedManually) {
+                                                callEndedManually = true
+                                                telnyxViewModel.currentCall?.hangup()
+                                            }
+                                        }
+                                        CallState.DONE, CallState.ERROR -> {
+                                            if (callConnected && !metricsCollected) {
+                                                metricsCollected = true
+                                                diagnosisStatus = "Diagnosis completed"
+                                                showResults = true
+                                            } else if (!callConnected) {
+                                                diagnosisStatus = "Diagnosis failed. Could not establish call."
+                                            }
+                                        }
+                                        else -> {
+                                            // Other call states
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Collect metrics
+                            val metricsJob = launch {
+                                telnyxViewModel.callQualityMetrics.collect { metrics ->
+                                    metrics?.let {
+                                        mosValue = String.format("%.2f", metrics.mos)
+                                        rttValue = String.format("%.2f ms", metrics.rtt)
+                                        jitterValue = String.format("%.2f ms", metrics.jitter)
+                                        packetLossValue = String.format("%.2f%%", metrics.packetLoss * 100)
+                                    }
+                                }
+                            }
+                            
+                            // Set a timeout for the diagnosis
+                            delay(30000) // 30 seconds timeout
+                            
+                            // If call is still active, end it
+                            if (telnyxViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE && !callEndedManually) {
+                                callEndedManually = true
+                                telnyxViewModel.currentCall?.hangup()
+                            }
+                            
+                            // Cancel the jobs
+                            callStateJob.cancel()
+                            metricsJob.cancel()
+                            
+                        } else {
+                            diagnosisStatus = "Error: Could not find local.properties file"
+                        }
+                    } catch (e: Exception) {
+                        diagnosisStatus = "Error: ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    if (showLoginBottomSheet) {
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
@@ -441,6 +631,23 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                     R.string.push_notifications_disabled,
                                     Toast.LENGTH_LONG
                                 ).show()
+                            }
+                            
+                            // Add Pre-call diagnosis button when user is logged in
+                            RoundSmallButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = "Pre-call diagnosis",
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.secondary
+                            ) {
+                                scope.launch {
+                                    sheetState.hide()
+                                }.invokeOnCompletion {
+                                    if (!sheetState.isVisible) {
+                                        showEnvironmentBottomSheet = false
+                                        showPreCallDiagnosisBottomSheet = true
+                                    }
+                                }
                             }
                         }
 
