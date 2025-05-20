@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var binding: ActivityMainBinding
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var gestureDetector: GestureDetector
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
+    private var lastShownErrorMessage: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<AppCompatActivity>.onCreate(savedInstanceState)
@@ -145,7 +147,18 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         lifecycleScope.launch {
             telnyxViewModel.sessionStateError.collect { error ->
-                error?.let { Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show() }
+                error?.let {
+                    if (it != lastShownErrorMessage) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Error")
+                            .setMessage(it)
+                            .setPositiveButton(android.R.string.ok) { dialog, which ->
+                                dialog.dismiss()
+                            }
+                            .show()
+                        lastShownErrorMessage = it
+                    }
+                }
             }
         }
 
@@ -171,17 +184,22 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             is TelnyxSocketEvent.OnRinging -> R.drawable.ringing_indicator
             is TelnyxSocketEvent.OnCallDropped -> R.drawable.done_indicator
             is TelnyxSocketEvent.OnCallReconnecting -> R.drawable.ringing_indicator
-            else -> R.drawable.status_circle
+            else -> R.drawable.status_circle // For Active, Init, Media, ClientReady
         }
 
         val callStateName = when (uiState) {
             is TelnyxSocketEvent.InitState -> getString(R.string.call_state_connecting)
             is TelnyxSocketEvent.OnIncomingCall -> getString(R.string.call_state_incoming)
+            is TelnyxSocketEvent.OnCallEnded -> {
+                val cause = uiState.message?.cause
+                if (cause != null) "Done - $cause" else getString(R.string.call_state_ended)
+            }
             is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
             is TelnyxSocketEvent.OnCallDropped -> getString(R.string.call_state_dropped)
             is TelnyxSocketEvent.OnCallReconnecting -> getString(R.string.call_state_reconnecting)
             is TelnyxSocketEvent.OnCallAnswered -> getString(R.string.call_state_active)
-            else -> getString(R.string.call_state_ended)
+            is TelnyxSocketEvent.OnMedia -> getString(R.string.call_state_active)
+            is TelnyxSocketEvent.OnClientReady -> getString(R.string.client_ready)
         }
         binding.callStateIcon.setBackgroundResource(iconDrawable)
         binding.callStateInfo.text = callStateName
