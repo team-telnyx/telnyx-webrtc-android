@@ -310,7 +310,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val bottomSheetDialog = BottomSheetDialog(this)
         val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_precall_diagnosis, null)
         
-        val diagnosisStatusText = bottomSheetView.findViewById<View>(R.id.diagnosisStatusText)
+        val diagnosisStatusText = bottomSheetView.findViewById<android.widget.TextView>(R.id.diagnosisStatusText)
         val resultsContainer = bottomSheetView.findViewById<View>(R.id.resultsContainer)
         val mosValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.mosValue)
         val rttValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.rttValue)
@@ -325,97 +325,89 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             try {
                 // Get texml_number from local.properties
-                val properties = java.util.Properties()
-                val localPropertiesFile = java.io.File(applicationContext.filesDir.parentFile?.parentFile?.parentFile?.parentFile, "local.properties")
-                if (localPropertiesFile.exists()) {
-                    properties.load(java.io.FileInputStream(localPropertiesFile))
-                    val texmlNumber = properties.getProperty("texml_number", "+15551234567")
-                    
-                    // Make a call to the texml_number
-                    telnyxViewModel.sendInvite(this@MainActivity, texmlNumber, true)
-                    
-                    // Wait for call to connect and collect metrics
-                    var callConnected = false
-                    var metricsCollected = false
-                    var callEndedManually = false
-                    
-                    // Collect call state
-                    val callStateJob = launch {
-                        telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                            when (callState) {
-                                CallState.ACTIVE -> {
-                                    callConnected = true
+
+                val texmlNumber = BuildConfig.PRECALL_DIAGNOSIS_NUMBER
+
+                // Make a call to the texml_number
+                telnyxViewModel.sendInvite(this@MainActivity, texmlNumber, true)
+
+                // Wait for call to connect and collect metrics
+                var callConnected = false
+                var metricsCollected = false
+                var callEndedManually = false
+
+                // Collect call state
+                val callStateJob = launch {
+                    telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
+                        when (callState) {
+                            CallState.ACTIVE -> {
+                                callConnected = true
+                                diagnosisStatusText.post {
+                                    diagnosisStatusText.text = "Call connected. Collecting metrics..."
+                                }
+
+                                // Wait a bit to collect metrics
+                                delay(5000)
+
+                                // End the call after collecting metrics
+                                if (!callEndedManually) {
+                                    callEndedManually = true
+                                    telnyxViewModel.endCall(viewContext = this@MainActivity)
+                                }
+                            }
+                            CallState.DONE, CallState.ERROR -> {
+                                if (callConnected && !metricsCollected) {
+                                    metricsCollected = true
                                     diagnosisStatusText.post {
-                                        diagnosisStatusText.text = "Call connected. Collecting metrics..."
+                                        diagnosisStatusText.text = "Diagnosis completed"
+                                        resultsContainer.visibility = View.VISIBLE
                                     }
-                                    
-                                    // Wait a bit to collect metrics
-                                    delay(5000)
-                                    
-                                    // End the call after collecting metrics
-                                    if (!callEndedManually) {
-                                        callEndedManually = true
-                                        telnyxViewModel.currentCall?.hangup()
+                                } else if (!callConnected) {
+                                    diagnosisStatusText.post {
+                                        diagnosisStatusText.text = "Diagnosis failed. Could not establish call."
                                     }
-                                }
-                                CallState.DONE, CallState.ERROR -> {
-                                    if (callConnected && !metricsCollected) {
-                                        metricsCollected = true
-                                        diagnosisStatusText.post {
-                                            diagnosisStatusText.text = "Diagnosis completed"
-                                            resultsContainer.visibility = View.VISIBLE
-                                        }
-                                    } else if (!callConnected) {
-                                        diagnosisStatusText.post {
-                                            diagnosisStatusText.text = "Diagnosis failed. Could not establish call."
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    // Other call states
                                 }
                             }
-                        }
-                    }
-                    
-                    // Collect metrics
-                    val metricsJob = launch {
-                        telnyxViewModel.callQualityMetrics.collect { metrics ->
-                            metrics?.let {
-                                mosValue.post {
-                                    mosValue.text = String.format("%.2f", metrics.mos)
-                                }
-                                rttValue.post {
-                                    rttValue.text = String.format("%.2f ms", metrics.rtt)
-                                }
-                                jitterValue.post {
-                                    jitterValue.text = String.format("%.2f ms", metrics.jitter)
-                                }
-                                packetLossValue.post {
-                                    packetLossValue.text = String.format("%.2f%%", metrics.packetLoss * 100)
-                                }
+                            else -> {
+                                // Other call states
                             }
                         }
-                    }
-                    
-                    // Set a timeout for the diagnosis
-                    delay(30000) // 30 seconds timeout
-                    
-                    // If call is still active, end it
-                    if (telnyxViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE && !callEndedManually) {
-                        callEndedManually = true
-                        telnyxViewModel.currentCall?.hangup()
-                    }
-                    
-                    // Cancel the jobs
-                    callStateJob.cancel()
-                    metricsJob.cancel()
-                    
-                } else {
-                    diagnosisStatusText.post {
-                        diagnosisStatusText.text = "Error: Could not find local.properties file"
                     }
                 }
+
+                // Collect metrics
+                val metricsJob = launch {
+                    telnyxViewModel.callQualityMetrics.collect { metrics ->
+                        metrics?.let {
+                            mosValue.post {
+                                mosValue.text = String.format("%.2f", metrics.mos)
+                            }
+                            rttValue.post {
+                                rttValue.text = String.format("%.2f ms", metrics.rtt)
+                            }
+                            jitterValue.post {
+                                jitterValue.text = String.format("%.2f ms", metrics.jitter)
+                            }
+                            packetLossValue.post {
+                                //packetLossValue.text = String.format("%.2f%%", metrics.packetLoss * 100)
+                            }
+                        }
+                    }
+                }
+
+                // Set a timeout for the diagnosis
+                delay(30000) // 30 seconds timeout
+
+                // If call is still active, end it
+                if (telnyxViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE && !callEndedManually) {
+                    callEndedManually = true
+                    telnyxViewModel.endCall(viewContext = this@MainActivity)
+                }
+
+                // Cancel the jobs
+                callStateJob.cancel()
+                metricsJob.cancel()
+
             } catch (e: Exception) {
                 diagnosisStatusText.post {
                     diagnosisStatusText.text = "Error: ${e.message}"
