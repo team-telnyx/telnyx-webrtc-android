@@ -1,5 +1,18 @@
 This document describes the error handling mechanisms in the Telnyx WebRTC Android SDK, specifically focusing on when and why error events are triggered and how they are processed through the SDK.
 
+## Error Constants Table
+
+The following table lists all error constants used in the SDK:
+
+| Error Message | Error Code | Description |
+|---------------|------------|-------------|
+| Token registration error | -32000 | Error during token registration |
+| Credential registration error | -32001 | Error during credential registration |
+| Codec error | -32002 | Error related to codec operation |
+| Gateway registration timeout | -32003 | Gateway registration timed out |
+| Gateway registration failed | -32004 | Gateway registration failed |
+| Call not found | N/A | The specified call cannot be found |
+
 ## Error Handling Architecture
 
 The Android SDK implements a structured approach to error handling through several key components:
