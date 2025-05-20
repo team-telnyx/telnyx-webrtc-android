@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.telnyx.webrtc.common.model.Profile
+import timber.log.Timber
 
 /**
  * Object responsible for managing user profiles.
@@ -49,6 +50,9 @@ object ProfileManager {
         listOfProfiles.firstOrNull { it.sipToken?.isEmpty() == false && it.sipToken == profile.sipToken }?.let { existingProfile ->
             listOfProfiles.remove(existingProfile)
         }
+
+        if (profile.isUserLoggedIn)
+            listOfProfiles.forEach { it.isUserLoggedIn = false }
 
         listOfProfiles.add(profile)
 
