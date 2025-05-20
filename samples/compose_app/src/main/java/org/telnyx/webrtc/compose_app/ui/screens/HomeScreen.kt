@@ -676,7 +676,14 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
     val callStateName = when (state) {
         is TelnyxSocketEvent.InitState -> stringResource(R.string.call_state_connecting)
         is TelnyxSocketEvent.OnIncomingCall -> stringResource(R.string.call_state_incoming)
-        is TelnyxSocketEvent.OnCallEnded -> stringResource(R.string.call_state_ended)
+        is TelnyxSocketEvent.OnCallEnded -> {
+            val cause = state.message?.cause
+            if (cause != null) {
+                "Done - $cause"
+            } else {
+                "Done"
+            }
+        }
         is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
         is TelnyxSocketEvent.OnCallDropped -> stringResource(R.string.call_state_dropped)
         is TelnyxSocketEvent.OnCallReconnecting -> stringResource(R.string.call_state_reconnecting)
