@@ -69,6 +69,38 @@ fun CallQualityDisplay(
                 CircularProgressIndicator(modifier = Modifier.width(24.dp)) // Adjust size as needed
             }
         } else {
+            // Inbound Waveform
+            RegularText(text = stringResource(R.string.call_quality_metrics_inbound_audio_level),
+                size = Dimens.textSize16sp,
+                fontWeight = FontWeight.SemiBold)
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            AudioWaveform(
+                audioLevels = inboundLevels,
+                barColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Outbound Waveform
+            RegularText(text = stringResource(R.string.call_quality_metrics_outbound_audio_level),
+                size = Dimens.textSize16sp,
+                fontWeight = FontWeight.SemiBold)
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            AudioWaveform(
+                audioLevels = outboundLevels,
+                barColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            )
+
             // Jitter
             MetricRow(
                 label = stringResource(R.string.call_quality_metrics_jitter),
@@ -111,40 +143,6 @@ fun CallQualityDisplay(
             metrics?.outboundAudio?.forEach { (key, value) ->
                 MetricRow(key.capitalizeFirstChar() ?: stringResource(R.string.unknown_label), value.toString())
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Inbound Waveform
-            RegularText(text = stringResource(R.string.call_quality_metrics_inbound_audio_level),
-                size = Dimens.textSize16sp,
-                fontWeight = FontWeight.SemiBold)
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            AudioWaveform(
-                audioLevels = inboundLevels,
-                barColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Outbound Waveform
-            RegularText(text = stringResource(R.string.call_quality_metrics_outbound_audio_level),
-                size = Dimens.textSize16sp,
-                fontWeight = FontWeight.SemiBold)
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            AudioWaveform(
-                audioLevels = outboundLevels,
-                barColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
         }
     }
 }

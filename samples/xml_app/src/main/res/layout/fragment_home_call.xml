@@ -190,15 +190,6 @@
 
                 </LinearLayout>
 
-                <!-- Old Call Quality Display - Will be shown in bottom sheet now -->
-                <include
-                    android:id="@+id/call_quality_display"
-                    layout="@layout/call_quality_display"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone" />
-
             </LinearLayout>
 
             <LinearLayout

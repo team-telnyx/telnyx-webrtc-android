@@ -23,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xml_app.MainActivity
 import org.telnyx.webrtc.xmlapp.R
-import org.telnyx.webrtc.xmlapp.databinding.CallQualityDisplayBinding
 import org.telnyx.webrtc.xmlapp.databinding.CallQualitySummaryBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
@@ -34,9 +33,6 @@ class HomeCallFragment : Fragment() {
 
     private var _binding: FragmentHomeCallBinding? = null
     private val binding get() = _binding!!
-
-    private var _callQualityBinding: CallQualityDisplayBinding? = null
-    private val callQualityBinding get() = _callQualityBinding!!
 
     private var _callQualitySummaryBinding: CallQualitySummaryBinding? = null
     private val callQualitySummaryBinding get() = _callQualitySummaryBinding!!
@@ -50,7 +46,6 @@ class HomeCallFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeCallBinding.inflate(inflater, container, false)
-        _callQualityBinding = CallQualityDisplayBinding.bind(binding.callQualityDisplay.root)
         _callQualitySummaryBinding = CallQualitySummaryBinding.bind(binding.callQualitySummary.root)
         return binding.root
     }
@@ -182,7 +177,6 @@ class HomeCallFragment : Fragment() {
         binding.destinationInfo.visibility = View.VISIBLE
         binding.callInput.isEnabled = true
         callQualitySummaryBinding.root.visibility = View.GONE
-        callQualityBinding.root.visibility = View.GONE
         if (callQualityBottomSheetFragment.isAdded) {
             callQualityBottomSheetFragment.dismiss()
         }
@@ -205,7 +199,6 @@ class HomeCallFragment : Fragment() {
         binding.callTypeSwitch.visibility = View.GONE
         binding.destinationInfo.visibility = View.GONE
         callQualitySummaryBinding.root.visibility = View.GONE
-        callQualityBinding.root.visibility = View.GONE
 
         if (callQualityBottomSheetFragment.isAdded) {
             callQualityBottomSheetFragment.dismiss()
@@ -251,15 +244,11 @@ class HomeCallFragment : Fragment() {
 
         if (metrics == null) {
             callQualitySummaryBinding.root.visibility = View.GONE
-            callQualityBinding.root.visibility = View.GONE
             return
         }
 
         // Show the summary view
         callQualitySummaryBinding.root.visibility = View.VISIBLE
-        
-        // Hide the old detailed view (it will be shown in the bottom sheet)
-        callQualityBinding.root.visibility = View.GONE
 
         if (metrics.quality == CallQuality.UNKNOWN) {
             // If quality is unknown, we could show a loading state in the summary
@@ -302,7 +291,6 @@ class HomeCallFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        _callQualityBinding = null
         _callQualitySummaryBinding = null
     }
 }

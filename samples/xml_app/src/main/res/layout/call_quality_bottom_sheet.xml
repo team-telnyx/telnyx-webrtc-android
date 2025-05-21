@@ -64,10 +64,51 @@
                 android:orientation="vertical"
                 android:visibility="visible">
 
+                <!-- Inbound Level -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/call_quality_metrics_inbound_audio_level"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/inbound_audio_waveform"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_margin="8dp"
+                    android:baselineAligned="false"
+                    android:background="@color/colorSecondary"/>
+
+                <!-- Outbound Level -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/call_quality_metrics_outbound_audio_level"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/outbound_audio_waveform"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_margin="8dp"
+                    android:baselineAligned="false"
+                    android:background="@color/colorSecondary"/>
+
                 <!-- Jitter -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                     android:layout_marginBottom="8dp"
                     android:background="@drawable/metric_row_background"
                     android:orientation="horizontal"
@@ -215,46 +256,6 @@
                     android:orientation="vertical">
                     <!-- Outbound audio metrics will be added dynamically -->
                 </LinearLayout>
-
-                <!-- Inbound Level -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="@string/call_quality_metrics_inbound_audio_level"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:id="@+id/inbound_audio_waveform"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_margin="8dp"
-                    android:baselineAligned="false"
-                    android:background="@color/colorSecondary"/>
-
-                <!-- Outbound Level -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="8dp"
-                    android:text="@string/call_quality_metrics_outbound_audio_level"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:id="@+id/outbound_audio_waveform"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_margin="8dp"
-                    android:baselineAligned="false"
-                    android:background="@color/colorSecondary"/>
 
             </LinearLayout>
         </LinearLayout>
