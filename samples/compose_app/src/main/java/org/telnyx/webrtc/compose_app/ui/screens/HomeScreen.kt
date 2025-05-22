@@ -35,6 +35,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -103,13 +106,17 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
-    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
-        ?: remember { mutableStateOf(CallState.DONE) }
+    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState(initial = CallState.DONE())
+        ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
+
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var dialogErrorMessage by remember { mutableStateOf<String?>(null) }
+    var lastShownErrorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionState) {
         when (sessionState) {
@@ -126,10 +133,27 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     LaunchedEffect(Unit) {
         telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
             errorMessage?.let {
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                if (it != lastShownErrorMessage) {
+                    dialogErrorMessage = it
+                    showErrorDialog = true
+                    lastShownErrorMessage = it
+                }
                 telnyxViewModel.stopLoading()
             }
         }
+    }
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text(text = "Error") },
+            text = { dialogErrorMessage?.let { Text(text = it) } },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog = false }) {
+                    Text(stringResource(id = android.R.string.ok))
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -164,7 +188,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             }
         },
         bottomBar = {
-            if (callState == CallState.DONE || callState == CallState.ERROR)
+            if (callState is CallState.DONE || callState is CallState.ERROR)
             BottomBar(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel,
@@ -652,7 +676,14 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
     val callStateName = when (state) {
         is TelnyxSocketEvent.InitState -> stringResource(R.string.call_state_connecting)
         is TelnyxSocketEvent.OnIncomingCall -> stringResource(R.string.call_state_incoming)
-        is TelnyxSocketEvent.OnCallEnded -> stringResource(R.string.call_state_ended)
+        is TelnyxSocketEvent.OnCallEnded -> {
+            val cause = state.message?.cause
+            if (cause != null) {
+                "Done - $cause"
+            } else {
+                "Done"
+            }
+        }
         is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
         is TelnyxSocketEvent.OnCallDropped -> stringResource(R.string.call_state_dropped)
         is TelnyxSocketEvent.OnCallReconnecting -> stringResource(R.string.call_state_reconnecting)
