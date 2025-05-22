@@ -556,13 +556,13 @@ fun PosNegButton(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp),
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("negativeButton"),
                 text = negativeText,
                 contentColor = MaterialTheme.colorScheme.primary,
                 backgroundColor = Color.White) {
                 onNegativeClick()
             }
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp), text = positiveText) {
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("positiveButton"), text = positiveText) {
                 onPositiveClick()
             }
 
