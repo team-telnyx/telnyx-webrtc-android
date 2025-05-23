@@ -24,3 +24,8 @@ val MainGreen = Color(0xFF008563)
 
 val DroppedIconColor = Color(0xFF93928D)
 val RingingIconColor = Color(0xFF3434EF)
+
+val CallQualityGoodColor = Color(0xFF8BC34A)
+val CallQualityFairColor = Color(0xFFFFC107)
+val CallQualityPoorColor = Color(0xFFFF9800)
+val CallQualityBadColor = Color(0xFFF44336)

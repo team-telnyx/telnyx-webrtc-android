@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButton
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -22,7 +23,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xml_app.MainActivity
 import org.telnyx.webrtc.xmlapp.R
-import org.telnyx.webrtc.xmlapp.databinding.CallQualityDisplayBinding
+import org.telnyx.webrtc.xmlapp.databinding.CallQualitySummaryBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
 import java.util.*
@@ -33,18 +34,19 @@ class HomeCallFragment : Fragment() {
     private var _binding: FragmentHomeCallBinding? = null
     private val binding get() = _binding!!
 
-    private var _callQualityBinding: CallQualityDisplayBinding? = null
-    private val callQualityBinding get() = _callQualityBinding!!
+    private var _callQualitySummaryBinding: CallQualitySummaryBinding? = null
+    private val callQualitySummaryBinding get() = _callQualitySummaryBinding!!
 
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
 
     private lateinit var dialpadFragment: DialpadFragment
+    private lateinit var callQualityBottomSheetFragment: CallQualityBottomSheetFragment
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeCallBinding.inflate(inflater, container, false)
-        _callQualityBinding = CallQualityDisplayBinding.bind(binding.callQualityDisplay.root)
+        _callQualitySummaryBinding = CallQualitySummaryBinding.bind(binding.callQualitySummary.root)
         return binding.root
     }
 
@@ -52,6 +54,7 @@ class HomeCallFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         dialpadFragment = DialpadFragment()
+        callQualityBottomSheetFragment = CallQualityBottomSheetFragment()
 
         setupUI()
         bindEvents()
@@ -113,6 +116,20 @@ class HomeCallFragment : Fragment() {
                 )
             }
         }
+
+        // Setup the "View all call metrics" button
+        callQualitySummaryBinding.viewAllMetricsButton.setOnClickListener {
+            showCallQualityBottomSheet()
+        }
+    }
+
+    private fun showCallQualityBottomSheet() {
+        if (!callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.show(
+                requireActivity().supportFragmentManager,
+                CallQualityBottomSheetFragment.TAG
+            )
+        }
     }
 
     private fun bindEvents() {
@@ -159,7 +176,10 @@ class HomeCallFragment : Fragment() {
         binding.callTypeSwitch.visibility = View.VISIBLE
         binding.destinationInfo.visibility = View.VISIBLE
         binding.callInput.isEnabled = true
-        callQualityBinding.root.visibility = View.GONE // Hide quality display on idle
+        callQualitySummaryBinding.root.visibility = View.GONE
+        if (callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.dismiss()
+        }
     }
 
     private fun onCallActive() {
@@ -178,7 +198,11 @@ class HomeCallFragment : Fragment() {
         binding.callIncomingView.visibility = View.VISIBLE
         binding.callTypeSwitch.visibility = View.GONE
         binding.destinationInfo.visibility = View.GONE
-        callQualityBinding.root.visibility = View.GONE // Hide quality display for incoming call
+        callQualitySummaryBinding.root.visibility = View.GONE
+
+        if (callQualityBottomSheetFragment.isAdded) {
+            callQualityBottomSheetFragment.dismiss()
+        }
 
         binding.callAnswer.setOnClickListener {
             telnyxViewModel.answerCall(requireContext(), callId, callerIdNumber, true) // Enable call quality stats
@@ -216,49 +240,57 @@ class HomeCallFragment : Fragment() {
     }
 
     private fun updateCallQualityUI(metrics: CallQualityMetrics?) {
-        if (_callQualityBinding == null) return
+        if (_callQualitySummaryBinding == null) return
 
         if (metrics == null) {
-            callQualityBinding.root.visibility = View.GONE
+            callQualitySummaryBinding.root.visibility = View.GONE
             return
         }
 
-        callQualityBinding.root.visibility = View.VISIBLE
+        // Show the summary view
+        callQualitySummaryBinding.root.visibility = View.VISIBLE
 
         if (metrics.quality == CallQuality.UNKNOWN) {
-            callQualityBinding.progressQualityLoading.visibility = View.VISIBLE
-            callQualityBinding.qualityDetailsLayout.visibility = View.GONE
+            // If quality is unknown, we could show a loading state in the summary
+            // For now, we'll just show the "Unknown" quality
+            updateQualitySummary(metrics.quality)
         } else {
-            callQualityBinding.progressQualityLoading.visibility = View.GONE
-            callQualityBinding.qualityDetailsLayout.visibility = View.VISIBLE
-
-            val (colorRes, text) = getQualityIndicatorData(metrics.quality)
-            callQualityBinding.qualityIndicatorColor.backgroundTintList = ContextCompat.getColorStateList(requireContext(), colorRes)
-            callQualityBinding.qualityIndicatorText.text = text
-
-            callQualityBinding.textMosValue.text = String.format(Locale.US, "%.2f", metrics.mos)
-            callQualityBinding.textJitterValue.text = String.format(Locale.US, "%.2f ms", metrics.jitter * 1000)
-            callQualityBinding.textRttValue.text = String.format(Locale.US, "%.2f ms", metrics.rtt * 1000)
-            callQualityBinding.textInboundLevelValue.text = String.format(Locale.US, "%.2f", metrics.inboundAudioLevel)
-            callQualityBinding.textOutboundLevelValue.text = String.format(Locale.US, "%.2f", metrics.outboundAudioLevel)
+            updateQualitySummary(metrics.quality)
         }
     }
 
+    private fun updateQualitySummary(quality: CallQuality) {
+        val (colorRes, text) = getQualityIndicatorData(quality)
+        
+        // Update the colored dot
+        callQualitySummaryBinding.qualityDot.backgroundTintList = 
+            ContextCompat.getColorStateList(requireContext(), colorRes)
+        
+        // Update the quality text
+        callQualitySummaryBinding.qualityText.text = text
+    }
+
     private fun getQualityIndicatorData(quality: CallQuality): Pair<Int, String> {
-        return when (quality) {
-            CallQuality.EXCELLENT -> R.color.quality_excellent to "Excellent"
-            CallQuality.GOOD -> R.color.quality_good to "Good"
-            CallQuality.FAIR -> R.color.quality_fair to "Fair"
-            CallQuality.POOR -> R.color.quality_poor to "Poor"
-            CallQuality.BAD -> R.color.quality_bad to "Bad"
-            CallQuality.UNKNOWN -> R.color.quality_unknown to "Unknown"
+        val color = when (quality) {
+            CallQuality.EXCELLENT -> R.color.quality_excellent
+            CallQuality.GOOD -> R.color.quality_good
+            CallQuality.FAIR -> R.color.quality_fair
+            CallQuality.POOR -> R.color.quality_poor
+            CallQuality.BAD -> R.color.quality_bad
+            CallQuality.UNKNOWN -> R.color.quality_unknown
         }
+
+        return Pair(color, capitalizeFirstChar(quality.name))
+    }
+
+    private fun capitalizeFirstChar(str: String?): String {
+        if (str.isNullOrEmpty()) return ""
+        return str.lowercase().replaceFirstChar { it.uppercase() }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        _callQualityBinding = null
+        _callQualitySummaryBinding = null
     }
-
 }
