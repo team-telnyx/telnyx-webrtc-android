@@ -100,11 +100,18 @@ object CallScreenNav
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewModel) {
+fun HomeScreen(
+    navController: NavHostController, 
+    telnyxViewModel: TelnyxViewModel,
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
+    onCopyFcmToken: () -> Unit = {},
+    onDisablePushNotifications: () -> Unit = {}
+) {
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -114,6 +121,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
         ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+    val wsMessages by telnyxViewModel.wsMessages.collectAsState()
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
@@ -165,14 +173,17 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             .padding(start = Dimens.mediumSpacing, end = Dimens.mediumSpacing),
         topBar = {
             Column {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .wrapContentHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Spacer(modifier = Modifier.height(Dimens.spacing32dp))
+                    // Empty space on the left to balance the layout
+                    Spacer(modifier = Modifier.width(48.dp))
                     
+                    // Logo in the center
                     Image(
                         painter = painterResource(id = R.drawable.telnyx_logo),
                         contentDescription = stringResource(id = R.string.app_name),
@@ -182,13 +193,101 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onLongPress = {
-                                        showEnvironmentBottomSheet = true
+                                        // Only show environment bottom sheet when not logged in
+                                        if (sessionState is TelnyxSessionState.ClientDisconnected) {
+                                            showEnvironmentBottomSheet = true
+                                        }
                                     }
                                 )
                             }
                     )
-                    Spacer(modifier = Modifier.height(Dimens.spacing16dp))
+                    
+                    // Menu button on the right (only visible when logged in)
+                    Box(
+                        modifier = Modifier.width(48.dp),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_more_vert),
+                                    contentDescription = "Menu",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            
+                            // Dropdown menu
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                // Websocket Messages option
+                                DropdownMenuItem(
+                                    text = { Text("Websocket Messages") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showWsMessagesBottomSheet.value = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_message),
+                                            contentDescription = null
+                                        )
+                                    },
+                                    trailingIcon = if (wsMessages.isNotEmpty()) {
+                                        {
+                                            Text(
+                                                text = wsMessages.size.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .background(
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        shape = shape100Percent
+                                                    )
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    } else null
+                                )
+                                
+                                // Copy FCM Token option
+                                DropdownMenuItem(
+                                    text = { Text("Copy FCM Token") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onCopyFcmToken()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_copy),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                                
+                                // Disable Push Notifications option
+                                DropdownMenuItem(
+                                    text = { Text("Disable Push Notifications") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onDisablePushNotifications()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_notifications_off),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                        } else {
+                            // Empty space when not logged in
+                            Spacer(modifier = Modifier.width(48.dp))
+                        }
+                    }
                 }
+                Spacer(modifier = Modifier.height(Dimens.spacing16dp))
             }
         },
         bottomBar = {
@@ -213,7 +312,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
             ConnectionState(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
-                telnyxViewModel = telnyxViewModel
+                telnyxViewModel = telnyxViewModel,
+                showWsMessagesBottomSheet = showWsMessagesBottomSheet
             )
 
             if (sessionState !is TelnyxSessionState.ClientDisconnected) {
@@ -646,9 +746,12 @@ fun SessionItem(sessionId: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = viewModel()) {
+fun ConnectionState(
+    state: Boolean, 
+    telnyxViewModel: TelnyxViewModel = viewModel(),
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
+) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
-    var showWsMessagesBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
 
@@ -671,45 +774,15 @@ fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = viewModel
             RegularText(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
-            
-            // Add websocket messages icon
-            if (state) {
-                Spacer(modifier = Modifier.width(Dimens.spacing8dp))
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_message),
-                    contentDescription = "Websocket Messages",
-                    modifier = Modifier
-                        .size(Dimens.size24dp)
-                        .clickable {
-                            showWsMessagesBottomSheet = true
-                        },
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                
-                // Show message count badge if there are messages
-                if (wsMessages.isNotEmpty()) {
-                    Text(
-                        text = wsMessages.size.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = shape100Percent
-                            )
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-            }
         }
     }
     
     // Websocket messages bottom sheet
-    if (showWsMessagesBottomSheet) {
+    if (showWsMessagesBottomSheet.value) {
         ModalBottomSheet(
             modifier = Modifier.height(600.dp),
             onDismissRequest = {
-                showWsMessagesBottomSheet = false
+                showWsMessagesBottomSheet.value = false
             },
             containerColor = Color.White,
             sheetState = sheetState
@@ -732,7 +805,7 @@ fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = viewModel
                             sheetState.hide()
                         }.invokeOnCompletion {
                             if (!sheetState.isVisible) {
-                                showWsMessagesBottomSheet = false
+                                showWsMessagesBottomSheet.value = false
                             }
                         }
                     }) {

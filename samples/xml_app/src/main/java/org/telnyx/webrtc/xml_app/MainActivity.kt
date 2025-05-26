@@ -112,10 +112,63 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Initialize websocket messages adapter
         websocketMessagesAdapter = WebsocketMessagesAdapter()
         
-        // Set up websocket messages icon click listener
-        binding.wsMessagesIcon.setOnClickListener {
-            showWebsocketMessagesBottomSheet()
+        // Set up overflow menu
+        binding.menuButton.setOnClickListener {
+            showOverflowMenu()
         }
+    }
+    
+    /**
+     * Shows the overflow menu with options
+     */
+    private fun showOverflowMenu() {
+        val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
+        popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
+        
+        // Add badge count to websocket messages menu item if there are messages
+        val wsMessages = telnyxViewModel.wsMessages.value
+        if (wsMessages.isNotEmpty()) {
+            val menuItem = popupMenu.menu.findItem(R.id.action_websocket_messages)
+            menuItem.title = "Websocket Messages (${wsMessages.size})"
+        }
+        
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_websocket_messages -> {
+                    showWebsocketMessagesBottomSheet()
+                    true
+                }
+                R.id.action_copy_fcm_token -> {
+                    copyFcmTokenToClipboard()
+                    true
+                }
+                R.id.action_disable_push -> {
+                    disablePushNotifications()
+                    true
+                }
+                else -> false
+            }
+        }
+        
+        popupMenu.show()
+    }
+    
+    /**
+     * Copies the FCM token to the clipboard
+     */
+    private fun copyFcmTokenToClipboard() {
+        val token = telnyxViewModel.retrieveFCMToken()
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
+        Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+    
+    /**
+     * Disables push notifications
+     */
+    private fun disablePushNotifications() {
+        telnyxViewModel.disablePushNotifications(this)
+        Toast.makeText(this, R.string.push_notifications_disabled, Toast.LENGTH_SHORT).show()
     }
 
     private fun bindEvents() {
@@ -135,8 +188,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.callState.visibility = View.VISIBLE
                         binding.callStateLabel.visibility = View.VISIBLE
                         
-                        // Show websocket messages icon when connected
-                        binding.wsMessagesIcon.visibility = View.VISIBLE
+                        // Show menu button when connected
+                        binding.menuButton.visibility = View.VISIBLE
+                        
+                        // Start collecting websocket messages
+                        telnyxViewModel.collectWebsocketMessages()
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -157,9 +213,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.callState.visibility = View.GONE
                         binding.callStateLabel.visibility = View.GONE
                         
-                        // Hide websocket messages icon when disconnected
-                        binding.wsMessagesIcon.visibility = View.GONE
-                        binding.wsMessagesBadge.visibility = View.GONE
+                        // Hide menu button when disconnected
+                        binding.menuButton.visibility = View.GONE
                     }
                 }
             }
@@ -287,7 +342,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun setupGestureDetector() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
-                showEnvironmentBottomSheet()
+                // Only show environment bottom sheet when not logged in
+                if (telnyxViewModel.sessionsState.value is TelnyxSessionState.ClientDisconnected) {
+                    showEnvironmentBottomSheet()
+                }
             }
         })
 
@@ -327,22 +385,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             bottomSheetDialog.dismiss()
         }
 
-        bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).setOnClickListener {
-            val token = telnyxViewModel.retrieveFCMToken()
-            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
-            bottomSheetDialog.dismiss()
-        }
-
-        bottomSheetView.findViewById<View>(R.id.disablePushButton).setOnClickListener {
-            telnyxViewModel.disablePushNotifications(this)
-            Toast.makeText(
-                this,
-                R.string.push_notifications_disabled,
-                Toast.LENGTH_LONG
-            ).show()
-            bottomSheetDialog.dismiss()
-        }
+        // Hide FCM token and push notification buttons as they're now in the overflow menu
+        bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).visibility = View.GONE
+        bottomSheetView.findViewById<View>(R.id.disablePushButton).visibility = View.GONE
 
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()

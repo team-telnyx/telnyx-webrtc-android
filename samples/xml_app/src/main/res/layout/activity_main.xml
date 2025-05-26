@@ -15,17 +15,47 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_percent="0.84"/>
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="200dp"
-        android:layout_height="100dp"
-        android:padding="6dp"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/topBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/spacing_medium"
-        android:contentDescription="@string/dash"
-        android:src="@drawable/telnyx_logo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Empty space on the left for balance -->
+        <Space
+            android:id="@+id/leftSpace"
+            android:layout_width="48dp"
+            android:layout_height="1dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Logo in the center -->
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="200dp"
+            android:layout_height="100dp"
+            android:padding="6dp"
+            android:contentDescription="@string/dash"
+            android:src="@drawable/telnyx_logo"
+            app:layout_constraintEnd_toStartOf="@+id/menuButton"
+            app:layout_constraintStart_toEndOf="@+id/leftSpace"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Menu button on the right -->
+        <ImageButton
+            android:id="@+id/menuButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Menu"
+            android:src="@drawable/ic_more_vert"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="@+id/imageView"
+            app:tint="@color/colorPrimary" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -33,7 +63,7 @@
         android:fillViewport="true"
         android:layout_marginTop="@dimen/spacing_small"
         app:layout_constraintBottom_toTopOf="@id/bottomGuideLine"
-        app:layout_constraintTop_toBottomOf="@id/imageView">
+        app:layout_constraintTop_toBottomOf="@id/topBarLayout">
 
         <LinearLayout
             android:layout_width="match_parent"
