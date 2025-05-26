@@ -79,7 +79,7 @@ dependencies {
     implementation("com.jakewharton.timber:timber:4.5.1")
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
 
-    implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
+    implementation("androidx.compose.runtime:runtime-livedata:1.8.2")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
 
     //permissions
