@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -58,10 +59,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -119,13 +123,13 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var lastShownErrorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionState) {
-        when (sessionState) {
+        sessionId = when (sessionState) {
             is TelnyxSessionState.ClientLoggedIn -> {
-                sessionId = (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+                (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
             }
 
             is TelnyxSessionState.ClientDisconnected -> {
-                sessionId = missingSessionIdLabel
+                missingSessionIdLabel
             }
         }
     }
@@ -642,7 +646,7 @@ fun SessionItem(sessionId: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = viewModel()) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
     var showWsMessagesBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(true)
@@ -703,7 +707,7 @@ fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = androidx.
     // Websocket messages bottom sheet
     if (showWsMessagesBottomSheet) {
         ModalBottomSheet(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.height(600.dp),
             onDismissRequest = {
                 showWsMessagesBottomSheet = false
             },
@@ -795,7 +799,7 @@ fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = androidx.
                                 )
                                 Spacer(modifier = Modifier.height(Dimens.spacing4dp))
                                 Text(
-                                    text = message.toString(),
+                                    text = GsonBuilder().setPrettyPrinting().create().toJson(message),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
