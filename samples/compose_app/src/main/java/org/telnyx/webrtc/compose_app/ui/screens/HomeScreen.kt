@@ -86,6 +86,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
+import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 
 @Serializable
@@ -761,7 +762,7 @@ fun BottomBar(
                     stringResource(R.string.development_label)
                 } else {
                     stringResource(R.string.production_label)
-                }.replaceFirstChar { it.uppercaseChar() }
+                }.capitalizeFirstChar()!!
 
                 RegularText(text = stringResource(R.string.bottom_bar_production_text, environmentLabel, TelnyxClient.SDK_VERSION, BuildConfig.VERSION_NAME),
                         color = MaterialTheme.colorScheme.tertiary,
