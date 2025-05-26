@@ -207,7 +207,10 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
             MediumTextBold(text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
 
-            ConnectionState(state = (sessionState !is TelnyxSessionState.ClientDisconnected))
+            ConnectionState(
+                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                telnyxViewModel = telnyxViewModel
+            )
 
             if (sessionState !is TelnyxSessionState.ClientDisconnected) {
                 CurrentCallState(state = uiState)
@@ -637,8 +640,14 @@ fun SessionItem(sessionId: String) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectionState(state: Boolean) {
+fun ConnectionState(state: Boolean, telnyxViewModel: TelnyxViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+    val wsMessages by telnyxViewModel.wsMessages.collectAsState()
+    var showWsMessagesBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
+
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
     ) {
@@ -658,6 +667,145 @@ fun ConnectionState(state: Boolean) {
             RegularText(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
+            
+            // Add websocket messages icon
+            if (state) {
+                Spacer(modifier = Modifier.width(Dimens.spacing8dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_message),
+                    contentDescription = "Websocket Messages",
+                    modifier = Modifier
+                        .size(Dimens.size24dp)
+                        .clickable {
+                            showWsMessagesBottomSheet = true
+                        },
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                
+                // Show message count badge if there are messages
+                if (wsMessages.isNotEmpty()) {
+                    Text(
+                        text = wsMessages.size.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = shape100Percent
+                            )
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+    
+    // Websocket messages bottom sheet
+    if (showWsMessagesBottomSheet) {
+        ModalBottomSheet(
+            modifier = Modifier.fillMaxSize(),
+            onDismissRequest = {
+                showWsMessagesBottomSheet = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(Dimens.mediumSpacing)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = "Websocket Messages",
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showWsMessagesBottomSheet = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+                
+                // Clear messages button
+                RoundSmallButton(
+                    modifier = Modifier.height(Dimens.size32dp),
+                    text = "Clear Messages",
+                    textSize = 12.sp,
+                    backgroundColor = secondary_background_color,
+                    icon = painterResource(R.drawable.ic_delete),
+                    iconContentDescription = "Clear Messages"
+                ) {
+                    telnyxViewModel.clearWebsocketMessages()
+                }
+                
+                Spacer(modifier = Modifier.height(Dimens.spacing16dp))
+                
+                // Messages list
+                if (wsMessages.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No websocket messages yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp)
+                    ) {
+                        items(wsMessages.size) { index ->
+                            val message = wsMessages[index]
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Dimens.spacing4dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                                    .padding(Dimens.spacing8dp)
+                            ) {
+                                Text(
+                                    text = "Message ${index + 1}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.spacing4dp))
+                                Text(
+                                    text = message.toString(),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (index < wsMessages.size - 1) {
+                                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -92,6 +92,33 @@
                         android:text="@string/disconnected"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
+                        
+                    <ImageView
+                        android:id="@+id/wsMessagesIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_message"
+                        android:contentDescription="Websocket Messages"
+                        android:visibility="gone"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+                        
+                    <TextView
+                        android:id="@+id/wsMessagesBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/status_circle"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:visibility="gone"
+                        tools:text="5" />
 
                 </LinearLayout>
 

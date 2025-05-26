@@ -8,7 +8,11 @@ import android.view.View
 import android.widget.Toast
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.gson.JsonObject
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -48,6 +52,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var navController: NavController
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var gestureDetector: GestureDetector
+    private lateinit var websocketMessagesAdapter: WebsocketMessagesAdapter
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
     private var lastShownErrorMessage: String? = null
@@ -103,6 +108,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private fun setupUI() {
         refreshVersionInfoText()
+        
+        // Initialize websocket messages adapter
+        websocketMessagesAdapter = WebsocketMessagesAdapter()
+        
+        // Set up websocket messages icon click listener
+        binding.wsMessagesIcon.setOnClickListener {
+            showWebsocketMessagesBottomSheet()
+        }
     }
 
     private fun bindEvents() {
@@ -121,6 +134,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         binding.callState.visibility = View.VISIBLE
                         binding.callStateLabel.visibility = View.VISIBLE
+                        
+                        // Show websocket messages icon when connected
+                        binding.wsMessagesIcon.visibility = View.VISIBLE
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -140,6 +156,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         binding.callState.visibility = View.GONE
                         binding.callStateLabel.visibility = View.GONE
+                        
+                        // Hide websocket messages icon when disconnected
+                        binding.wsMessagesIcon.visibility = View.GONE
+                        binding.wsMessagesBadge.visibility = View.GONE
                     }
                 }
             }
@@ -173,6 +193,22 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         lifecycleScope.launch {
             telnyxViewModel.uiState.collect { uiState ->
                 updateCallState(uiState)
+            }
+        }
+        
+        // Listen for websocket messages
+        lifecycleScope.launch {
+            telnyxViewModel.wsMessages.collect { messages ->
+                // Update the badge count
+                if (messages.isNotEmpty()) {
+                    binding.wsMessagesBadge.visibility = View.VISIBLE
+                    binding.wsMessagesBadge.text = messages.size.toString()
+                } else {
+                    binding.wsMessagesBadge.visibility = View.GONE
+                }
+                
+                // Update the adapter if the bottom sheet is showing
+                websocketMessagesAdapter.updateMessages(messages)
             }
         }
     }
@@ -352,6 +388,42 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     token?.continuePermissionRequest()
                 }
             }).check()
+    }
+
+    /**
+     * Shows the websocket messages bottom sheet.
+     */
+    private fun showWebsocketMessagesBottomSheet() {
+        val bottomSheetDialog = BottomSheetDialog(this)
+        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_ws_messages, null)
+        
+        // Set up close button
+        bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+        
+        // Set up clear messages button
+        bottomSheetView.findViewById<View>(R.id.clearMessagesButton).setOnClickListener {
+            telnyxViewModel.clearWebsocketMessages()
+            bottomSheetDialog.dismiss()
+        }
+        
+        // Set up recycler view
+        val recyclerView = bottomSheetView.findViewById<RecyclerView>(R.id.messagesRecyclerView)
+        recyclerView.adapter = websocketMessagesAdapter
+        
+        // Show empty text if no messages
+        val emptyText = bottomSheetView.findViewById<TextView>(R.id.emptyMessagesText)
+        if (telnyxViewModel.wsMessages.value.isEmpty()) {
+            emptyText.visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+        } else {
+            emptyText.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+        }
+        
+        bottomSheetDialog.setContentView(bottomSheetView)
+        bottomSheetDialog.show()
     }
 
     private fun refreshVersionInfoText() {
