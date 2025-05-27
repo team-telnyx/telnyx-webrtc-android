@@ -141,7 +141,7 @@ fun CredentialTokenView(
 
         Box(modifier = Modifier.fillMaxWidth()) {
             PosNegButton(
-                positiveText = stringResource(id = R.string.confirm),
+                positiveText = stringResource(id = R.string.save),
                 negativeText = stringResource(id = R.string.Cancel),
                 contentAlignment = Alignment.BottomStart,
                 onPositiveClick = {

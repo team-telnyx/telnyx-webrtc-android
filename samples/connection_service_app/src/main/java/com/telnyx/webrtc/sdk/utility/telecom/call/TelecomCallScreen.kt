@@ -112,10 +112,10 @@ fun TelecomCallScreen(
     onCallFinished: () -> Unit
 ) {
 
-    val telnyxCallState by produceState(CallState.NEW) {
+    val telnyxCallState by produceState<CallState>(CallState.NEW) {
         manager.callState.collect {
             value = it
-            if (it == CallState.DONE) {
+            if (it is CallState.DONE) {
                 val call = repository.getCurrentRegisteredCall()
                 call?.processAction(TelecomCallAction.Disconnect(DisconnectCause(DisconnectCause.REMOTE)))
                 onCallFinished()
@@ -252,7 +252,7 @@ private fun CallInfoSection(
         } else {
             // For incoming or outgoing before active
             Text(
-                text = "State: ${telnyxCallState.name}",
+                text = "State: ${telnyxCallState.value}",
                 style = MaterialTheme.typography.titleSmall
             )
         }

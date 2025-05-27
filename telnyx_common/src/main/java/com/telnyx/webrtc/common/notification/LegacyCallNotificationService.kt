@@ -114,7 +114,7 @@ class LegacyCallNotificationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "Phone Call Notifications"
             val description = "Notifications for incoming phone calls"
-            val importance = NotificationManager.IMPORTANCE_HIGH
+            val importance = NotificationManager.IMPORTANCE_MAX
             val channel = NotificationChannel(CHANNEL_ID, name, importance)
             channel.description = description
 

@@ -22,6 +22,7 @@ versions.googleservices = "4.3.8"
 versions.firebasebom = "28.2.1"
 versions.hilt = "2.48"
 versions.dialpad = "3.0.0"
+versions.mockk = "1.13.10"
 
 
 ext.versions = versions
@@ -75,6 +76,11 @@ hilt.plugin = "com.google.dagger:hilt-android-gradle-plugin:$versions.hilt"
 hilt.android = "com.google.dagger:hilt-android:$versions.hilt"
 hilt.compiler = "com.google.dagger:hilt-android-compiler:$versions.hilt"
 deps.hilt = hilt
+
+def mockk = [:]
+mockk.core = "io.mockk:mockk:${versions.mockk}"
+mockk.android = "io.mockk:mockk-android:${versions.mockk}"
+deps.mockk = mockk
 
 
 ext.deps = deps

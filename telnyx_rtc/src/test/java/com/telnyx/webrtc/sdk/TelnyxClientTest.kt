@@ -15,6 +15,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
@@ -384,7 +385,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect")
+            SocketResponse.error("Login Incorrect", -32001)
         )
     }
 
@@ -408,7 +409,7 @@ class TelnyxClientTest : BaseTest() {
         client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Gateway registration has timed out")
+            SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode)
         )
     }
 
@@ -486,15 +487,16 @@ class TelnyxClientTest : BaseTest() {
 
     @Test
     fun `Test onErrorReceived posts LiveData to socketResponseLiveData`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
         val errorJson = JsonObject()
+        errorJson.addProperty("id", "test-error-id")
         val errorMessageBody = JsonObject()
         errorMessageBody.addProperty("message", "my error message")
         errorJson.add("error", errorMessageBody)
-        client.onErrorReceived(errorJson)
+        client.onErrorReceived(errorJson, 0)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("my error message")
+            SocketResponse.error("my error message", 0)
         )
     }
 
@@ -507,11 +509,19 @@ class TelnyxClientTest : BaseTest() {
                 port = 14938,
             )
         )
-        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
-        Mockito.`when`(client.call).thenReturn(fakeCall)
         val callId = UUID.randomUUID()
-        client.onByeReceived(callId)
-        Mockito.verify(client, Mockito.atLeast(1))?.onByeReceived(callId)
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        fakeCall.callId = callId
+        client.calls[callId] = fakeCall
+
+        val mockByeJsonObject = JsonObject()
+        val paramsObject = JsonObject()
+        paramsObject.addProperty("callID", callId.toString())
+        mockByeJsonObject.add("params", paramsObject)
+
+        client.onByeReceived(mockByeJsonObject)
+
+        Mockito.verify(client, Mockito.atLeastOnce())?.onByeReceived(mockByeJsonObject)
     }
 
     @Test

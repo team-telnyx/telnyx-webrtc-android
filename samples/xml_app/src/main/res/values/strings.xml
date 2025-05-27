@@ -86,4 +86,17 @@
     <string name="call_state_connecting">Connecting</string>
     <string name="call_state_dropped">Dropped</string>
     <string name="call_state_reconnecting">Reconnecting</string>
+    
+    <string name="call_quality_label">Call quality</string>
+    <string name="view_all_call_metrics">View all call metrics</string>
+    <string name="call_quality_metrics_title">Call Quality Metrics</string>
+    <string name="call_quality_metrics_jitter">Jitter:</string>
+    <string name="call_quality_metrics_mos">MOS:</string>
+    <string name="call_quality_metrics_round_trip_time">Round-trip Time:</string>
+    <string name="call_quality_metrics_quality">Quality:</string>
+    <string name="call_quality_metrics_inbound_audio">Inbound Audio</string>
+    <string name="call_quality_metrics_outbound_audio">Outbound Audio</string>
+    <string name="call_quality_metrics_inbound_audio_level">Inbound Level:</string>
+    <string name="call_quality_metrics_outbound_audio_level">Outbound Level:</string>
+    <string name="unknown_label">Unknown</string>
 </resources>

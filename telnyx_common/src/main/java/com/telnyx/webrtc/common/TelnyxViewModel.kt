@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
-import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
@@ -58,8 +58,8 @@ sealed class TelnyxSocketEvent {
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
     data object OnMedia : TelnyxSocketEvent()
     data object InitState : TelnyxSocketEvent()
-    data object OnCallDropped : TelnyxSocketEvent()
-    data object OnCallReconnecting : TelnyxSocketEvent()
+    data class OnCallDropped(val reason: CallNetworkChangeReason) : TelnyxSocketEvent()
+    data class OnCallReconnecting(val reason: CallNetworkChangeReason) : TelnyxSocketEvent()
 }
 
 sealed class TelnyxSessionState {
@@ -120,7 +120,7 @@ class TelnyxViewModel : ViewModel() {
      * Flag indicating whether the server configuration is in development environment.
      */
     var serverConfigurationIsDev = false
-    private set
+        private set
 
     /**
      * State flow for the list of user profiles.
@@ -308,7 +308,8 @@ class TelnyxViewModel : ViewModel() {
      */
     fun answerIncomingPushCall(
         viewContext: Context,
-        txPushMetaData: String?
+        txPushMetaData: String?,
+        debug: Boolean
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
@@ -316,7 +317,8 @@ class TelnyxViewModel : ViewModel() {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
-                    mapOf(Pair("X-test", "123456"))
+                    mapOf(Pair("X-test", "123456")),
+                    debug
                 ) { answeredCall ->
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
@@ -324,6 +326,10 @@ class TelnyxViewModel : ViewModel() {
                     Timber.d("Answering income push response: $response")
                     handleSocketResponse(response, true)
                 }
+        }
+
+        if (debug) {
+            collectAudioLevels()
         }
     }
 
@@ -602,9 +608,7 @@ class TelnyxViewModel : ViewModel() {
 
             _uiState.value = currentCall?.let {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
-            } ?: TelnyxSocketEvent.OnCallEnded(byeResponse).also {
-                // TelnyxCommon will clear metrics if no calls left via setCurrentCall(null)
-            }
+            } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
         }
     }
 
@@ -640,19 +644,30 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleCallState(callState: CallState) {
         when (callState) {
-            CallState.ACTIVE  -> {
-                _uiState.value = TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
+            is CallState.ACTIVE -> {
+                _uiState.value =
+                    TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
             }
-            CallState.DROPPED -> {
-                _uiState.value = TelnyxSocketEvent.OnCallDropped
+
+            is CallState.DROPPED -> {
+                _uiState.value = TelnyxSocketEvent.OnCallDropped(callState.callNetworkChangeReason)
             }
-            CallState.RECONNECTING -> {
-                _uiState.value = TelnyxSocketEvent.OnCallReconnecting
+
+            is CallState.RECONNECTING -> {
+                _uiState.value = TelnyxSocketEvent.OnCallReconnecting(callState.callNetworkChangeReason)
             }
-            CallState.ERROR -> {
+
+            is CallState.DONE -> {
                 _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
             }
-            else -> {}
+
+            is CallState.ERROR -> {
+                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+            }
+
+            CallState.NEW, CallState.CONNECTING, CallState.RINGING, CallState.HELD -> {
+                Timber.d("Call state updated to: %s", callState.javaClass.simpleName)
+            }
         }
     }
 
