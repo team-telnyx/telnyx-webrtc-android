@@ -146,6 +146,7 @@ class TxSocket(
                     if (jsonObject.has("params")) {
                         params = jsonObject.get("params").asJsonObject
                     }
+
                     when {
                         jsonObject.has("result") -> {
                             if (jsonObject.get("result").asJsonObject.has("params")) {
@@ -203,11 +204,7 @@ class TxSocket(
                                 }
 
                                 BYE.methodName -> {
-                                    val params =
-                                        jsonObject.getAsJsonObject("params")
-                                    val callId =
-                                        UUID.fromString(params.get("callID").asString)
-                                    listener.onByeReceived(callId)
+                                    listener.onByeReceived(jsonObject)
                                 }
 
                                 INVITE.methodName -> {
@@ -234,27 +231,19 @@ class TxSocket(
                                 val errorCode =
                                     jsonObject.get("error").asJsonObject.get("code").asInt
                                 Logger.v(
-                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s]",
+                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] with code [%d]",
+                                    this@TxSocket.javaClass.simpleName,
+                                    jsonObject.get("error").asJsonObject.get("message").toString(),
+                                    errorCode)
+                                )
+                                listener.onErrorReceived(jsonObject, errorCode)
+                            } else {
+                                Logger.v(
+                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] (no code provided)",
                                     this@TxSocket.javaClass.simpleName,
                                     jsonObject.get("error").asJsonObject.get("message").toString())
                                 )
-                                when (errorCode) {
-                                    CREDENTIAL_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    TOKEN_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    SocketError.CODEC_ERROR.errorCode -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-
-                                    else -> {
-                                        listener.onErrorReceived(jsonObject)
-                                    }
-                                }
+                                listener.onErrorReceived(jsonObject, null)
                             }
                         }
                     }
@@ -274,8 +263,45 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Logger.i(tag = "TxSocket", 
-                        message = "Socket is closed: $response $t :: Will attempt to reconnect")
+                    Logger.i(tag = "TxSocket",
+                        message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
+
+                    var errorCode: Int? = null
+                    var errorMessage: String = t.message ?: "Unknown socket failure"
+
+                    val unknownHostErrorCode = SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    val socketTimeoutErrorCode = SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    val genericNetworkErrorCode = SocketError.GATEWAY_FAILURE_ERROR.errorCode
+
+                    when (t) {
+                        is java.net.UnknownHostException -> {
+                            errorMessage = "Unable to resolve host: ${t.message ?: host_address}"
+                            errorCode = unknownHostErrorCode
+                        }
+                        is java.net.SocketTimeoutException -> {
+                            errorMessage = "Socket connection timeout: ${t.message}"
+                            errorCode = socketTimeoutErrorCode
+                        }
+                        is java.io.IOException -> {
+                            // Catch other IOExceptions that might occur during connection attempts
+                            errorMessage = "Network I/O error: ${t.message}"
+                            errorCode = genericNetworkErrorCode
+                        }
+                    }
+
+                    // Construct a JsonObject to pass to onErrorReceived
+                    val errorPayload = JsonObject().apply {
+                        addProperty("message", errorMessage)
+                        errorCode?.let { addProperty("code", it) }
+                    }
+                    val fullJson = JsonObject().apply {
+                        add("error", errorPayload)
+                        addProperty("jsonrpc", "2.0")
+                        // Add a unique ID as it's often expected by the receiver logic
+                        addProperty("id", UUID.randomUUID().toString())
+                    }
+                    listener.onErrorReceived(fullJson, errorCode)
+
                     if (ongoingCall) {
                         listener.call?.setCallRecovering()
                     }

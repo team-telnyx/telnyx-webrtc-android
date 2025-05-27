@@ -38,6 +38,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -90,6 +93,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
+import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 
 @Serializable
@@ -111,13 +115,17 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
     val context = LocalContext.current
     val sessionState by telnyxViewModel.sessionsState.collectAsState()
-    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
-        ?: remember { mutableStateOf(CallState.DONE) }
+    val callState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState(initial = CallState.DONE())
+        ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
+
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var dialogErrorMessage by remember { mutableStateOf<String?>(null) }
+    var lastShownErrorMessage by remember { mutableStateOf<String?>(null) }
 
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
@@ -136,10 +144,27 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     LaunchedEffect(Unit) {
         telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
             errorMessage?.let {
-                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                if (it != lastShownErrorMessage) {
+                    dialogErrorMessage = it
+                    showErrorDialog = true
+                    lastShownErrorMessage = it
+                }
                 telnyxViewModel.stopLoading()
             }
         }
+    }
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text(text = "Error") },
+            text = { dialogErrorMessage?.let { Text(text = it) } },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog = false }) {
+                    Text(stringResource(id = android.R.string.ok))
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -174,7 +199,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             }
         },
         bottomBar = {
-            if (callState == CallState.DONE || callState == CallState.ERROR)
+            if (callState is CallState.DONE || callState is CallState.ERROR)
             BottomBar(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel,
@@ -260,7 +285,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                 }
 
                 var preCallDiagnosisResult by remember { mutableStateOf<PreCallDiagnosisMetrics?>(null) }
-                
+
                 RegularText(
                     text = preCallDiagnosisState?.toString() ?: "Unknown",
                     modifier = Modifier.fillMaxWidth(),
@@ -288,7 +313,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         }
                     }
                 }
-                
+
                 AnimatedVisibility(visible = (preCallDiagnosisResult != null)) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -310,7 +335,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             label = "MOS:",
                             value = String.format("%.2f", preCallDiagnosisResult?.mos ?: 0.0)
                         )
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -378,7 +403,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         )
                     }
                 }
-                
+
                 // Start the diagnosis call
                 LaunchedEffect(Unit) {
                     telnyxViewModel.makePrecallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
@@ -620,7 +645,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                                     Toast.LENGTH_LONG
                                 ).show()
                             }
-                            
+
                             // Add Pre-call diagnosis button when user is logged in
                             RoundSmallButton(
                                 modifier = Modifier.fillMaxWidth(),
@@ -727,13 +752,13 @@ fun PosNegButton(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp),
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("negativeButton"),
                 text = negativeText,
                 contentColor = MaterialTheme.colorScheme.primary,
                 backgroundColor = Color.White) {
                 onNegativeClick()
             }
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp), text = positiveText) {
+            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("positiveButton"), text = positiveText) {
                 onPositiveClick()
             }
 
@@ -847,7 +872,14 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
     val callStateName = when (state) {
         is TelnyxSocketEvent.InitState -> stringResource(R.string.call_state_connecting)
         is TelnyxSocketEvent.OnIncomingCall -> stringResource(R.string.call_state_incoming)
-        is TelnyxSocketEvent.OnCallEnded -> stringResource(R.string.call_state_ended)
+        is TelnyxSocketEvent.OnCallEnded -> {
+            val cause = state.message?.cause
+            if (cause != null) {
+                "Done - $cause"
+            } else {
+                "Done"
+            }
+        }
         is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
         is TelnyxSocketEvent.OnCallDropped -> stringResource(R.string.call_state_dropped)
         is TelnyxSocketEvent.OnCallReconnecting -> stringResource(R.string.call_state_reconnecting)
@@ -925,7 +957,7 @@ fun BottomBar(
                     stringResource(R.string.development_label)
                 } else {
                     stringResource(R.string.production_label)
-                }.replaceFirstChar { it.uppercaseChar() }
+                }.capitalizeFirstChar()!!
 
                 RegularText(text = stringResource(R.string.bottom_bar_production_text, environmentLabel, TelnyxClient.SDK_VERSION, BuildConfig.VERSION_NAME),
                         color = MaterialTheme.colorScheme.tertiary,

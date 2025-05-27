@@ -98,6 +98,7 @@ class MainActivityTest {
     private fun addSipCredentials() {
         assertNotNull(navController.graph)
 
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText(context.getString(R.string.missing_profile)).assertIsDisplayed()
         composeTestRule.onNodeWithText(context.getString(R.string.switch_profile)).assertIsDisplayed()
         composeTestRule.onNodeWithText(context.getString(R.string.switch_profile)).performClick()
@@ -115,9 +116,13 @@ class MainActivityTest {
         composeTestRule.onNodeWithTag("callerIDNumber").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
         composeTestRule.onNodeWithTag("credentialsForm").performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.confirm)).performClick()
+        composeTestRule.onNodeWithText(context.getString(R.string.save)).performClick()
 
         composeTestRule.waitForIdle()
+        composeTestRule.waitUntil(40000) {
+            composeTestRule.onNodeWithTag("profileList").isDisplayed()
+        }
+
         composeTestRule.onNodeWithTag("profileList").onChildAt(0).performClick()
         composeTestRule.onNodeWithText(context.getString(R.string.confirm)).performClick()
     }

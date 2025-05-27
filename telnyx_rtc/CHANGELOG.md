@@ -1,3 +1,8 @@
+## [2.0.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.0) (2025-05-22)
+
+### Enhancement
+- Expose Call Termination Reasons in SDK and Surface Error Messages and Codes outside of the SDK. This allows developers to handle call termination reasons and error messages more effectively in their applications.
+
 ## [1.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/1.7.0) (2025-05-08)
 
 ### Enhancement

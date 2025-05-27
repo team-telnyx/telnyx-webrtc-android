@@ -12,7 +12,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.Gson
@@ -26,18 +25,15 @@ import com.telnyx.webrtc.sdk.model.*
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
-import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
-import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
-import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
@@ -354,6 +350,7 @@ class TelnyxClient(
             providedStun = providedStun!!
         ).apply {
             callId = inviteCallId
+            updateCallState(CallState.RINGING)
 
             peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
                 addIceCandidateInternal(candidate)
@@ -399,28 +396,39 @@ class TelnyxClient(
         val endCall = calls[callId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
+            // Default cause for locally initiated endCall
+            val causeCode = CauseCode.USER_BUSY.code
+            val causeName = CauseCode.USER_BUSY.name
+            val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCode)
+
             val byeMessageBody = SendingMessageBody(
                 uuid, SocketMethod.BYE.methodName,
                 ByeParams(
                     sessionId,
-                    CauseCode.USER_BUSY.code,
-                    CauseCode.USER_BUSY.name,
+                    causeCode,
+                    causeName,
                     ByeDialogParams(
                         callId
                     )
                 )
             )
-            val byeResponse = ByeResponse(callId)
+
+            val byeResponseForUi = ByeResponse(
+                callId = callId,
+                cause = causeName,
+                causeCode = causeCode
+                // sipCode and sipReason are null here
+            )
             // send bye message to the UI
             client.socketResponseLiveData.postValue(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.BYE.methodName,
-                        byeResponse
+                        byeResponseForUi
                     )
                 )
             )
-            updateCallState(CallState.DONE)
+            updateCallState(CallState.DONE(terminationReason))
 
             // Stop reporter before releasing the peer connection
             webRTCReporter?.stopStats()
@@ -483,9 +491,10 @@ class TelnyxClient(
             Handler(Looper.getMainLooper()).postDelayed(Runnable {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
-                        call.updateCallState(CallState.DROPPED)
+                        call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+
+                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
@@ -507,7 +516,7 @@ class TelnyxClient(
         getActiveCalls().forEach { (_, call) ->
             webRTCReporter?.pauseStats()
             call.peerConnection?.disconnect()
-            call.updateCallState(CallState.RECONNECTING)
+            call.updateCallState(CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH))
         }
 
         //Delay for network to be properly established
@@ -647,7 +656,7 @@ class TelnyxClient(
 
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -713,7 +722,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -777,7 +786,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection"))
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -943,14 +952,20 @@ class TelnyxClient(
     }
 
 
+    private var attachCallId: String? = null
+    /**
+     * Attaches push notifications to current call invite.
+     * Backend responds with INVITE message
+     * */
     private fun attachCall() {
 
+        attachCallId = UUID.randomUUID().toString()
         val params = AttachCallParams(
             userVariables = AttachUserVariables()
         )
 
         val attachPushMessage = SendingMessageBody(
-            id = UUID.randomUUID().toString(),
+            id = attachCallId!!,
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
@@ -959,7 +974,6 @@ class TelnyxClient(
         //reset push params
         pushMetaData = null
         isCallPendingFromPush = false
-
     }
 
 
@@ -1281,7 +1295,7 @@ class TelnyxClient(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
                         }
                     },
                     GATEWAY_RESPONSE_DELAY
@@ -1323,12 +1337,12 @@ class TelnyxClient(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
             }
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
             }
 
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
@@ -1343,13 +1357,13 @@ class TelnyxClient(
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
-                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response"))
+                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
                 }
             }
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
             }
 
             GatewayState.UNREGED.state -> {
@@ -1370,7 +1384,7 @@ class TelnyxClient(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error", null))
             }
         }
     }
@@ -1409,7 +1423,7 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"))
+                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds", null))
 
                     // Reset reconnection state
                     reconnecting = false
@@ -1442,48 +1456,80 @@ class TelnyxClient(
 
     }
 
-    override fun onErrorReceived(jsonObject: JsonObject) {
+    override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
+        val id = jsonObject.get("id").asString
+        if (errorCode == null && attachCallId == id) {
+            Logger.d(message = "Call Failed Error Received")
+            socketResponseLiveData.postValue(SocketResponse.error("Call Failed", null))
+            return
+        }
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
-        Logger.d(message = "onErrorReceived $errorMessage")
-        socketResponseLiveData.postValue(SocketResponse.error(errorMessage))
+        Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
+        socketResponseLiveData.postValue(SocketResponse.error(errorMessage, errorCode))
     }
 
-    override fun onByeReceived(callId: UUID) {
+    override fun onByeReceived(jsonObject: JsonObject) {
+        Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived JSON: %s", this.javaClass.simpleName, jsonObject.toString()))
 
-        Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived", this.javaClass.simpleName))
-        val byeCall = calls[callId]
-        byeCall?.apply {
-            Logger.d(
-                message = Logger.formatMessage(
-                    "[%s] :: onByeReceived",
-                    this.javaClass.simpleName
+        try {
+            val params = jsonObject.getAsJsonObject("params")
+            val callIdString = params?.get("callID")?.asString
+
+            if (callIdString == null) {
+                Logger.e(message = "Received BYE without callID in params: $jsonObject")
+                return
+            }
+            val callId = UUID.fromString(callIdString)
+
+            val cause = params.get("cause")?.asString
+            val causeCode = params.get("causeCode")?.asInt
+            val sipCode = params.get("sipCode")?.asInt
+            val sipReason = params.get("sipReason")?.asString
+
+            val byeCall = calls[callId]
+            byeCall?.apply {
+                val terminationReason = CallTerminationReason(
+                    cause = cause,
+                    causeCode = causeCode,
+                    sipCode = sipCode,
+                    sipReason = sipReason
                 )
-            )
-            val byeResponse = ByeResponse(
-                callId
-            )
-            client.socketResponseLiveData.postValue(
-                SocketResponse.messageReceived(
-                    ReceivedMessageBody(
-                        SocketMethod.BYE.methodName,
-                        byeResponse
+                updateCallState(CallState.DONE(terminationReason))
+
+                // Create the rich ByeResponse to be sent to the UI/ViewModel
+                val byeResponseForUi = com.telnyx.webrtc.sdk.verto.receive.ByeResponse(
+                    callId = callId,
+                    cause = cause,
+                    causeCode = causeCode,
+                    sipCode = sipCode,
+                    sipReason = sipReason
+                )
+
+                client.socketResponseLiveData.postValue(
+                    SocketResponse.messageReceived(
+                        ReceivedMessageBody(
+                            SocketMethod.BYE.methodName,
+                            byeResponseForUi
+                        )
                     )
                 )
-            )
 
-            updateCallState(CallState.DONE)
-
-            // Stop reporter before releasing the peer connection
-            webRTCReporter?.stopStats()
-            webRTCReporter = null // Clear the reporter instance
-            client.removeFromCalls(callId)
-            client.callNotOngoing()
-            resetCallOptions()
-            client.stopMediaPlayer()
-            peerConnection?.release()
-            peerConnection = null
-            answerResponse = null
-            inviteResponse = null
+                // Existing cleanup logic
+                webRTCReporter?.stopStats()
+                webRTCReporter = null // Clear the reporter instance
+                client.removeFromCalls(callId)
+                client.callNotOngoing()
+                resetCallOptions()
+                client.stopMediaPlayer()
+                peerConnection?.release()
+                peerConnection = null
+                answerResponse = null
+                inviteResponse = null
+            } ?: run {
+                Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+            }
+        } catch (e: Exception) {
+            Logger.e(message = "Error processing onByeReceived: ${e.message}")
         }
     }
 
@@ -1542,7 +1588,8 @@ class TelnyxClient(
 
                 else -> {
                     // There was no SDP in the response, there was an error.
-                    updateCallState(CallState.DONE)
+                    val reason = CallTerminationReason(cause = "AnswerError", sipReason = "No SDP in answer response")
+                    updateCallState(CallState.DONE(reason))
                     client.removeFromCalls(UUID.fromString(callId))
                 }
             }
@@ -1552,7 +1599,6 @@ class TelnyxClient(
         answeredCall?.let {
             addToCalls(it)
         }
-
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
@@ -1591,7 +1637,8 @@ class TelnyxClient(
 
             } else {
                 // There was no SDP in the response, there was an error.
-                updateCallState(CallState.DONE)
+                val reason = CallTerminationReason(cause = "MediaError", sipReason = "No SDP in media response")
+                updateCallState(CallState.DONE(reason))
                 client.removeFromCalls(UUID.fromString(callId))
             }
 
