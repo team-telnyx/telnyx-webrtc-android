@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -59,12 +63,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.telnyx.webrtc.common.TelnyxPrecallDiagnosisState
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.stats.PreCallDiagnosisMetrics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -112,6 +118,8 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
+
+    val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
     LaunchedEffect(sessionState) {
         when (sessionState) {
@@ -222,7 +230,9 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             sheetState = sheetState
         ) {
             Column(
-                modifier = Modifier.padding(Dimens.mediumSpacing),
+                modifier = Modifier
+                    .padding(Dimens.mediumSpacing)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
                 Row(
@@ -248,146 +258,130 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                         )
                     }
                 }
-                
-                var diagnosisStatus by remember { mutableStateOf("Running diagnosis...") }
-                var showResults by remember { mutableStateOf(false) }
-                var mosValue by remember { mutableStateOf("--") }
-                var rttValue by remember { mutableStateOf("--") }
-                var jitterValue by remember { mutableStateOf("--") }
-                var packetLossValue by remember { mutableStateOf("--") }
+
+                var preCallDiagnosisResult by remember { mutableStateOf<PreCallDiagnosisMetrics?>(null) }
                 
                 RegularText(
-                    text = diagnosisStatus,
+                    text = preCallDiagnosisState?.toString() ?: "Unknown",
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
-                
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = telnyxGreen,
-                        modifier = Modifier.padding(Dimens.mediumSpacing)
-                    )
+
+                AnimatedContent(preCallDiagnosisState) { callDiagnosisState ->
+                    when (callDiagnosisState) {
+                        is TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted -> {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = telnyxGreen,
+                                    modifier = Modifier.padding(Dimens.mediumSpacing)
+                                )
+                            }
+                        }
+                        is TelnyxPrecallDiagnosisState.PrecallDiagnosisCompleted -> {
+                            preCallDiagnosisResult = callDiagnosisState.data
+                        }
+                        else -> {
+
+                        }
+                    }
                 }
                 
-                AnimatedVisibility(visible = showResults) {
+                AnimatedVisibility(visible = (preCallDiagnosisResult != null)) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
                     ) {
-                        MediumTextBold(text = "Call Quality Metrics:")
+                        MediumTextBold(text = "Pre-call diagnosis report")
+
+                        MediumTextBold(text = "Network quality")
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            RegularText(text = "Quality:")
+                            RegularText(text = preCallDiagnosisResult?.quality?.name ?: "Unknown")
+                        }
+
+                        DiagnosisRow(
+                            label = "MOS:",
+                            value = String.format("%.2f", preCallDiagnosisResult?.mos ?: 0.0)
+                        )
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            RegularText(text = "MOS:")
-                            RegularText(text = mosValue)
+                            RegularText(text = "Jitter")
                         }
-                        
+
+                        DiagnosisRow(
+                            label = "min:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.min?.times(1000) ?: 0.0)
+                        )
+
+                        DiagnosisRow(
+                            label = "max:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.max?.times(1000) ?: 0.0)
+                        )
+
+                        DiagnosisRow(
+                            label = "avg:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.avg?.times(1000) ?: 0.0)
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            RegularText(text = "RTT:")
-                            RegularText(text = rttValue)
+                            RegularText(text = "RTT")
                         }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            RegularText(text = "Jitter:")
-                            RegularText(text = jitterValue)
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            RegularText(text = "Packet Loss:")
-                            RegularText(text = packetLossValue)
-                        }
+
+                        DiagnosisRow(
+                            label = "min:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.min?.times(1000) ?: 0.0)
+                        )
+
+                        DiagnosisRow(
+                            label = "max:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.max?.times(1000) ?: 0.0)
+                        )
+
+                        DiagnosisRow(
+                            label = "avg:",
+                            value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.avg?.times(1000) ?: 0.0)
+                        )
+
+                        MediumTextBold(text = "Session Statistics")
+
+                        DiagnosisRow(
+                            label = "Bytes Sent:",
+                            value = preCallDiagnosisResult?.bytesSent.toString()
+                        )
+
+                        DiagnosisRow(
+                            label = "Bytes Received:",
+                            value = preCallDiagnosisResult?.bytesReceived.toString()
+                        )
+
+                        DiagnosisRow(
+                            label = "Packets Sent:",
+                            value = preCallDiagnosisResult?.packetsSent.toString()
+                        )
+
+                        DiagnosisRow(
+                            label = "Packets Received:",
+                            value = preCallDiagnosisResult?.packetsReceived.toString()
+                        )
                     }
                 }
                 
                 // Start the diagnosis call
                 LaunchedEffect(Unit) {
-                    try {
-                        // Get texml_number from local.properties
-                        val texmlNumber = BuildConfig.PRECALL_DIAGNOSIS_NUMBER
-
-                        // Make a call to the texml_number
-                        telnyxViewModel.sendInvite(context, texmlNumber, true)
-
-                        // Wait for call to connect and collect metrics
-                        var callConnected = false
-                        var metricsCollected = false
-                        var callEndedManually = false
-
-                        // Collect call state
-                        val callStateJob = launch {
-                            telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                                when (callState) {
-                                    CallState.ACTIVE -> {
-                                        callConnected = true
-                                        diagnosisStatus = "Call connected. Collecting metrics..."
-
-                                        // Wait a bit to collect metrics
-                                        delay(5000)
-
-                                        // End the call after collecting metrics
-                                        if (!callEndedManually) {
-                                            callEndedManually = true
-                                            telnyxViewModel.endCall(context)
-                                        }
-                                    }
-                                    CallState.DONE, CallState.ERROR -> {
-                                        if (callConnected && !metricsCollected) {
-                                            metricsCollected = true
-                                            diagnosisStatus = "Diagnosis completed"
-                                            showResults = true
-                                        } else if (!callConnected) {
-                                            diagnosisStatus = "Diagnosis failed. Could not establish call."
-                                        }
-                                    }
-                                    else -> {
-                                        // Other call states
-                                    }
-                                }
-                            }
-                        }
-
-                        // Collect metrics
-                        val metricsJob = launch {
-                            telnyxViewModel.callQualityMetrics.collect { metrics ->
-                                metrics?.let {
-                                    mosValue = String.format("%.2f", metrics.mos)
-                                    rttValue = String.format("%.2f ms", metrics.rtt)
-                                    jitterValue = String.format("%.2f ms", metrics.jitter)
-                                    //packetLossValue = String.format("%.2f%%", metrics.packetLoss * 100)
-                                }
-                            }
-                        }
-
-                        // Set a timeout for the diagnosis
-                        delay(30000) // 30 seconds timeout
-
-                        // If call is still active, end it
-                        if (telnyxViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE && !callEndedManually) {
-                            callEndedManually = true
-                            telnyxViewModel.endCall(context)
-                        }
-
-                        // Cancel the jobs
-                        callStateJob.cancel()
-                        metricsJob.cancel()
-
-                    } catch (e: Exception) {
-                        diagnosisStatus = "Error: ${e.message}"
-                    }
+                    telnyxViewModel.makePrecallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
                 }
             }
         }
@@ -939,6 +933,31 @@ fun BottomBar(
         }
     }
 
+}
+
+@Composable
+private fun DiagnosisRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
 }
 
 @Preview
