@@ -78,6 +78,7 @@ dependencies {
     implementation(project(":telnyx_common"))
     implementation("com.jakewharton.timber:timber:4.5.1")
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
+    implementation("com.google.code.gson:gson:2.12.0")
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")

@@ -60,6 +60,7 @@
     <string name="no_profile_selected">No Profile\n</string>
     <string name="dtmf_dialpad">DTMF Dialpad</string>
     
+     <string name="menu">Menu</string>
     <string name="environment_options">Environment Options</string>
     <string name="development_environment">Development Environment</string>
     <string name="production_environment">Production Environment</string>
@@ -86,6 +87,7 @@
     <string name="call_state_connecting">Connecting</string>
     <string name="call_state_dropped">Dropped</string>
     <string name="call_state_reconnecting">Reconnecting</string>
+
     
     <string name="call_quality_label">Call quality</string>
     <string name="view_all_call_metrics">View all call metrics</string>

@@ -1,5 +1,8 @@
 package org.telnyx.webrtc.compose_app
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +13,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -32,7 +37,9 @@ import timber.log.Timber
 class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
 
     private val viewModel: TelnyxViewModel by viewModels()
-
+    
+    // State for showing websocket messages bottom sheet
+    val showWsMessagesBottomSheet: MutableState<Boolean> = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<ComponentActivity>.onCreate(savedInstanceState)
@@ -50,7 +57,13 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             TelnyxAndroidWebRTCSDKTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     innerPadding.calculateTopPadding()
-                    HomeScreen(rememberNavController(), telnyxViewModel = viewModel)
+                    HomeScreen(
+                        navController = rememberNavController(), 
+                        telnyxViewModel = viewModel,
+                        showWsMessagesBottomSheet = showWsMessagesBottomSheet,
+                        onCopyFcmToken = { copyFcmTokenToClipboard() },
+                        onDisablePushNotifications = { disablePushNotifications() }
+                    )
                 }
             }
         }
@@ -64,6 +77,24 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     override fun onStop(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStop(owner)
         viewModel.disconnect(this)
+    }
+    
+    /**
+     * Copies the FCM token to the clipboard
+     */
+    private fun copyFcmTokenToClipboard() {
+        val token = viewModel.retrieveFCMToken()
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("FCM Token", token))
+        Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+    
+    /**
+     * Disables push notifications
+     */
+    private fun disablePushNotifications() {
+        viewModel.disablePushNotifications(this)
+        Toast.makeText(this, R.string.push_notifications_disabled, Toast.LENGTH_SHORT).show()
     }
 
     private fun handleCallNotification(intent: Intent?) {
