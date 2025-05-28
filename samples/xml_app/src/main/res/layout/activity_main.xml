@@ -19,7 +19,6 @@
         android:id="@+id/topBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacing_medium"
         app:layout_constraintTop_toTopOf="parent">
 
         <!-- Empty space on the left for balance -->
@@ -48,12 +47,11 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Menu"
+            android:contentDescription="@string/menu"
             android:src="@drawable/ic_more_vert"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="@+id/imageView"
             app:tint="@color/colorPrimary" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 

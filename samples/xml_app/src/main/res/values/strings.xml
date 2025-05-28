@@ -86,4 +86,5 @@
     <string name="call_state_connecting">Connecting</string>
     <string name="call_state_dropped">Dropped</string>
     <string name="call_state_reconnecting">Reconnecting</string>
+    <string name="menu">Menu</string>
 </resources>
