@@ -26,6 +26,7 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CallQualitySummaryBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
+import org.telnyx.webrtc.xml_app.ui.CallHistoryBottomSheet
 import java.util.*
 
 
@@ -121,6 +122,11 @@ class HomeCallFragment : Fragment() {
         callQualitySummaryBinding.viewAllMetricsButton.setOnClickListener {
             showCallQualityBottomSheet()
         }
+
+        // Setup the "Call History" button
+        binding.callHistoryButton.setOnClickListener {
+            showCallHistoryBottomSheet()
+        }
     }
 
     private fun showCallQualityBottomSheet() {
@@ -130,6 +136,14 @@ class HomeCallFragment : Fragment() {
                 CallQualityBottomSheetFragment.TAG
             )
         }
+    }
+
+    private fun showCallHistoryBottomSheet() {
+        val callHistoryBottomSheet = CallHistoryBottomSheet.newInstance()
+        callHistoryBottomSheet.show(
+            requireActivity().supportFragmentManager,
+            CallHistoryBottomSheet.TAG
+        )
     }
 
     private fun bindEvents() {

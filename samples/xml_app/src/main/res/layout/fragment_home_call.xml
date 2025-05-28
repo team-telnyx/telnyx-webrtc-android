@@ -87,20 +87,37 @@
                 android:layout_height="wrap_content"
                 android:padding="@dimen/spacing_tiny"
                 android:layout_marginTop="@dimen/spacing_normal"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:gravity="center"
                 app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
                 android:visibility="visible">
 
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/call"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/answer_green"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/baseline_call_24"
+                        app:iconTint="@color/black" />
+
+                </LinearLayout>
+
                 <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/call"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/answer_green"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/baseline_call_24"
-                    app:iconTint="@color/black" />
+                    android:id="@+id/callHistoryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_small"
+                    android:text="Call History"
+                    android:textAllCaps="false"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
             </LinearLayout>
 

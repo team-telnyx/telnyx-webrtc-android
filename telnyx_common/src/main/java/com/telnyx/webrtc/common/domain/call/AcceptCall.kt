@@ -4,6 +4,9 @@ import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.*
 
 /**
@@ -21,6 +24,7 @@ class AcceptCall(private val context: Context) {
      * @param customHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
+     * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
      */
     operator fun invoke(
@@ -28,7 +32,8 @@ class AcceptCall(private val context: Context) {
         callerIdNumber: String, 
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
+        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
+        onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug)
@@ -40,6 +45,14 @@ class AcceptCall(private val context: Context) {
         
         telnyxCommon.setCurrentCall(context, incomingCall)
         telnyxCommon.registerCall(incomingCall)
+        
+        // Add call to history if callback is provided
+        onCallHistoryAdd?.let { callback ->
+            CoroutineScope(Dispatchers.IO).launch {
+                callback(callerIdNumber)
+            }
+        }
+        
         return incomingCall
     }
 }

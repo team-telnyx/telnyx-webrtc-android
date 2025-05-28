@@ -19,6 +19,10 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.common.data.CallHistoryRepository
+import com.telnyx.webrtc.common.data.CallHistoryEntity
+import com.telnyx.webrtc.common.model.CallHistoryItem
+import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -183,6 +187,18 @@ class TelnyxViewModel : ViewModel() {
     private var audioLevelCollectorJob: Job? = null
 
     /**
+     * Call history repository for managing call history data.
+     */
+    private var callHistoryRepository: CallHistoryRepository? = null
+
+    /**
+     * State flow for call history list.
+     * Observe this flow to display call history in the UI.
+     */
+    private val _callHistoryList = MutableStateFlow<List<CallHistoryItem>>(emptyList())
+    val callHistoryList: StateFlow<List<CallHistoryItem>> = _callHistoryList.asStateFlow()
+
+    /**
      * Stops the loading indicator.
      */
     fun stopLoading() {
@@ -214,6 +230,7 @@ class TelnyxViewModel : ViewModel() {
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
         ProfileManager.saveProfile(context, profile)
+        loadCallHistoryForCurrentProfile()
     }
 
     /**
@@ -365,6 +382,7 @@ class TelnyxViewModel : ViewModel() {
     suspend fun initProfile(context: Context) {
         getProfiles(context)
         getFCMToken()
+        initCallHistory(context)
     }
 
     /**
@@ -378,6 +396,7 @@ class TelnyxViewModel : ViewModel() {
         }
         ProfileManager.getLoggedProfile(context)?.let { profile ->
             _currentProfile.value = profile
+            loadCallHistoryForCurrentProfile()
         }
     }
 
@@ -696,7 +715,10 @@ class TelnyxViewModel : ViewModel() {
                     destinationNumber,
                     "Sample Client State",
                     mapOf(Pair("X-test", "123456")),
-                    debug
+                    debug,
+                    onCallHistoryAdd = { number ->
+                        addCallToHistory(CallType.OUTBOUND, number)
+                    }
                 ).callStateFlow.collect {
                     handleCallState(it)
                 }
@@ -778,7 +800,10 @@ class TelnyxViewModel : ViewModel() {
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
-                    debug
+                    debug,
+                    onCallHistoryAdd = { number ->
+                        addCallToHistory(CallType.INBOUND, number)
+                    }
                 ).callStateFlow.collect {
                     handleCallState(it)
                 }
@@ -852,6 +877,52 @@ class TelnyxViewModel : ViewModel() {
                     _outboundAudioLevels.value = currentOutbound
                 }
             }
+        }
+    }
+
+    /**
+     * Initializes the call history repository and loads call history for the current profile.
+     *
+     * @param context The application context.
+     */
+    private fun initCallHistory(context: Context) {
+        callHistoryRepository = CallHistoryRepository(context)
+        loadCallHistoryForCurrentProfile()
+    }
+
+    /**
+     * Loads call history for the current profile.
+     */
+    private fun loadCallHistoryForCurrentProfile() {
+        val profile = _currentProfile.value
+        if (profile != null && callHistoryRepository != null) {
+            viewModelScope.launch {
+                callHistoryRepository!!.getCallHistoryForProfile(profile.name).collect { entities ->
+                    _callHistoryList.value = entities.map { entity ->
+                        CallHistoryItem(
+                            id = entity.id,
+                            userProfileName = entity.userProfileName,
+                            callType = if (entity.callType == "inbound") CallType.INBOUND else CallType.OUTBOUND,
+                            destinationNumber = entity.destinationNumber,
+                            date = entity.date
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds a call to the call history.
+     *
+     * @param callType The type of call (inbound or outbound).
+     * @param destinationNumber The destination number.
+     */
+    suspend fun addCallToHistory(callType: CallType, destinationNumber: String) {
+        val profile = _currentProfile.value
+        if (profile != null && callHistoryRepository != null) {
+            val callTypeString = if (callType == CallType.INBOUND) "inbound" else "outbound"
+            callHistoryRepository!!.addCall(profile.name, callTypeString, destinationNumber)
         }
     }
 
