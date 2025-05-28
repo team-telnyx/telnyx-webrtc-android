@@ -497,7 +497,7 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             // Add Pre-call diagnosis button when user is logged in
                             RoundSmallButton(
                                 modifier = Modifier.fillMaxWidth(),
-                                text = "Pre-call diagnosis",
+                                text = stringResource(R.string.precall_diagnosis_button),
                                 textSize = 14.sp,
                                 backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {

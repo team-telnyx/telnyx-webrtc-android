@@ -42,6 +42,7 @@ import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 import androidx.appcompat.app.AlertDialog
+import org.telnyx.webrtc.xml_app.home.PreCallDiagnosisBottomSheetFragment
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var binding: ActivityMainBinding
@@ -325,116 +326,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     }
     
     private fun showPreCallDiagnosisBottomSheet() {
-        val bottomSheetDialog = BottomSheetDialog(this)
-        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_precall_diagnosis, null)
-        
-        val diagnosisStatusText = bottomSheetView.findViewById<android.widget.TextView>(R.id.diagnosisStatusText)
-        val resultsContainer = bottomSheetView.findViewById<View>(R.id.resultsContainer)
-        val mosValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.mosValue)
-        val rttValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.rttValue)
-        val jitterValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.jitterValue)
-        val packetLossValue = bottomSheetView.findViewById<android.widget.TextView>(R.id.packetLossValue)
-        
-        bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {
-            bottomSheetDialog.dismiss()
-        }
+        val bottomSheet = PreCallDiagnosisBottomSheetFragment()
+        bottomSheet.show(supportFragmentManager, PreCallDiagnosisBottomSheetFragment.TAG)
         
         // Start the diagnosis call
         lifecycleScope.launch {
-            try {
-                // Get texml_number from local.properties
-
-                val texmlNumber = BuildConfig.PRECALL_DIAGNOSIS_NUMBER
-
-                // Make a call to the texml_number
-                telnyxViewModel.sendInvite(this@MainActivity, texmlNumber, true)
-
-                // Wait for call to connect and collect metrics
-                var callConnected = false
-                var metricsCollected = false
-                var callEndedManually = false
-
-                // Collect call state
-                val callStateJob = launch {
-                    telnyxViewModel.currentCall?.callStateFlow?.collect { callState ->
-                        when (callState) {
-                            CallState.ACTIVE -> {
-                                callConnected = true
-                                diagnosisStatusText.post {
-                                    diagnosisStatusText.text = "Call connected. Collecting metrics..."
-                                }
-
-                                // Wait a bit to collect metrics
-                                delay(5000)
-
-                                // End the call after collecting metrics
-                                if (!callEndedManually) {
-                                    callEndedManually = true
-                                    telnyxViewModel.endCall(viewContext = this@MainActivity)
-                                }
-                            }
-                            CallState.DONE(), CallState.ERROR -> {
-                                if (callConnected && !metricsCollected) {
-                                    metricsCollected = true
-                                    diagnosisStatusText.post {
-                                        diagnosisStatusText.text = "Diagnosis completed"
-                                        resultsContainer.visibility = View.VISIBLE
-                                    }
-                                } else if (!callConnected) {
-                                    diagnosisStatusText.post {
-                                        diagnosisStatusText.text = "Diagnosis failed. Could not establish call."
-                                    }
-                                }
-                            }
-                            else -> {
-                                // Other call states
-                            }
-                        }
-                    }
-                }
-
-                // Collect metrics
-                val metricsJob = launch {
-                    telnyxViewModel.callQualityMetrics.collect { metrics ->
-                        metrics?.let {
-                            mosValue.post {
-                                mosValue.text = String.format("%.2f", metrics.mos)
-                            }
-                            rttValue.post {
-                                rttValue.text = String.format("%.2f ms", metrics.rtt)
-                            }
-                            jitterValue.post {
-                                jitterValue.text = String.format("%.2f ms", metrics.jitter)
-                            }
-                            packetLossValue.post {
-                                //packetLossValue.text = String.format("%.2f%%", metrics.packetLoss * 100)
-                            }
-                        }
-                    }
-                }
-
-                // Set a timeout for the diagnosis
-                delay(30000) // 30 seconds timeout
-
-                // If call is still active, end it
-                if (telnyxViewModel.currentCall?.callStateFlow?.value == CallState.ACTIVE && !callEndedManually) {
-                    callEndedManually = true
-                    telnyxViewModel.endCall(viewContext = this@MainActivity)
-                }
-
-                // Cancel the jobs
-                callStateJob.cancel()
-                metricsJob.cancel()
-
-            } catch (e: Exception) {
-                diagnosisStatusText.post {
-                    diagnosisStatusText.text = "Error: ${e.message}"
-                }
-            }
+            telnyxViewModel.makePreCallDiagnosis(this@MainActivity, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
         }
-        
-        bottomSheetDialog.setContentView(bottomSheetView)
-        bottomSheetDialog.show()
     }
 
     private fun checkPermission() {

@@ -55,7 +55,7 @@ fun PreCallDiagnosisBottomSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                RegularText(text = "Pre-call Diagnosis report",
+                RegularText(text = stringResource(R.string.precall_diagnosis_report_title),
                     size = Dimens.textSize16sp,
                     fontWeight = FontWeight.SemiBold)
 
@@ -81,13 +81,13 @@ fun PreCallDiagnosisBottomSheet(
 
             val topText = when (preCallDiagnosisState) {
                 is TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted -> {
-                    "Processing..."
+                    stringResource(R.string.precall_diagnosis_processing)
                 }
                 is TelnyxPrecallDiagnosisState.PrecallDiagnosisCompleted -> {
                     null
                 }
                 else -> {
-                    "Failed"
+                    stringResource(R.string.precall_diagnosis_failed)
                 }
             }
 
@@ -125,90 +125,90 @@ fun PreCallDiagnosisBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
                 ) {
 
-                    RegularText(text = "Network quality",
+                    RegularText(text = stringResource(R.string.precall_diagnosis_network_quality),
                         size = Dimens.textSize16sp,
                         fontWeight = FontWeight.SemiBold)
 
                     MetricRow(
-                        label = "Quality:",
-                        value = preCallDiagnosisResult?.quality?.name ?: "Unknown"
+                        label = stringResource(R.string.precall_diagnosis_quality),
+                        value = preCallDiagnosisResult?.quality?.name ?: stringResource(R.string.unknown_label)
                     )
 
                     MetricRow(
-                        label = "MOS:",
+                        label = stringResource(R.string.precall_diagnosis_mos),
                         value = String.format("%.2f", preCallDiagnosisResult?.mos ?: 0.0)
                     )
 
-                    RegularText(text = "Jitter",
+                    RegularText(text = stringResource(R.string.precall_diagnosis_jitter),
                         size = Dimens.textSize16sp,
                         fontWeight = FontWeight.SemiBold)
 
                     MetricRow(
-                        label = "min:",
+                        label = stringResource(R.string.precall_diagnosis_jitter_min),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.min?.times(1000) ?: 0.0)
                     )
 
                     MetricRow(
-                        label = "max:",
+                        label = stringResource(R.string.precall_diagnosis_jitter_max),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.max?.times(1000) ?: 0.0)
                     )
 
                     MetricRow(
-                        label = "avg:",
+                        label = stringResource(R.string.precall_diagnosis_jitter_avg),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.jitter?.avg?.times(1000) ?: 0.0)
                     )
 
-                    RegularText(text = "RTT",
+                    RegularText(text = stringResource(R.string.precall_diagnosis_rtt),
                         size = Dimens.textSize16sp,
                         fontWeight = FontWeight.SemiBold)
 
                     MetricRow(
-                        label = "min:",
+                        label = stringResource(R.string.precall_diagnosis_rtt_min),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.min?.times(1000) ?: 0.0)
                     )
 
                     MetricRow(
-                        label = "max:",
+                        label = stringResource(R.string.precall_diagnosis_rtt_max),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.max?.times(1000) ?: 0.0)
                     )
 
                     MetricRow(
-                        label = "avg:",
+                        label = stringResource(R.string.precall_diagnosis_rtt_avg),
                         value = String.format("%.2f ms", preCallDiagnosisResult?.rtt?.avg?.times(1000) ?: 0.0)
                     )
 
-                    RegularText(text = "Session Statistics",
+                    RegularText(text = stringResource(R.string.precall_diagnosis_session_stats),
                         size = Dimens.textSize16sp,
                         fontWeight = FontWeight.SemiBold)
 
                     MetricRow(
-                        label = "Bytes Sent:",
+                        label = stringResource(R.string.precall_diagnosis_bytes_sent),
                         value = preCallDiagnosisResult?.bytesSent.toString()
                     )
 
                     MetricRow(
-                        label = "Bytes Received:",
+                        label = stringResource(R.string.precall_diagnosis_bytes_received),
                         value = preCallDiagnosisResult?.bytesReceived.toString()
                     )
 
                     MetricRow(
-                        label = "Packets Sent:",
+                        label = stringResource(R.string.precall_diagnosis_packets_sent),
                         value = preCallDiagnosisResult?.packetsSent.toString()
                     )
 
                     MetricRow(
-                        label = "Packets Received:",
+                        label = stringResource(R.string.precall_diagnosis_packets_received),
                         value = preCallDiagnosisResult?.packetsReceived.toString()
                     )
 
-                    RegularText(text = "ICE candidates",
+                    RegularText(text = stringResource(R.string.precall_diagnosis_ice_candidates),
                         size = Dimens.textSize16sp,
                         fontWeight = FontWeight.SemiBold)
 
                     preCallDiagnosisResult?.iceCandidates?.forEach { iceCandidate ->
                         ICECandidateRow(
-                            label = "Candidate: ${iceCandidate.id} ${iceCandidate.transportId} ${iceCandidate.protocol}" +
-                                    " ${iceCandidate.priority} ${iceCandidate.candidateType} ${iceCandidate.address} ${iceCandidate.port}"
+                            label = stringResource(R.string.precall_diagnosis_ice_candidate_label) + " ${iceCandidate.id}, ${iceCandidate.transportId}, ${iceCandidate.protocol}, ${iceCandidate.priority}, " +
+                                    "${iceCandidate.candidateType}, ${iceCandidate.address}, ${iceCandidate.port}",
                         )
                     }
                 }
@@ -234,12 +234,5 @@ fun ICECandidateRow(
                 .padding(end = Dimens.smallPadding),
             text = label,
             maxLines = 5)
-
-        /*Spacer(modifier = Modifier.weight(1f))
-
-        RegularText(text = value,
-            size = Dimens.textSize16sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1)*/
     }
 }
