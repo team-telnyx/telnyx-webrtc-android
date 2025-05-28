@@ -12,4 +12,4 @@ import java.util.Date
 data class WebsocketMessage(
     val message: JsonObject,
     val timestamp: Date = Date()
-) 
+)
