@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.sdk.stats.ICECandidate
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -63,6 +64,11 @@ data class Call(
      * This is triggered whenever new WebRTC statistics are available
      */
     var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
+
+    /**
+     * Callback for ICE candidates
+     */
+    var onICECandidatesAvailable: ((List<ICECandidate>) -> Unit)? = null
 
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400L

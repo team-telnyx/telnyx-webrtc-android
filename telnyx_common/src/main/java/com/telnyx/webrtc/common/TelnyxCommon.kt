@@ -8,6 +8,7 @@ import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.sdk.stats.ICECandidate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +43,13 @@ class TelnyxCommon private constructor() {
      */
     private val _callQualityMetrics = MutableStateFlow<CallQualityMetrics?>(null)
     val callQualityMetrics: StateFlow<CallQualityMetrics?> = _callQualityMetrics.asStateFlow()
+
+    /**
+     * State flow for ICE candidates of the current call.
+     * Observe this flow to display real-time ICE candidates in the UI.
+     */
+    private val _callICECandidatesListener = MutableStateFlow<MutableList<ICECandidate>>(mutableListOf())
+    val callICECandidatesListener: StateFlow<MutableList<ICECandidate>> = _callICECandidatesListener.asStateFlow()
 
     private val holdStatusObservers: MutableMap<Call, Observer<Boolean>> = mutableMapOf()
 
@@ -81,6 +89,8 @@ class TelnyxCommon private constructor() {
                 startCallService(context, it)
                 // Setup call quality updates for the new current call
                 setupCallQualityUpdates(it)
+                // Setup ICE candidates updates for the new current call
+                setupICECandidatesUpdates(it)
             }
         } ?: run {
             _currentCall = null
@@ -88,6 +98,8 @@ class TelnyxCommon private constructor() {
             stopCallService(context)
             // Clear call quality updates as there is no current call
             setupCallQualityUpdates(null)
+            // Clear ICE candidates updates as there is no current call
+            setupICECandidatesUpdates(null)
             // reset handling push flag, even if we were not previously handling push
             _handlingPush = false
         }
@@ -251,4 +263,43 @@ class TelnyxCommon private constructor() {
         }
     }
 
+    /**
+     * Sets up or tears down the ICE candidates updates for a given call.
+     */
+    private fun setupICECandidatesUpdates(call: Call?) {
+        // Clear callback for any previously monitored call that is not the new current call
+        // (Includes the case where the previous current call is ending)
+        telnyxClient?.getActiveCalls()?.values?.filter { it != call }?.forEach {
+            if (it.onICECandidatesAvailable != null) {
+                it.onICECandidatesAvailable = null
+                Timber.d("Cleared ICE candidates callback for previous call: ${it.callId}")
+            }
+        }
+
+        if (call == null) {
+            // Clear ICE candidates listener if the new state is no active call
+            if (_callICECandidatesListener.value.isNotEmpty()) {
+                _callICECandidatesListener.value = mutableListOf()
+                Timber.d("Cleared ICE candidates callback as no call is active.")
+            }
+        } else {
+            // Setup callback for the new current call if it doesn't have one already
+            if (call.onICECandidatesAvailable == null) {
+                call.onICECandidatesAvailable = { iceCandidates ->
+                    val currentList = _callICECandidatesListener.value
+                    val existingIds = currentList.map { it.id }.toSet()
+
+                    val newCandidates = iceCandidates.filter { it.id !in existingIds }
+
+                    if (newCandidates.isNotEmpty()) {
+                        val updatedList = currentList.toMutableList().apply {
+                            addAll(newCandidates)
+                        }
+                        _callICECandidatesListener.value = updatedList
+                    }
+                }
+                Timber.d("Set up call ICE candidates callback for current call: ${call.callId}")
+            }
+        }
+    }
 }

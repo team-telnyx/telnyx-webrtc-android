@@ -42,6 +42,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.sdk.stats.ICECandidate
 import com.telnyx.webrtc.sdk.stats.MetricSummary
 import com.telnyx.webrtc.sdk.stats.PreCallDiagnosisMetrics
 import kotlinx.coroutines.Job
@@ -203,10 +204,14 @@ class TelnyxViewModel : ViewModel() {
     private var precallDiagnosisCollectorJob: Job? = null
 
     /**
-     * Precall diagnosis metrics.
+     * Precall diagnosis data.
      */
-    private var _precallDiagnosisMetrics: PreCallDiagnosisMetrics? = null
     private var precallDiagnosisData: MutableList<CallQualityMetrics>? = null
+
+    /**
+     * Precall ICE candidates.
+     */
+    private var precallICECandidates: List<ICECandidate>? = null
 
     /**
      * Stops the loading indicator.
@@ -546,7 +551,7 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun makePrecallDiagnosis(viewContext: Context, texmlNumber: String) {
+    fun makePreCallDiagnosis(viewContext: Context, teXMLNumber: String) {
         // Make a call to the texml_number
         callStateJob?.cancel()
         callStateJob = null
@@ -557,7 +562,7 @@ class TelnyxViewModel : ViewModel() {
                 SendInvite(viewContext).invoke(
                     currentProfile.callerIdName ?: "",
                     currentProfile.callerIdNumber ?: "",
-                    texmlNumber,
+                    teXMLNumber,
                     "",
                     mapOf(Pair("X-test", "123456")),
                     true
@@ -722,20 +727,20 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handlePrecallDiagnosisCallState(callState: CallState) {
-        Timber.d("Precall diagnosis call state: $callState")
         when (callState) {
-            CallState.ACTIVE -> {
-                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted
-            }
-            CallState.DONE() -> {
+            is CallState.DONE -> {
                 preparePreCallDiagnosis()?.let {
                     _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisCompleted(it)
                 } ?: run {
                     _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
                 }
             }
-            else -> {
+            is CallState.ERROR,
+            is CallState.DROPPED -> {
                 _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
+            }
+            else -> {
+                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted
             }
         }
     }
@@ -935,11 +940,16 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+
+        viewModelScope.launch {
+            TelnyxCommon.getInstance().callICECandidatesListener.collect {
+                precallICECandidates = it
+            }
+        }
     }
 
     private fun preparePreCallDiagnosis(): PreCallDiagnosisMetrics? {
         return precallDiagnosisData?.let { preCallDiagnosisData ->
-            Timber.d("New metrics data size ${preCallDiagnosisData.size}")
             val minJitter = preCallDiagnosisData.minOf { it.jitter }
             val maxJitter = preCallDiagnosisData.maxOf { it.jitter }
             val avgJitter = preCallDiagnosisData.sumOf { it.jitter } / preCallDiagnosisData.size
@@ -956,15 +966,21 @@ class TelnyxViewModel : ViewModel() {
                 .maxByOrNull { it.value }
                 ?.key
 
+            val bytesSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("bytesSent")?.toString()?.toLongOrNull() ?: 0L
+            val bytesReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("bytesReceived")?.toString()?.toLongOrNull() ?: 0L
+            val packetsSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("packetsSent")?.toString()?.toLongOrNull() ?: 0L
+            val packetsReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("packetsReceived")?.toString()?.toLongOrNull() ?: 0L
+
             PreCallDiagnosisMetrics(
                 mos = avgMos,
                 quality = mostFrequentQuality ?: CallQuality.UNKNOWN,
                 jitter = MetricSummary(minJitter, maxJitter, avgJitter),
                 rtt = MetricSummary(minRtt, maxRtt, avgRtt),
-                bytesSent = preCallDiagnosisData.maxOf { it.outboundAudio?.get("bytesSent") as? Long ?: 0L },
-                bytesReceived = preCallDiagnosisData.maxOf { it.inboundAudio?.get("bytesReceived") as? Long ?: 0L},
-                packetsSent = preCallDiagnosisData.maxOf { it.outboundAudio?.get("packetsSent") as? Long ?: 0L },
-                packetsReceived = preCallDiagnosisData.maxOf { it.inboundAudio?.get("packetsReceived") as? Long ?: 0L },
+                bytesSent = bytesSent,
+                bytesReceived = bytesReceived,
+                packetsSent = packetsSent,
+                packetsReceived = packetsReceived,
+                iceCandidates = precallICECandidates ?: listOf()
             )
         }
     }
@@ -973,6 +989,7 @@ class TelnyxViewModel : ViewModel() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
         userSessionJob?.cancel()
+        precallDiagnosisCollectorJob?.cancel()
     }
 
     companion object {

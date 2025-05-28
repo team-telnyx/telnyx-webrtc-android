@@ -40,6 +40,11 @@ data class PreCallDiagnosisMetrics(
      * Number of received packets
      */
     val packetsReceived: Long,
+
+    /**
+     * List of ICE candidates
+     */
+    val iceCandidates: List<ICECandidate>
 )
 
 data class MetricSummary(val min: Double, val max: Double, val avg: Double)

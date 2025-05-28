@@ -80,6 +80,11 @@ internal class WebRTCReporter(
      */
     var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
+    /**
+     * Callback for ICE candidates
+     */
+    var onICECandidatesAvailable: ((List<ICECandidate>) -> Unit)? = null
+
     val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     internal fun startStats() {
@@ -200,6 +205,8 @@ internal class WebRTCReporter(
                     var inboundAudioLevel = 0f
                     var outboundAudioLevel = 0f
 
+                    val iceCandidatesIds = mutableSetOf<String>()
+
                     it.statsMap.forEach { (key, value) ->
                         when (value.type) {
                             "inbound-rtp" -> {
@@ -238,6 +245,12 @@ internal class WebRTCReporter(
 
                             "candidate-pair" -> {
                                 processCandidatePair(key, value, statsData, connectionCandidates)
+                                value.members.get("localCandidateId")?.toString()?.let {
+                                    iceCandidatesIds.add(it)
+                                }
+                                value.members.get("remoteCandidateId")?.toString()?.let {
+                                    iceCandidatesIds.add(it)
+                                }
                             }
 
                             else -> {
@@ -288,6 +301,16 @@ internal class WebRTCReporter(
                             // Also emit through the flow
                             onStatsDataEvent(StatsData.CallQualityData(metrics))
                         }
+                    }
+
+                    // Collect and forward ICE candidates during gathering.
+                    if (iceCandidatesIds.isNotEmpty() && callDebug) {
+                        val iceCandidates = iceCandidatesIds.mapNotNull { iceCandidateId ->
+                            statsData[iceCandidateId]?.let { element ->
+                                ICECandidate.createFromJsonElement(element)
+                            }
+                        }
+                        onICECandidatesAvailable?.invoke(iceCandidates)
                     }
 
                     val statsEvent = StatsEvent(
