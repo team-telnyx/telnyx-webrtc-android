@@ -12,6 +12,7 @@ import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -29,6 +30,12 @@ class AnswerIncomingPushCall(private val context: Context) {
     // Callback to be invoked when the call is answered.
     private var onCallAnswered: ((Call) -> Unit)? = null
 
+    // Indicates whether debug mode is enabled for the call.
+    private var debug: Boolean = false
+
+    // Callback to be invoked when there is a change in call quality metrics.
+    private var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
+
     // Observer for incoming call responses.
     private val incomingCallObserver = Observer<SocketResponse<ReceivedMessageBody>> { response ->
         handleSocketResponse(response)
@@ -45,10 +52,14 @@ class AnswerIncomingPushCall(private val context: Context) {
     operator fun invoke(
         txPushMetaData: String?,
         customHeaders: Map<String, String>? = null,
+        debug: Boolean = false,
+        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallAnswered: (Call) -> Unit
     ): LiveData<SocketResponse<ReceivedMessageBody>> {
         this.customHeaders = customHeaders
         this.onCallAnswered = onCallAnswered
+        this.debug = debug
+        this.onCallQualityChange = onCallQualityChange
 
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
@@ -90,7 +101,9 @@ class AnswerIncomingPushCall(private val context: Context) {
                     val answeredCall = AcceptCall(context).invoke(
                         inviteResponse.callId,
                         inviteResponse.callerIdNumber,
-                        customHeaders
+                        customHeaders,
+                        debug,
+                        onCallQualityChange
                     )
                     cleanUp(answeredCall)
                 }

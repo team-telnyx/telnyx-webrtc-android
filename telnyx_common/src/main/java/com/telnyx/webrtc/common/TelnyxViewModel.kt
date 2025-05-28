@@ -322,7 +322,8 @@ class TelnyxViewModel : ViewModel() {
      */
     fun answerIncomingPushCall(
         viewContext: Context,
-        txPushMetaData: String?
+        txPushMetaData: String?,
+        debug: Boolean
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
@@ -330,7 +331,8 @@ class TelnyxViewModel : ViewModel() {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
-                    mapOf(Pair("X-test", "123456"))
+                    mapOf(Pair("X-test", "123456")),
+                    debug
                 ) { answeredCall ->
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
@@ -338,6 +340,10 @@ class TelnyxViewModel : ViewModel() {
                     Timber.d("Answering income push response: $response")
                     handleSocketResponse(response, true)
                 }
+        }
+
+        if (debug) {
+            collectAudioLevels()
         }
     }
 

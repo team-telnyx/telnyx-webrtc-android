@@ -111,17 +111,20 @@ fun RegularText(
     color: Color = MaterialTheme.colorScheme.onSurface,
     size: TextUnit = 14.sp,
     textAlign: TextAlign = TextAlign.Start,
-    fontStyle: FontStyle = FontStyle.Normal
+    fontStyle: FontStyle = FontStyle.Normal,
+    fontWeight: FontWeight = FontWeight.Normal,
+    maxLines: Int = 2
 ) {
     Text(
         text ?: "",
         modifier = modifier,
         color = color,
         fontSize = size,
-        fontWeight = FontWeight.Normal,
+        fontWeight = fontWeight,
         textAlign = textAlign,
         fontStyle = fontStyle,
-        overflow = TextOverflow.Ellipsis
+        overflow = TextOverflow.Ellipsis,
+        maxLines = maxLines
     )
 }
 
