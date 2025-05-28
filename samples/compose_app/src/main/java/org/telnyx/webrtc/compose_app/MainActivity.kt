@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
             when (action) {
                 MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
-                    viewModel.answerIncomingPushCall(this, txPushMetaData)
+                    viewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
                 MyFirebaseMessagingService.ACT_REJECT_CALL -> {
                     viewModel.rejectIncomingPushCall(this, txPushMetaData)

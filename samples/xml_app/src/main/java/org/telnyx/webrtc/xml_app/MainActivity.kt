@@ -313,7 +313,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             when (action) {
                 MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
-                    telnyxViewModel.answerIncomingPushCall(this, txPushMetaData)
+                    telnyxViewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
 
                 MyFirebaseMessagingService.ACT_REJECT_CALL -> {
