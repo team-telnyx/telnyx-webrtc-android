@@ -41,6 +41,7 @@ import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 import androidx.appcompat.app.AlertDialog
+import android.view.ViewGroup
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private lateinit var binding: ActivityMainBinding
@@ -124,7 +125,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val wsMessages = telnyxViewModel.wsMessages.value
         if (wsMessages.isNotEmpty()) {
             val menuItem = popupMenu.menu.findItem(R.id.action_websocket_messages)
-            menuItem.title = "Websocket Messages (${wsMessages.size})"
+            menuItem.title = "Websocket Messages"
         }
         
         popupMenu.setOnMenuItemClickListener { menuItem ->
@@ -249,14 +250,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Listen for websocket messages
         lifecycleScope.launch {
             telnyxViewModel.wsMessages.collect { messages ->
-                // Update the badge count
-                if (messages.isNotEmpty()) {
-                    binding.wsMessagesBadge.visibility = View.VISIBLE
-                    binding.wsMessagesBadge.text = messages.size.toString()
-                } else {
-                    binding.wsMessagesBadge.visibility = View.GONE
-                }
-                
                 // Update the adapter if the bottom sheet is showing
                 websocketMessagesAdapter.updateMessages(messages)
             }
@@ -436,6 +429,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun showWebsocketMessagesBottomSheet() {
         val bottomSheetDialog = BottomSheetDialog(this)
         val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_ws_messages, null)
+        
+        // Set bottom sheet height to 70% of screen height
+        val displayMetrics = resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+        bottomSheetView.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            (screenHeight * 0.8).toInt()
+        )
         
         // Set up close button
         bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {

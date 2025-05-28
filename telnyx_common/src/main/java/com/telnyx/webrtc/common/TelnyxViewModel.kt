@@ -19,6 +19,7 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.common.model.WebsocketMessage
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -182,8 +183,8 @@ class TelnyxViewModel : ViewModel() {
      * State flow for websocket messages.
      * Observe this flow to display websocket messages in the UI.
      */
-    private val _wsMessages = MutableStateFlow<List<JsonObject>>(emptyList())
-    val wsMessages: StateFlow<List<JsonObject>> = _wsMessages.asStateFlow()
+    private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
+    val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
 
     /**
      * Job for collecting audio levels.
@@ -878,10 +879,11 @@ class TelnyxViewModel : ViewModel() {
             telnyxClient?.getWsMessageResponse()?.asFlow()?.collect { message ->
                 if (message != null) {
                     val currentMessages = _wsMessages.value.toMutableList()
-                    currentMessages.add(message)
+                    // Add new message at the beginning (latest first)
+                    currentMessages.add(0, WebsocketMessage(message))
                     // Limit the number of messages to avoid memory issues
                     while (currentMessages.size > MAX_WS_MESSAGES) {
-                        currentMessages.removeAt(0)
+                        currentMessages.removeAt(currentMessages.size - 1)
                     }
                     _wsMessages.value = currentMessages
                 }

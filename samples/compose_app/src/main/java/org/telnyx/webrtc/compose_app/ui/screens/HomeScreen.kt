@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -80,7 +81,6 @@ import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.BuildConfig
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
-import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
@@ -123,7 +123,6 @@ fun HomeScreen(
         ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
-    val wsMessages by telnyxViewModel.wsMessages.collectAsState()
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
@@ -178,12 +177,13 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight(),
+                        .wrapContentHeight()
+                        .padding(vertical = Dimens.largeSpacing),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Empty space on the left to balance the layout
-                    Spacer(modifier = Modifier.width(48.dp))
+                    Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
                     
                     // Logo in the center
                     Image(
@@ -206,7 +206,7 @@ fun HomeScreen(
                     
                     // Menu button on the right (only visible when logged in)
                     Box(
-                        modifier = Modifier.width(48.dp),
+                        modifier = Modifier.width(Dimens.extraLargeSpacing),
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         if (sessionState !is TelnyxSessionState.ClientDisconnected) {
@@ -214,7 +214,7 @@ fun HomeScreen(
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_more_vert),
                                     contentDescription = "Menu",
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(Dimens.mediumSpacing)
                                 )
                             }
                             
@@ -235,22 +235,7 @@ fun HomeScreen(
                                             painter = painterResource(id = R.drawable.ic_message),
                                             contentDescription = null
                                         )
-                                    },
-                                    trailingIcon = if (wsMessages.isNotEmpty()) {
-                                        {
-                                            Text(
-                                                text = wsMessages.size.toString(),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .background(
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        shape = shape100Percent
-                                                    )
-                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    } else null
+                                    }
                                 )
                                 
                                 // Copy FCM Token option
@@ -285,7 +270,7 @@ fun HomeScreen(
                             }
                         } else {
                             // Empty space when not logged in
-                            Spacer(modifier = Modifier.width(48.dp))
+                            Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
                         }
                     }
                 }
@@ -770,7 +755,7 @@ fun ConnectionState(
                     .size(Dimens.size12dp)
                     .background(
                         color = if (state) MainGreen else Color.Red,
-                        shape = shape100Percent
+                        shape = Dimens.shape100Percent
                     )
             )
             RegularText(
@@ -781,8 +766,11 @@ fun ConnectionState(
     
     // Websocket messages bottom sheet
     if (showWsMessagesBottomSheet.value) {
+        val configuration = LocalConfiguration.current
+        val screenHeight = configuration.screenHeightDp.dp
+        
         ModalBottomSheet(
-            modifier = Modifier.height(600.dp),
+            modifier = Modifier.height(screenHeight * 0.8f),
             onDismissRequest = {
                 showWsMessagesBottomSheet.value = false
             },
@@ -853,10 +841,12 @@ fun ConnectionState(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(400.dp)
+                            .weight(1f)
                     ) {
                         items(wsMessages.size) { index ->
                             val message = wsMessages[index]
+                            val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
+                            
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -868,13 +858,13 @@ fun ConnectionState(
                                     .padding(Dimens.spacing8dp)
                             ) {
                                 Text(
-                                    text = "Message ${index + 1}",
+                                    text = "Message ${index + 1} - ${dateFormat.format(message.timestamp)}",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.height(Dimens.spacing4dp))
                                 Text(
-                                    text = GsonBuilder().setPrettyPrinting().create().toJson(message),
+                                    text = GsonBuilder().setPrettyPrinting().create().toJson(message.message),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -930,7 +920,7 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
                     .size(Dimens.size12dp)
                     .background(
                         color = callStateColor,
-                        shape = shape100Percent
+                        shape = Dimens.shape100Percent
                     )
             )
             RegularText(
