@@ -39,10 +39,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -62,11 +66,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.TelnyxPrecallDiagnosisState
+import com.google.gson.GsonBuilder
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -81,7 +87,6 @@ import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.BuildConfig
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
-import org.telnyx.webrtc.compose_app.ui.theme.Dimens.shape100Percent
 import org.telnyx.webrtc.compose_app.ui.theme.DroppedIconColor
 import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.RingingIconColor
@@ -105,12 +110,19 @@ object CallScreenNav
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewModel) {
+fun HomeScreen(
+    navController: NavHostController,
+    telnyxViewModel: TelnyxViewModel,
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
+    onCopyFcmToken: () -> Unit = {},
+    onDisablePushNotifications: () -> Unit = {}
+) {
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -131,13 +143,13 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
     LaunchedEffect(sessionState) {
-        when (sessionState) {
+        sessionId = when (sessionState) {
             is TelnyxSessionState.ClientLoggedIn -> {
-                sessionId = (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
+                (sessionState as TelnyxSessionState.ClientLoggedIn).message.sessid
             }
 
             is TelnyxSessionState.ClientDisconnected -> {
-                sessionId = missingSessionIdLabel
+                missingSessionIdLabel
             }
         }
     }
@@ -173,14 +185,18 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
             .padding(start = Dimens.mediumSpacing, end = Dimens.mediumSpacing),
         topBar = {
             Column {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .wrapContentHeight()
+                        .padding(vertical = Dimens.largeSpacing),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Spacer(modifier = Modifier.height(Dimens.spacing32dp))
+                    // Empty space on the left to balance the layout
+                    Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
                     
+                    // Logo in the center
                     Image(
                         painter = painterResource(id = R.drawable.telnyx_logo),
                         contentDescription = stringResource(id = R.string.app_name),
@@ -190,13 +206,86 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onLongPress = {
-                                        showEnvironmentBottomSheet = true
+                                        // Only show environment bottom sheet when not logged in
+                                        if (sessionState is TelnyxSessionState.ClientDisconnected) {
+                                            showEnvironmentBottomSheet = true
+                                        }
                                     }
                                 )
                             }
                     )
-                    Spacer(modifier = Modifier.height(Dimens.spacing16dp))
+
+                    // Menu button on the right (only visible when logged in)
+                    Box(
+                        modifier = Modifier.width(Dimens.extraLargeSpacing),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_more_vert),
+                                    contentDescription = "Menu",
+                                    modifier = Modifier.size(Dimens.mediumSpacing)
+                                )
+                            }
+
+                            // Dropdown menu
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                // Websocket Messages option
+                                DropdownMenuItem(
+                                    text = { Text("Websocket Messages") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showWsMessagesBottomSheet.value = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_message),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Copy FCM Token option
+                                DropdownMenuItem(
+                                    text = { Text("Copy FCM Token") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onCopyFcmToken()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_copy),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Disable Push Notifications option
+                                DropdownMenuItem(
+                                    text = { Text("Disable Push Notifications") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onDisablePushNotifications()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_notifications_off),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                        } else {
+                            // Empty space when not logged in
+                            Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
+                        }
+                    }
                 }
+                Spacer(modifier = Modifier.height(Dimens.spacing16dp))
             }
         },
         bottomBar = {
@@ -219,7 +308,11 @@ fun HomeScreen(navController: NavHostController, telnyxViewModel: TelnyxViewMode
 
             MediumTextBold(text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
 
-            ConnectionState(state = (sessionState !is TelnyxSessionState.ClientDisconnected))
+            ConnectionState(
+                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                telnyxViewModel = telnyxViewModel,
+                showWsMessagesBottomSheet = showWsMessagesBottomSheet
+            )
 
             if (sessionState !is TelnyxSessionState.ClientDisconnected) {
                 CurrentCallState(state = uiState)
@@ -681,8 +774,17 @@ fun SessionItem(sessionId: String) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectionState(state: Boolean) {
+fun ConnectionState(
+    state: Boolean,
+    telnyxViewModel: TelnyxViewModel = viewModel(),
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
+) {
+    val wsMessages by telnyxViewModel.wsMessages.collectAsState()
+    val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
+
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
     ) {
@@ -696,12 +798,126 @@ fun ConnectionState(state: Boolean) {
                     .size(Dimens.size12dp)
                     .background(
                         color = if (state) MainGreen else Color.Red,
-                        shape = shape100Percent
+                        shape = Dimens.shape100Percent
                     )
             )
             RegularText(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
+        }
+    }
+
+    // Websocket messages bottom sheet
+    if (showWsMessagesBottomSheet.value) {
+        val configuration = LocalConfiguration.current
+        val screenHeight = configuration.screenHeightDp.dp
+
+        ModalBottomSheet(
+            modifier = Modifier.height(screenHeight * 0.8f),
+            onDismissRequest = {
+                showWsMessagesBottomSheet.value = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(Dimens.mediumSpacing)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = "Websocket Messages",
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showWsMessagesBottomSheet.value = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+
+                // Clear messages button
+                RoundSmallButton(
+                    modifier = Modifier.height(Dimens.size32dp),
+                    text = "Clear Messages",
+                    textSize = 12.sp,
+                    backgroundColor = secondary_background_color,
+                    icon = painterResource(R.drawable.ic_delete),
+                    iconContentDescription = "Clear Messages"
+                ) {
+                    telnyxViewModel.clearWebsocketMessages()
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacing16dp))
+
+                // Messages list
+                if (wsMessages.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No websocket messages yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        items(wsMessages.size) { index ->
+                            val message = wsMessages[index]
+                            val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Dimens.spacing4dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                                    .padding(Dimens.spacing8dp)
+                            ) {
+                                Text(
+                                    text = "Message ${index + 1} - ${dateFormat.format(message.timestamp)}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.spacing4dp))
+                                Text(
+                                    text = GsonBuilder().setPrettyPrinting().create().toJson(message.message),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (index < wsMessages.size - 1) {
+                                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -747,7 +963,7 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
                     .size(Dimens.size12dp)
                     .background(
                         color = callStateColor,
-                        shape = shape100Percent
+                        shape = Dimens.shape100Percent
                     )
             )
             RegularText(

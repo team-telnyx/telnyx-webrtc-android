@@ -79,4 +79,6 @@ dependencies {
     implementation("com.karumi:dexter:6.2.2")
 
     implementation("com.github.davidmigloz:number-keyboard:3.1.0")
+
+    implementation("com.google.code.gson:gson:2.12.0")
 }

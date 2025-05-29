@@ -19,6 +19,7 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.common.model.WebsocketMessage
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -37,6 +38,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
@@ -188,9 +190,21 @@ class TelnyxViewModel : ViewModel() {
     val outboundAudioLevels: StateFlow<List<Float>> = _outboundAudioLevels.asStateFlow()
 
     /**
+     * State flow for websocket messages.
+     * Observe this flow to display websocket messages in the UI.
+     */
+    private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
+    val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
+
+    /**
      * Job for collecting audio levels.
      */
     private var audioLevelCollectorJob: Job? = null
+
+    /**
+     * Job for collecting websocket messages.
+     */
+    private var wsMessagesCollectorJob: Job? = null
 
     /**
      * State flow for precall diagnosis results.
@@ -624,6 +638,9 @@ class TelnyxViewModel : ViewModel() {
         }
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
         _isLoading.value = isPushConnection
+
+        // Start collecting websocket messages
+        collectWebsocketMessages()
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {
@@ -929,6 +946,38 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Starts collecting websocket messages from the TelnyxClient.
+     * This should be called when the user is logged in.
+     */
+    fun collectWebsocketMessages() {
+        // Cancel any previous collector job first to avoid multiple collectors
+        wsMessagesCollectorJob?.cancel()
+        wsMessagesCollectorJob = viewModelScope.launch {
+            Timber.d("Websocket message collection started.")
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.getWsMessageResponse()?.asFlow()?.collect { message ->
+                if (message != null) {
+                    val currentMessages = _wsMessages.value.toMutableList()
+                    // Add new message at the beginning (latest first)
+                    currentMessages.add(0, WebsocketMessage(message))
+                    // Limit the number of messages to avoid memory issues
+                    while (currentMessages.size > MAX_WS_MESSAGES) {
+                        currentMessages.removeAt(currentMessages.size - 1)
+                    }
+                    _wsMessages.value = currentMessages
+                }
+            }
+        }
+    }
+
+    /**
+     * Clears the websocket messages list.
+     */
+    fun clearWebsocketMessages() {
+        _wsMessages.value = emptyList()
+    }
+
     private fun collectPreCallDiagnosis() {
         precallDiagnosisCollectorJob?.cancel()
         precallDiagnosisData = mutableListOf()
@@ -988,11 +1037,13 @@ class TelnyxViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
+        wsMessagesCollectorJob?.cancel()
         userSessionJob?.cancel()
         precallDiagnosisCollectorJob?.cancel()
     }
 
     companion object {
         private const val MAX_AUDIO_LEVELS = 100
+        private const val MAX_WS_MESSAGES = 100
     }
 }
