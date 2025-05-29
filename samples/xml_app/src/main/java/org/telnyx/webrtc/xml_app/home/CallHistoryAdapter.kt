@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xml_app.ui
+package org.telnyx.webrtc.xml_app.home
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -7,8 +7,8 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
-import org.telnyx.webrtc.xml_app.R
-import org.telnyx.webrtc.xml_app.databinding.CallHistoryItemBinding
+import org.telnyx.webrtc.xmlapp.R
+import org.telnyx.webrtc.xmlapp.databinding.CallHistoryItemBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,15 +43,22 @@ class CallHistoryAdapter(
                 CallType.OUTBOUND -> R.drawable.ic_call_made
             }
             binding.callTypeIcon.setImageResource(iconRes)
-
+            binding.callTypeIcon.setColorFilter(
+                binding.root.context.getColor(
+                    when (item.callType) {
+                        CallType.INBOUND -> R.color.reject_red
+                        CallType.OUTBOUND -> R.color.answer_green
+                    }
+                )
+            )
             // Set call button click listener
-            binding.callButton.setOnClickListener {
+            binding.root.setOnClickListener {
                 onCallClick(item)
             }
         }
 
-        private fun formatDate(date: Date): String {
-            val formatter = SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault())
+        private fun formatDate(date: Long): String {
+            val formatter = SimpleDateFormat("YYYY-MM-dd HH:mm:ss", Locale.getDefault())
             return formatter.format(date)
         }
     }

@@ -15,7 +15,7 @@
         android:layout_height="24dp"
         android:layout_gravity="center_vertical"
         android:layout_marginEnd="12dp"
-        android:contentDescription="Call type"
+        android:contentDescription="@string/call_type"
         tools:src="@drawable/ic_call_made" />
 
     <LinearLayout
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
             android:textStyle="bold"
-            tools:text="+1234567890" />
+            tools:text="" />
 
         <TextView
             android:id="@+id/callDate"
@@ -38,18 +38,8 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
             android:textColor="?android:attr/textColorSecondary"
-            tools:text="Jan 15, 2024 at 2:30 PM" />
+            tools:text="" />
 
     </LinearLayout>
-
-    <ImageButton
-        android:id="@+id/callButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Call"
-        android:padding="8dp"
-        android:src="@drawable/ic_call" />
 
 </LinearLayout>

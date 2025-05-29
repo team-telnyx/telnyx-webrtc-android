@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import org.telnyx.webrtc.compose_app.ui.components.CallQualityDisplay
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,8 +89,10 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
+import org.telnyx.webrtc.compose_app.utils.Utils
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.screens.CallHistoryBottomSheet
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
@@ -188,7 +191,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             }
                             
                             RoundSmallButton(
-                                text = "Call History",
+                                text = stringResource(R.string.call_history_title),
                                 textSize = 14.sp,
                                 backgroundColor = MaterialTheme.colorScheme.background
                             ) {
@@ -596,118 +599,6 @@ private enum class CallUIState {
     IDLE,
     INCOMING,
     ACTIVE
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CallHistoryBottomSheet(
-    telnyxViewModel: TelnyxViewModel,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(true)
-    val callHistoryList by telnyxViewModel.callHistoryList.collectAsState()
-    val context = LocalContext.current
-
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-        onDismissRequest = {
-            onDismiss.invoke()
-        },
-        containerColor = Color.White,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-        ) {
-            Text(
-                text = "Call History",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = Dimens.spacing8dp)
-            )
-
-            if (callHistoryList.isEmpty()) {
-                Text(
-                    text = "No call history available",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(Dimens.spacing16dp)
-                )
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(Dimens.spacing8dp),
-                    modifier = Modifier.height(400.dp)
-                ) {
-                    items(callHistoryList.size) { index ->
-                        val callItem = callHistoryList[index]
-                        CallHistoryItemCompose(
-                            callItem = callItem,
-                            onCallClick = { number ->
-                                telnyxViewModel.sendInvite(context, number, true)
-                                onDismiss()
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.spacing16dp))
-        }
-    }
-}
-
-@Composable
-fun CallHistoryItemCompose(
-    callItem: com.telnyx.webrtc.common.model.CallHistoryItem,
-    onCallClick: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Dimens.spacing16dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(
-                    id = when (callItem.callType) {
-                        com.telnyx.webrtc.common.model.CallType.INBOUND -> R.drawable.baseline_call_received_24
-                        com.telnyx.webrtc.common.model.CallType.OUTBOUND -> R.drawable.baseline_call_made_24
-                    }
-                ),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-
-            Spacer(modifier = Modifier.width(Dimens.spacing16dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = callItem.destinationNumber,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = callItem.formattedDate,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            IconButton(
-                onClick = { onCallClick(callItem.destinationNumber) }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.baseline_call_24),
-                    contentDescription = "Call",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-    }
 }
 
 @Preview

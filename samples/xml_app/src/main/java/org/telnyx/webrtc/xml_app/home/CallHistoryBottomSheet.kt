@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.xml_app.ui
+package org.telnyx.webrtc.xml_app.home
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,11 +7,12 @@ import android.view.ViewGroup
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.common.model.CallHistoryItem
-import org.telnyx.webrtc.xml_app.databinding.CallHistoryBottomSheetBinding
 import kotlinx.coroutines.launch
+import org.telnyx.webrtc.xmlapp.databinding.CallHistoryBottomSheetBinding
 
 class CallHistoryBottomSheet : BottomSheetDialogFragment() {
 
@@ -38,10 +39,25 @@ class CallHistoryBottomSheet : BottomSheetDialogFragment() {
         observeCallHistory()
     }
 
+    override fun onStart() {
+        super.onStart()
+        val dialog = dialog as? BottomSheetDialog
+        dialog?.let {
+            val bottomSheet =
+                it.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+
+            bottomSheet?.let { sheet ->
+                val behavior = BottomSheetBehavior.from(sheet)
+                behavior.state = BottomSheetBehavior.STATE_HALF_EXPANDED // Fullscreen
+                sheet.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+        }
+    }
+
     private fun setupRecyclerView() {
         callHistoryAdapter = CallHistoryAdapter { callHistoryItem ->
             // Handle call button click
-            telnyxViewModel.call(
+            telnyxViewModel.sendInvite(
                 requireContext(),
                 callHistoryItem.destinationNumber,
                 false

@@ -113,12 +113,15 @@
                 <Button
                     android:id="@+id/callHistoryButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="@dimen/spacing_medium"
                     android:layout_marginTop="@dimen/spacing_small"
-                    android:text="Call History"
+                    android:text="@string/call_history_title"
                     android:textAllCaps="false"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
+                    android:paddingStart="@dimen/spacing_tiny"
+                    android:paddingEnd="@dimen/spacing_tiny"
+                    style="@style/CustomOutlinedButton"
+                    android:textSize="@dimen/font_button"
+                    />
             </LinearLayout>
 
             <LinearLayout

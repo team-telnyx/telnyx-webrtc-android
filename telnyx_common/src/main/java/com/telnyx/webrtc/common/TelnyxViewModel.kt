@@ -897,7 +897,7 @@ class TelnyxViewModel : ViewModel() {
         val profile = _currentProfile.value
         if (profile != null && callHistoryRepository != null) {
             viewModelScope.launch {
-                callHistoryRepository!!.getCallHistoryForProfile(profile.name).collect { entities ->
+                callHistoryRepository!!.getCallHistoryForProfile(profile.callerIdName ?: "Unknown").collect { entities ->
                     _callHistoryList.value = entities.map { entity ->
                         CallHistoryItem(
                             id = entity.id,
@@ -922,7 +922,7 @@ class TelnyxViewModel : ViewModel() {
         val profile = _currentProfile.value
         if (profile != null && callHistoryRepository != null) {
             val callTypeString = if (callType == CallType.INBOUND) "inbound" else "outbound"
-            callHistoryRepository!!.addCall(profile.name, callTypeString, destinationNumber)
+            callHistoryRepository!!.addCall(profile.callerIdName ?: "Unknown", callTypeString, destinationNumber)
         }
     }
 
