@@ -143,6 +143,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     disablePushNotifications()
                     true
                 }
+                R.id.action_precall_diagnosis -> {
+                    showPreCallDiagnosisBottomSheet()
+                    true
+                }
                 else -> false
             }
         }
@@ -377,18 +381,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Hide FCM token and push notification buttons as they're now in the overflow menu
         bottomSheetView.findViewById<View>(R.id.copyFcmTokenButton).visibility = View.GONE
         bottomSheetView.findViewById<View>(R.id.disablePushButton).visibility = View.GONE
-
-        // Show Pre-call diagnosis button only when user is logged in
-        val preCallDiagnosisButton = bottomSheetView.findViewById<View>(R.id.preCallDiagnosisButton)
-        if (telnyxViewModel.sessionsState.value is TelnyxSessionState.ClientLoggedIn) {
-            preCallDiagnosisButton.visibility = View.VISIBLE
-            preCallDiagnosisButton.setOnClickListener {
-                bottomSheetDialog.dismiss()
-                showPreCallDiagnosisBottomSheet()
-            }
-        } else {
-            preCallDiagnosisButton.visibility = View.GONE
-        }
 
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()

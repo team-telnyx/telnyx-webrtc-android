@@ -105,7 +105,6 @@
     <!-- Pre-call Diagnosis -->
     <string name="precall_diagnosis_title">Pre-call Diagnosis</string>
     <string name="precall_diagnosis_processing">Processing...</string>
-    <string name="precall_diagnosis_completed">Diagnosis completed</string>
     <string name="precall_diagnosis_failed">Diagnosis failed</string>
     <string name="precall_diagnosis_network_quality">Network Quality</string>
     <string name="precall_diagnosis_quality">Quality:</string>

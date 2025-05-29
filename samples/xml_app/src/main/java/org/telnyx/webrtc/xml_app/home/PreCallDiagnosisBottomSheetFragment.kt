@@ -87,12 +87,13 @@ class PreCallDiagnosisBottomSheetFragment : BottomSheetDialogFragment() {
 
     private fun updateUIForStarted() {
         binding.diagnosisStatusText.text = getString(R.string.precall_diagnosis_processing)
+        binding.diagnosisStatusText.visibility = View.VISIBLE
         binding.progressDiagnosisLoading.visibility = View.VISIBLE
         binding.diagnosisDetailsLayout.visibility = View.GONE
     }
 
     private fun updateUIForCompleted(metrics: PreCallDiagnosisMetrics) {
-        binding.diagnosisStatusText.text = getString(R.string.precall_diagnosis_completed)
+        binding.diagnosisStatusText.visibility = View.GONE
         binding.progressDiagnosisLoading.visibility = View.GONE
         binding.diagnosisDetailsLayout.visibility = View.VISIBLE
 
@@ -125,6 +126,7 @@ class PreCallDiagnosisBottomSheetFragment : BottomSheetDialogFragment() {
 
     private fun updateUIForFailed() {
         binding.diagnosisStatusText.text = getString(R.string.precall_diagnosis_failed)
+        binding.diagnosisStatusText.visibility = View.VISIBLE
         binding.progressDiagnosisLoading.visibility = View.GONE
         binding.diagnosisDetailsLayout.visibility = View.GONE
     }

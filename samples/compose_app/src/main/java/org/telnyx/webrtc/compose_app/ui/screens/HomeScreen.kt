@@ -278,6 +278,22 @@ fun HomeScreen(
                                         )
                                     }
                                 )
+
+                                // Pre-Call Diagnosis option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.precall_diagnosis_button)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showPreCallDiagnosisBottomSheet = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
+                                            contentDescription = null,
+                                            tint = Color.Black
+                                        )
+                                    }
+                                )
                             }
                         } else {
                             // Empty space when not logged in
@@ -585,23 +601,6 @@ fun HomeScreen(
                                     R.string.push_notifications_disabled,
                                     Toast.LENGTH_LONG
                                 ).show()
-                            }
-
-                            // Add Pre-call diagnosis button when user is logged in
-                            RoundSmallButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = stringResource(R.string.precall_diagnosis_button),
-                                textSize = 14.sp,
-                                backgroundColor = MaterialTheme.colorScheme.secondary
-                            ) {
-                                scope.launch {
-                                    sheetState.hide()
-                                }.invokeOnCompletion {
-                                    if (!sheetState.isVisible) {
-                                        showEnvironmentBottomSheet = false
-                                        showPreCallDiagnosisBottomSheet = true
-                                    }
-                                }
                             }
                         }
 
@@ -1029,31 +1028,6 @@ fun BottomBar(
         }
     }
 
-}
-
-@Composable
-private fun DiagnosisRow(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
 }
 
 @Preview
