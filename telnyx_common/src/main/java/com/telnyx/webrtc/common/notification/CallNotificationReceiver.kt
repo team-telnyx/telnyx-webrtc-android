@@ -86,20 +86,10 @@ class CallNotificationReceiver : BroadcastReceiver() {
             // Set handling push to true to prevent disconnect
             TelnyxCommon.getInstance().setHandlingPush(true)
 
-            // Create an intent for the main activity to handle the call rejection
-            val targetActivityClass = getTargetActivityClass(context)
-            targetActivityClass?.let { activityClass ->
-                val intent = Intent(context, activityClass).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    action = Intent.ACTION_VIEW
-                    putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
-                    putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetadata.toJson())
-                }
-                val pendingIntent = PendingIntent.getActivity(
-                    context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                pendingIntent.send()
-            }
+            // Use background service to decline the call without launching the app
+            BackgroundCallDeclineService.startService(context, txPushMetadata)
+            
+            Timber.d("Started background call decline service for call rejection")
         }
     }
 

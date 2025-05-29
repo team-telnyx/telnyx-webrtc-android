@@ -790,6 +790,116 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Connects to the socket with decline_push parameter for background call decline.
+     * This method is specifically designed for declining calls without launching the main app.
+     * 
+     * @param providedServerConfig The server configuration for connection
+     * @param credentialConfig The credential configuration for login
+     * @param txPushMetaData The push metadata from the notification
+     */
+    fun connectWithDeclinePush(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        credentialConfig: CredentialConfig,
+        txPushMetaData: String? = null,
+    ) {
+        socketResponseLiveData.postValue(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        setSDKLogLevel(credentialConfig.logLevel, credentialConfig.customLogger)
+
+        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+        
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
+            }
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+                credentialLoginWithDeclinePush(credentialConfig)
+            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+        }
+    }
+
+    /**
+     * Connects to the socket with decline_push parameter for background call decline using token.
+     * This method is specifically designed for declining calls without launching the main app.
+     * 
+     * @param providedServerConfig The server configuration for connection
+     * @param tokenConfig The token configuration for login
+     * @param txPushMetaData The push metadata from the notification
+     */
+    fun connectWithDeclinePush(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        tokenConfig: TokenConfig,
+        txPushMetaData: String? = null,
+    ) {
+        socketResponseLiveData.postValue(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        setSDKLogLevel(tokenConfig.logLevel, tokenConfig.customLogger)
+
+        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+        
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
+            }
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+                tokenLoginWithDeclinePush(tokenConfig)
+            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+        }
+    }
+
 
     /**
      * Sets the callOngoing state to true. This can be used to see if the SDK thinks a call is ongoing.
@@ -1022,6 +1132,109 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Performs credential login with decline_push parameter for background call decline.
+     * This method sends a login message with decline_push set to true.
+     * 
+     * @param config The credential configuration for login
+     */
+    private fun credentialLoginWithDeclinePush(config: CredentialConfig) {
+        val uuid: String = UUID.randomUUID().toString()
+        val user = config.sipUser
+        val password = config.sipPassword
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        val customLogger = config.customLogger
+        autoReconnectLogin = config.autoReconnect
+
+        Config.USERNAME = config.sipUser
+        Config.PASSWORD = config.sipPassword
+
+        credentialSessionConfig = config
+
+        isDebug = config.debug
+
+        setSDKLogLevel(logLevel, customLogger)
+
+        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingbackTone = it
+        }
+
+        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
+        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = null,
+                login = user,
+                passwd = password,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("decline_push" to "true"),
+                sessid = sessid
+            )
+        )
+        Logger.d(message = "Auto login with credentialConfig for decline push")
+
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Performs token login with decline_push parameter for background call decline.
+     * This method sends a login message with decline_push set to true.
+     * 
+     * @param config The token configuration for login
+     */
+    private fun tokenLoginWithDeclinePush(config: TokenConfig) {
+        val uuid: String = UUID.randomUUID().toString()
+        val token = config.sipToken
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        val customLogger = config.customLogger
+        autoReconnectLogin = config.autoReconnect
+
+        tokenSessionConfig = config
+
+        isDebug = config.debug
+
+        setSDKLogLevel(logLevel, customLogger)
+
+        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
+        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = token,
+                login = null,
+                passwd = null,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("decline_push" to "true"),
+                sessid = sessid
+            )
+        )
+        Logger.d(message = "Auto login with tokenConfig for decline push")
+
         socket.send(loginMessage)
     }
 
