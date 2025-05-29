@@ -3,9 +3,9 @@ package com.telnyx.webrtc.common.data
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
 
-class CallHistoryRepository(context: Context) {
+private const val MAX_HISTORY_CALLS_LIMIT = 20
 
-    private val MAX_NUMBER_OF_HISTORY_CALLS = 20
+class CallHistoryRepository(context: Context) {
 
     private val callHistoryDao = CallHistoryDatabase.getDatabase(context).callHistoryDao()
     
@@ -25,7 +25,7 @@ class CallHistoryRepository(context: Context) {
         
         // Check if we need to delete old calls (keep only 20 per profile)
         val callCount = callHistoryDao.getCallCountForProfile(profileName)
-        if (callCount > MAX_NUMBER_OF_HISTORY_CALLS) {
+        if (callCount > MAX_HISTORY_CALLS_LIMIT) {
             callHistoryDao.deleteOldCallsForProfile(profileName)
         }
     }
