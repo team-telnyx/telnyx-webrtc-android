@@ -168,7 +168,7 @@ class BackgroundCallDeclineService : Service() {
             try {
                 timeoutJob?.cancel()
                 val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
-                telnyxClient.onDisconnect()
+                telnyxClient.disconnect()
                 Timber.d("Background decline operation completed, stopping service")
             } catch (e: Exception) {
                 Timber.e(e, "Error during disconnect")

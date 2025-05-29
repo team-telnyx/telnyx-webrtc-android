@@ -2144,4 +2144,21 @@ class TelnyxClient(
         unregisterNetworkCallback()
         socket.destroy()
     }
+
+    /**
+     * Disconnects the TelnyxClient, resets all internal states, and stops any ongoing audio playback.
+     * This method should be called when the client is no longer needed or when the user logs out.
+     */
+    fun disconnect() {
+        Logger.d(message = "Disconnecting TelnyxClient and clearing states")
+        onDisconnect()
+        // Reset all internal states
+        calls.clear()
+        webRTCReporter?.stopStats()
+        webRTCReporter = null
+        rawRingtone = null
+        rawRingbackTone = null
+        isCallPendingFromPush = false
+        pushMetaData = null
+    }
 }
