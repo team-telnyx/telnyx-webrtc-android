@@ -15,7 +15,6 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.R
@@ -39,19 +38,20 @@ class LegacyCallNotificationService : Service() {
     private var callNotificationService: CallNotificationService? = null
     private var ringtone: Ringtone? = null
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
 
         // Initialize the new CallNotificationService
-        try {
-            callNotificationService =
-                CallNotificationService(this, CallNotificationReceiver::class.java)
-        } catch (e: ClassNotFoundException) {
-            Timber.e(e, "Failed to initialize CallNotificationService: Class not found")
-        } catch (e: NoSuchMethodException) {
-            Timber.e(e, "Failed to initialize CallNotificationService: Method not found")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                callNotificationService =
+                    CallNotificationService(this, CallNotificationReceiver::class.java)
+            } catch (e: ClassNotFoundException) {
+                Timber.e(e, "Failed to initialize CallNotificationService: Class not found")
+            } catch (e: NoSuchMethodException) {
+                Timber.e(e, "Failed to initialize CallNotificationService: Method not found")
+            }
         }
     }
 
@@ -81,8 +81,24 @@ class LegacyCallNotificationService : Service() {
             return START_NOT_STICKY
         }
 
+        // For foreground services, we must call startForeground() immediately
+        // Start with a basic notification that will be updated later
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundImmediately()
+        }
+
         val metadata = intent?.getStringExtra("metadata")
-        val telnyxPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
+        val telnyxPushMetadata = try {
+            if (metadata != null) {
+                Gson().fromJson(metadata, PushMetaData::class.java)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to parse push metadata")
+            null
+        }
+
         telnyxPushMetadata?.let {
             // Try to use the new CallNotificationService if available
             if (callNotificationService != null && useCallStyleNotification()) {
@@ -101,6 +117,10 @@ class LegacyCallNotificationService : Service() {
             // Fallback to legacy notification
             showNotification(it)
             playPushRingTone()
+        } ?: run {
+            // If metadata is null or invalid, we still need to maintain the foreground service
+            // with a basic notification to prevent the exception
+            Timber.w("No valid metadata found, maintaining basic foreground notification")
         }
 
         return START_STICKY
@@ -114,7 +134,7 @@ class LegacyCallNotificationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "Phone Call Notifications"
             val description = "Notifications for incoming phone calls"
-            val importance = NotificationManager.IMPORTANCE_MAX
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance)
             channel.description = description
 
@@ -236,5 +256,31 @@ class LegacyCallNotificationService : Service() {
         // For now, use CallStyle on Android 12 (API 31) and above
         // This can be adjusted based on testing results
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    }
+
+    /**
+     * Start the service as foreground immediately with a basic notification
+     * This prevents ForegroundServiceDidNotStartInTimeException
+     */
+    private fun startForegroundImmediately() {
+        val basicNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_contact_phone)
+            .setContentTitle("Incoming Call")
+            .setContentText("Processing call...")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                basicNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, basicNotification)
+        }
     }
 }

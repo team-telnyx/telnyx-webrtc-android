@@ -2152,13 +2152,5 @@ class TelnyxClient(
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         onDisconnect()
-        // Reset all internal states
-        calls.clear()
-        webRTCReporter?.stopStats()
-        webRTCReporter = null
-        rawRingtone = null
-        rawRingbackTone = null
-        isCallPendingFromPush = false
-        pushMetaData = null
     }
 }

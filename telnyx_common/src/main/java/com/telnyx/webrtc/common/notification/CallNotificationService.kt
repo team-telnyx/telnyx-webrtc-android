@@ -69,7 +69,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         val incomingCallChannel = NotificationChannel(
             CHANNEL_ID,
             "Incoming Call Notifications",
-            NotificationManager.IMPORTANCE_MAX
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(
