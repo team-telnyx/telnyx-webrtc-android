@@ -183,7 +183,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                     CallUIState.IDLE -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing)
+                            verticalArrangement = Arrangement.spacedBy(Dimens.spacing18dp)
                         ) {
                             HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
                                 if (destinationNumber.isNotEmpty())
@@ -284,7 +284,10 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     if (showCallHistoryBottomSheet) {
         CallHistoryBottomSheet(
             telnyxViewModel = telnyxViewModel
-        ) {
+        ) { number ->
+            number?.let {
+                destinationNumber = it
+            }
             showCallHistoryBottomSheet = false
         }
     }

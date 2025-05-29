@@ -4,7 +4,9 @@ import android.content.Context
 import kotlinx.coroutines.flow.Flow
 
 class CallHistoryRepository(context: Context) {
-    
+
+    private val MAX_NUMBER_OF_HISTORY_CALLS = 20
+
     private val callHistoryDao = CallHistoryDatabase.getDatabase(context).callHistoryDao()
     
     fun getCallHistoryForProfile(profileName: String): Flow<List<CallHistoryEntity>> {
@@ -23,8 +25,12 @@ class CallHistoryRepository(context: Context) {
         
         // Check if we need to delete old calls (keep only 20 per profile)
         val callCount = callHistoryDao.getCallCountForProfile(profileName)
-        if (callCount > 20) {
+        if (callCount > MAX_NUMBER_OF_HISTORY_CALLS) {
             callHistoryDao.deleteOldCallsForProfile(profileName)
         }
+    }
+
+    suspend fun deleteCallHistoryForProfile(profileName: String) {
+        callHistoryDao.deleteCallHistoryForProfile(profileName)
     }
 }

@@ -22,6 +22,8 @@ class CallHistoryBottomSheet : BottomSheetDialogFragment() {
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
     private lateinit var callHistoryAdapter: CallHistoryAdapter
 
+    var onNumberSelected: ((String) -> Unit)? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -57,6 +59,7 @@ class CallHistoryBottomSheet : BottomSheetDialogFragment() {
     private fun setupRecyclerView() {
         callHistoryAdapter = CallHistoryAdapter { callHistoryItem ->
             // Handle call button click
+            onNumberSelected?.invoke(callHistoryItem.destinationNumber)
             telnyxViewModel.sendInvite(
                 requireContext(),
                 callHistoryItem.destinationNumber,

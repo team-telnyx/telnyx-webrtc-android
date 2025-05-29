@@ -28,7 +28,7 @@ import com.telnyx.webrtc.common.TelnyxViewModel
 @Composable
 fun CallHistoryBottomSheet(
     telnyxViewModel: TelnyxViewModel,
-    onDismiss: () -> Unit
+    onDismiss: (String?) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(true)
     val callHistoryList by telnyxViewModel.callHistoryList.collectAsState()
@@ -38,7 +38,7 @@ fun CallHistoryBottomSheet(
     ModalBottomSheet(
         modifier = Modifier.fillMaxWidth().wrapContentHeight(),
         onDismissRequest = {
-            onDismiss.invoke()
+            onDismiss.invoke(null)
         },
         containerColor = Color.White,
         sheetState = sheetState
@@ -70,7 +70,7 @@ fun CallHistoryBottomSheet(
                             callItem = callItem,
                             onCallClick = { number ->
                                 telnyxViewModel.sendInvite(context, number, true)
-                                onDismiss()
+                                onDismiss(number)
                             }
                         )
                     }

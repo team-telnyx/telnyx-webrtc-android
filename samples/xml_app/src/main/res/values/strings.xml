@@ -42,7 +42,7 @@
     <string name="share_wsmessages">Share WsMessages</string>
     <string name="empty_wsmessages">Oops! No logs are available currently. Please check after some time!</string>
     <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>
-    <string name="login_info">Please confirm details below and click 'Connect' to make a call.</string>
+    <string name="login_info">Please confirm details below and click \'Connect\' to make a call.</string>
     <string name="home_info">Enter a destination (phone number or SIP user) to initiate your call.</string>
     <string name="profile">Profile</string>
     <string name="switch_profile">Switch profile</string>

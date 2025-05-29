@@ -19,4 +19,8 @@ interface CallHistoryDao {
     
     @Query("SELECT COUNT(*) FROM calls_history WHERE userProfileName = :profileName")
     suspend fun getCallCountForProfile(profileName: String): Int
+
+    @Query("DELETE FROM calls_history WHERE userProfileName = :profileName")
+    suspend fun deleteCallHistoryForProfile(profileName: String)
+
 }

@@ -277,6 +277,9 @@ class TelnyxViewModel : ViewModel() {
         profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
         profile.sipToken?.let { ProfileManager.deleteProfileBySipToken(context, it) }
         refreshProfileList(context)
+        viewModelScope.launch {
+            deleteCallHistoryForProfile(profile.callerIdName ?: "Unknown")
+        }
     }
 
     /**
@@ -942,7 +945,14 @@ class TelnyxViewModel : ViewModel() {
             callHistoryRepository!!.addCall(profile.callerIdName ?: "Unknown", callTypeString, destinationNumber)
         }
     }
-    
+
+    /**
+     * Deletes the call history for the current profile.
+     */
+    suspend fun deleteCallHistoryForProfile(profileName: String) {
+        callHistoryRepository?.deleteCallHistoryForProfile(profileName)
+    }
+
     /**
      * Starts collecting websocket messages from the TelnyxClient.
      * This should be called when the user is logged in.

@@ -134,6 +134,9 @@ class HomeCallFragment : Fragment() {
 
     private fun showCallHistoryBottomSheet() {
         val callHistoryBottomSheet = CallHistoryBottomSheet.newInstance()
+        callHistoryBottomSheet.onNumberSelected = { destinationNumber ->
+            binding.callInput.setText(destinationNumber)
+        }
         callHistoryBottomSheet.show(
             requireActivity().supportFragmentManager,
             CallHistoryBottomSheet.TAG
