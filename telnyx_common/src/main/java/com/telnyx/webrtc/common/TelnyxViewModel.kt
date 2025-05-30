@@ -351,7 +351,12 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
@@ -383,7 +388,12 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
                     _isLoading.value = false
@@ -696,6 +706,7 @@ class TelnyxViewModel : ViewModel() {
      * It will navigate to the login screen only in two cases:
      * - there is an error and there is not active call
      * - there is an error during active call. This is happening after unsuccessfully reconnection.
+     * Error dialog is shown only when the disconnect was not intentional (user-initiated).
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
@@ -713,6 +724,8 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
+        userSessionJob?.cancel()
+        userSessionJob = null
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }
