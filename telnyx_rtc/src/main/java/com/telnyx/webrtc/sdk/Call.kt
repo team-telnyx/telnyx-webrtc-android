@@ -65,11 +65,6 @@ data class Call(
      */
     var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
-    /**
-     * Callback for ICE candidates
-     */
-    var onICECandidatesAvailable: ((List<ICECandidate>) -> Unit)? = null
-
     companion object {
         const val ICE_CANDIDATE_DELAY: Long = 400L
         const val ICE_CANDIDATE_PERIOD: Long = 400L

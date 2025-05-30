@@ -292,9 +292,6 @@ class TelnyxClient(
                                     webRTCReporter?.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
                                     }
-                                    webRTCReporter?.onICECandidatesAvailable = { iceCandidates ->
-                                        onICECandidatesAvailable?.invoke(iceCandidates)
-                                    }
                                     webRTCReporter?.startStats()
                                 }
                             }
@@ -366,9 +363,6 @@ class TelnyxClient(
                     if (callDebug) {
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
-                        }
-                        webRTCReporter?.onICECandidatesAvailable = { iceCandidates ->
-                            onICECandidatesAvailable?.invoke(iceCandidates)
                         }
                     }
                     webRTCReporter?.startStats()
@@ -1708,9 +1702,6 @@ class TelnyxClient(
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
-                        webRTCReporter?.onICECandidatesAvailable = { iceCandidates ->
-                            onICECandidatesAvailable?.invoke(iceCandidates)
-                        }
                         webRTCReporter?.startStats()
                     }
                 }
@@ -1876,9 +1867,6 @@ class TelnyxClient(
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
-                    }
-                    webRTCReporter?.onICECandidatesAvailable = { iceCandidates ->
-                        onICECandidatesAvailable?.invoke(iceCandidates)
                     }
                     webRTCReporter?.startStats()
                 }

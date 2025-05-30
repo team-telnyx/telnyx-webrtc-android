@@ -38,15 +38,13 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
-import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
-import com.telnyx.webrtc.sdk.stats.ICECandidate
-import com.telnyx.webrtc.sdk.stats.MetricSummary
-import com.telnyx.webrtc.sdk.stats.PreCallDiagnosisMetrics
+import com.telnyx.webrtc.common.model.MetricSummary
+import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -75,7 +73,7 @@ sealed class TelnyxSessionState {
 
 sealed class TelnyxPrecallDiagnosisState {
     data object PrecallDiagnosisStarted : TelnyxPrecallDiagnosisState()
-    data class PrecallDiagnosisCompleted(val data: PreCallDiagnosisMetrics) : TelnyxPrecallDiagnosisState()
+    data class PrecallDiagnosisCompleted(val data: PreCallDiagnosis) : TelnyxPrecallDiagnosisState()
     data object PrecallDiagnosisFailed : TelnyxPrecallDiagnosisState()
 }
 
@@ -221,11 +219,6 @@ class TelnyxViewModel : ViewModel() {
      * Precall diagnosis data.
      */
     private var precallDiagnosisData: MutableList<CallQualityMetrics>? = null
-
-    /**
-     * Precall ICE candidates.
-     */
-    private var precallICECandidates: List<ICECandidate>? = null
 
     /**
      * Stops the loading indicator.
@@ -989,48 +982,52 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
-
-        viewModelScope.launch {
-            TelnyxCommon.getInstance().callICECandidatesListener.collect {
-                precallICECandidates = it
-            }
-        }
     }
 
-    private fun preparePreCallDiagnosis(): PreCallDiagnosisMetrics? {
+    private fun preparePreCallDiagnosis(): PreCallDiagnosis? {
         return precallDiagnosisData?.let { preCallDiagnosisData ->
-            val minJitter = preCallDiagnosisData.minOf { it.jitter }
-            val maxJitter = preCallDiagnosisData.maxOf { it.jitter }
-            val avgJitter = preCallDiagnosisData.sumOf { it.jitter } / preCallDiagnosisData.size
+            try {
+                val minJitter = preCallDiagnosisData.minOf { it.jitter }
+                val maxJitter = preCallDiagnosisData.maxOf { it.jitter }
+                val avgJitter = preCallDiagnosisData.sumOf { it.jitter } / preCallDiagnosisData.size
 
-            val minRtt = preCallDiagnosisData.minOf { it.rtt }
-            val maxRtt = preCallDiagnosisData.maxOf { it.rtt }
-            val avgRtt = preCallDiagnosisData.sumOf { it.rtt } / preCallDiagnosisData.size
+                val minRtt = preCallDiagnosisData.minOf { it.rtt }
+                val maxRtt = preCallDiagnosisData.maxOf { it.rtt }
+                val avgRtt = preCallDiagnosisData.sumOf { it.rtt } / preCallDiagnosisData.size
 
-            val avgMos = preCallDiagnosisData.sumOf { it.mos } / preCallDiagnosisData.size
+                val avgMos = preCallDiagnosisData.sumOf { it.mos } / preCallDiagnosisData.size
 
-            val mostFrequentQuality = preCallDiagnosisData
-                .groupingBy { it.quality }
-                .eachCount()
-                .maxByOrNull { it.value }
-                ?.key
+                val mostFrequentQuality = preCallDiagnosisData
+                    .groupingBy { it.quality }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
 
-            val bytesSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("bytesSent")?.toString()?.toLongOrNull() ?: 0L
-            val bytesReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("bytesReceived")?.toString()?.toLongOrNull() ?: 0L
-            val packetsSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("packetsSent")?.toString()?.toLongOrNull() ?: 0L
-            val packetsReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("packetsReceived")?.toString()?.toLongOrNull() ?: 0L
+                val bytesSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("bytesSent")?.toString()?.toLongOrNull() ?: 0L
+                val bytesReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("bytesReceived")?.toString()?.toLongOrNull() ?: 0L
+                val packetsSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("packetsSent")?.toString()?.toLongOrNull() ?: 0L
+                val packetsReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("packetsReceived")?.toString()?.toLongOrNull() ?: 0L
 
-            PreCallDiagnosisMetrics(
-                mos = avgMos,
-                quality = mostFrequentQuality ?: CallQuality.UNKNOWN,
-                jitter = MetricSummary(minJitter, maxJitter, avgJitter),
-                rtt = MetricSummary(minRtt, maxRtt, avgRtt),
-                bytesSent = bytesSent,
-                bytesReceived = bytesReceived,
-                packetsSent = packetsSent,
-                packetsReceived = packetsReceived,
-                iceCandidates = precallICECandidates ?: listOf()
-            )
+                val iceCandidatesList = preCallDiagnosisData
+                    .flatMap { it.iceCandidates ?: emptyList() }
+                    .distinctBy { it.id }
+
+                PreCallDiagnosis(
+                    mos = avgMos,
+                    quality = mostFrequentQuality ?: CallQuality.UNKNOWN,
+                    jitter = MetricSummary(minJitter, maxJitter, avgJitter),
+                    rtt = MetricSummary(minRtt, maxRtt, avgRtt),
+                    bytesSent = bytesSent,
+                    bytesReceived = bytesReceived,
+                    packetsSent = packetsSent,
+                    packetsReceived = packetsReceived,
+                    iceCandidates = iceCandidatesList
+                )
+            } catch (e: Throwable) {
+                Timber.e("Pre-call diagnosis data processing error ${e.message}")
+                null
+            }
+
         }
     }
 

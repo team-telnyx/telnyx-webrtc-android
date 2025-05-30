@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,11 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.telnyx.webrtc.common.TelnyxPrecallDiagnosisState
-import com.telnyx.webrtc.sdk.stats.PreCallDiagnosisMetrics
+import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
@@ -77,7 +72,7 @@ fun PreCallDiagnosisBottomSheet(
                 }
             }
 
-            var preCallDiagnosisResult by remember { mutableStateOf<PreCallDiagnosisMetrics?>(null) }
+            var preCallDiagnosisResult by remember { mutableStateOf<PreCallDiagnosis?>(null) }
 
             val topText = when (preCallDiagnosisState) {
                 is TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted -> {

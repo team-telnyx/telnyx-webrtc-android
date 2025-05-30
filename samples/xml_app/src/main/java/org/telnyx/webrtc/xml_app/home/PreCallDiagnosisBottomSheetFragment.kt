@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -13,7 +12,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.telnyx.webrtc.common.TelnyxPrecallDiagnosisState
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.sdk.stats.PreCallDiagnosisMetrics
+import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.PrecallDiagnosisBottomSheetBinding
@@ -92,7 +91,7 @@ class PreCallDiagnosisBottomSheetFragment : BottomSheetDialogFragment() {
         binding.diagnosisDetailsLayout.visibility = View.GONE
     }
 
-    private fun updateUIForCompleted(metrics: PreCallDiagnosisMetrics) {
+    private fun updateUIForCompleted(metrics: PreCallDiagnosis) {
         binding.diagnosisStatusText.visibility = View.GONE
         binding.progressDiagnosisLoading.visibility = View.GONE
         binding.diagnosisDetailsLayout.visibility = View.VISIBLE

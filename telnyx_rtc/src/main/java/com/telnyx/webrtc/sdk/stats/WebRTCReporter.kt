@@ -80,11 +80,6 @@ internal class WebRTCReporter(
      */
     var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
-    /**
-     * Callback for ICE candidates
-     */
-    var onICECandidatesAvailable: ((List<ICECandidate>) -> Unit)? = null
-
     val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     internal fun startStats() {
@@ -285,13 +280,25 @@ internal class WebRTCReporter(
 
                     // Generate call quality metrics if we have audio stats
                     if (inboundAudioMap.isNotEmpty() || remoteInboundAudioMap.isNotEmpty()) {
+
+                        // Collect and forward ICE candidates during gathering.
+                        val iceCandidates = if (iceCandidatesIds.isNotEmpty()) {
+                            iceCandidatesIds.mapNotNull { iceCandidateId ->
+                                statsData[iceCandidateId]?.let { element ->
+                                    ICECandidate.createFromJsonElement(element)
+                                }
+                            }
+                        } else
+                            null
+
                         val metrics = toRealTimeMetrics(
                             inboundAudio = inboundAudioMap,
                             outboundAudio = outboundAudioMap,
                             remoteInboundAudio = remoteInboundAudioMap,
                             remoteOutboundAudio = remoteOutboundAudioMap,
                             inboundAudioLevel = inboundAudioLevel,
-                            outboundAudioLevel = outboundAudioLevel
+                            outboundAudioLevel = outboundAudioLevel,
+                            iceCandidates = iceCandidates
                         )
 
                         if (callDebug) {
@@ -301,16 +308,6 @@ internal class WebRTCReporter(
                             // Also emit through the flow
                             onStatsDataEvent(StatsData.CallQualityData(metrics))
                         }
-                    }
-
-                    // Collect and forward ICE candidates during gathering.
-                    if (iceCandidatesIds.isNotEmpty() && callDebug) {
-                        val iceCandidates = iceCandidatesIds.mapNotNull { iceCandidateId ->
-                            statsData[iceCandidateId]?.let { element ->
-                                ICECandidate.createFromJsonElement(element)
-                            }
-                        }
-                        onICECandidatesAvailable?.invoke(iceCandidates)
                     }
 
                     val statsEvent = StatsEvent(
@@ -492,7 +489,8 @@ internal class WebRTCReporter(
         remoteInboundAudio: Map<String, Any>?,
         remoteOutboundAudio: Map<String, Any>?,
         inboundAudioLevel: Float,
-        outboundAudioLevel: Float
+        outboundAudioLevel: Float,
+        iceCandidates: List<ICECandidate>?
     ): CallQualityMetrics {
         // Extract metrics from stats
         val jitter = (remoteInboundAudio?.get("jitter") as? Double) ?: Double.POSITIVE_INFINITY
@@ -522,7 +520,8 @@ internal class WebRTCReporter(
             remoteInboundAudio = remoteInboundAudio,
             remoteOutboundAudio = remoteOutboundAudio,
             inboundAudioLevel = inboundAudioLevel,
-            outboundAudioLevel = outboundAudioLevel
+            outboundAudioLevel = outboundAudioLevel,
+            iceCandidates = iceCandidates
         )
     }
 

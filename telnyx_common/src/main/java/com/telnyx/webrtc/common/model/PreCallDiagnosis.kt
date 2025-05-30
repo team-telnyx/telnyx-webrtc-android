@@ -1,6 +1,12 @@
-package com.telnyx.webrtc.sdk.stats
+package com.telnyx.webrtc.common.model
 
-data class PreCallDiagnosisMetrics(
+import com.telnyx.webrtc.sdk.stats.CallQuality
+import com.telnyx.webrtc.sdk.stats.ICECandidate
+
+/**
+ * Data class representing a pre-call diagnosis result.
+ */
+data class PreCallDiagnosis(
     /**
      * Mean Opinion Score (1.0-5.0)
      */
