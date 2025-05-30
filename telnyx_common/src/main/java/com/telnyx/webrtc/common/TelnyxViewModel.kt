@@ -168,12 +168,6 @@ class TelnyxViewModel : ViewModel() {
     private var handlingResponses = false
 
     /**
-     * Flag to track when a disconnect is intentional (user-initiated).
-     * When true, error dialogs should not be shown for subsequent network errors.
-     */
-    private var isIntentionalDisconnect = false
-
-    /**
      * State flow for inbound audio levels.
      */
     private val _inboundAudioLevels = MutableStateFlow<List<Float>>(emptyList())
@@ -333,7 +327,12 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
@@ -365,7 +364,12 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
                     _isLoading.value = false
@@ -497,8 +501,6 @@ class TelnyxViewModel : ViewModel() {
             // Check if we are on a call and not handling a push notification before disconnecting
             // (we check this because clicking on a notification can trigger a disconnect if we are using onStop in MainActivity)
             if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
-                // Mark this as an intentional disconnect to prevent error dialogs
-                isIntentionalDisconnect = true
                 // No active call, safe to disconnect
                 Disconnect(viewContext).invoke()
                 // if we are disconnecting, there is no call so we should stop service if one is running
@@ -592,9 +594,6 @@ class TelnyxViewModel : ViewModel() {
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
         _isLoading.value = isPushConnection
         
-        // Reset the intentional disconnect flag when successfully logged in
-        isIntentionalDisconnect = false
-        
         // Start collecting websocket messages
         collectWebsocketMessages()
     }
@@ -658,13 +657,8 @@ class TelnyxViewModel : ViewModel() {
             _uiState.value = TelnyxSocketEvent.InitState
         }
 
-        // Only show error dialog if this is not an intentional disconnect
-        if (!isIntentionalDisconnect) {
-            viewModelScope.launch {
-                _sessionStateError.emit(response.errorMessage ?: "An Unknown Error Occurred")
-            }
-        } else {
-            Timber.d("Suppressing error dialog for intentional disconnect: ${response.errorMessage}")
+        viewModelScope.launch {
+            _sessionStateError.emit(response.errorMessage ?: "An Unknown Error Occurred")
         }
 
         _isLoading.value = false
@@ -672,10 +666,10 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
+        userSessionJob?.cancel()
+        userSessionJob = null
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
-        // Reset the intentional disconnect flag after disconnect is complete
-        isIntentionalDisconnect = false
     }
 
     private fun handleCallState(callState: CallState) {

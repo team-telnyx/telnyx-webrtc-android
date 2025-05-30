@@ -99,6 +99,9 @@ class TelnyxClient(
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
 
+        /** Delay in milliseconds between broadcasting DISCONNECT and closing the socket */
+        const val SOCKET_CLOSE_DELAY: Long = 500
+
         /** SDK version*/
         val SDK_VERSION = BuildConfig.SDK_VERSION
     }
@@ -1929,6 +1932,9 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
-        socket.destroy()
+
+        Handler(Looper.getMainLooper()).postDelayed(Runnable {
+            socket.destroy()
+        }, SOCKET_CLOSE_DELAY )
     }
 }
