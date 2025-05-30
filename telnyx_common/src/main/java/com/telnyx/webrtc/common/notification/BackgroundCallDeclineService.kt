@@ -26,6 +26,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.lifecycle.Observer
 
 /**
  * Background service for handling call decline without launching the main application.
@@ -54,6 +55,7 @@ class BackgroundCallDeclineService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var timeoutJob: Job? = null
+    private var socketObserver: Observer<SocketResponse<ReceivedMessageBody>>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -102,9 +104,12 @@ class BackgroundCallDeclineService : Service() {
                         disconnectAndStop()
                     }
 
-                    // Observe socket responses to handle login success
-                    telnyxClient.getSocketResponse().observeForever { response ->
-                        handleSocketResponse(response)
+                    // Observe socket responses to handle login success - must be done on main thread
+                    launch(Dispatchers.Main) {
+                        socketObserver = Observer<SocketResponse<ReceivedMessageBody>> { response ->
+                            handleSocketResponse(response)
+                        }
+                        telnyxClient.getSocketResponse().observeForever(socketObserver!!)
                     }
 
                     // Connect with decline_push parameter
@@ -169,6 +174,15 @@ class BackgroundCallDeclineService : Service() {
                 timeoutJob?.cancel()
                 val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
                 telnyxClient.disconnect()
+                
+                // Remove observer on main thread to prevent memory leaks
+                launch(Dispatchers.Main) {
+                    socketObserver?.let { observer ->
+                        telnyxClient.getSocketResponse().removeObserver(observer)
+                        socketObserver = null
+                    }
+                }
+                
                 Timber.d("Background decline operation completed, stopping service")
             } catch (e: Exception) {
                 Timber.e(e, "Error during disconnect")
@@ -181,6 +195,20 @@ class BackgroundCallDeclineService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         timeoutJob?.cancel()
+        
+        // Clean up observer on main thread
+        serviceScope.launch(Dispatchers.Main) {
+            socketObserver?.let { observer ->
+                try {
+                    val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
+                    telnyxClient.getSocketResponse().removeObserver(observer)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error removing observer during cleanup")
+                }
+                socketObserver = null
+            }
+        }
+        
         Timber.d("BackgroundCallDeclineService destroyed")
     }
 }

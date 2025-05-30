@@ -171,17 +171,12 @@ class LegacyCallNotificationService : Service() {
 
         val customSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
-        val rejectResultIntent = Intent(this, targetActivityClass)
-        rejectResultIntent.action = Intent.ACTION_VIEW
-        rejectResultIntent.putExtra(
-            MyFirebaseMessagingService.EXT_KEY_DO_ACTION,
-            MyFirebaseMessagingService.ACT_REJECT_CALL
-        )
-        rejectResultIntent.putExtra(
-            MyFirebaseMessagingService.TX_PUSH_METADATA,
-            txPushMetaData.toJson()
-        )
-        val rejectPendingIntent = PendingIntent.getActivity(
+        // Reject call intent - use broadcast receiver instead of opening main activity
+        val rejectResultIntent = Intent(this, CallNotificationReceiver::class.java).apply {
+            putExtra(CallNotificationService.NOTIFICATION_ACTION, CallNotificationService.Companion.NotificationState.REJECT.ordinal)
+            putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
+        }
+        val rejectPendingIntent = PendingIntent.getBroadcast(
             this,
             MyFirebaseMessagingService.REJECT_REQUEST_CODE,
             rejectResultIntent,
