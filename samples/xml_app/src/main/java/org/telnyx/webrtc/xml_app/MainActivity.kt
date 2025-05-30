@@ -41,6 +41,7 @@ import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 import androidx.appcompat.app.AlertDialog
+import org.telnyx.webrtc.xml_app.home.PreCallDiagnosisBottomSheetFragment
 import android.view.ViewGroup
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
@@ -104,30 +105,30 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private fun setupUI() {
         refreshVersionInfoText()
-        
+
         // Initialize websocket messages adapter
         websocketMessagesAdapter = WebsocketMessagesAdapter()
-        
+
         // Set up overflow menu
         binding.menuButton.setOnClickListener {
             showOverflowMenu()
         }
     }
-    
+
     /**
      * Shows the overflow menu with options
      */
     private fun showOverflowMenu() {
         val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
         popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
-        
+
         // Add badge count to websocket messages menu item if there are messages
         val wsMessages = telnyxViewModel.wsMessages.value
         if (wsMessages.isNotEmpty()) {
             val menuItem = popupMenu.menu.findItem(R.id.action_websocket_messages)
             menuItem.title = "Websocket Messages"
         }
-        
+
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_websocket_messages -> {
@@ -142,13 +143,17 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     disablePushNotifications()
                     true
                 }
+                R.id.action_precall_diagnosis -> {
+                    showPreCallDiagnosisBottomSheet()
+                    true
+                }
                 else -> false
             }
         }
-        
+
         popupMenu.show()
     }
-    
+
     /**
      * Copies the FCM token to the clipboard
      */
@@ -158,7 +163,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
         Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_SHORT).show()
     }
-    
+
     /**
      * Disables push notifications
      */
@@ -183,10 +188,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         binding.callState.visibility = View.VISIBLE
                         binding.callStateLabel.visibility = View.VISIBLE
-                        
+
                         // Show menu button when connected
                         binding.menuButton.visibility = View.VISIBLE
-                        
+
                         // Start collecting websocket messages
                         telnyxViewModel.collectWebsocketMessages()
                     }
@@ -208,7 +213,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         binding.callState.visibility = View.GONE
                         binding.callStateLabel.visibility = View.GONE
-                        
+
                         // Hide menu button when disconnected
                         binding.menuButton.visibility = View.GONE
                     }
@@ -246,7 +251,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 updateCallState(uiState)
             }
         }
-        
+
         // Listen for websocket messages
         lifecycleScope.launch {
             telnyxViewModel.wsMessages.collect { messages ->
@@ -381,6 +386,16 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         bottomSheetDialog.show()
     }
 
+    private fun showPreCallDiagnosisBottomSheet() {
+        val bottomSheet = PreCallDiagnosisBottomSheetFragment()
+        bottomSheet.show(supportFragmentManager, PreCallDiagnosisBottomSheetFragment.TAG)
+
+        // Start the diagnosis call
+        lifecycleScope.launch {
+            telnyxViewModel.makePreCallDiagnosis(this@MainActivity, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
+        }
+    }
+
     private fun checkPermission() {
         // Create a mutable list of permissions that will always be needed.
         val permissions = mutableListOf(
@@ -429,7 +444,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun showWebsocketMessagesBottomSheet() {
         val bottomSheetDialog = BottomSheetDialog(this)
         val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_ws_messages, null)
-        
+
         // Set bottom sheet height to 70% of screen height
         val displayMetrics = resources.displayMetrics
         val screenHeight = displayMetrics.heightPixels
@@ -437,22 +452,22 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             ViewGroup.LayoutParams.MATCH_PARENT,
             (screenHeight * 0.8).toInt()
         )
-        
+
         // Set up close button
         bottomSheetView.findViewById<View>(R.id.closeButton).setOnClickListener {
             bottomSheetDialog.dismiss()
         }
-        
+
         // Set up clear messages button
         bottomSheetView.findViewById<View>(R.id.clearMessagesButton).setOnClickListener {
             telnyxViewModel.clearWebsocketMessages()
             bottomSheetDialog.dismiss()
         }
-        
+
         // Set up recycler view
         val recyclerView = bottomSheetView.findViewById<RecyclerView>(R.id.messagesRecyclerView)
         recyclerView.adapter = websocketMessagesAdapter
-        
+
         // Show empty text if no messages
         val emptyText = bottomSheetView.findViewById<TextView>(R.id.emptyMessagesText)
         if (telnyxViewModel.wsMessages.value.isEmpty()) {
@@ -462,7 +477,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             emptyText.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
         }
-        
+
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()
     }

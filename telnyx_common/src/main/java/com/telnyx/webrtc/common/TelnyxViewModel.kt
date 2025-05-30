@@ -38,11 +38,13 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
-import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.common.model.MetricSummary
+import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -67,6 +69,12 @@ sealed class TelnyxSocketEvent {
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
     data object ClientDisconnected : TelnyxSessionState()
+}
+
+sealed class TelnyxPrecallDiagnosisState {
+    data object PrecallDiagnosisStarted : TelnyxPrecallDiagnosisState()
+    data class PrecallDiagnosisCompleted(val data: PreCallDiagnosis) : TelnyxPrecallDiagnosisState()
+    data object PrecallDiagnosisFailed : TelnyxPrecallDiagnosisState()
 }
 
 /**
@@ -190,11 +198,27 @@ class TelnyxViewModel : ViewModel() {
      * Job for collecting audio levels.
      */
     private var audioLevelCollectorJob: Job? = null
-    
+
     /**
      * Job for collecting websocket messages.
      */
     private var wsMessagesCollectorJob: Job? = null
+
+    /**
+     * State flow for precall diagnosis results.
+     */
+    private val _precallDiagnosisState = MutableStateFlow<TelnyxPrecallDiagnosisState?>(null)
+    var precallDiagnosisState: StateFlow<TelnyxPrecallDiagnosisState?> = _precallDiagnosisState.asStateFlow()
+
+    /**
+     * Job for collecting precall diagnosis metrics.
+     */
+    private var precallDiagnosisCollectorJob: Job? = null
+
+    /**
+     * Precall diagnosis data.
+     */
+    private var precallDiagnosisData: MutableList<CallQualityMetrics>? = null
 
     /**
      * Stops the loading indicator.
@@ -534,6 +558,40 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Makes a pre-call diagnosis call to the provided test number.
+     *
+     * This method will make a call to testNumber and will collect the call quality metrics
+     * at the end of the call.
+     * Those metrics will be then added to the precallDiagnosisState flow.
+     *
+     * @param viewContext The application context.
+     * @param testNumber The number to call for the precall diagnosis.
+     */
+    fun makePreCallDiagnosis(viewContext: Context, testNumber: String) {
+        // Make a call to the texml_number
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
+                Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
+                SendInvite(viewContext).invoke(
+                    currentProfile.callerIdName ?: "",
+                    currentProfile.callerIdNumber ?: "",
+                    testNumber,
+                    "",
+                    mapOf(Pair("X-test", "123456")),
+                    true
+                ).callStateFlow.collect {
+                    handlePrecallDiagnosisCallState(it)
+                }
+            }
+        }
+
+        collectPreCallDiagnosis()
+    }
+
     private fun handleSocketResponse(
         response: SocketResponse<ReceivedMessageBody>,
         isPushConnection: Boolean
@@ -583,7 +641,7 @@ class TelnyxViewModel : ViewModel() {
         }
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
         _isLoading.value = isPushConnection
-        
+
         // Start collecting websocket messages
         collectWebsocketMessages()
     }
@@ -688,6 +746,25 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    private fun handlePrecallDiagnosisCallState(callState: CallState) {
+        when (callState) {
+            is CallState.DONE -> {
+                preparePreCallDiagnosis()?.let {
+                    _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisCompleted(it)
+                } ?: run {
+                    _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
+                }
+            }
+            is CallState.ERROR,
+            is CallState.DROPPED -> {
+                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
+            }
+            else -> {
+                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted
+            }
+        }
+    }
+
     /**
      * Initiates an outgoing call to the specified destination number.
      *
@@ -711,7 +788,7 @@ class TelnyxViewModel : ViewModel() {
                     currentProfile.callerIdName ?: "",
                     currentProfile.callerIdNumber ?: "",
                     destinationNumber,
-                    "Sample Client State",
+                    "",
                     mapOf(Pair("X-test", "123456")),
                     debug
                 ).callStateFlow.collect {
@@ -904,11 +981,72 @@ class TelnyxViewModel : ViewModel() {
         _wsMessages.value = emptyList()
     }
 
+    private fun collectPreCallDiagnosis() {
+        precallDiagnosisCollectorJob?.cancel()
+        precallDiagnosisData = mutableListOf()
+        precallDiagnosisCollectorJob = viewModelScope.launch {
+            TelnyxCommon.getInstance().callQualityMetrics.collect { metrics ->
+                metrics?.let {
+                    if (it.quality != CallQuality.UNKNOWN)
+                        precallDiagnosisData?.add(it)
+                }
+            }
+        }
+    }
+
+    private fun preparePreCallDiagnosis(): PreCallDiagnosis? {
+        return precallDiagnosisData?.let { preCallDiagnosisData ->
+            try {
+                val minJitter = preCallDiagnosisData.minOf { it.jitter }
+                val maxJitter = preCallDiagnosisData.maxOf { it.jitter }
+                val avgJitter = preCallDiagnosisData.sumOf { it.jitter } / preCallDiagnosisData.size
+
+                val minRtt = preCallDiagnosisData.minOf { it.rtt }
+                val maxRtt = preCallDiagnosisData.maxOf { it.rtt }
+                val avgRtt = preCallDiagnosisData.sumOf { it.rtt } / preCallDiagnosisData.size
+
+                val avgMos = preCallDiagnosisData.sumOf { it.mos } / preCallDiagnosisData.size
+
+                val mostFrequentQuality = preCallDiagnosisData
+                    .groupingBy { it.quality }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
+
+                val bytesSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("bytesSent")?.toString()?.toLongOrNull() ?: 0L
+                val bytesReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("bytesReceived")?.toString()?.toLongOrNull() ?: 0L
+                val packetsSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("packetsSent")?.toString()?.toLongOrNull() ?: 0L
+                val packetsReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("packetsReceived")?.toString()?.toLongOrNull() ?: 0L
+
+                val iceCandidatesList = preCallDiagnosisData
+                    .flatMap { it.iceCandidates ?: emptyList() }
+                    .distinctBy { it.id }
+
+                PreCallDiagnosis(
+                    mos = avgMos,
+                    quality = mostFrequentQuality ?: CallQuality.UNKNOWN,
+                    jitter = MetricSummary(minJitter, maxJitter, avgJitter),
+                    rtt = MetricSummary(minRtt, maxRtt, avgRtt),
+                    bytesSent = bytesSent,
+                    bytesReceived = bytesReceived,
+                    packetsSent = packetsSent,
+                    packetsReceived = packetsReceived,
+                    iceCandidates = iceCandidatesList
+                )
+            } catch (e: Throwable) {
+                Timber.e("Pre-call diagnosis data processing error ${e.message}")
+                null
+            }
+
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
         wsMessagesCollectorJob?.cancel()
         userSessionJob?.cancel()
+        precallDiagnosisCollectorJob?.cancel()
     }
 
     companion object {
