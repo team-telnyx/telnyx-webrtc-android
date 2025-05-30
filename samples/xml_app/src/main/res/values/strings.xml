@@ -102,6 +102,12 @@
     <string name="call_quality_metrics_outbound_audio_level">Outbound Level:</string>
     <string name="unknown_label">Unknown</string>
 
+    <!-- Call History Bottom Sheet -->
+    <string name="call_history_title">Call History</string>
+    <string name="call_history_close">Close</string>
+    <string name="call_history_empty">No call history available</string>
+    <string name="call_type">Call type</string>
+
     <!-- Pre-call Diagnosis -->
     <string name="precall_diagnosis_title">Pre-call Diagnosis</string>
     <string name="precall_diagnosis_processing">Processing...</string>

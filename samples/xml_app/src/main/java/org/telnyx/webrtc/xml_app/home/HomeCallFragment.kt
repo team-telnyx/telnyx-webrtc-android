@@ -9,7 +9,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButton
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
@@ -117,6 +116,11 @@ class HomeCallFragment : Fragment() {
         callQualitySummaryBinding.viewAllMetricsButton.setOnClickListener {
             showCallQualityBottomSheet()
         }
+
+        // Setup the "Call History" button
+        binding.callHistoryButton.setOnClickListener {
+            showCallHistoryBottomSheet()
+        }
     }
 
     private fun showCallQualityBottomSheet() {
@@ -126,6 +130,17 @@ class HomeCallFragment : Fragment() {
                 CallQualityBottomSheetFragment.TAG
             )
         }
+    }
+
+    private fun showCallHistoryBottomSheet() {
+        val callHistoryBottomSheet = CallHistoryBottomSheet.newInstance()
+        callHistoryBottomSheet.onNumberSelected = { destinationNumber ->
+            binding.callInput.setText(destinationNumber)
+        }
+        callHistoryBottomSheet.show(
+            requireActivity().supportFragmentManager,
+            CallHistoryBottomSheet.TAG
+        )
     }
 
     private fun bindEvents() {
