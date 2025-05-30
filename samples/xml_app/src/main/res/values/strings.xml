@@ -107,4 +107,29 @@
     <string name="call_history_close">Close</string>
     <string name="call_history_empty">No call history available</string>
     <string name="call_type">Call type</string>
+
+    <!-- Pre-call Diagnosis -->
+    <string name="precall_diagnosis_title">Pre-call Diagnosis</string>
+    <string name="precall_diagnosis_processing">Processing...</string>
+    <string name="precall_diagnosis_failed">Diagnosis failed</string>
+    <string name="precall_diagnosis_network_quality">Network Quality</string>
+    <string name="precall_diagnosis_quality">Quality:</string>
+    <string name="precall_diagnosis_mos">MOS:</string>
+    <string name="precall_diagnosis_jitter">Jitter</string>
+    <string name="precall_diagnosis_jitter_min">min:</string>
+    <string name="precall_diagnosis_jitter_max">max:</string>
+    <string name="precall_diagnosis_jitter_avg">avg:</string>
+    <string name="precall_diagnosis_rtt">RTT</string>
+    <string name="precall_diagnosis_rtt_min">min:</string>
+    <string name="precall_diagnosis_rtt_max">max:</string>
+    <string name="precall_diagnosis_rtt_avg">avg:</string>
+    <string name="precall_diagnosis_session_stats">Session Statistics</string>
+    <string name="precall_diagnosis_bytes_sent">Bytes Sent:</string>
+    <string name="precall_diagnosis_bytes_received">Bytes Received:</string>
+    <string name="precall_diagnosis_packets_sent">Packets Sent:</string>
+    <string name="precall_diagnosis_packets_received">Packets Received:</string>
+    <string name="precall_diagnosis_ice_candidates">ICE Candidates</string>
+    <string name="precall_diagnosis_ice_candidate_label">Candidate:</string>
+    <string name="precall_diagnosis_report_title">Pre-call Diagnosis report</string>
+    <string name="precall_diagnosis_button">Pre-call diagnosis</string>
 </resources>

@@ -19,4 +19,10 @@
         android:title="Disable Push Notifications"
         android:icon="@drawable/ic_notifications_off"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_precall_diagnosis"
+        android:title="@string/precall_diagnosis_title"
+        android:icon="@drawable/baseline_call_24"
+        app:showAsAction="never" />
 </menu>

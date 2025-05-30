@@ -52,7 +52,12 @@ data class CallQualityMetrics(
     /**
      * Remote outbound audio statistics
      */
-    val remoteOutboundAudio: Map<String, Any>? = null
+    val remoteOutboundAudio: Map<String, Any>? = null,
+
+    /**
+     * List of ICE candidates
+     */
+    val iceCandidates: List<ICECandidate>? = null
 ) {
     /**
      * Creates a map representation of the metrics
