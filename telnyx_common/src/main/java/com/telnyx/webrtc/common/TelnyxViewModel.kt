@@ -558,7 +558,17 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun makePreCallDiagnosis(viewContext: Context, teXMLNumber: String) {
+    /**
+     * Makes a pre-call diagnosis call to the provided test number.
+     *
+     * This method will make a call to testNumber and will collect the call quality metrics
+     * at the end of the call.
+     * Those metrics will be then added to the precallDiagnosisState flow.
+     *
+     * @param viewContext The application context.
+     * @param testNumber The number to call for the precall diagnosis.
+     */
+    fun makePreCallDiagnosis(viewContext: Context, testNumber: String) {
         // Make a call to the texml_number
         callStateJob?.cancel()
         callStateJob = null
@@ -569,7 +579,7 @@ class TelnyxViewModel : ViewModel() {
                 SendInvite(viewContext).invoke(
                     currentProfile.callerIdName ?: "",
                     currentProfile.callerIdNumber ?: "",
-                    teXMLNumber,
+                    testNumber,
                     "",
                     mapOf(Pair("X-test", "123456")),
                     true
