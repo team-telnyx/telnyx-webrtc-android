@@ -197,8 +197,9 @@ We can then use this method to create a listener that listens for an invitation 
                     // Show loading dialog
                 }
 
-                override fun onError(message: String?) {
+                override fun onError(errorCode: Int?, message: String?) {
                    // Handle errors - Update UI or Navigate to new screen, etc.
+                   // errorCode provides additional context about the error type
                 }
 
                 override fun onSocketDisconnect() {
