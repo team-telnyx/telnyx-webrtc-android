@@ -204,6 +204,6 @@ class TelecomCallManager @Inject constructor(
     }
 
     fun disconnect() {
-        telnyxClient.onDisconnect()
+        telnyxClient.disconnect()
     }
 }
