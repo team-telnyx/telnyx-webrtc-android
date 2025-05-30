@@ -343,8 +343,8 @@ class MainActivity : AppCompatActivity() {
                     Timber.i("Loading...")
                 }
 
-                override fun onError(message: String?) {
-                    Timber.e("onError: %s", message)
+                override fun onError(errorCode: Int?, message: String?) {
+                    Timber.e("onError: errorCode=%s, message=%s", errorCode, message)
                     Toast.makeText(
                         this@MainActivity,
                         message ?: "Socket Connection Error",
