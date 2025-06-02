@@ -33,6 +33,8 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
+import com.telnyx.webrtc.common.model.Region
+import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -122,12 +124,29 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
         popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
 
+        val sessionState = telnyxViewModel.sessionsState.value
+        val isConnected = sessionState !is TelnyxSessionState.ClientDisconnected
+
+        // Hide logged-in user options when not connected
+        popupMenu.menu.findItem(R.id.action_websocket_messages).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_copy_fcm_token).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
+
+        // Show region selection for non-logged users
+        popupMenu.menu.findItem(R.id.action_region_selection).isVisible = !isConnected
+
         // Add badge count to websocket messages menu item if there are messages
         val wsMessages = telnyxViewModel.wsMessages.value
         if (wsMessages.isNotEmpty()) {
             val menuItem = popupMenu.menu.findItem(R.id.action_websocket_messages)
             menuItem.title = "Websocket Messages"
         }
+
+        // Update region menu item title to show current selection
+        val currentProfile = telnyxViewModel.currentProfile.value
+        val currentRegion = currentProfile?.region ?: Region.AUTO
+        popupMenu.menu.findItem(R.id.action_region_selection).title = "Region: ${currentRegion.displayName}"
 
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
@@ -147,11 +166,45 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     showPreCallDiagnosisBottomSheet()
                     true
                 }
+                R.id.action_region_selection -> {
+                    showRegionSelectionDialog()
+                    true
+                }
                 else -> false
             }
         }
 
         popupMenu.show()
+    }
+
+    /**
+     * Shows a dialog for region selection
+     */
+    private fun showRegionSelectionDialog() {
+        val regions = Region.values()
+        val regionNames = regions.map { it.displayName }.toTypedArray()
+        val currentProfile = telnyxViewModel.currentProfile.value
+        val currentRegion = currentProfile?.region ?: Region.AUTO
+        val selectedIndex = regions.indexOf(currentRegion)
+
+        AlertDialog.Builder(this)
+            .setTitle("Select Region")
+            .setSingleChoiceItems(regionNames, selectedIndex) { dialog, which ->
+                val selectedRegion = regions[which]
+                
+                // Update region in current profile or create a default profile
+                if (currentProfile != null) {
+                    telnyxViewModel.updateRegion(this, selectedRegion)
+                } else {
+                    val newProfile = Profile(region = selectedRegion)
+                    telnyxViewModel.setCurrentConfig(this, newProfile)
+                }
+                
+                dialog.dismiss()
+                Toast.makeText(this, "Region set to ${selectedRegion.displayName}", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     /**
@@ -214,8 +267,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.callState.visibility = View.GONE
                         binding.callStateLabel.visibility = View.GONE
 
-                        // Hide menu button when disconnected
-                        binding.menuButton.visibility = View.GONE
+                        // Show menu button for region selection when disconnected
+                        binding.menuButton.visibility = View.VISIBLE
                     }
                 }
             }

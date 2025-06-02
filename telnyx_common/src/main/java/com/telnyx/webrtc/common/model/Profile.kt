@@ -10,6 +10,7 @@ package com.telnyx.webrtc.common.model
  * @param callerIdNumber The caller ID number.
  * @param isDev True if the user is a developer, false otherwise.
  * @param fcmToken The FCM token.
+ * @param region The selected region for WebRTC connections.
  */
 data class Profile(
     val sipUsername: String? = null,
@@ -19,7 +20,8 @@ data class Profile(
     val callerIdNumber: String? = null,
     var isUserLoggedIn: Boolean = false,
     var isDev: Boolean = false,
-    var fcmToken: String? = null) {
+    var fcmToken: String? = null,
+    var region: Region = Region.AUTO) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false
     }

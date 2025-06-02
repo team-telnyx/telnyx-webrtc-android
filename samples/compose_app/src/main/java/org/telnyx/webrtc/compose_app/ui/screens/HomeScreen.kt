@@ -73,6 +73,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.common.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.flow.collectLatest
@@ -117,6 +118,7 @@ fun HomeScreen(
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showRegionMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -209,25 +211,26 @@ fun HomeScreen(
                             }
                     )
 
-                    // Menu button on the right (only visible when logged in)
+                    // Menu button on the right (visible for both logged in and non-logged users)
                     Box(
                         modifier = Modifier.width(Dimens.extraLargeSpacing),
                         contentAlignment = Alignment.CenterEnd
                     ) {
-                        if (sessionState !is TelnyxSessionState.ClientDisconnected) {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_more_vert),
-                                    contentDescription = "Menu",
-                                    modifier = Modifier.size(Dimens.mediumSpacing)
-                                )
-                            }
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_more_vert),
+                                contentDescription = "Menu",
+                                modifier = Modifier.size(Dimens.mediumSpacing)
+                            )
+                        }
 
-                            // Dropdown menu
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
+                        // Dropdown menu
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+                                // Logged in user options
                                 // Websocket Messages option
                                 DropdownMenuItem(
                                     text = { Text("Websocket Messages") },
@@ -288,10 +291,61 @@ fun HomeScreen(
                                         )
                                     }
                                 )
+                            } else {
+                                // Non-logged user options - only Region selection
+                                DropdownMenuItem(
+                                    text = { Text("Region") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showRegionMenu = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_more_vert),
+                                            contentDescription = null
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        Text(
+                                            text = currentConfig?.region?.displayName ?: Region.AUTO.displayName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                )
                             }
-                        } else {
-                            // Empty space when not logged in
-                            Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
+                        }
+
+                        // Region selection dropdown menu
+                        DropdownMenu(
+                            expanded = showRegionMenu,
+                            onDismissRequest = { showRegionMenu = false }
+                        ) {
+                            Region.values().forEach { region ->
+                                DropdownMenuItem(
+                                    text = { Text(region.displayName) },
+                                    onClick = {
+                                        showRegionMenu = false
+                                        // Update region in current profile or create a default profile
+                                        val profile = currentConfig ?: Profile(region = region)
+                                        telnyxViewModel.updateRegion(context, region)
+                                        if (currentConfig == null) {
+                                            telnyxViewModel.setCurrentConfig(context, profile.copy(region = region))
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        if ((currentConfig?.region ?: Region.AUTO) == region) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.baseline_call_24),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.size(24.dp))
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
