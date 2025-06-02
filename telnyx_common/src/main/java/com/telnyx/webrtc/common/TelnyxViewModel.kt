@@ -220,7 +220,8 @@ class TelnyxViewModel : ViewModel() {
     private val _callHistoryList = MutableStateFlow<List<CallHistoryItem>>(emptyList())
     val callHistoryList: StateFlow<List<CallHistoryItem>> = _callHistoryList.asStateFlow()
 
-     * State flow for precall diagnosis results.
+     /**
+      * State flow for precall diagnosis results.
      */
     private val _precallDiagnosisState = MutableStateFlow<TelnyxPrecallDiagnosisState?>(null)
     var precallDiagnosisState: StateFlow<TelnyxPrecallDiagnosisState?> = _precallDiagnosisState.asStateFlow()
