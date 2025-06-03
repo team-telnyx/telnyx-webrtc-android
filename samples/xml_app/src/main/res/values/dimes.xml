@@ -11,6 +11,8 @@
     <dimen name="spacing_tiny">8dp</dimen>
     <dimen name="spacing_mega_tiny">4dp</dimen>
 
+    <dimen name="spacing_18dp">18dp</dimen>
+
     <!-- font sizes -->
     <dimen name="font_huge">34sp</dimen>
     <dimen name="font_larger">24sp</dimen>

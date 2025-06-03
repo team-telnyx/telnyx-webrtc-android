@@ -4,6 +4,9 @@ import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Class responsible for sending an invite.
@@ -22,6 +25,7 @@ class SendInvite(private val context: Context) {
      * @param customHeaders The custom headers to send the invite.
      * @param debug When true, enables real-time call quality metrics.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
+     * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The created outgoing call.
      */
     operator fun invoke(
@@ -31,7 +35,8 @@ class SendInvite(private val context: Context) {
         clientState: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
+        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
+        onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val telnyxClient = telnyxCommon.getTelnyxClient(context)
@@ -45,6 +50,13 @@ class SendInvite(private val context: Context) {
         
         telnyxCommon.setCurrentCall(context, outgoingCall)
         telnyxCommon.registerCall(outgoingCall)
+        
+        // Add call to history if callback is provided
+        onCallHistoryAdd?.let { callback ->
+            CoroutineScope(Dispatchers.IO).launch {
+                callback(destinationNumber)
+            }
+        }
         
         return outgoingCall
     }

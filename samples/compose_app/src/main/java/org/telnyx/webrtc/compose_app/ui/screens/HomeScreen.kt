@@ -35,11 +35,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -94,6 +94,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -114,6 +115,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
+    var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -131,6 +133,8 @@ fun HomeScreen(
     var showErrorDialog by remember { mutableStateOf(false) }
     var dialogErrorMessage by remember { mutableStateOf<String?>(null) }
     var lastShownErrorMessage by remember { mutableStateOf<String?>(null) }
+
+    val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
     LaunchedEffect(sessionState) {
         sessionId = when (sessionState) {
@@ -204,7 +208,7 @@ fun HomeScreen(
                                 )
                             }
                     )
-                    
+
                     // Menu button on the right (only visible when logged in)
                     Box(
                         modifier = Modifier.width(Dimens.extraLargeSpacing),
@@ -218,7 +222,7 @@ fun HomeScreen(
                                     modifier = Modifier.size(Dimens.mediumSpacing)
                                 )
                             }
-                            
+
                             // Dropdown menu
                             DropdownMenu(
                                 expanded = showOverflowMenu,
@@ -238,7 +242,7 @@ fun HomeScreen(
                                         )
                                     }
                                 )
-                                
+
                                 // Copy FCM Token option
                                 DropdownMenuItem(
                                     text = { Text("Copy FCM Token") },
@@ -253,7 +257,7 @@ fun HomeScreen(
                                         )
                                     }
                                 )
-                                
+
                                 // Disable Push Notifications option
                                 DropdownMenuItem(
                                     text = { Text("Disable Push Notifications") },
@@ -265,6 +269,22 @@ fun HomeScreen(
                                         Icon(
                                             painter = painterResource(id = R.drawable.ic_notifications_off),
                                             contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Pre-Call Diagnosis option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.precall_diagnosis_button)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showPreCallDiagnosisBottomSheet = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
+                                            contentDescription = null,
+                                            tint = Color.Black
                                         )
                                     }
                                 )
@@ -328,7 +348,22 @@ fun HomeScreen(
         }
 
         //BottomSheet
-        if (showLoginBottomSheet) {
+        // Pre-call diagnosis bottom sheet
+    if (showPreCallDiagnosisBottomSheet) {
+        PreCallDiagnosisBottomSheet(
+            preCallDiagnosisState = preCallDiagnosisState,
+            onDismiss = {
+                showPreCallDiagnosisBottomSheet = false
+            }
+        )
+
+        // Start the diagnosis call
+        LaunchedEffect(Unit) {
+            telnyxViewModel.makePreCallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
+        }
+    }
+
+    if (showLoginBottomSheet) {
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
@@ -735,7 +770,7 @@ fun SessionItem(sessionId: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionState(
-    state: Boolean, 
+    state: Boolean,
     telnyxViewModel: TelnyxViewModel = viewModel(),
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
@@ -764,12 +799,12 @@ fun ConnectionState(
             )
         }
     }
-    
+
     // Websocket messages bottom sheet
     if (showWsMessagesBottomSheet.value) {
         val configuration = LocalConfiguration.current
         val screenHeight = configuration.screenHeightDp.dp
-        
+
         ModalBottomSheet(
             modifier = Modifier.height(screenHeight * 0.8f),
             onDismissRequest = {
@@ -807,9 +842,9 @@ fun ConnectionState(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(Dimens.spacing8dp))
-                
+
                 // Clear messages button
                 RoundSmallButton(
                     modifier = Modifier.height(Dimens.size32dp),
@@ -821,9 +856,9 @@ fun ConnectionState(
                 ) {
                     telnyxViewModel.clearWebsocketMessages()
                 }
-                
+
                 Spacer(modifier = Modifier.height(Dimens.spacing16dp))
-                
+
                 // Messages list
                 if (wsMessages.isEmpty()) {
                     Box(
@@ -847,7 +882,7 @@ fun ConnectionState(
                         items(wsMessages.size) { index ->
                             val message = wsMessages[index]
                             val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
-                            
+
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()

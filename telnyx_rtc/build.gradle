@@ -16,7 +16,7 @@ android {
 }
 
 def getVersionName = { ->
-    return "2.0.0"
+    return "2.0.1"
 }
 
 def getArtifactId = { ->
@@ -127,6 +127,12 @@ android {
     }
     buildFeatures {
         buildConfig true
+    }
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
+        }
     }
 }
 
