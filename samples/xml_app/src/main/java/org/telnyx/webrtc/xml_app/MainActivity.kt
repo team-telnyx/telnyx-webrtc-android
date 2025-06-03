@@ -33,7 +33,7 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.common.model.Region
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
@@ -140,13 +140,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val wsMessages = telnyxViewModel.wsMessages.value
         if (wsMessages.isNotEmpty()) {
             val menuItem = popupMenu.menu.findItem(R.id.action_websocket_messages)
-            menuItem.title = "Websocket Messages"
+            menuItem.title = getString(R.string.websocket_messages)
         }
 
         // Update region menu item title to show current selection
         val currentProfile = telnyxViewModel.currentProfile.value
         val currentRegion = currentProfile?.region ?: Region.AUTO
-        popupMenu.menu.findItem(R.id.action_region_selection).title = "Region: ${currentRegion.displayName}"
+        popupMenu.menu.findItem(R.id.action_region_selection).title = getString(R.string.region_format, currentRegion.displayName)
 
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val selectedIndex = regions.indexOf(currentRegion)
 
         AlertDialog.Builder(this)
-            .setTitle("Select Region")
+            .setTitle(getString(R.string.select_region))
             .setSingleChoiceItems(regionNames, selectedIndex) { dialog, which ->
                 val selectedRegion = regions[which]
                 
@@ -201,9 +201,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 
                 dialog.dismiss()
-                Toast.makeText(this, "Region set to ${selectedRegion.displayName}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.region_set_to, selectedRegion.displayName), Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
 
@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val token = telnyxViewModel.retrieveFCMToken()
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FCM Token", token))
-        Toast.makeText(this, "FCM Token copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.fcm_token_copied), Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -279,7 +279,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 error?.let {
                     if (it != lastShownErrorMessage) {
                         AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Error")
+                            .setTitle(getString(R.string.error))
                             .setMessage(it)
                             .setPositiveButton(android.R.string.ok) { dialog, which ->
                                 dialog.dismiss()

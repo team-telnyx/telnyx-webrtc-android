@@ -132,4 +132,18 @@
     <string name="precall_diagnosis_ice_candidate_label">Candidate:</string>
     <string name="precall_diagnosis_report_title">Pre-call Diagnosis report</string>
     <string name="precall_diagnosis_button">Pre-call diagnosis</string>
+
+    <string name="select_region">Select Region</string>
+    <string name="region_set_to">Region set to %1$s</string>
+    <string name="fcm_token_copied">FCM Token copied to clipboard</string>
+    <string name="error">Error</string>
+    <string name="websocket_messages">Websocket Messages</string>
+    <string name="region_format">Region: %1$s</string>
+    <string name="done_with_cause">Done - %1$s</string>
+    <string name="call_quality_unknown">Unknown</string>
+    <string name="call_quality_excellent">Excellent</string>
+    <string name="call_quality_good">Good</string>
+    <string name="call_quality_fair">Fair</string>
+    <string name="call_quality_poor">Poor</string>
+    <string name="call_quality_bad">Bad</string>
 </resources>

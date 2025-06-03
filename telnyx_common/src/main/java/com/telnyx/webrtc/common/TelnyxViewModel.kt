@@ -19,9 +19,8 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.common.model.Region
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.data.CallHistoryRepository
-import com.telnyx.webrtc.common.data.CallHistoryEntity
 import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.common.model.WebsocketMessage

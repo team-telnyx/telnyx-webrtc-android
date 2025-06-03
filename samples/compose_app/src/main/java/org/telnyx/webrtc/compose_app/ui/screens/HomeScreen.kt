@@ -73,7 +73,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.common.model.Region
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import kotlinx.coroutines.flow.collectLatest
@@ -294,7 +294,7 @@ fun HomeScreen(
                             } else {
                                 // Non-logged user options - only Region selection
                                 DropdownMenuItem(
-                                    text = { Text("Region") },
+                                    text = { Text(stringResource(R.string.region)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         showRegionMenu = true
@@ -1027,6 +1027,7 @@ fun BottomBar(
     currentConfig: Profile?
 ) {
     val context = LocalContext.current
+    val selectProfileTitle = stringResource(R.string.please_select_profile)
 
     Column (modifier = Modifier
         .fillMaxHeight(0.16f)) {
@@ -1054,7 +1055,7 @@ fun BottomBar(
                         )
                     }
                 } ?: run {
-                    Toast.makeText(context, "Please select a profile", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, selectProfileTitle, Toast.LENGTH_SHORT).show()
                 }
             }
         }

@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk
 
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.utilities.TxLogger
 
 /**
@@ -47,7 +48,9 @@ data class CredentialConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
     val debug: Boolean = false,
-    val reconnectionTimeout: Long = 60000
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()
 
 /**
@@ -75,5 +78,7 @@ data class TokenConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
     val debug: Boolean = false,
-    val reconnectionTimeout: Long = 60000
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()

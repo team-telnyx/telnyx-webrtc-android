@@ -145,4 +145,7 @@
     <string name="precall_diagnosis_ice_candidate_label">Candidate:</string>
     <string name="precall_diagnosis_report_title">Pre-call Diagnosis report</string>
     <string name="precall_diagnosis_button">Pre-call diagnosis</string>
+
+    <string name="region">Region</string>
+    <string name="please_select_profile">Please select a profile</string>
 </resources>

@@ -161,7 +161,8 @@ class HomeCallFragment : Fragment() {
                     }
 
                     is TelnyxSocketEvent.OnCallEnded -> {
-                        onIdle()
+                        val cause = uiState.message?.cause
+                        if (cause != null) getString(R.string.done_with_cause, cause) else getString(R.string.call_state_ended)
                     }
 
                     is TelnyxSocketEvent.OnRinging -> {
@@ -291,7 +292,16 @@ class HomeCallFragment : Fragment() {
             CallQuality.UNKNOWN -> R.color.quality_unknown
         }
 
-        return Pair(color, capitalizeFirstChar(quality.name))
+        val text = when (quality) {
+            CallQuality.EXCELLENT -> getString(R.string.call_quality_excellent)
+            CallQuality.GOOD -> getString(R.string.call_quality_good)
+            CallQuality.FAIR -> getString(R.string.call_quality_fair)
+            CallQuality.POOR -> getString(R.string.call_quality_poor)
+            CallQuality.BAD -> getString(R.string.call_quality_bad)
+            CallQuality.UNKNOWN -> getString(R.string.call_quality_unknown)
+        }
+
+        return Pair(color, text)
     }
 
     private fun capitalizeFirstChar(str: String?): String {

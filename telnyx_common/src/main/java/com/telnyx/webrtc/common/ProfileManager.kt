@@ -4,7 +4,6 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.telnyx.webrtc.common.model.Profile
-import timber.log.Timber
 
 /**
  * Object responsible for managing user profiles.

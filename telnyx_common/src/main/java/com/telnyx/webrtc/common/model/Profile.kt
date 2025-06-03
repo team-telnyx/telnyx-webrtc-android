@@ -1,5 +1,7 @@
 package com.telnyx.webrtc.common.model
 
+import com.telnyx.webrtc.sdk.model.Region
+
 /**
  * Data class that represents the user profile.
  *
@@ -21,7 +23,8 @@ data class Profile(
     var isUserLoggedIn: Boolean = false,
     var isDev: Boolean = false,
     var fcmToken: String? = null,
-    var region: Region = Region.AUTO) {
+    var region: Region = Region.AUTO
+) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false
     }

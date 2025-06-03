@@ -1,4 +1,4 @@
-package com.telnyx.webrtc.common.model
+package com.telnyx.webrtc.sdk.model
 
 /**
  * Enum representing the available regions for Telnyx WebRTC connections.
