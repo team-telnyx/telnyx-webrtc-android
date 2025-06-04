@@ -19,8 +19,8 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.data.CallHistoryRepository
-import com.telnyx.webrtc.common.data.CallHistoryEntity
 import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.common.model.WebsocketMessage
@@ -269,6 +269,20 @@ class TelnyxViewModel : ViewModel() {
         _currentProfile.value = profile
         ProfileManager.saveProfile(context, profile)
         loadCallHistoryForCurrentProfile()
+    }
+
+    /**
+     * Updates the region for the current profile.
+     *
+     * @param context The application context.
+     * @param region The selected region.
+     */
+    fun updateRegion(context: Context, region: Region) {
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.copy(region = region)
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
+        }
     }
 
     /**

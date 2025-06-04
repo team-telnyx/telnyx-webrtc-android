@@ -39,7 +39,8 @@ class AuthenticateBySIPCredentials(private val context: Context) {
                 callerIdName = credentialConfig.sipCallerIDName,
                 callerIdNumber = credentialConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
-                fcmToken = credentialConfig.fcmToken
+                fcmToken = credentialConfig.fcmToken,
+                region = credentialConfig.region
             )
         )
 

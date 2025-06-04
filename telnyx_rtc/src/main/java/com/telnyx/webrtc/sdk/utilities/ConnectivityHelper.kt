@@ -9,7 +9,13 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import com.telnyx.webrtc.sdk.model.Region
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.UnknownHostException
 
 /**
  * Helper for connectivity statuses.
@@ -77,6 +83,40 @@ object ConnectivityHelper {
         val activeNetwork: Network? = manager.activeNetwork
         val capabilities: NetworkCapabilities? = manager.getNetworkCapabilities(activeNetwork)
         return capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
+    }
+
+    /**
+     * Check if a socket is reachable.
+     * If not, try to resolve the host by removing the region from the host.
+     *
+     * @param host the reachable host
+     */
+    suspend fun resolveReachableHost(host: String, port: Int, timeoutMillis: Int = 1000): String {
+        try {
+            withContext(Dispatchers.IO) {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(host, port), timeoutMillis)
+                }
+                host
+            }
+        } catch (e: Exception) {
+            if (e is UnknownHostException) {
+                Timber.e(e, "Socket not reachable $host")
+                return prepareHostFallback(host)
+            }
+        }
+
+        return host
+    }
+
+    /**
+     * Prepare host by removing the region from the host.
+     */
+    private fun prepareHostFallback(host: String): String {
+        val region = host.substringBefore(".")
+        return Region.fromValue(region)?.let {
+            host.replace("$region.", "")
+        } ?: host
     }
 
     /**

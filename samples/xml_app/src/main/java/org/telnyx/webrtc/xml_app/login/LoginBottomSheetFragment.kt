@@ -1,13 +1,9 @@
 package org.telnyx.webrtc.xml_app.login
 
-import android.animation.ObjectAnimator
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AccelerateDecelerateInterpolator
-import androidx.core.animation.doOnEnd
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -24,8 +20,6 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CredentialsLayoutBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
 import android.view.animation.AnimationUtils
-import androidx.core.content.ContextCompat
-import com.google.android.material.button.MaterialButton
 import org.telnyx.webrtc.xml_app.MainActivity
 
 class LoginBottomSheetFragment : BottomSheetDialogFragment() {

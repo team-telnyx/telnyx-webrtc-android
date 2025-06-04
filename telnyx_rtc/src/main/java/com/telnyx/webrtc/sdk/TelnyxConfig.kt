@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk
 
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.utilities.TxLogger
 
 /**
@@ -34,6 +35,9 @@ sealed class TelnyxConfig
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property debug whether or not to send client debug reports
+ * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * @property region the region to use for the connection
+ * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -47,7 +51,9 @@ data class CredentialConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
     val debug: Boolean = false,
-    val reconnectionTimeout: Long = 60000
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()
 
 /**
@@ -63,6 +69,9 @@ data class CredentialConfig(
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  * @property debug whether or not to send client debug reports
+ * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * @property region the region to use for the connection
+ * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  */
 data class TokenConfig(
     val sipToken: String,
@@ -75,5 +84,7 @@ data class TokenConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
     val debug: Boolean = false,
-    val reconnectionTimeout: Long = 60000
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()

@@ -18,7 +18,8 @@ fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
-        autoReconnect = true
+        autoReconnect = true,
+        region = this.region
     )
 }
 
@@ -33,6 +34,7 @@ fun Profile.toTokenConfig(fcmToken: String): TokenConfig {
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
-        autoReconnect = true
+        autoReconnect = true,
+        region = this.region
     )
 }

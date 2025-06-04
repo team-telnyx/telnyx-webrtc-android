@@ -1,7 +1,6 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,15 +37,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.rememberNavController
 import com.telnyx.webrtc.common.model.Profile
 import org.telnyx.webrtc.compose_app.R
 import org.telnyx.webrtc.compose_app.ui.theme.Dimens
 import org.telnyx.webrtc.compose_app.ui.theme.MainGreen
 import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
-import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedLabeledEdiText
-import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 
 @Composable

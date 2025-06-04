@@ -698,6 +698,9 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
+        if (credentialConfig.region != Region.AUTO)
+            providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
+
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -708,17 +711,25 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if (autoLogin) {
-                    credentialLogin(credentialConfig)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                if (credentialConfig.fallbackOnRegionFailure) {
+                    providedHostAddress = ConnectivityHelper.resolveReachableHost(providedHostAddress!!, providedPort!!)
+                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                }
+
+                if (voiceSDKID != null) {
+                    pushMetaData = PushMetaData(
+                        callerName = "",
+                        callerNumber = "",
+                        callId = "",
+                        voiceSdkId = voiceSDKID
+                    )
+                }
+                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin) {
+                        credentialLogin(credentialConfig)
+                    }
                 }
             }
         } else {
@@ -762,6 +773,9 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
+        if (tokenConfig.region != Region.AUTO)
+            providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
+
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -772,18 +786,30 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if (autoLogin) {
-                    tokenLogin(tokenConfig)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                if (tokenConfig.fallbackOnRegionFailure) {
+                    providedHostAddress = ConnectivityHelper.resolveReachableHost(
+                        providedHostAddress!!,
+                        providedPort!!
+                    )
+                    Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
+
+                if (voiceSDKID != null) {
+                    pushMetaData = PushMetaData(
+                        callerName = "",
+                        callerNumber = "",
+                        callId = "",
+                        voiceSdkId = voiceSDKID
+                    )
+                }
+                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin) {
+                        tokenLogin(tokenConfig)
+                    }
+                }
+
             }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
