@@ -286,8 +286,7 @@ fun HomeScreen(
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(id = R.drawable.baseline_call_24),
-                                            contentDescription = null,
-                                            tint = Color.Black
+                                            contentDescription = null
                                         )
                                     }
                                 )

@@ -49,6 +49,7 @@ import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
+import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -237,6 +238,11 @@ class TelnyxViewModel : ViewModel() {
     private var precallDiagnosisData: MutableList<CallQualityMetrics>? = null
 
     /**
+     * Flag indicating whether the socket has disconnected by user action.
+     */
+    private var disconnectedByUser = false
+
+    /**
      * Stops the loading indicator.
      */
     fun stopLoading() {
@@ -349,6 +355,7 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
 
         userSessionJob?.cancel()
         userSessionJob = null
@@ -384,8 +391,14 @@ class TelnyxViewModel : ViewModel() {
         debug: Boolean
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
@@ -416,8 +429,14 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
                     _isLoading.value = false
@@ -514,6 +533,7 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
 
         userSessionJob?.cancel()
         userSessionJob = null
@@ -551,6 +571,8 @@ class TelnyxViewModel : ViewModel() {
             // Check if we are on a call and not handling a push notification before disconnecting
             // (we check this because clicking on a notification can trigger a disconnect if we are using onStop in MainActivity)
             if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
+                // Mark this to avoid misleading error message
+                disconnectedByUser = true
                 // No active call, safe to disconnect
                 Disconnect(viewContext).invoke()
                 // if we are disconnecting, there is no call so we should stop service if one is running
@@ -732,9 +754,16 @@ class TelnyxViewModel : ViewModel() {
      * It will navigate to the login screen only in two cases:
      * - there is an error and there is not active call
      * - there is an error during active call. This is happening after unsuccessfully reconnection.
+     * Error dialog is shown only when the disconnect was not intentional (user-initiated).
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
+        if (disconnectedByUser && response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode) {
+            handleDisconnect()
+            disconnectedByUser = false
+            return
+        }
+
         if (currentCall == null || currentCall?.callStateFlow?.value == CallState.ERROR) {
             _sessionsState.value = TelnyxSessionState.ClientDisconnected
             _uiState.value = TelnyxSocketEvent.InitState
@@ -749,6 +778,8 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
+        userSessionJob?.cancel()
+        userSessionJob = null
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }
