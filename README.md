@@ -419,7 +419,13 @@ please keep in mind that you will need to add the following rules to the proguar
 -----
 
 
-Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
+## Additional Resources
+
+- [Android Precompiled WebRTC Library](/docs/voice/webrtc/android-sdk/precompiled-library) - For developers who need more control over WebRTC implementation
+- [WebRTC Official Documentation](https://webrtc.org/getting-started/overview)
+- [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/quickstart)
+
+Questions? Comments? Building something rad? <a href="https://joinslack.telnyx.com/">Join our Slack channel</a> and share.
 
 ## License
 
