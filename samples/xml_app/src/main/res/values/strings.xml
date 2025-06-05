@@ -146,4 +146,5 @@
     <string name="call_quality_fair">Fair</string>
     <string name="call_quality_poor">Poor</string>
     <string name="call_quality_bad">Bad</string>
+    <string name="debug_mode">Debug Mode</string>
 </resources>

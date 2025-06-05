@@ -148,4 +148,5 @@
 
     <string name="region">Region</string>
     <string name="please_select_profile">Please select a profile</string>
+    <string name="debug_mode">Debug Mode</string>
 </resources>
