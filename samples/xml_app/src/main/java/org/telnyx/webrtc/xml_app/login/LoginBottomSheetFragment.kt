@@ -78,7 +78,6 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipPass = passwordTextField.text.toString()
             val sipCallerIdName = callerIdNameTextField.text.toString()
             val sipCallerIdNumber = callerIdNumberTextField.text.toString()
-            val isDebug = debugSwitch.isChecked
 
             if (!validateProfile()) return
 
@@ -87,8 +86,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                 sipUsername = sipUser,
                 sipPass = sipPass,
                 callerIdName = sipCallerIdName,
-                callerIdNumber = sipCallerIdNumber,
-                isDebug = isDebug
+                callerIdNumber = sipCallerIdNumber
             )
             telnyxViewModel.addProfile(this@LoginBottomSheetFragment.requireContext(), newProfile)
             resetFields()
@@ -103,7 +101,6 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             passwordTextField.text?.clear()
             callerIdNameTextField.text?.clear()
             callerIdNumberTextField.text?.clear()
-            debugSwitch.isChecked = false
         }
     }
 

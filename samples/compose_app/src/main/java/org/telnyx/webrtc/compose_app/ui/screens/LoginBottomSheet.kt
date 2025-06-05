@@ -61,7 +61,6 @@ fun CredentialTokenView(
     var sipPassword by remember { mutableStateOf(profile?.sipPass ?: "") }
     var callerIdName by remember { mutableStateOf(profile?.callerIdName ?: "") }
     var callerIdNumber by remember { mutableStateOf(profile?.callerIdNumber ?: "") }
-    var isDebug by remember { mutableStateOf(profile?.isDebug ?: false) }
 
 
     Column(
@@ -134,23 +133,6 @@ fun CredentialTokenView(
             callerIdNumber = value
         }
 
-        // Debug toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.debug_mode),
-                fontWeight = FontWeight.Medium
-            )
-            Switch(
-                checked = isDebug,
-                onCheckedChange = { isDebug = it },
-                modifier = Modifier.testTag("debugSwitch")
-            )
-        }
-
         Spacer(modifier = Modifier.height(Dimens.spacing8dp))
 
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -171,8 +153,7 @@ fun CredentialTokenView(
                                 sipPass = sipPassword,
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
-                                isUserLoggedIn = true,
-                                isDebug = isDebug
+                                isUserLoggedIn = true
                             ),
                         )
                     } else {
@@ -186,8 +167,7 @@ fun CredentialTokenView(
                                 sipToken = sipToken.trim(),
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
-                                isUserLoggedIn = true,
-                                isDebug = isDebug
+                                isUserLoggedIn = true
                             )
                         )
                     }

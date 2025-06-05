@@ -138,6 +138,8 @@ fun HomeScreen(
 
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
+    var isDebugModeOn by remember { mutableStateOf(false) }
+
     LaunchedEffect(sessionState) {
         sessionId = when (sessionState) {
             is TelnyxSessionState.ClientLoggedIn -> {
@@ -291,7 +293,9 @@ fun HomeScreen(
                                     }
                                 )
                             } else {
-                                // Non-logged user options - only Region selection
+                                // Non-logged user options - only
+
+                                // Region selection
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.region)) },
                                     onClick = {
@@ -309,6 +313,27 @@ fun HomeScreen(
                                             text = currentConfig?.region?.displayName ?: Region.AUTO.displayName,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                )
+
+                                // Enable debug option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (isDebugModeOn) R.string.debug_mode_off else R.string.debug_mode_on)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        isDebugModeOn = !isDebugModeOn
+                                        // Update region in current profile or create a default profile
+                                        val profile = currentConfig ?: Profile(isDebug = isDebugModeOn)
+                                        telnyxViewModel.updateDebugMode(context, isDebugModeOn)
+                                        if (currentConfig == null) {
+                                            telnyxViewModel.setCurrentConfig(context, profile.copy(isDebug = isDebugModeOn))
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_debug_on),
+                                            contentDescription = null
                                         )
                                     }
                                 )

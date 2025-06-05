@@ -31,4 +31,10 @@
         android:title="Region"
         android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_debug_mode"
+        android:title="@string/debug_mode_on"
+        android:icon="@drawable/ic_debug_on"
+        app:showAsAction="never" />
 </menu>
