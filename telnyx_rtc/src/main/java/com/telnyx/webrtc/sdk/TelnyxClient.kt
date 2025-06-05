@@ -126,7 +126,7 @@ class TelnyxClient(
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
 
-    private var isDebug = false
+    private var isSocketDebug = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -208,7 +208,7 @@ class TelnyxClient(
         debug: Boolean = false
     ): Call {
         var callDebug = debug
-        var socketPortalDebug = isDebug
+        var socketPortalDebug = isSocketDebug
 
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
@@ -337,7 +337,7 @@ class TelnyxClient(
         debug: Boolean = false
     ): Call {
         var callDebug = debug
-        var socketPortalDebug = isDebug
+        var socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
         val inviteCall = Call(
@@ -903,7 +903,7 @@ class TelnyxClient(
 
         credentialSessionConfig = config
 
-        isDebug = config.debug
+        isSocketDebug = config.debug
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -1023,7 +1023,7 @@ class TelnyxClient(
 
         tokenSessionConfig = config
 
-        isDebug = config.debug
+        isSocketDebug = config.debug
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -1723,8 +1723,8 @@ class TelnyxClient(
                     addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
-                    if (isDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                    if (isSocketDebug) {
+                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
@@ -1889,8 +1889,8 @@ class TelnyxClient(
 
             peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
                 // Check the global debug flag here for reattach scenarios
-                if (isDebug) {
-                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                if (isSocketDebug) {
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }

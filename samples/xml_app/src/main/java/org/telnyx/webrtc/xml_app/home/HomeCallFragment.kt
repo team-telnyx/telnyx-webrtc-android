@@ -163,6 +163,12 @@ class HomeCallFragment : Fragment() {
                     is TelnyxSocketEvent.OnCallEnded -> {
                         val cause = uiState.message?.cause
                         if (cause != null) getString(R.string.done_with_cause, cause) else getString(R.string.call_state_ended)
+
+                        if (telnyxViewModel.currentCall != null)
+                            onCallActive()
+                        else
+                            onIdle()
+
                     }
 
                     is TelnyxSocketEvent.OnRinging -> {

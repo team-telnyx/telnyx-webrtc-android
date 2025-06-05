@@ -136,6 +136,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Show region selection for non-logged users
         popupMenu.menu.findItem(R.id.action_region_selection).isVisible = !isConnected
 
+        // Show debug mode for non-logged users
+        popupMenu.menu.findItem(R.id.action_debug_mode).isVisible = !isConnected
+
+        // Update state of debug mode menu item
+        telnyxViewModel.currentProfile.value?.let { currentProfile ->
+            popupMenu.menu.findItem(R.id.action_debug_mode).title = getString(if (currentProfile.isDebug) R.string.debug_mode_off else R.string.debug_mode_on)
+        }
+
         // Add badge count to websocket messages menu item if there are messages
         val wsMessages = telnyxViewModel.wsMessages.value
         if (wsMessages.isNotEmpty()) {
@@ -168,6 +176,19 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_region_selection -> {
                     showRegionSelectionDialog()
+                    true
+                }
+                R.id.action_debug_mode -> {
+                    // Update debug mode in current profile or create a default profile
+                    var currentDebugMode = telnyxViewModel.currentProfile.value?.isDebug ?: false
+                    currentDebugMode = !currentDebugMode
+
+                    if (currentProfile != null) {
+                        telnyxViewModel.updateDebugMode(this, currentDebugMode)
+                    } else {
+                        val newProfile = Profile(isDebug = currentDebugMode)
+                        telnyxViewModel.setCurrentConfig(this, newProfile)
+                    }
                     true
                 }
                 else -> false

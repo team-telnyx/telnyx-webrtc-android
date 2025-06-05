@@ -292,6 +292,20 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Updates the debug mode for the current profile.
+     *
+     * @param context The application context.
+     * @param debugMode The debug mode state.
+     */
+    fun updateDebugMode(context: Context, debugMode: Boolean) {
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.copy(isDebug = debugMode)
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
+        }
+    }
+
+    /**
      * Initializes the profile list from storage.
      *
      * @param context The application context.
