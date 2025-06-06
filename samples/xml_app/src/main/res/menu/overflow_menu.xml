@@ -29,7 +29,7 @@
     <item
         android:id="@+id/action_prefetch_ice_candidates"
         android:title="@string/enable_prefetch_ice_candidates"
-        android:icon="@drawable/ic_more_vert"
+        android:icon="@drawable/ic_handshake"
         app:showAsAction="never" />
 
     <item

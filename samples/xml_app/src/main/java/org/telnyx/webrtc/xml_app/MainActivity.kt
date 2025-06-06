@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
      */
     private fun togglePrefetchIceCandidates() {
         val newState = !telnyxViewModel.prefetchIceCandidate
-        telnyxViewModel.setPrefetchIceCandidate(newState)
+        telnyxViewModel.prefetchIceCandidate = newState
         val message = if (newState) {
             getString(R.string.enable_prefetch_ice_candidates)
         } else {

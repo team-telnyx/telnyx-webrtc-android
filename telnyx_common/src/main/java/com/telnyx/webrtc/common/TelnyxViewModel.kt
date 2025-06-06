@@ -243,12 +243,6 @@ class TelnyxViewModel : ViewModel() {
     private var disconnectedByUser = false
 
     /**
-     * Flag indicating whether to prefetch ICE candidates.
-     */
-    var prefetchIceCandidate: Boolean = false
-        private set
-
-    /**
      * Stops the loading indicator.
      */
     fun stopLoading() {
@@ -256,13 +250,14 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
-     * Sets the prefetch ICE candidate flag.
+     * Flag indicating whether prefetch ICE candidates should be enabled.
      *
-     * @param enabled Whether to enable prefetch ICE candidates.
      */
-    fun setPrefetchIceCandidate(enabled: Boolean) {
-        prefetchIceCandidate = enabled
-    }
+    var prefetchIceCandidate: Boolean
+        get() = TelnyxCommon.getInstance().telnyxClient?.prefetchIceCandidate ?: false
+        set(value) {
+            TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidate(value)
+        }
 
     /**
      * Changes the server configuration environment.

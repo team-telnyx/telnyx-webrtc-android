@@ -305,7 +305,7 @@ fun HomeScreen(
                                     onClick = {
                                         showOverflowMenu = false
                                         val newState = !telnyxViewModel.prefetchIceCandidate
-                                        telnyxViewModel.setPrefetchIceCandidate(newState)
+                                        telnyxViewModel.prefetchIceCandidate = newState
                                         val message = if (newState) {
                                             context.getString(R.string.enable_prefetch_ice_candidates)
                                         } else {
@@ -315,7 +315,7 @@ fun HomeScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            painter = painterResource(id = R.drawable.ic_more_vert),
+                                            painter = painterResource(id = R.drawable.ic_handshake),
                                             contentDescription = null
                                         )
                                     }
