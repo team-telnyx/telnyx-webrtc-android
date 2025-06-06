@@ -250,6 +250,16 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Flag indicating whether prefetch ICE candidates should be enabled.
+     *
+     */
+    var prefetchIceCandidate: Boolean
+        get() = TelnyxCommon.getInstance().telnyxClient?.prefetchIceCandidate ?: false
+        set(value) {
+            TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidate(value)
+        }
+
+    /**
      * Changes the server configuration environment.
      *
      * @param isDev If true, uses the development environment; otherwise, uses production.

@@ -148,4 +148,8 @@
 
     <string name="region">Region</string>
     <string name="please_select_profile">Please select a profile</string>
+    
+    <!-- Prefetch ICE Candidates -->
+    <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
+    <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
 </resources>
