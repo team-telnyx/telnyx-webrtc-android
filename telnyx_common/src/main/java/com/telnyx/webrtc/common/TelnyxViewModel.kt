@@ -243,10 +243,25 @@ class TelnyxViewModel : ViewModel() {
     private var disconnectedByUser = false
 
     /**
+     * Flag indicating whether to prefetch ICE candidates.
+     */
+    var prefetchIceCandidate: Boolean = false
+        private set
+
+    /**
      * Stops the loading indicator.
      */
     fun stopLoading() {
         _isLoading.value = false
+    }
+
+    /**
+     * Sets the prefetch ICE candidate flag.
+     *
+     * @param enabled Whether to enable prefetch ICE candidates.
+     */
+    fun setPrefetchIceCandidate(enabled: Boolean) {
+        prefetchIceCandidate = enabled
     }
 
     /**

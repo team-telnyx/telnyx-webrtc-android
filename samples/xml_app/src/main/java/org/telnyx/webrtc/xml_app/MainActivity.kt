@@ -132,6 +132,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_copy_fcm_token).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
 
         // Show region selection for non-logged users
         popupMenu.menu.findItem(R.id.action_region_selection).isVisible = !isConnected
@@ -147,6 +148,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val currentProfile = telnyxViewModel.currentProfile.value
         val currentRegion = currentProfile?.region ?: Region.AUTO
         popupMenu.menu.findItem(R.id.action_region_selection).title = getString(R.string.region_format, currentRegion.displayName)
+
+        // Update prefetch ice candidates menu item title based on current state
+        val prefetchMenuItem = popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates)
+        prefetchMenuItem.title = if (telnyxViewModel.prefetchIceCandidate) {
+            getString(R.string.disable_prefetch_ice_candidates)
+        } else {
+            getString(R.string.enable_prefetch_ice_candidates)
+        }
 
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
@@ -164,6 +173,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_precall_diagnosis -> {
                     showPreCallDiagnosisBottomSheet()
+                    true
+                }
+                R.id.action_prefetch_ice_candidates -> {
+                    togglePrefetchIceCandidates()
                     true
                 }
                 R.id.action_region_selection -> {
@@ -223,6 +236,20 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun disablePushNotifications() {
         telnyxViewModel.disablePushNotifications(this)
         Toast.makeText(this, R.string.push_notifications_disabled, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Toggles the prefetch ICE candidates setting
+     */
+    private fun togglePrefetchIceCandidates() {
+        val newState = !telnyxViewModel.prefetchIceCandidate
+        telnyxViewModel.setPrefetchIceCandidate(newState)
+        val message = if (newState) {
+            getString(R.string.enable_prefetch_ice_candidates)
+        } else {
+            getString(R.string.disable_prefetch_ice_candidates)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun bindEvents() {

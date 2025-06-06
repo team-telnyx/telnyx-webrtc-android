@@ -27,6 +27,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_prefetch_ice_candidates"
+        android:title="@string/enable_prefetch_ice_candidates"
+        android:icon="@drawable/ic_more_vert"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_region_selection"
         android:title="Region"
         android:icon="@drawable/ic_more_vert"
