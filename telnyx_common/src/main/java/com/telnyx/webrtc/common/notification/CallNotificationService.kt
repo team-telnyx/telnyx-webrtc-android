@@ -69,7 +69,7 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         val incomingCallChannel = NotificationChannel(
             CHANNEL_ID,
             "Incoming Call Notifications",
-            NotificationManager.IMPORTANCE_MAX
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(
@@ -142,13 +142,12 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Reject call intent
-        val rejectResultIntent = Intent(context, targetActivityClass).apply {
-            action = Intent.ACTION_VIEW
-            putExtra(MyFirebaseMessagingService.EXT_KEY_DO_ACTION, MyFirebaseMessagingService.ACT_REJECT_CALL)
+        // Reject call intent - use broadcast receiver instead of opening main activity
+        val rejectResultIntent = Intent(context, notificationReceiverClass).apply {
+            putExtra(NOTIFICATION_ACTION, NotificationState.REJECT.ordinal)
             putExtra(MyFirebaseMessagingService.TX_PUSH_METADATA, txPushMetaData.toJson())
         }
-        val rejectPendingIntent = PendingIntent.getActivity(
+        val rejectPendingIntent = PendingIntent.getBroadcast(
             context, MyFirebaseMessagingService.REJECT_REQUEST_CODE, rejectResultIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

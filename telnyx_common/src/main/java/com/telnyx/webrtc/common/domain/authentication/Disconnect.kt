@@ -15,7 +15,7 @@ class Disconnect(private val context: Context) {
      * Disconnects the current session and updates the profile status.
      */
     operator fun invoke() {
-        TelnyxCommon.getInstance().getTelnyxClient(context).onDisconnect()
+        TelnyxCommon.getInstance().getTelnyxClient(context).disconnect()
 
         // Reset Telnyx Client
         TelnyxCommon.getInstance().resetTelnyxClient()

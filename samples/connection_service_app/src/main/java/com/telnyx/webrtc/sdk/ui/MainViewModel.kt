@@ -86,7 +86,7 @@ class MainViewModel @Inject constructor(
 
     fun disconnect() {
         Log.d("MainViewModel", "disconnect")
-        telnyxClient.onDisconnect()
+        telnyxClient.disconnect()
         userManager.isUserLogin = false
     }
 
