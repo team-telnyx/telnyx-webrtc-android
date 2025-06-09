@@ -74,7 +74,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
     implementation(project(":telnyx_common"))
     implementation("com.jakewharton.timber:timber:4.5.1")
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
