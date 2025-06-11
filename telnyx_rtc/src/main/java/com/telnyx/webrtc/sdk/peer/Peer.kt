@@ -98,6 +98,17 @@ internal class Peer(
         return iceServers
     }
 
+    val iceCandidatePoolSize = getIceCandidatePool()
+
+    /*
+    * Returns the number of ICE candidates to prefetch
+    *
+    * @return [Int] size of the ice candidate pool
+     */
+    private fun getIceCandidatePool(): Int {
+        return if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
+    }
+
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
     internal var peerConnection: PeerConnection? = null
 
@@ -252,7 +263,7 @@ internal class Peer(
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
-            iceCandidatePoolSize = if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
+            iceCandidatePoolSize = getIceCandidatePool()
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)
