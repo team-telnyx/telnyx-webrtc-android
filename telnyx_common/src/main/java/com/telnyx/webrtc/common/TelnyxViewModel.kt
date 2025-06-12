@@ -17,7 +17,6 @@ import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
 import com.telnyx.webrtc.common.domain.call.OnByeReceived
 import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
-import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
@@ -330,30 +329,6 @@ class TelnyxViewModel : ViewModel() {
 
         if (debug) {
             collectAudioLevels()
-        }
-    }
-
-    /**
-     * Rejects an incoming call received via push notification.
-     *
-     * @param viewContext The application context.
-     * @param txPushMetaData Optional push metadata for handling incoming calls. PushMetadata is provided by a call notification and is required when logging in to the socket to receive the invitation after connecting to the socket again
-     */
-    fun rejectIncomingPushCall(
-        viewContext: Context,
-        txPushMetaData: String?
-    ) {
-        _isLoading.value = true
-        TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
-            RejectIncomingPushCall(context = viewContext)
-                .invoke(txPushMetaData) {
-                    _isLoading.value = false
-                }
-                .asFlow().collectLatest { response ->
-                    Timber.d("Rejecting income push response: $response")
-                    handleSocketResponse(response, true)
-                }
         }
     }
 
