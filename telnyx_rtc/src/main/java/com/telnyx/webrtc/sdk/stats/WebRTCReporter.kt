@@ -550,7 +550,7 @@ internal class WebRTCReporter(
 
         val peerConfiguration = JsonObject().apply {
             add("bundlePolicy", gson.toJsonTree("max-compat"))
-            add("iceCandidatePoolSize", gson.toJsonTree("0"))
+            add("iceCandidatePoolSize", gson.toJsonTree(peer.iceCandidatePoolSize))
 
             val iceServers = mutableListOf<JsonObject>()
             peer.iceServer.forEach {
