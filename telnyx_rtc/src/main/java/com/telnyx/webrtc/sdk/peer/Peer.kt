@@ -43,6 +43,7 @@ internal class Peer(
     private val providedTurn: String = DEFAULT_TURN,
     private val providedStun: String = DEFAULT_STUN,
     private val callId: UUID,
+    private val prefetchIceCandidate: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
 
@@ -50,6 +51,8 @@ internal class Peer(
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
+        private const val ENABLE_PREFETCH_CANDIDATES = 10
+        private const val DISABLE_PREFETCH_CANDIDATES = 0
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -93,6 +96,17 @@ internal class Peer(
         )
         Logger.d(message = "End collection of ice servers")
         return iceServers
+    }
+
+    val iceCandidatePoolSize = getIceCandidatePool()
+
+    /*
+    * Returns the number of ICE candidates to prefetch
+    *
+    * @return [Int] size of the ice candidate pool
+     */
+    private fun getIceCandidatePool(): Int {
+        return if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
     }
 
     private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
@@ -249,6 +263,7 @@ internal class Peer(
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            iceCandidatePoolSize = getIceCandidatePool()
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)

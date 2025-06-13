@@ -292,6 +292,36 @@ fun HomeScreen(
                                         )
                                     }
                                 )
+
+                                // Prefetch ICE Candidates option
+                                DropdownMenuItem(
+                                    text = { 
+                                        Text(
+                                            if (telnyxViewModel.prefetchIceCandidate) {
+                                                stringResource(R.string.disable_prefetch_ice_candidates)
+                                            } else {
+                                                stringResource(R.string.enable_prefetch_ice_candidates)
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newState = !telnyxViewModel.prefetchIceCandidate
+                                        telnyxViewModel.prefetchIceCandidate = newState
+                                        val message = if (newState) {
+                                            context.getString(R.string.enable_prefetch_ice_candidates)
+                                        } else {
+                                            context.getString(R.string.disable_prefetch_ice_candidates)
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_handshake),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
                             } else {
                                 // Non-logged user options - only
 

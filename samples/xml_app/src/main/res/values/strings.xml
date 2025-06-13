@@ -149,4 +149,8 @@
 
     <string name="debug_mode_on">Enable Debugging</string>
     <string name="debug_mode_off">Disable Debugging</string>
+    
+    <!-- Prefetch ICE Candidates -->
+    <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
+    <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
 </resources>

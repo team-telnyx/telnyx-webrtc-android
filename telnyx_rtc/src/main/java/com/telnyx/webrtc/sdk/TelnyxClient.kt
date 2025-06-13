@@ -191,6 +191,19 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Flag to indicate whether to prefetch ICE candidates
+     */
+    var prefetchIceCandidates: Boolean = false
+        private set
+
+    /**
+     * Set the flag to indicate whether to prefetch ICE candidates
+     * @param value The new value for prefetchIceCandidates
+     */
+    fun setPrefetchIceCandidates(value: Boolean) {
+        prefetchIceCandidates = value
+    }
 
     /**
      * Accepts an incoming call invitation.
@@ -326,6 +339,7 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address to call
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
+     * @param debug When true, enables real-time call quality metrics
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -352,7 +366,7 @@ class TelnyxClient(
             callId = inviteCallId
             updateCallState(CallState.RINGING)
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
+            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId, prefetchIceCandidates) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
 
@@ -1719,7 +1733,7 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
-                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) { candidate ->
+                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
@@ -1887,7 +1901,7 @@ class TelnyxClient(
             callId = offerCallId
 
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
