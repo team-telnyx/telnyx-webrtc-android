@@ -148,6 +148,9 @@
 
     <string name="region">Region</string>
     <string name="please_select_profile">Please select a profile</string>
+
+    <string name="debug_mode_on">Enable Debugging</string>
+    <string name="debug_mode_off">Disable Debugging</string>
     
     <!-- Prefetch ICE Candidates -->
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>

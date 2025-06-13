@@ -146,6 +146,9 @@
     <string name="call_quality_fair">Fair</string>
     <string name="call_quality_poor">Poor</string>
     <string name="call_quality_bad">Bad</string>
+
+    <string name="debug_mode_on">Enable Debugging</string>
+    <string name="debug_mode_off">Disable Debugging</string>
     
     <!-- Prefetch ICE Candidates -->
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
