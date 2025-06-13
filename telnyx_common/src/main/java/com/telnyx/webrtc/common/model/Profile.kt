@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.model.Region
  * @param fcmToken The FCM token.
  * @param region The selected region for WebRTC connections.
  * @param isDebug True if debug mode is enabled, false otherwise.
+ * When this option is on it allows the SDK to collect WebRTC debug information.
  */
 data class Profile(
     val sipUsername: String? = null,
