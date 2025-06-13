@@ -294,6 +294,7 @@ class TelnyxViewModel : ViewModel() {
     /**
      * Updates the debug mode for the current profile.
      * When this option is on it allows the SDK to collect WebRTC debug information.
+     * That information is stored in the Telnyx customer portal.
      *
      * @param context The application context.
      * @param debugMode The debug mode state.

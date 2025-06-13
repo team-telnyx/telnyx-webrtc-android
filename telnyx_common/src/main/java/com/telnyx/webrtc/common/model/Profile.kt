@@ -15,6 +15,7 @@ import com.telnyx.webrtc.sdk.model.Region
  * @param region The selected region for WebRTC connections.
  * @param isDebug True if debug mode is enabled, false otherwise.
  * When this option is on it allows the SDK to collect WebRTC debug information.
+ * That information is stored in the Telnyx customer portal
  */
 data class Profile(
     val sipUsername: String? = null,
