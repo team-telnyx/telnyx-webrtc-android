@@ -36,7 +36,6 @@ import kotlinx.coroutines.*
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
-import timber.log.Timber
 import java.util.*
 import kotlin.concurrent.timerTask
 
@@ -195,15 +194,15 @@ class TelnyxClient(
     /**
      * Flag to indicate whether to prefetch ICE candidates
      */
-    var prefetchIceCandidate: Boolean = false
+    var prefetchIceCandidates: Boolean = false
         private set
 
     /**
      * Set the flag to indicate whether to prefetch ICE candidates
-     * @param value The new value for prefetchIceCandidate
+     * @param value The new value for prefetchIceCandidates
      */
-    fun setPrefetchIceCandidate(value: Boolean) {
-        prefetchIceCandidate = value
+    fun setPrefetchIceCandidates(value: Boolean) {
+        prefetchIceCandidates = value
     }
 
     /**
@@ -367,7 +366,7 @@ class TelnyxClient(
             callId = inviteCallId
             updateCallState(CallState.RINGING)
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId, prefetchIceCandidate) { candidate ->
+            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId, prefetchIceCandidates) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
 
@@ -1734,7 +1733,7 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
-                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidate) { candidate ->
+                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
@@ -1902,7 +1901,7 @@ class TelnyxClient(
             callId = offerCallId
 
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidate).also {
+            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isDebug) {
                     webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)

@@ -254,9 +254,9 @@ class TelnyxViewModel : ViewModel() {
      *
      */
     var prefetchIceCandidate: Boolean
-        get() = TelnyxCommon.getInstance().telnyxClient?.prefetchIceCandidate ?: false
+        get() = TelnyxCommon.getInstance().telnyxClient?.prefetchIceCandidates ?: false
         set(value) {
-            TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidate(value)
+            TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidates(value)
         }
 
     /**
