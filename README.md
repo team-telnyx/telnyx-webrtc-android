@@ -2,7 +2,7 @@
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 [![Unit Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml)
 
-Enable Telnyx real-time communication services on Android :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Android 
 
 ## Project structure: 
 
