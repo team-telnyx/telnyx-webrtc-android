@@ -77,5 +77,5 @@ dependencies {
     //permissions
     implementation("com.karumi:dexter:6.2.2")
 
-    implementation("com.github.davidmigloz:number-keyboard:3.1.0")
+    implementation("com.github.davidmigloz:number-keyboard:4.0.8")
 }
