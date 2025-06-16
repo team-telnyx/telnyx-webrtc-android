@@ -197,8 +197,9 @@ We can then use this method to create a listener that listens for an invitation 
                     // Show loading dialog
                 }
 
-                override fun onError(message: String?) {
+                override fun onError(errorCode: Int?, message: String?) {
                    // Handle errors - Update UI or Navigate to new screen, etc.
+                   // errorCode provides additional context about the error type
                 }
 
                 override fun onSocketDisconnect() {
@@ -418,9 +419,15 @@ please keep in mind that you will need to add the following rules to the proguar
 -----
 
 
-Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
+## Additional Resources
+
+- [Android Precompiled WebRTC Library](/docs/voice/webrtc/android-sdk/precompiled-library) - For developers who need more control over WebRTC implementation
+- [WebRTC Official Documentation](https://webrtc.org/getting-started/overview)
+- [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/quickstart)
+
+Questions? Comments? Building something rad? <a href="https://joinslack.telnyx.com/">Join our Slack channel</a> and share.
 
 ## License
 
-[`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+[`MIT Licence`](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/LICENSE) © [Telnyx](https://github.com/team-telnyx)
 

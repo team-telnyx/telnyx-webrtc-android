@@ -137,7 +137,11 @@ class HomeCallFragment : Fragment() {
             telnyxViewModel.uiState.collect { uiState ->
                 when (uiState) {
                     is TelnyxSocketEvent.OnClientReady -> {
-                        onIdle()
+                        if (telnyxViewModel.currentCall != null) {
+                            onCallActive()
+                            registerObservers() // Register observers when call is answered
+                        } else
+                            onIdle()
                     }
 
                     is TelnyxSocketEvent.OnIncomingCall -> {
