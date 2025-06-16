@@ -558,6 +558,7 @@ class TelnyxViewModel : ViewModel() {
         Log.d("TelnyxViewModel", "Client Ready")
         Timber.d("You are ready to make calls.")
         _uiState.value = TelnyxSocketEvent.OnClientReady
+        _isLoading.value = false
     }
 
     private fun handleLogin(data: ReceivedMessageBody) {
@@ -566,7 +567,6 @@ class TelnyxViewModel : ViewModel() {
             Timber.d("Session ID: $sessionId")
         }
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
-        _isLoading.value = false
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {
@@ -578,7 +578,6 @@ class TelnyxViewModel : ViewModel() {
         }
 
         notificationAcceptHandlingUUID = null
-        _isLoading.value = false
     }
 
     private fun handleAnswer(data: ReceivedMessageBody) {
