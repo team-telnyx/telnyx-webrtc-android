@@ -128,6 +128,12 @@ android {
     buildFeatures {
         buildConfig true
     }
+    packagingOptions {
+        resources {
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
+        }
+    }
 }
 
 dokkaHtml {

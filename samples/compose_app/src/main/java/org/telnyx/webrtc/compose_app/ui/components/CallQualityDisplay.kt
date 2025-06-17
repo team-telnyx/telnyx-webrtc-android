@@ -147,37 +147,4 @@ fun CallQualityDisplay(
     }
 }
 
-/**
- * A row displaying a metric label and value.
- *
- * @param label The label for the metric.
- * @param value The value of the metric.
- * @param modifier Optional modifier for the component.
- */
-@Composable
-private fun MetricRow(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Dimens.size4dp))
-            .background(secondary_background_color)
-            .padding(start = Dimens.mediumPadding, end = Dimens.mediumPadding, top = Dimens.smallPadding, bottom = Dimens.smallPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RegularText(
-            modifier = Modifier
-                .padding(end = Dimens.smallPadding),
-            text = label)
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        RegularText(text = value,
-            size = Dimens.textSize16sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1)
-    }
-}

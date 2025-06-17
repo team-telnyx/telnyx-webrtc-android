@@ -34,6 +34,7 @@ android {
         buildConfigField("String", "TEST_SIP_CALLER_NAME", "\"${properties.getProperty("TEST_SIP_CALLER_NAME", "default_callername")}\"")
         buildConfigField("String", "TEST_SIP_CALLER_NUMBER", "\"${properties.getProperty("TEST_SIP_CALLER_NUMBER", "default_callernumber")}\"")
         buildConfigField("String", "TEST_SIP_DEST_NUMBER", "\"${properties.getProperty("TEST_SIP_DEST_NUMBER", "default_dest_number")}\"")
+        buildConfigField("String", "PRECALL_DIAGNOSIS_NUMBER", "\"${properties.getProperty("PRECALL_DIAGNOSIS_NUMBER", "default_precall_number")}\"")
     }
 
     buildTypes {
@@ -78,4 +79,6 @@ dependencies {
     implementation("com.karumi:dexter:6.2.2")
 
     implementation("com.github.davidmigloz:number-keyboard:3.1.0")
+
+    implementation("com.google.code.gson:gson:2.12.0")
 }

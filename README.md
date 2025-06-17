@@ -2,7 +2,7 @@
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 [![Unit Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml)
 
-Enable Telnyx real-time communication services on Android :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Android 
 
 ## Project structure: 
 
@@ -89,7 +89,10 @@ sealed class TelnyxConfig
  * @property logLevel The log level that the SDK should use - default value is none.
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
- * @property debug whether or not send client debug reports
+ * @property debug whether or not to send client debug reports
+ * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * @property region the region to use for the connection
+ * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -101,8 +104,11 @@ data class CredentialConfig(
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
-    val autoReconnect: Boolean = true,
-    val debug: Boolean = false
+    val autoReconnect: Boolean = false,
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
     ) : TelnyxConfig()
 
 /**
@@ -117,7 +123,10 @@ data class CredentialConfig(
  * @property logLevel The log level that the SDK should use - default value is none.
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
- * @property debug whether or not send client debug reports
+ * @property debug whether or not to send client debug reports
+ * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * @property region the region to use for the connection
+ * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  */
 data class TokenConfig(
     val sipToken: String,
@@ -129,7 +138,10 @@ data class TokenConfig(
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
     ) : TelnyxConfig()
 
 ```

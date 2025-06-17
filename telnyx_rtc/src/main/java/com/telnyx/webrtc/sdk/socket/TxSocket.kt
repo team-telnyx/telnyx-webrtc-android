@@ -227,24 +227,35 @@ class TxSocket(
                         }
 
                         jsonObject.has("error") -> {
-                            if (jsonObject.get("error").asJsonObject.has("code")) {
-                                val errorCode =
-                                    jsonObject.get("error").asJsonObject.get("code").asInt
-                                Logger.v(
-                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] with code [%d]",
-                                    this@TxSocket.javaClass.simpleName,
-                                    jsonObject.get("error").asJsonObject.get("message").toString(),
-                                    errorCode)
-                                )
-                                listener.onErrorReceived(jsonObject, errorCode)
-                            } else {
-                                Logger.v(
-                                    message = Logger.formatMessage("[%s] Received Error From Telnyx [%s] (no code provided)",
-                                    this@TxSocket.javaClass.simpleName,
-                                    jsonObject.get("error").asJsonObject.get("message").toString())
-                                )
-                                listener.onErrorReceived(jsonObject, null)
+                            val errorObject = jsonObject.get("error").asJsonObject
+                            val errorCode = if (errorObject.has("code")) {
+                                errorObject.get("code").asInt
+                            } else null
+                            
+                            // Safely extract error message with fallback options
+                            val errorMessage = when {
+                                errorObject.has("message") -> {
+                                    val messageElement = errorObject.get("message")
+                                    if (messageElement.isJsonNull) "Unknown error" else messageElement.asString
+                                }
+                                errorObject.has("params") -> {
+                                    val paramsElement = errorObject.get("params")
+                                    if (paramsElement.isJsonObject && paramsElement.asJsonObject.has("state")) {
+                                        "Error with state: ${paramsElement.asJsonObject.get("state").asString}"
+                                    } else {
+                                        "Error with params: ${paramsElement.toString()}"
+                                    }
+                                }
+                                else -> "Unknown error: ${errorObject.toString()}"
                             }
+                            
+                            Logger.v(
+                                message = Logger.formatMessage("[%s] Received Error From Telnyx [%s]%s",
+                                this@TxSocket.javaClass.simpleName,
+                                errorMessage,
+                                if (errorCode != null) " with code [$errorCode]" else " (no code provided)")
+                            )
+                            listener.onErrorReceived(jsonObject, errorCode)
                         }
                     }
                 }

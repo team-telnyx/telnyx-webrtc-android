@@ -16,8 +16,12 @@ Represents a SIP user for login - Credential based
  * ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * ringBackTone The integer raw value of the audio file to use as a ringback tone
  * logLevel The log level that the SDK should use - default value is none.
+ * customLogger Optional custom logger implementation to handle SDK logs
  * autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
- * debug whether or not send client debug reports
+ * debug whether or not to send client debug reports
+ * reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * region the region to use for the connection
+ * fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
 
 ```kotlin
 data class CredentialConfig(
@@ -29,8 +33,12 @@ data class CredentialConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
+    val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()
 ```
 
@@ -44,8 +52,12 @@ Represents a SIP user for login - Token based
  * ringtone The integer raw value or uri of the audio file to use as a ringtone. Supports only raw file or uri
  * ringBackTone The integer raw value of the audio file to use as a ringback tone
  * logLevel The log level that the SDK should use - default value is none.
+ * customLogger Optional custom logger implementation to handle SDK logs
  * autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
- * debug whether or not send client debug reports
+ * debug whether or not to send client debug reports
+ * reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
+ * region the region to use for the connection
+ * fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
 
 ```kotlin
 data class TokenConfig(
@@ -56,7 +68,11 @@ data class TokenConfig(
     val ringtone: Any?,
     val ringBackTone: Int?,
     val logLevel: LogLevel = LogLevel.NONE,
+    val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val reconnectionTimeout: Long = 60000,
+    val region: Region = Region.AUTO,
+    val fallbackOnRegionFailure: Boolean = true
 ) : TelnyxConfig()
 ```

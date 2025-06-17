@@ -87,21 +87,41 @@
                 android:layout_height="wrap_content"
                 android:padding="@dimen/spacing_tiny"
                 android:layout_marginTop="@dimen/spacing_normal"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:gravity="center"
                 app:layout_constraintTop_toBottomOf="@+id/destinationInfo"
                 android:visibility="visible">
 
-                <Button
-                    style="@style/IconControlButton"
-                    android:id="@+id/call"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:backgroundTint="@color/answer_green"
-                    android:contentDescription="@string/fab_transformation_scrim_behavior"
-                    app:icon="@drawable/baseline_call_24"
-                    app:iconTint="@color/black" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center">
 
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/call"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/answer_green"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/baseline_call_24"
+                        app:iconTint="@color/black" />
+
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/callHistoryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/spacing_medium"
+                    android:layout_marginTop="@dimen/spacing_18dp"
+                    android:text="@string/call_history_title"
+                    android:textAllCaps="false"
+                    android:paddingStart="@dimen/spacing_tiny"
+                    android:paddingEnd="@dimen/spacing_tiny"
+                    style="@style/CustomOutlinedButton"
+                    android:textSize="@dimen/font_button"
+                    />
             </LinearLayout>
 
             <LinearLayout
