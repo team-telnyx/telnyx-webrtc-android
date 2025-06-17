@@ -400,7 +400,7 @@ class TelnyxViewModel : ViewModel() {
                 autoLogin
             ).asFlow().collectLatest { response ->
                 Timber.d("Auth Response: $response")
-                handleSocketResponse(response, false)
+                handleSocketResponse(response)
             }
         }
     }
@@ -435,7 +435,7 @@ class TelnyxViewModel : ViewModel() {
                 }
                 .asFlow().collectLatest { response ->
                     Timber.d("Answering income push response: $response")
-                    handleSocketResponse(response, true)
+                    handleSocketResponse(response)
                 }
         }
 
@@ -469,7 +469,7 @@ class TelnyxViewModel : ViewModel() {
                 }
                 .asFlow().collectLatest { response ->
                     Timber.d("Rejecting income push response: $response")
-                    handleSocketResponse(response, true)
+                    handleSocketResponse(response)
                 }
         }
     }
@@ -572,7 +572,7 @@ class TelnyxViewModel : ViewModel() {
                 autoLogin
             ).asFlow().collectLatest { response ->
                 Timber.d("Auth Response: $response")
-                handleSocketResponse(response, false)
+                handleSocketResponse(response)
             }
         }
     }
@@ -677,15 +677,14 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleSocketResponse(
-        response: SocketResponse<ReceivedMessageBody>,
-        isPushConnection: Boolean
+        response: SocketResponse<ReceivedMessageBody>
     ) {
         if (handlingResponses) {
             return
         }
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
-            SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response, isPushConnection)
+            SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response)
             SocketStatus.LOADING -> handleLoading()
             SocketStatus.ERROR -> handleError(response)
             SocketStatus.DISCONNECT -> handleDisconnect()
@@ -697,13 +696,12 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun handleMessageReceived(
-        response: SocketResponse<ReceivedMessageBody>,
-        isPushConnection: Boolean
+        response: SocketResponse<ReceivedMessageBody>
     ) {
         val data = response.data
         when (data?.method) {
             SocketMethod.CLIENT_READY.methodName -> handleClientReady()
-            SocketMethod.LOGIN.methodName -> handleLogin(data, isPushConnection)
+            SocketMethod.LOGIN.methodName -> handleLogin(data)
             SocketMethod.INVITE.methodName -> handleInvite(data)
             SocketMethod.ANSWER.methodName -> handleAnswer(data)
             SocketMethod.RINGING.methodName -> handleRinging(data)
@@ -716,15 +714,15 @@ class TelnyxViewModel : ViewModel() {
         Log.d("TelnyxViewModel", "Client Ready")
         Timber.d("You are ready to make calls.")
         _uiState.value = TelnyxSocketEvent.OnClientReady
+        _isLoading.value = false
     }
 
-    private fun handleLogin(data: ReceivedMessageBody, isPushConnection: Boolean) {
+    private fun handleLogin(data: ReceivedMessageBody) {
         val sessionId = (data.result as LoginResponse).sessid
         sessionId.let {
             Timber.d("Session ID: $sessionId")
         }
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
-        _isLoading.value = isPushConnection
 
         // Start collecting websocket messages
         collectWebsocketMessages()
@@ -739,7 +737,6 @@ class TelnyxViewModel : ViewModel() {
         }
 
         notificationAcceptHandlingUUID = null
-        _isLoading.value = false
     }
 
     private fun handleAnswer(data: ReceivedMessageBody) {

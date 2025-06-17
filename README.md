@@ -2,7 +2,7 @@
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
 [![Unit Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml)
 
-Enable Telnyx real-time communication services on Android :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Android 
 
 ## Project structure: 
 
@@ -431,9 +431,15 @@ please keep in mind that you will need to add the following rules to the proguar
 -----
 
 
-Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
+## Additional Resources
+
+- [Android Precompiled WebRTC Library](/docs/voice/webrtc/android-sdk/precompiled-library) - For developers who need more control over WebRTC implementation
+- [WebRTC Official Documentation](https://webrtc.org/getting-started/overview)
+- [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/quickstart)
+
+Questions? Comments? Building something rad? <a href="https://joinslack.telnyx.com/">Join our Slack channel</a> and share.
 
 ## License
 
-[`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+[`MIT Licence`](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/LICENSE) © [Telnyx](https://github.com/team-telnyx)
 
