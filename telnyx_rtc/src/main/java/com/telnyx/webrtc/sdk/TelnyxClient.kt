@@ -873,6 +873,8 @@ class TelnyxClient(
         setSDKLogLevel(credentialConfig.logLevel, credentialConfig.customLogger)
 
         providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
             providedServerConfig.host
         } else {
             providedServerConfig.host
@@ -926,6 +928,8 @@ class TelnyxClient(
         setSDKLogLevel(tokenConfig.logLevel, tokenConfig.customLogger)
 
         providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
             providedServerConfig.host
         } else {
             providedServerConfig.host
