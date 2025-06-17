@@ -14,11 +14,12 @@ fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
         logLevel = LogLevel.ALL,
-        debug = false,
+        debug = this.isDebug,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
-        autoReconnect = true
+        autoReconnect = true,
+        region = this.region
     )
 }
 
@@ -29,10 +30,11 @@ fun Profile.toTokenConfig(fcmToken: String): TokenConfig {
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
         logLevel = LogLevel.ALL,
-        debug = false,
+        debug = this.isDebug,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
-        autoReconnect = true
+        autoReconnect = true,
+        region = this.region
     )
 }

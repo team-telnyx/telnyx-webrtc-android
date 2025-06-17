@@ -42,7 +42,7 @@
     <string name="share_wsmessages">Share WsMessages</string>
     <string name="empty_wsmessages">Oops! No logs are available currently. Please check after some time!</string>
     <string name="empty_msg_toast"><![CDATA[You must provide User&Password, or TokenID to proceed]]></string>
-    <string name="login_info">Please confirm details below and click ‘Connect’ to make a call.</string>
+    <string name="login_info">Please confirm details below and click \'Connect\' to make a call.</string>
     <string name="home_info">Enter a destination (phone number or SIP user) to initiate your call.</string>
     <string name="profile">Profile</string>
     <string name="switch_profile">Switch profile</string>
@@ -60,6 +60,7 @@
     <string name="no_profile_selected">No Profile\n</string>
     <string name="dtmf_dialpad">DTMF Dialpad</string>
     
+     <string name="menu">Menu</string>
     <string name="environment_options">Environment Options</string>
     <string name="development_environment">Development Environment</string>
     <string name="production_environment">Production Environment</string>
@@ -86,6 +87,7 @@
     <string name="call_state_connecting">Connecting</string>
     <string name="call_state_dropped">Dropped</string>
     <string name="call_state_reconnecting">Reconnecting</string>
+
     
     <string name="call_quality_label">Call quality</string>
     <string name="view_all_call_metrics">View all call metrics</string>
@@ -99,4 +101,56 @@
     <string name="call_quality_metrics_inbound_audio_level">Inbound Level:</string>
     <string name="call_quality_metrics_outbound_audio_level">Outbound Level:</string>
     <string name="unknown_label">Unknown</string>
+
+    <!-- Call History Bottom Sheet -->
+    <string name="call_history_title">Call History</string>
+    <string name="call_history_close">Close</string>
+    <string name="call_history_empty">No call history available</string>
+    <string name="call_type">Call type</string>
+
+    <!-- Pre-call Diagnosis -->
+    <string name="precall_diagnosis_title">Pre-call Diagnosis</string>
+    <string name="precall_diagnosis_processing">Processing...</string>
+    <string name="precall_diagnosis_failed">Diagnosis failed</string>
+    <string name="precall_diagnosis_network_quality">Network Quality</string>
+    <string name="precall_diagnosis_quality">Quality:</string>
+    <string name="precall_diagnosis_mos">MOS:</string>
+    <string name="precall_diagnosis_jitter">Jitter</string>
+    <string name="precall_diagnosis_jitter_min">min:</string>
+    <string name="precall_diagnosis_jitter_max">max:</string>
+    <string name="precall_diagnosis_jitter_avg">avg:</string>
+    <string name="precall_diagnosis_rtt">RTT</string>
+    <string name="precall_diagnosis_rtt_min">min:</string>
+    <string name="precall_diagnosis_rtt_max">max:</string>
+    <string name="precall_diagnosis_rtt_avg">avg:</string>
+    <string name="precall_diagnosis_session_stats">Session Statistics</string>
+    <string name="precall_diagnosis_bytes_sent">Bytes Sent:</string>
+    <string name="precall_diagnosis_bytes_received">Bytes Received:</string>
+    <string name="precall_diagnosis_packets_sent">Packets Sent:</string>
+    <string name="precall_diagnosis_packets_received">Packets Received:</string>
+    <string name="precall_diagnosis_ice_candidates">ICE Candidates</string>
+    <string name="precall_diagnosis_ice_candidate_label">Candidate:</string>
+    <string name="precall_diagnosis_report_title">Pre-call Diagnosis report</string>
+    <string name="precall_diagnosis_button">Pre-call diagnosis</string>
+
+    <string name="select_region">Select Region</string>
+    <string name="region_set_to">Region set to %1$s</string>
+    <string name="fcm_token_copied">FCM Token copied to clipboard</string>
+    <string name="error">Error</string>
+    <string name="websocket_messages">Websocket Messages</string>
+    <string name="region_format">Region: %1$s</string>
+    <string name="done_with_cause">Done - %1$s</string>
+    <string name="call_quality_unknown">Unknown</string>
+    <string name="call_quality_excellent">Excellent</string>
+    <string name="call_quality_good">Good</string>
+    <string name="call_quality_fair">Fair</string>
+    <string name="call_quality_poor">Poor</string>
+    <string name="call_quality_bad">Bad</string>
+
+    <string name="debug_mode_on">Enable Debugging</string>
+    <string name="debug_mode_off">Disable Debugging</string>
+    
+    <!-- Prefetch ICE Candidates -->
+    <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
+    <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
 </resources>

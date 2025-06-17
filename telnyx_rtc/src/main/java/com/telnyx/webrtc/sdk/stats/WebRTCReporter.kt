@@ -200,6 +200,8 @@ internal class WebRTCReporter(
                     var inboundAudioLevel = 0f
                     var outboundAudioLevel = 0f
 
+                    val iceCandidatesIds = mutableSetOf<String>()
+
                     it.statsMap.forEach { (key, value) ->
                         when (value.type) {
                             "inbound-rtp" -> {
@@ -238,6 +240,12 @@ internal class WebRTCReporter(
 
                             "candidate-pair" -> {
                                 processCandidatePair(key, value, statsData, connectionCandidates)
+                                value.members.get("localCandidateId")?.toString()?.let {
+                                    iceCandidatesIds.add(it)
+                                }
+                                value.members.get("remoteCandidateId")?.toString()?.let {
+                                    iceCandidatesIds.add(it)
+                                }
                             }
 
                             else -> {
@@ -272,13 +280,25 @@ internal class WebRTCReporter(
 
                     // Generate call quality metrics if we have audio stats
                     if (inboundAudioMap.isNotEmpty() || remoteInboundAudioMap.isNotEmpty()) {
+
+                        // Collect and forward ICE candidates during gathering.
+                        val iceCandidates = if (iceCandidatesIds.isNotEmpty()) {
+                            iceCandidatesIds.mapNotNull { iceCandidateId ->
+                                statsData[iceCandidateId]?.let { element ->
+                                    ICECandidate.createFromJsonElement(element)
+                                }
+                            }
+                        } else
+                            null
+
                         val metrics = toRealTimeMetrics(
                             inboundAudio = inboundAudioMap,
                             outboundAudio = outboundAudioMap,
                             remoteInboundAudio = remoteInboundAudioMap,
                             remoteOutboundAudio = remoteOutboundAudioMap,
                             inboundAudioLevel = inboundAudioLevel,
-                            outboundAudioLevel = outboundAudioLevel
+                            outboundAudioLevel = outboundAudioLevel,
+                            iceCandidates = iceCandidates
                         )
 
                         if (callDebug) {
@@ -469,7 +489,8 @@ internal class WebRTCReporter(
         remoteInboundAudio: Map<String, Any>?,
         remoteOutboundAudio: Map<String, Any>?,
         inboundAudioLevel: Float,
-        outboundAudioLevel: Float
+        outboundAudioLevel: Float,
+        iceCandidates: List<ICECandidate>?
     ): CallQualityMetrics {
         // Extract metrics from stats
         val jitter = (remoteInboundAudio?.get("jitter") as? Double) ?: Double.POSITIVE_INFINITY
@@ -499,7 +520,8 @@ internal class WebRTCReporter(
             remoteInboundAudio = remoteInboundAudio,
             remoteOutboundAudio = remoteOutboundAudio,
             inboundAudioLevel = inboundAudioLevel,
-            outboundAudioLevel = outboundAudioLevel
+            outboundAudioLevel = outboundAudioLevel,
+            iceCandidates = iceCandidates
         )
     }
 
@@ -528,7 +550,7 @@ internal class WebRTCReporter(
 
         val peerConfiguration = JsonObject().apply {
             add("bundlePolicy", gson.toJsonTree("max-compat"))
-            add("iceCandidatePoolSize", gson.toJsonTree("0"))
+            add("iceCandidatePoolSize", gson.toJsonTree(peer.iceCandidatePoolSize))
 
             val iceServers = mutableListOf<JsonObject>()
             peer.iceServer.forEach {

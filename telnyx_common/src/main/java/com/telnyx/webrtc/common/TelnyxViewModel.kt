@@ -19,6 +19,11 @@ import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.domain.push.RejectIncomingPushCall
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.Region
+import com.telnyx.webrtc.common.data.CallHistoryRepository
+import com.telnyx.webrtc.common.model.CallHistoryItem
+import com.telnyx.webrtc.common.model.CallType
+import com.telnyx.webrtc.common.model.WebsocketMessage
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -40,7 +45,11 @@ import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.common.model.MetricSummary
+import com.telnyx.webrtc.common.model.PreCallDiagnosis
+import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -65,6 +74,12 @@ sealed class TelnyxSocketEvent {
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
     data object ClientDisconnected : TelnyxSessionState()
+}
+
+sealed class TelnyxPrecallDiagnosisState {
+    data object PrecallDiagnosisStarted : TelnyxPrecallDiagnosisState()
+    data class PrecallDiagnosisCompleted(val data: PreCallDiagnosis) : TelnyxPrecallDiagnosisState()
+    data object PrecallDiagnosisFailed : TelnyxPrecallDiagnosisState()
 }
 
 /**
@@ -178,9 +193,54 @@ class TelnyxViewModel : ViewModel() {
     val outboundAudioLevels: StateFlow<List<Float>> = _outboundAudioLevels.asStateFlow()
 
     /**
+     * State flow for websocket messages.
+     * Observe this flow to display websocket messages in the UI.
+     */
+    private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
+    val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
+
+    /**
      * Job for collecting audio levels.
      */
     private var audioLevelCollectorJob: Job? = null
+
+    /**
+     * Job for collecting websocket messages.
+     */
+    private var wsMessagesCollectorJob: Job? = null
+
+    /**
+     * Call history repository for managing call history data.
+     */
+    private var callHistoryRepository: CallHistoryRepository? = null
+
+    /**
+     * State flow for call history list.
+     * Observe this flow to display call history in the UI.
+     */
+    private val _callHistoryList = MutableStateFlow<List<CallHistoryItem>>(emptyList())
+    val callHistoryList: StateFlow<List<CallHistoryItem>> = _callHistoryList.asStateFlow()
+
+     /**
+      * State flow for precall diagnosis results.
+     */
+    private val _precallDiagnosisState = MutableStateFlow<TelnyxPrecallDiagnosisState?>(null)
+    var precallDiagnosisState: StateFlow<TelnyxPrecallDiagnosisState?> = _precallDiagnosisState.asStateFlow()
+
+    /**
+     * Job for collecting precall diagnosis metrics.
+     */
+    private var precallDiagnosisCollectorJob: Job? = null
+
+    /**
+     * Precall diagnosis data.
+     */
+    private var precallDiagnosisData: MutableList<CallQualityMetrics>? = null
+
+    /**
+     * Flag indicating whether the socket has disconnected by user action.
+     */
+    private var disconnectedByUser = false
 
     /**
      * Stops the loading indicator.
@@ -188,6 +248,16 @@ class TelnyxViewModel : ViewModel() {
     fun stopLoading() {
         _isLoading.value = false
     }
+
+    /**
+     * Flag indicating whether prefetch ICE candidates should be enabled.
+     *
+     */
+    var prefetchIceCandidate: Boolean
+        get() = TelnyxCommon.getInstance().telnyxClient?.prefetchIceCandidates ?: false
+        set(value) {
+            TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidates(value)
+        }
 
     /**
      * Changes the server configuration environment.
@@ -214,6 +284,37 @@ class TelnyxViewModel : ViewModel() {
     fun setCurrentConfig(context: Context, profile: Profile) {
         _currentProfile.value = profile
         ProfileManager.saveProfile(context, profile)
+        loadCallHistoryForCurrentProfile()
+    }
+
+    /**
+     * Updates the region for the current profile.
+     *
+     * @param context The application context.
+     * @param region The selected region.
+     */
+    fun updateRegion(context: Context, region: Region) {
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.copy(region = region)
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
+        }
+    }
+
+    /**
+     * Updates the debug mode for the current profile.
+     * When this option is on it allows the SDK to collect WebRTC debug information.
+     * That information is stored in the Telnyx customer portal.
+     *
+     * @param context The application context.
+     * @param debugMode The debug mode state.
+     */
+    fun updateDebugMode(context: Context, debugMode: Boolean) {
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.copy(isDebug = debugMode)
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
+        }
     }
 
     /**
@@ -246,6 +347,9 @@ class TelnyxViewModel : ViewModel() {
         profile.sipUsername?.let { ProfileManager.deleteProfileBySipUsername(context, it) }
         profile.sipToken?.let { ProfileManager.deleteProfileBySipToken(context, it) }
         refreshProfileList(context)
+        viewModelScope.launch {
+            deleteCallHistoryForProfile(profile.callerIdName ?: "Unknown")
+        }
     }
 
     /**
@@ -277,6 +381,7 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
 
         userSessionJob?.cancel()
         userSessionJob = null
@@ -312,8 +417,14 @@ class TelnyxViewModel : ViewModel() {
         debug: Boolean
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
                 .invoke(
                     txPushMetaData,
@@ -344,8 +455,14 @@ class TelnyxViewModel : ViewModel() {
         txPushMetaData: String?
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
         TelnyxCommon.getInstance().setHandlingPush(true)
-        viewModelScope.launch {
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+
+        userSessionJob = viewModelScope.launch {
             RejectIncomingPushCall(context = viewContext)
                 .invoke(txPushMetaData) {
                     _isLoading.value = false
@@ -365,6 +482,7 @@ class TelnyxViewModel : ViewModel() {
     suspend fun initProfile(context: Context) {
         getProfiles(context)
         getFCMToken()
+        initCallHistory(context)
     }
 
     /**
@@ -378,6 +496,7 @@ class TelnyxViewModel : ViewModel() {
         }
         ProfileManager.getLoggedProfile(context)?.let { profile ->
             _currentProfile.value = profile
+            loadCallHistoryForCurrentProfile()
         }
     }
 
@@ -440,6 +559,7 @@ class TelnyxViewModel : ViewModel() {
         autoLogin: Boolean = true
     ) {
         _isLoading.value = true
+        disconnectedByUser = false
 
         userSessionJob?.cancel()
         userSessionJob = null
@@ -477,6 +597,8 @@ class TelnyxViewModel : ViewModel() {
             // Check if we are on a call and not handling a push notification before disconnecting
             // (we check this because clicking on a notification can trigger a disconnect if we are using onStop in MainActivity)
             if (currentCall == null && !TelnyxCommon.getInstance().handlingPush) {
+                // Mark this to avoid misleading error message
+                disconnectedByUser = true
                 // No active call, safe to disconnect
                 Disconnect(viewContext).invoke()
                 // if we are disconnecting, there is no call so we should stop service if one is running
@@ -518,6 +640,40 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    /**
+     * Makes a pre-call diagnosis call to the provided test number.
+     *
+     * This method will make a call to testNumber and will collect the call quality metrics
+     * at the end of the call.
+     * Those metrics will be then added to the precallDiagnosisState flow.
+     *
+     * @param viewContext The application context.
+     * @param testNumber The number to call for the precall diagnosis.
+     */
+    fun makePreCallDiagnosis(viewContext: Context, testNumber: String) {
+        // Make a call to the texml_number
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            ProfileManager.getLoggedProfile(viewContext)?.let { currentProfile ->
+                Log.d("Call", "clicked profile ${currentProfile.sipUsername}")
+                SendInvite(viewContext).invoke(
+                    currentProfile.callerIdName ?: "",
+                    currentProfile.callerIdNumber ?: "",
+                    testNumber,
+                    "",
+                    mapOf(Pair("X-test", "123456")),
+                    true
+                ).callStateFlow.collect {
+                    handlePrecallDiagnosisCallState(it)
+                }
+            }
+        }
+
+        collectPreCallDiagnosis()
     }
 
     private fun handleSocketResponse(
@@ -567,6 +723,9 @@ class TelnyxViewModel : ViewModel() {
             Timber.d("Session ID: $sessionId")
         }
         _sessionsState.value = TelnyxSessionState.ClientLoggedIn(data.result as LoginResponse)
+
+        // Start collecting websocket messages
+        collectWebsocketMessages()
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {
@@ -618,9 +777,16 @@ class TelnyxViewModel : ViewModel() {
      * It will navigate to the login screen only in two cases:
      * - there is an error and there is not active call
      * - there is an error during active call. This is happening after unsuccessfully reconnection.
+     * Error dialog is shown only when the disconnect was not intentional (user-initiated).
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
+        if (disconnectedByUser && response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode) {
+            handleDisconnect()
+            disconnectedByUser = false
+            return
+        }
+
         if (currentCall == null || currentCall?.callStateFlow?.value == CallState.ERROR) {
             _sessionsState.value = TelnyxSessionState.ClientDisconnected
             _uiState.value = TelnyxSocketEvent.InitState
@@ -635,6 +801,8 @@ class TelnyxViewModel : ViewModel() {
 
     private fun handleDisconnect() {
         Timber.i("Disconnect...")
+        userSessionJob?.cancel()
+        userSessionJob = null
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }
@@ -668,6 +836,25 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    private fun handlePrecallDiagnosisCallState(callState: CallState) {
+        when (callState) {
+            is CallState.DONE -> {
+                preparePreCallDiagnosis()?.let {
+                    _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisCompleted(it)
+                } ?: run {
+                    _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
+                }
+            }
+            is CallState.ERROR,
+            is CallState.DROPPED -> {
+                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisFailed
+            }
+            else -> {
+                _precallDiagnosisState.value = TelnyxPrecallDiagnosisState.PrecallDiagnosisStarted
+            }
+        }
+    }
+
     /**
      * Initiates an outgoing call to the specified destination number.
      *
@@ -691,9 +878,12 @@ class TelnyxViewModel : ViewModel() {
                     currentProfile.callerIdName ?: "",
                     currentProfile.callerIdNumber ?: "",
                     destinationNumber,
-                    "Sample Client State",
+                    "",
                     mapOf(Pair("X-test", "123456")),
-                    debug
+                    debug,
+                    onCallHistoryAdd = { number ->
+                        addCallToHistory(CallType.OUTBOUND, number)
+                    }
                 ).callStateFlow.collect {
                     handleCallState(it)
                 }
@@ -775,7 +965,10 @@ class TelnyxViewModel : ViewModel() {
                     callId,
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
-                    debug
+                    debug,
+                    onCallHistoryAdd = { number ->
+                        addCallToHistory(CallType.INBOUND, number)
+                    }
                 ).callStateFlow.collect {
                     handleCallState(it)
                 }
@@ -852,13 +1045,161 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Initializes the call history repository and loads call history for the current profile.
+     *
+     * @param context The application context.
+     */
+    private fun initCallHistory(context: Context) {
+        callHistoryRepository = CallHistoryRepository(context)
+        loadCallHistoryForCurrentProfile()
+    }
+
+    /**
+     * Loads call history for the current profile.
+     */
+    private fun loadCallHistoryForCurrentProfile() {
+        val profile = _currentProfile.value
+        if (profile != null && callHistoryRepository != null) {
+            viewModelScope.launch {
+                callHistoryRepository!!.getCallHistoryForProfile(profile.callerIdName ?: "Unknown").collect { entities ->
+                    _callHistoryList.value = entities.map { entity ->
+                        CallHistoryItem(
+                            id = entity.id,
+                            userProfileName = entity.userProfileName,
+                            callType = if (entity.callType == "inbound") CallType.INBOUND else CallType.OUTBOUND,
+                            destinationNumber = entity.destinationNumber,
+                            date = entity.date
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds a call to the call history.
+     *
+     * @param callType The type of call (inbound or outbound).
+     * @param destinationNumber The destination number.
+     */
+    suspend fun addCallToHistory(callType: CallType, destinationNumber: String) {
+        val profile = _currentProfile.value
+        if (profile != null && callHistoryRepository != null) {
+            val callTypeString = if (callType == CallType.INBOUND) "inbound" else "outbound"
+            callHistoryRepository!!.addCall(profile.callerIdName ?: "Unknown", callTypeString, destinationNumber)
+        }
+    }
+
+    /**
+     * Deletes the call history for the current profile.
+     */
+    suspend fun deleteCallHistoryForProfile(profileName: String) {
+        callHistoryRepository?.deleteCallHistoryForProfile(profileName)
+    }
+
+    /**
+     * Starts collecting websocket messages from the TelnyxClient.
+     * This should be called when the user is logged in.
+     */
+    fun collectWebsocketMessages() {
+        // Cancel any previous collector job first to avoid multiple collectors
+        wsMessagesCollectorJob?.cancel()
+        wsMessagesCollectorJob = viewModelScope.launch {
+            Timber.d("Websocket message collection started.")
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.getWsMessageResponse()?.asFlow()?.collect { message ->
+                if (message != null) {
+                    val currentMessages = _wsMessages.value.toMutableList()
+                    // Add new message at the beginning (latest first)
+                    currentMessages.add(0, WebsocketMessage(message))
+                    // Limit the number of messages to avoid memory issues
+                    while (currentMessages.size > MAX_WS_MESSAGES) {
+                        currentMessages.removeAt(currentMessages.size - 1)
+                    }
+                    _wsMessages.value = currentMessages
+                }
+            }
+        }
+    }
+
+    /**
+     * Clears the websocket messages list.
+     */
+    fun clearWebsocketMessages() {
+        _wsMessages.value = emptyList()
+    }
+
+    private fun collectPreCallDiagnosis() {
+        precallDiagnosisCollectorJob?.cancel()
+        precallDiagnosisData = mutableListOf()
+        precallDiagnosisCollectorJob = viewModelScope.launch {
+            TelnyxCommon.getInstance().callQualityMetrics.collect { metrics ->
+                metrics?.let {
+                    if (it.quality != CallQuality.UNKNOWN)
+                        precallDiagnosisData?.add(it)
+                }
+            }
+        }
+    }
+
+    private fun preparePreCallDiagnosis(): PreCallDiagnosis? {
+        return precallDiagnosisData?.let { preCallDiagnosisData ->
+            try {
+                val minJitter = preCallDiagnosisData.minOf { it.jitter }
+                val maxJitter = preCallDiagnosisData.maxOf { it.jitter }
+                val avgJitter = preCallDiagnosisData.sumOf { it.jitter } / preCallDiagnosisData.size
+
+                val minRtt = preCallDiagnosisData.minOf { it.rtt }
+                val maxRtt = preCallDiagnosisData.maxOf { it.rtt }
+                val avgRtt = preCallDiagnosisData.sumOf { it.rtt } / preCallDiagnosisData.size
+
+                val avgMos = preCallDiagnosisData.sumOf { it.mos } / preCallDiagnosisData.size
+
+                val mostFrequentQuality = preCallDiagnosisData
+                    .groupingBy { it.quality }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
+
+                val bytesSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("bytesSent")?.toString()?.toLongOrNull() ?: 0L
+                val bytesReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("bytesReceived")?.toString()?.toLongOrNull() ?: 0L
+                val packetsSent = preCallDiagnosisData.lastOrNull()?.outboundAudio?.get("packetsSent")?.toString()?.toLongOrNull() ?: 0L
+                val packetsReceived = preCallDiagnosisData.lastOrNull()?.inboundAudio?.get("packetsReceived")?.toString()?.toLongOrNull() ?: 0L
+
+                val iceCandidatesList = preCallDiagnosisData
+                    .flatMap { it.iceCandidates ?: emptyList() }
+                    .distinctBy { it.id }
+
+                PreCallDiagnosis(
+                    mos = avgMos,
+                    quality = mostFrequentQuality ?: CallQuality.UNKNOWN,
+                    jitter = MetricSummary(minJitter, maxJitter, avgJitter),
+                    rtt = MetricSummary(minRtt, maxRtt, avgRtt),
+                    bytesSent = bytesSent,
+                    bytesReceived = bytesReceived,
+                    packetsSent = packetsSent,
+                    packetsReceived = packetsReceived,
+                    iceCandidates = iceCandidatesList
+                )
+            } catch (e: Throwable) {
+                Timber.e("Pre-call diagnosis data processing error ${e.message}")
+                null
+            }
+
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
+        wsMessagesCollectorJob?.cancel()
         userSessionJob?.cancel()
+        precallDiagnosisCollectorJob?.cancel()
     }
 
     companion object {
         private const val MAX_AUDIO_LEVELS = 100
+        private const val MAX_WS_MESSAGES = 100
     }
 }

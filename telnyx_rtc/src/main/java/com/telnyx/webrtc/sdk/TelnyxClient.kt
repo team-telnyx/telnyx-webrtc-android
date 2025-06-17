@@ -126,7 +126,7 @@ class TelnyxClient(
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
 
-    private var isDebug = false
+    private var isSocketDebug = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -191,6 +191,19 @@ class TelnyxClient(
         }
     }
 
+    /**
+     * Flag to indicate whether to prefetch ICE candidates
+     */
+    var prefetchIceCandidates: Boolean = false
+        private set
+
+    /**
+     * Set the flag to indicate whether to prefetch ICE candidates
+     * @param value The new value for prefetchIceCandidates
+     */
+    fun setPrefetchIceCandidates(value: Boolean) {
+        prefetchIceCandidates = value
+    }
 
     /**
      * Accepts an incoming call invitation.
@@ -208,7 +221,7 @@ class TelnyxClient(
         debug: Boolean = false
     ): Call {
         var callDebug = debug
-        var socketPortalDebug = isDebug
+        var socketPortalDebug = isSocketDebug
 
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
@@ -326,6 +339,7 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address to call
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
+     * @param debug When true, enables real-time call quality metrics
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -337,7 +351,7 @@ class TelnyxClient(
         debug: Boolean = false
     ): Call {
         var callDebug = debug
-        var socketPortalDebug = isDebug
+        var socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
         val inviteCall = Call(
@@ -352,7 +366,7 @@ class TelnyxClient(
             callId = inviteCallId
             updateCallState(CallState.RINGING)
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId) { candidate ->
+            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId, prefetchIceCandidates) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
 
@@ -698,6 +712,9 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
+        if (credentialConfig.region != Region.AUTO)
+            providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
+
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -708,17 +725,25 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if (autoLogin) {
-                    credentialLogin(credentialConfig)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                if (credentialConfig.fallbackOnRegionFailure) {
+                    providedHostAddress = ConnectivityHelper.resolveReachableHost(providedHostAddress!!, providedPort!!)
+                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                }
+
+                if (voiceSDKID != null) {
+                    pushMetaData = PushMetaData(
+                        callerName = "",
+                        callerNumber = "",
+                        callId = "",
+                        voiceSdkId = voiceSDKID
+                    )
+                }
+                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin) {
+                        credentialLogin(credentialConfig)
+                    }
                 }
             }
         } else {
@@ -762,6 +787,9 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
+        if (tokenConfig.region != Region.AUTO)
+            providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
+
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -772,18 +800,30 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                if (autoLogin) {
-                    tokenLogin(tokenConfig)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                if (tokenConfig.fallbackOnRegionFailure) {
+                    providedHostAddress = ConnectivityHelper.resolveReachableHost(
+                        providedHostAddress!!,
+                        providedPort!!
+                    )
+                    Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
+
+                if (voiceSDKID != null) {
+                    pushMetaData = PushMetaData(
+                        callerName = "",
+                        callerNumber = "",
+                        callId = "",
+                        voiceSdkId = voiceSDKID
+                    )
+                }
+                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin) {
+                        tokenLogin(tokenConfig)
+                    }
+                }
+
             }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
@@ -877,7 +917,7 @@ class TelnyxClient(
 
         credentialSessionConfig = config
 
-        isDebug = config.debug
+        isSocketDebug = config.debug
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -997,7 +1037,7 @@ class TelnyxClient(
 
         tokenSessionConfig = config
 
-        isDebug = config.debug
+        isSocketDebug = config.debug
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -1693,12 +1733,12 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
-                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId) { candidate ->
+                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
-                    if (isDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                    if (isSocketDebug) {
+                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
@@ -1861,10 +1901,10 @@ class TelnyxClient(
             callId = offerCallId
 
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId).also {
+            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates).also {
                 // Check the global debug flag here for reattach scenarios
-                if (isDebug) {
-                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isDebug)
+                if (isSocketDebug) {
+                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }

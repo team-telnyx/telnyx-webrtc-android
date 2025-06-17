@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import org.telnyx.webrtc.compose_app.ui.components.CallQualityDisplay
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,8 +89,10 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
+import org.telnyx.webrtc.compose_app.utils.Utils
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.screens.CallHistoryBottomSheet
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
@@ -104,6 +108,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
 
     var showDialpadSection by remember { mutableStateOf(false) }
     var showCallQualityMetrics by remember { mutableStateOf(false) }
+    var showCallHistoryBottomSheet by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
     val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
@@ -181,9 +186,22 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
-                        HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
-                            if (destinationNumber.isNotEmpty())
-                                telnyxViewModel.sendInvite(context, destinationNumber, true)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.spacing18dp)
+                        ) {
+                            HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                                if (destinationNumber.isNotEmpty())
+                                    telnyxViewModel.sendInvite(context, destinationNumber, true)
+                            }
+                            
+                            RoundSmallButton(
+                                text = stringResource(R.string.call_history_title),
+                                textSize = 14.sp,
+                                backgroundColor = MaterialTheme.colorScheme.background
+                            ) {
+                                showCallHistoryBottomSheet = true
+                            }
                         }
                     }
                     CallUIState.ACTIVE ->  {
@@ -265,6 +283,17 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             outboundLevels = outboundLevels
         ) {
             showCallQualityMetrics = false
+        }
+    }
+
+    if (showCallHistoryBottomSheet) {
+        CallHistoryBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) { number ->
+            number?.let {
+                destinationNumber = it
+            }
+            showCallHistoryBottomSheet = false
         }
     }
 }

@@ -50,6 +50,9 @@ object ProfileManager {
             listOfProfiles.remove(existingProfile)
         }
 
+        if (profile.isUserLoggedIn)
+            listOfProfiles.forEach { it.isUserLoggedIn = false }
+
         listOfProfiles.add(profile)
 
         val gson = Gson()
