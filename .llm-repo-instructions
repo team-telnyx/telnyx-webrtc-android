@@ -1,0 +1,36 @@
+[meta]
+version=1.0
+format_rules=Simple guidelines, one instruction per line. Write in clear English.
+
+[ai_swe_agent]
+When opening a PR, add the Jira ticket ID.
+Follow this pattern: [WEBRTC-XXX] - Title.
+Always open PRs as drafts.
+Use the format described at .github/pull_request_template.md, including a clear description of the changes, any relevant issue numbers, and testing instructions.
+
+Don't change the verto message json structure without confirming first.
+When making changes to the SDK, ensure that you update the sample applications (xml_app and compose_app) accordingly to demonstrate the new functionality.
+Use the telnyx_common module to share code between the SDK and sample applications, such as utility functions, models, and constants.
+Follow the established architecture patterns for WebRTC, including peer connection management, ICE candidate handling, and call state management.
+Ensure that all new features and bug fixes are accompanied by appropriate unit tests in the telnyx_rtc module.
+Use the provided build scripts (build.gradle) to manage dependencies, build configurations, and testing tasks.
+
+Follow the Kotlin Style Guide for general Kotlin coding conventions.
+Make sure new code adheres to the rules mentioned at /telnyx_rtc/config/detekt.yml.
+Run `./gradlew detekt` before pushing any code changes to ensure code quality standards.
+Run `./gradlew lint` to check for Android-specific issues.
+
+Do not run the full test suite prior to opening a PR. The tests take a long time to complete running. Running and verifying the tests will be done by the CI system anyways, so there is no need to have them run for pull request creation.
+However, if adding new unit tests, you can run specific test classes with `./gradlew test --tests "ClassName"` to verify they work.
+
+When working with WebRTC components, ensure proper cleanup of peer connections and media streams to prevent memory leaks.
+Always handle audio permissions and device management properly when making changes to call functionality.
+When modifying authentication flows, ensure both credential and token login methods are supported.
+When adding push notification features, ensure Firebase Cloud Messaging integration is properly maintained.
+
+Avoid descriptive comments, only add comments if the code is too complex.
+Use meaningful variable and function names that make the code self-documenting.
+
+Never modify ProGuard rules without explicit instruction, as they are critical for WebRTC functionality.
+When adding new public APIs, ensure they are properly documented with KDoc comments.
+Maintain backward compatibility when possible, especially for public SDK interfaces.
