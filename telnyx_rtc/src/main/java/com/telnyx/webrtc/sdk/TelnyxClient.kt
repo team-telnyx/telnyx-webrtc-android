@@ -857,20 +857,18 @@ class TelnyxClient(
      * This method is specifically designed for declining calls without launching the main app.
      *
      * @param providedServerConfig The server configuration for connection
-     * @param credentialConfig The credential configuration for login
+     * @param config The configuration for login (either CredentialConfig or TokenConfig)
      * @param txPushMetaData The push metadata from the notification
      */
     fun connectWithDeclinePush(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
-        credentialConfig: CredentialConfig,
+        config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
         socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
-
-        setSDKLogLevel(credentialConfig.logLevel, credentialConfig.customLogger)
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
@@ -900,62 +898,17 @@ class TelnyxClient(
                 )
             }
             socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                credentialLoginWithDeclinePush(credentialConfig)
-            }
-        } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
-        }
-    }
+                when (config) {
+                    is CredentialConfig -> {
+                        setSDKLogLevel(config.logLevel, config.customLogger)
+                        credentialLoginWithDeclinePush(config)
+                    }
 
-    /**
-     * Connects to the socket with decline_push parameter for background call decline using token.
-     * This method is specifically designed for declining calls without launching the main app.
-     *
-     * @param providedServerConfig The server configuration for connection
-     * @param tokenConfig The token configuration for login
-     * @param txPushMetaData The push metadata from the notification
-     */
-    fun connectWithDeclinePush(
-        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
-        tokenConfig: TokenConfig,
-        txPushMetaData: String? = null,
-    ) {
-        socketResponseLiveData.postValue(SocketResponse.initialised())
-        waitingForReg = true
-        invalidateGatewayResponseTimer()
-        resetGatewayCounters()
-
-        setSDKLogLevel(tokenConfig.logLevel, tokenConfig.customLogger)
-
-        providedHostAddress = if (txPushMetaData != null) {
-            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-            processCallFromPush(metadata)
-            providedServerConfig.host
-        } else {
-            providedServerConfig.host
-        }
-
-        socket = TxSocket(
-            host_address = providedHostAddress!!,
-            port = providedServerConfig.port
-        )
-
-        providedPort = providedServerConfig.port
-        providedTurn = providedServerConfig.turn
-        providedStun = providedServerConfig.stun
-
-        if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                tokenLoginWithDeclinePush(tokenConfig)
+                    is TokenConfig -> {
+                        setSDKLogLevel(config.logLevel, config.customLogger)
+                        tokenLoginWithDeclinePush(config)
+                    }
+                }
             }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
