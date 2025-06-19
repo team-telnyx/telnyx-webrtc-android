@@ -18,8 +18,8 @@ android {
         applicationId = "org.telnyx.webrtc.compose_app"
         minSdk = 27
         targetSdk = 35
-        versionCode = 15
-        versionName = "15"
+        versionCode = 16
+        versionName = "16"
 
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
