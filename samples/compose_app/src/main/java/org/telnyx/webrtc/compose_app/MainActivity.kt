@@ -119,9 +119,6 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
                 MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
                     viewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
-                MyFirebaseMessagingService.ACT_REJECT_CALL -> {
-                    viewModel.rejectIncomingPushCall(this, txPushMetaData)
-                }
                 MyFirebaseMessagingService.ACT_OPEN_TO_REPLY -> {
                     viewModel.connectWithLastUsedConfig(this, txPushMetaData)
                 }

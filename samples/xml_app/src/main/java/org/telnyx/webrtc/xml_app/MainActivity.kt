@@ -422,10 +422,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     telnyxViewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
 
-                MyFirebaseMessagingService.ACT_REJECT_CALL -> {
-                    telnyxViewModel.rejectIncomingPushCall(this, txPushMetaData)
-                }
-
                 MyFirebaseMessagingService.ACT_OPEN_TO_REPLY -> {
                     telnyxViewModel.connectWithLastUsedConfig(this, txPushMetaData)
                 }

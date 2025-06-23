@@ -366,14 +366,28 @@ class TelnyxClient(
             callId = inviteCallId
             updateCallState(CallState.RINGING)
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, inviteCallId, prefetchIceCandidates) { candidate ->
+            peerConnection = Peer(
+                context,
+                client,
+                providedTurn,
+                providedStun,
+                inviteCallId,
+                prefetchIceCandidates
+            ) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
 
                 // Create reporter if per-call debug is enabled or config debug is enabled
                 if (callDebug || socketPortalDebug) {
                     webRTCReporter =
-                        WebRTCReporter(socket, callId, this.getTelnyxLegId()?.toString(), it, callDebug, socketPortalDebug)
+                        WebRTCReporter(
+                            socket,
+                            callId,
+                            this.getTelnyxLegId()?.toString(),
+                            it,
+                            callDebug,
+                            socketPortalDebug
+                        )
                     if (callDebug) {
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -508,7 +522,12 @@ class TelnyxClient(
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
 
-                    socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+                    socketResponseLiveData.postValue(
+                        SocketResponse.error(
+                            "No Network Connection",
+                            null
+                        )
+                    )
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
@@ -728,7 +747,10 @@ class TelnyxClient(
 
             CoroutineScope(Dispatchers.IO).launch {
                 if (credentialConfig.fallbackOnRegionFailure) {
-                    providedHostAddress = ConnectivityHelper.resolveReachableHost(providedHostAddress!!, providedPort!!)
+                    providedHostAddress = ConnectivityHelper.resolveReachableHost(
+                        providedHostAddress!!,
+                        providedPort!!
+                    )
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
@@ -824,6 +846,69 @@ class TelnyxClient(
                     }
                 }
 
+            }
+        } else {
+            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+        }
+    }
+
+    /**
+     * Connects to the socket with decline_push parameter for background call decline.
+     * This method is specifically designed for declining calls without launching the main app.
+     *
+     * @param providedServerConfig The server configuration for connection
+     * @param config The configuration for login (either CredentialConfig or TokenConfig)
+     * @param txPushMetaData The push metadata from the notification
+     */
+    fun connectWithDeclinePush(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        config: TelnyxConfig,
+        txPushMetaData: String? = null,
+    ) {
+        socketResponseLiveData.postValue(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        providedHostAddress = if (txPushMetaData != null) {
+            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+            processCallFromPush(metadata)
+            providedServerConfig.host
+        } else {
+            providedServerConfig.host
+        }
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            if (voiceSDKID != null) {
+                pushMetaData = PushMetaData(
+                    callerName = "",
+                    callerNumber = "",
+                    callId = "",
+                    voiceSdkId = voiceSDKID
+                )
+            }
+            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
+                when (config) {
+                    is CredentialConfig -> {
+                        setSDKLogLevel(config.logLevel, config.customLogger)
+                        credentialLoginWithDeclinePush(config)
+                    }
+
+                    is TokenConfig -> {
+                        setSDKLogLevel(config.logLevel, config.customLogger)
+                        tokenLoginWithDeclinePush(config)
+                    }
+                }
             }
         } else {
             socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
@@ -993,6 +1078,7 @@ class TelnyxClient(
 
 
     private var attachCallId: String? = null
+
     /**
      * Attaches push notifications to current call invite.
      * Backend responds with INVITE message
@@ -1062,6 +1148,109 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Performs credential login with decline_push parameter for background call decline.
+     * This method sends a login message with decline_push set to true.
+     *
+     * @param config The credential configuration for login
+     */
+    private fun credentialLoginWithDeclinePush(config: CredentialConfig) {
+        val uuid: String = UUID.randomUUID().toString()
+        val user = config.sipUser
+        val password = config.sipPassword
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        val customLogger = config.customLogger
+        autoReconnectLogin = config.autoReconnect
+
+        Config.USERNAME = config.sipUser
+        Config.PASSWORD = config.sipPassword
+
+        credentialSessionConfig = config
+
+        isSocketDebug = config.debug
+
+        setSDKLogLevel(logLevel, customLogger)
+
+        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingbackTone = it
+        }
+
+        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
+        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = null,
+                login = user,
+                passwd = password,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("decline_push" to "true"),
+                sessid = sessid
+            )
+        )
+        Logger.d(message = "Auto login with credentialConfig for decline push")
+
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Performs token login with decline_push parameter for background call decline.
+     * This method sends a login message with decline_push set to true.
+     *
+     * @param config The token configuration for login
+     */
+    private fun tokenLoginWithDeclinePush(config: TokenConfig) {
+        val uuid: String = UUID.randomUUID().toString()
+        val token = config.sipToken
+        val fcmToken = config.fcmToken
+        val logLevel = config.logLevel
+        val customLogger = config.customLogger
+        autoReconnectLogin = config.autoReconnect
+
+        tokenSessionConfig = config
+
+        isSocketDebug = config.debug
+
+        setSDKLogLevel(logLevel, customLogger)
+
+        var firebaseToken = ""
+        if (fcmToken != null) {
+            firebaseToken = fcmToken
+        }
+
+        val notificationJsonObject = JsonObject()
+        notificationJsonObject.addProperty("push_device_token", firebaseToken)
+        notificationJsonObject.addProperty("push_notification_provider", "android")
+
+        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.LOGIN.methodName,
+            params = LoginParam(
+                loginToken = token,
+                login = null,
+                passwd = null,
+                userVariables = notificationJsonObject,
+                loginParams = mapOf("decline_push" to "true"),
+                sessid = sessid
+            )
+        )
+        Logger.d(message = "Auto login with tokenConfig for decline push")
+
         socket.send(loginMessage)
     }
 
@@ -1335,7 +1524,12 @@ class TelnyxClient(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
+                            socketResponseLiveData.postValue(
+                                SocketResponse.error(
+                                    "Gateway registration has timed out",
+                                    SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                                )
+                            )
                         }
                     },
                     GATEWAY_RESPONSE_DELAY
@@ -1377,12 +1571,22 @@ class TelnyxClient(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
+                socketResponseLiveData.postValue(
+                    SocketResponse.error(
+                        "Gateway registration has timed out",
+                        SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    )
+                )
             }
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
+                socketResponseLiveData.postValue(
+                    SocketResponse.error(
+                        "Gateway registration has failed",
+                        SocketError.GATEWAY_FAILURE_ERROR.errorCode
+                    )
+                )
             }
 
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
@@ -1397,13 +1601,23 @@ class TelnyxClient(
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
-                    socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has received fail wait response", SocketError.GATEWAY_FAILURE_ERROR.errorCode))
+                    socketResponseLiveData.postValue(
+                        SocketResponse.error(
+                            "Gateway registration has received fail wait response",
+                            SocketError.GATEWAY_FAILURE_ERROR.errorCode
+                        )
+                    )
                 }
             }
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode))
+                socketResponseLiveData.postValue(
+                    SocketResponse.error(
+                        "Gateway registration has timed out",
+                        SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
+                    )
+                )
             }
 
             GatewayState.UNREGED.state -> {
@@ -1424,7 +1638,12 @@ class TelnyxClient(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error", null))
+                socketResponseLiveData.postValue(
+                    SocketResponse.error(
+                        "Gateway registration has failed with an unknown error",
+                        null
+                    )
+                )
             }
         }
     }
@@ -1463,7 +1682,12 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
                     }
-                    socketResponseLiveData.postValue(SocketResponse.error("Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds", null))
+                    socketResponseLiveData.postValue(
+                        SocketResponse.error(
+                            "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds",
+                            null
+                        )
+                    )
 
                     // Reset reconnection state
                     reconnecting = false
@@ -1509,7 +1733,13 @@ class TelnyxClient(
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
-        Logger.d(message = Logger.formatMessage("[%s] :: onByeReceived JSON: %s", this.javaClass.simpleName, jsonObject.toString()))
+        Logger.d(
+            message = Logger.formatMessage(
+                "[%s] :: onByeReceived JSON: %s",
+                this.javaClass.simpleName,
+                jsonObject.toString()
+            )
+        )
 
         try {
             val params = jsonObject.getAsJsonObject("params")
@@ -1628,7 +1858,10 @@ class TelnyxClient(
 
                 else -> {
                     // There was no SDP in the response, there was an error.
-                    val reason = CallTerminationReason(cause = "AnswerError", sipReason = "No SDP in answer response")
+                    val reason = CallTerminationReason(
+                        cause = "AnswerError",
+                        sipReason = "No SDP in answer response"
+                    )
                     updateCallState(CallState.DONE(reason))
                     client.removeFromCalls(UUID.fromString(callId))
                 }
@@ -1677,7 +1910,10 @@ class TelnyxClient(
 
             } else {
                 // There was no SDP in the response, there was an error.
-                val reason = CallTerminationReason(cause = "MediaError", sipReason = "No SDP in media response")
+                val reason = CallTerminationReason(
+                    cause = "MediaError",
+                    sipReason = "No SDP in media response"
+                )
                 updateCallState(CallState.DONE(reason))
                 client.removeFromCalls(UUID.fromString(callId))
             }
@@ -1733,12 +1969,26 @@ class TelnyxClient(
                 val customHeaders =
                     params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
-                peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates) { candidate ->
+                peerConnection = Peer(
+                    context,
+                    client,
+                    providedTurn,
+                    providedStun,
+                    offerCallId,
+                    prefetchIceCandidates
+                ) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isSocketDebug) {
-                        webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
+                        webRTCReporter = WebRTCReporter(
+                            socket,
+                            callId,
+                            telnyxLegId?.toString(),
+                            it,
+                            false,
+                            isSocketDebug
+                        )
                         webRTCReporter?.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
@@ -1901,10 +2151,24 @@ class TelnyxClient(
             callId = offerCallId
 
 
-            peerConnection = Peer(context, client, providedTurn, providedStun, offerCallId, prefetchIceCandidates).also {
+            peerConnection = Peer(
+                context,
+                client,
+                providedTurn,
+                providedStun,
+                offerCallId,
+                prefetchIceCandidates
+            ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
-                    webRTCReporter = WebRTCReporter(socket, callId, telnyxLegId?.toString(), it, false, isSocketDebug)
+                    webRTCReporter = WebRTCReporter(
+                        socket,
+                        callId,
+                        telnyxLegId?.toString(),
+                        it,
+                        false,
+                        isSocketDebug
+                    )
                     webRTCReporter?.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
@@ -1970,5 +2234,14 @@ class TelnyxClient(
         resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
+    }
+
+    /**
+     * Disconnects the TelnyxClient, resets all internal states, and stops any ongoing audio playback.
+     * This method should be called when the client is no longer needed or when the user logs out.
+     */
+    fun disconnect() {
+        Logger.d(message = "Disconnecting TelnyxClient and clearing states")
+        onDisconnect()
     }
 }
