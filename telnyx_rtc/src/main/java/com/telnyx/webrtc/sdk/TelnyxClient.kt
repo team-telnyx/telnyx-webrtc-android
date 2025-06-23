@@ -418,22 +418,23 @@ class TelnyxClient(
     /**
      * Ends an ongoing call with a provided callID, the unique UUID belonging to each call
      * @param callId, the callId provided with the invitation
+     * @param causeCode, the cause code to use for call termination. Defaults to NORMAL_CLEARING for ending active calls
      * @see [Call]
      */
-    fun endCall(callId: UUID) {
+    fun endCall(callId: UUID, causeCode: CauseCode = CauseCode.NORMAL_CLEARING) {
         val endCall = calls[callId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
-            // Default cause for locally initiated endCall
-            val causeCode = CauseCode.USER_BUSY.code
-            val causeName = CauseCode.USER_BUSY.name
-            val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCode)
+            // Use the provided cause code for call termination
+            val causeCodeValue = causeCode.code
+            val causeName = causeCode.name
+            val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCodeValue)
 
             val byeMessageBody = SendingMessageBody(
                 uuid, SocketMethod.BYE.methodName,
                 ByeParams(
                     sessionId,
-                    causeCode,
+                    causeCodeValue,
                     causeName,
                     ByeDialogParams(
                         callId
@@ -444,7 +445,7 @@ class TelnyxClient(
             val byeResponseForUi = ByeResponse(
                 callId = callId,
                 cause = causeName,
-                causeCode = causeCode
+                causeCode = causeCodeValue
                 // sipCode and sipReason are null here
             )
             // send bye message to the UI

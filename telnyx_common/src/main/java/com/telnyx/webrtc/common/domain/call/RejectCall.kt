@@ -2,6 +2,7 @@ package com.telnyx.webrtc.common.domain.call
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.sdk.model.CauseCode
 import java.util.*
 
 /**
@@ -19,11 +20,12 @@ class RejectCall(private val context: Context) {
     operator fun invoke(callId: UUID) {
         val telnyxCommon = TelnyxCommon.getInstance()
         telnyxCommon.currentCall?.let { currentCall ->
-            telnyxCommon.getTelnyxClient(context).endCall(currentCall.callId)
+            // Reject incoming call with USER_BUSY cause code
+            telnyxCommon.getTelnyxClient(context).endCall(currentCall.callId, CauseCode.USER_BUSY)
             telnyxCommon.unregisterCall(currentCall.callId)
         } ?: run {
-            // There is no active call, reject the call by ID
-            telnyxCommon.getTelnyxClient(context).endCall(callId)
+            // There is no active call, reject the call by ID with USER_BUSY cause code
+            telnyxCommon.getTelnyxClient(context).endCall(callId, CauseCode.USER_BUSY)
             telnyxCommon.unregisterCall(callId)
         }
     }

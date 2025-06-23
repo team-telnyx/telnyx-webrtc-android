@@ -7,6 +7,7 @@ import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.manager.UserManager
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
@@ -156,11 +157,13 @@ class TelecomCallManager @Inject constructor(
             return
         }
         currentCall?.let { c ->
+            // End active call with NORMAL_CLEARING
             telnyxClient.endCall(c.callId)
             _callState.value = CallState.DONE()
             currentCall = null
         } ?: currentInvite?.let { invite ->
-            telnyxClient.endCall(invite.callId)
+            // Reject incoming call with USER_BUSY
+            telnyxClient.endCall(invite.callId, CauseCode.USER_BUSY)
             _callState.value = CallState.DONE()
             currentInvite = null
         }
