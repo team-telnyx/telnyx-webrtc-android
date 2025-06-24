@@ -528,6 +528,9 @@ class TelnyxClient(
                             null
                         )
                     )
+
+                    // Start the reconnection timer to track timeout
+                    startReconnectionTimer()
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
