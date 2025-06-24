@@ -196,7 +196,7 @@ data class Call(
                 )
             )
             socket.send(answerBodyMessage)
-            mutableCallStateFlow.value = CallState.ACTIVE
+            updateCallState(CallState.ACTIVE)
         }
     }
 
@@ -255,11 +255,11 @@ data class Call(
     fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
-            mutableCallStateFlow.value  = CallState.HELD
+            updateCallState(CallState.HELD)
             sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
-            mutableCallStateFlow.value  = CallState.ACTIVE
+            updateCallState(CallState.ACTIVE)
             sendHoldModifier(callId, "unhold")
         }
     }
