@@ -60,6 +60,7 @@ The service is automatically used by `MyFirebaseMessagingService` when an incomi
 - Processes answer, reject, and end call actions from notifications
 - Routes actions to the appropriate handlers in your application
 - Cancels notifications when actions are taken
+- **New**: Uses `BackgroundCallDeclineService` for simplified call rejection without app launch
 
 **Implementation:**
 1. Register the receiver in your AndroidManifest.xml:
@@ -69,6 +70,27 @@ The service is automatically used by `MyFirebaseMessagingService` when an incomi
     android:enabled="true"
     android:exported="false" />
 ```
+
+### BackgroundCallDeclineService
+
+`BackgroundCallDeclineService` is a new service that handles call decline operations without launching the main application.
+
+**Key Features:**
+- Declines incoming calls in the background without app launch
+- Connects to socket with `decline_push` parameter for simplified decline flow
+- Automatically disconnects after decline operation is complete
+- Includes timeout handling to prevent service from running indefinitely
+- Improves user experience by avoiding unnecessary app launches
+
+**How it works:**
+1. User taps decline on push notification
+2. `CallNotificationReceiver` starts `BackgroundCallDeclineService`
+3. Service connects to socket using `connectWithDeclinePush()`
+4. Service sends login with `decline_push: true` parameter
+5. Service automatically disconnects and stops after decline is processed
+
+**Implementation:**
+The service is automatically used by `CallNotificationReceiver` when using the `telnyx_common` module. No additional setup is required.
 
 ### LegacyCallNotificationService
 
@@ -194,6 +216,33 @@ The [XML sample app](https://github.com/team-telnyx/telnyx-webrtc-android/tree/m
 - [AndroidManifest.xml](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/samples/xml_app/src/main/AndroidManifest.xml) - Shows how to register the notification components
 - [MainActivity.kt](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/samples/xml_app/src/main/java/org/telnyx/webrtc/xml_app/MainActivity.kt) - Demonstrates handling push notification intents
 
+## Push Notification Decline - Migration Guide
+
+### New Simplified Approach (Recommended)
+
+If you're using the `telnyx_common` module, the new `BackgroundCallDeclineService` is automatically used for call rejections. This provides:
+
+- **Improved User Experience**: No app launch interruption when declining calls
+- **Better Performance**: Reduced battery usage and faster response times
+- **Simplified Implementation**: No need to handle complex invite/bye message flows
+
+### Legacy Approach (For Custom Implementations)
+
+If you have a custom implementation that manually handles call decline, you may want to migrate to the new approach:
+
+**Old Flow:**
+```kotlin
+// User taps decline → Launch app → Connect → Wait for invite → Send bye
+intent.putExtra("action", "decline_call")
+startActivity(intent) // Launches main app
+```
+
+**New Flow:**
+```kotlin
+// User taps decline → Background service handles everything
+BackgroundCallDeclineService.startService(context, txPushMetadata)
+```
+
 ## Best Practices
 
 1. **Permissions**: Ensure your app has the necessary permissions for notifications and foreground services:
@@ -210,6 +259,8 @@ The [XML sample app](https://github.com/team-telnyx/telnyx-webrtc-android/tree/m
 4. **Background Processing**: Use the `CallForegroundService` to maintain calls when your app is in the background.
 
 5. **Error Handling**: Implement proper error handling for push notification processing to ensure a smooth user experience.
+
+6. **Call Decline**: Use the new `BackgroundCallDeclineService` for optimal user experience when declining calls from push notifications.
 
 ## Troubleshooting
 

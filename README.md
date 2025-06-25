@@ -338,6 +338,17 @@ If no custom logger is provided, the SDK will use its default logging implementa
 
 ### Handling Push Notifications
 In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services] with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
+
+#### Declining Push Notifications
+The SDK now provides a simplified way to decline incoming calls from push notifications without launching the main application. The `BackgroundCallDeclineService` automatically handles the decline process by:
+
+1. Connecting to the socket with a `decline_push` parameter
+2. Sending the appropriate decline message
+3. Disconnecting automatically
+
+This eliminates the need for the complex flow of launching the app, waiting for invites, and manually sending bye messages.
+
+#### Best Practices for Push Notifications
 - Play a ringtone when a call is received from push notification using the `RingtoneManager`
 ``` kotlin
 val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)

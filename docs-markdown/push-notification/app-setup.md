@@ -248,6 +248,56 @@ telnyxClient.connect(
 
 If this is done correctly and you reconnect to the socket, you should receive the invite for the call on the socket as soon as you are reconnected
 
+## Declining Push Notifications (New Simplified Approach)
+
+The SDK now provides a much simpler way to decline incoming calls from push notifications without launching the main application. Instead of the complex flow described above, you can now use the `BackgroundCallDeclineService`.
+
+### How the New Decline Flow Works
+
+**Before (Complex Flow):**
+1. User taps decline on notification
+2. App launches via PendingIntent
+3. App connects to socket
+4. App waits for invite message
+5. App calls `endCall()` to decline
+6. App remains open
+
+**After (Simplified Flow):**
+1. User taps decline on notification
+2. `BackgroundCallDeclineService` starts automatically
+3. Service connects to socket with `decline_push` parameter
+4. Service receives login success and disconnects
+5. Service stops automatically
+6. No app launch required
+
+### Implementation
+
+The new decline functionality is automatically handled by the `CallNotificationReceiver` when using the `telnyx_common` module. When a user taps the reject button on a push notification, the receiver will:
+
+```kotlin
+private fun handleRejectCall(context: Context, txPushMetadata: PushMetaData?) {
+    txPushMetadata?.let {
+        // Use background service to decline the call without launching the app
+        BackgroundCallDeclineService.startService(context, txPushMetadata)
+        
+        Timber.d("Started background call decline service for call rejection")
+    }
+}
+```
+
+The `BackgroundCallDeclineService` will:
+- Connect to the socket using `connectWithDeclinePush()`
+- Send a login message with `decline_push: true` parameter
+- Automatically disconnect once the decline is processed
+- Stop the service without launching the main application
+
+### Benefits of the New Approach
+
+- **No app launch required**: Calls can be declined without interrupting the user's current activity
+- **Reduced battery usage**: No need to launch the full application
+- **Improved user experience**: Faster decline response with no UI interruption
+- **Simplified implementation**: No need to handle complex invite/bye message flows
+
 ## Best Practices
 ### Handling Push Notifications
 In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services] with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
