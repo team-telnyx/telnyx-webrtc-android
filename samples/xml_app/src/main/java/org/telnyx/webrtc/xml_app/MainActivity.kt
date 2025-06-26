@@ -141,9 +141,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_debug_mode).isVisible = !isConnected
 
         // Update state of debug mode menu item
-        telnyxViewModel.currentProfile.value?.let { currentProfile ->
-            popupMenu.menu.findItem(R.id.action_debug_mode).title = getString(if (currentProfile.isDebug) R.string.debug_mode_off else R.string.debug_mode_on)
-        }
+        popupMenu.menu.findItem(R.id.action_debug_mode).title = getString(if (telnyxViewModel.debugMode) R.string.debug_mode_off else R.string.debug_mode_on)
 
         // Add badge count to websocket messages menu item if there are messages
         val wsMessages = telnyxViewModel.wsMessages.value
@@ -193,15 +191,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_debug_mode -> {
                     // Update debug mode in current profile or create a default profile
-                    var currentDebugMode = telnyxViewModel.currentProfile.value?.isDebug ?: false
+                    var currentDebugMode = telnyxViewModel.debugMode
                     currentDebugMode = !currentDebugMode
 
-                    if (currentProfile != null) {
-                        telnyxViewModel.updateDebugMode(this, currentDebugMode)
-                    } else {
-                        val newProfile = Profile(isDebug = currentDebugMode)
-                        telnyxViewModel.setCurrentConfig(this, newProfile)
-                    }
+                    telnyxViewModel.updateDebugMode(currentDebugMode)
                     true
                 }
                 else -> false

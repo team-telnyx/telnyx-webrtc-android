@@ -138,7 +138,7 @@ fun HomeScreen(
 
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
-    var isDebugModeOn by remember { mutableStateOf(false) }
+    var isDebugModeOn by remember { mutableStateOf(telnyxViewModel.debugMode) }
 
     LaunchedEffect(sessionState) {
         sessionId = when (sessionState) {
@@ -354,11 +354,7 @@ fun HomeScreen(
                                         showOverflowMenu = false
                                         isDebugModeOn = !isDebugModeOn
                                         // Update region in current profile or create a default profile
-                                        val profile = currentConfig ?: Profile(isDebug = isDebugModeOn)
-                                        telnyxViewModel.updateDebugMode(context, isDebugModeOn)
-                                        if (currentConfig == null) {
-                                            telnyxViewModel.setCurrentConfig(context, profile.copy(isDebug = isDebugModeOn))
-                                        }
+                                        telnyxViewModel.updateDebugMode(isDebugModeOn)
                                     },
                                     leadingIcon = {
                                         Icon(

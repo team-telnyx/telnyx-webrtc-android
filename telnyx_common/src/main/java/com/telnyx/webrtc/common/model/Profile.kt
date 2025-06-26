@@ -26,8 +26,7 @@ data class Profile(
     var isUserLoggedIn: Boolean = false,
     var isDev: Boolean = false,
     var fcmToken: String? = null,
-    var region: Region = Region.AUTO,
-    var isDebug: Boolean = false
+    var region: Region = Region.AUTO
 ) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false

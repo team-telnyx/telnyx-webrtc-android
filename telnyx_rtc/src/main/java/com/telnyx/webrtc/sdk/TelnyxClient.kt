@@ -539,6 +539,9 @@ class TelnyxClient(
                             null
                         )
                     )
+
+                    // Start the reconnection timer to track timeout
+                    startReconnectionTimer()
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
                     runBlocking { reconnectToSocket() }
@@ -725,7 +728,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
-
+        isSocketDebug = credentialConfig.debug
         socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -804,7 +807,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
-
+        isSocketDebug = tokenConfig.debug
         socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()

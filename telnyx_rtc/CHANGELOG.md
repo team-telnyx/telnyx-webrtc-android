@@ -1,8 +1,13 @@
+## [2.0.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.2) (2025-06-17)
+
+### Enhancement
+- Add Region parameter available to be set. This allows developers to restrict connection only to some regions.
+- Add parameter for prefetching ice candidates during call initiation.
+
 ## [2.0.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.1) (2025-06-08)
 
 ### Enhancement
 - Further enhance error handling by modifying SocketObserver's onError method signature to include the Error Code as well as the Message.
-
 
 ## [2.0.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.0) (2025-05-22)
 
