@@ -717,7 +717,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
-
+        isSocketDebug = credentialConfig.debug
         socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -796,7 +796,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
-
+        isSocketDebug = tokenConfig.debug
         socketResponseLiveData.postValue(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()

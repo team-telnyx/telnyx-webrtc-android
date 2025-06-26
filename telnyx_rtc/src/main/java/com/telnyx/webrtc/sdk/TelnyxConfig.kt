@@ -50,11 +50,15 @@ data class CredentialConfig(
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
-    val debug: Boolean = false,
+    val debug: Boolean = DEFAULT_DEBUG,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true
-) : TelnyxConfig()
+) : TelnyxConfig() {
+    companion object {
+        const val DEFAULT_DEBUG = false
+    }
+}
 
 /**
  * Represents a SIP user for login - Token based
@@ -83,8 +87,12 @@ data class TokenConfig(
     val logLevel: LogLevel = LogLevel.NONE,
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
-    val debug: Boolean = false,
+    val debug: Boolean = DEFAULT_DEBUG,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true
-) : TelnyxConfig()
+) : TelnyxConfig() {
+    companion object {
+        const val DEFAULT_DEBUG = false
+    }
+}

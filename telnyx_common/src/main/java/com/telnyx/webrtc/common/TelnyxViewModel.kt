@@ -48,6 +48,7 @@ import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
+import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -135,6 +136,12 @@ class TelnyxViewModel : ViewModel() {
      */
     var serverConfigurationIsDev = false
         private set
+
+    /**
+     * Flag indicating whether debug mode is enabled.
+     */
+    private var _debugMode = CredentialConfig.DEFAULT_DEBUG
+    val debugMode = _debugMode
 
     /**
      * State flow for the list of user profiles.
@@ -301,19 +308,14 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
-     * Updates the debug mode for the current profile.
+     * Updates the debug mode for the current session.
      * When this option is on it allows the SDK to collect WebRTC debug information.
      * That information is stored in the Telnyx customer portal.
      *
-     * @param context The application context.
      * @param debugMode The debug mode state.
      */
-    fun updateDebugMode(context: Context, debugMode: Boolean) {
-        _currentProfile.value?.let { profile ->
-            val updatedProfile = profile.copy(isDebug = debugMode)
-            _currentProfile.value = updatedProfile
-            ProfileManager.saveProfile(context, updatedProfile)
-        }
+    fun updateDebugMode(debugMode: Boolean) {
+        _debugMode = debugMode
     }
 
     /**
@@ -394,7 +396,7 @@ class TelnyxViewModel : ViewModel() {
 
             AuthenticateBySIPCredentials(context = viewContext).invoke(
                 serverConfiguration,
-                profile.toCredentialConfig(fcmToken ?: ""),
+                profile.toCredentialConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
             ).asFlow().collectLatest { response ->
@@ -536,7 +538,7 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob = viewModelScope.launch {
             AuthenticateByToken(context = viewContext).invoke(
                 serverConfiguration,
-                profile.toTokenConfig(fcmToken ?: ""),
+                profile.toTokenConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
             ).asFlow().collectLatest { response ->

@@ -7,14 +7,14 @@ import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 
-fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
+fun Profile.toCredentialConfig(fcmToken: String, isDebug: Boolean = false): CredentialConfig {
     return CredentialConfig(
         sipUser = sipUsername ?: "",
         sipPassword = sipPass ?: "",
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
         logLevel = LogLevel.ALL,
-        debug = this.isDebug,
+        debug = isDebug,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
@@ -24,13 +24,13 @@ fun Profile.toCredentialConfig(fcmToken: String): CredentialConfig {
 }
 
 
-fun Profile.toTokenConfig(fcmToken: String): TokenConfig {
+fun Profile.toTokenConfig(fcmToken: String, isDebug: Boolean = false): TokenConfig {
     return TokenConfig(
         sipToken= sipToken ?: "",
         sipCallerIDName = this.callerIdName,
         sipCallerIDNumber = callerIdNumber,
         logLevel = LogLevel.ALL,
-        debug = this.isDebug,
+        debug = isDebug,
         fcmToken = fcmToken,
         ringtone =  RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
         ringBackTone = R.raw.ringback_tone,
