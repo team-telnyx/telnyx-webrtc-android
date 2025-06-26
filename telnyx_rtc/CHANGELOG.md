@@ -4,6 +4,9 @@
 - Add Region parameter available to be set. This allows developers to restrict connection only to some regions.
 - Add parameter for prefetching ice candidates during call initiation.
 
+### Bug Fixing
+- Fixed an issue where the Termination Cause was always 'USER_BUSY' regardless of current call state. Now, when terminating an active call, the state will be 'NORMAL_CLEARING' and when rejecting an invite, the Termination Cause will be 'USER_BUSY'.
+
 ## [2.0.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.1) (2025-06-08)
 
 ### Enhancement
