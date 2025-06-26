@@ -248,55 +248,94 @@ telnyxClient.connect(
 
 If this is done correctly and you reconnect to the socket, you should receive the invite for the call on the socket as soon as you are reconnected
 
-## Declining Push Notifications (New Simplified Approach)
+## Declining Push Notifications
 
-The SDK now provides a much simpler way to decline incoming calls from push notifications without launching the main application. Instead of the complex flow described above, you can now use the `BackgroundCallDeclineService`.
+The SDK provides two approaches for declining incoming calls from push notifications: the legacy approach and a new simplified approach.
 
-### How the New Decline Flow Works
+### Legacy Approach (Complex Flow)
 
-**Before (Complex Flow):**
+In the traditional approach, declining a push notification requires the following steps:
+
 1. User taps decline on notification
 2. App launches via PendingIntent
-3. App connects to socket
-4. App waits for invite message
-5. App calls `endCall()` to decline
-6. App remains open
+3. App connects to socket using the standard `connect()` method
+4. App waits for invite message to be received
+5. App calls `endCall()` to decline the call
+6. App handles cleanup and remains open
 
-**After (Simplified Flow):**
-1. User taps decline on notification
-2. `BackgroundCallDeclineService` starts automatically
-3. Service connects to socket with `decline_push` parameter
-4. Service receives login success and disconnects
-5. Service stops automatically
-6. No app launch required
-
-### Implementation
-
-The new decline functionality is automatically handled by the `CallNotificationReceiver` when using the `telnyx_common` module. When a user taps the reject button on a push notification, the receiver will:
-
+**Example implementation:**
 ```kotlin
-private fun handleRejectCall(context: Context, txPushMetadata: PushMetaData?) {
-    txPushMetadata?.let {
-        // Use background service to decline the call without launching the app
-        BackgroundCallDeclineService.startService(context, txPushMetadata)
-        
-        Timber.d("Started background call decline service for call rejection")
+// In your notification decline handler
+val intent = Intent(context, MainActivity::class.java).apply {
+    putExtra("action", "decline_call")
+    putExtra("metadata", txPushMetadata.toJson())
+    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+}
+context.startActivity(intent)
+
+// In MainActivity
+if (intent.getStringExtra("action") == "decline_call") {
+    val metadata = intent.getStringExtra("metadata")
+    val txPushMetadata = Gson().fromJson(metadata, PushMetaData::class.java)
+    
+    // Connect and wait for invite
+    telnyxClient.connect(
+        txPushMetaData = txPushMetadata,
+        credentialConfig = credentialConfig
+    )
+    
+    // Listen for invite and then call endCall()
+    telnyxClient.socketResponseLiveData.observe(this) { response ->
+        if (response is SocketResponse.invite) {
+            telnyxClient.endCall(response.callId)
+        }
     }
 }
 ```
 
-The `BackgroundCallDeclineService` will:
-- Connect to the socket using `connectWithDeclinePush()`
-- Send a login message with `decline_push: true` parameter
-- Automatically disconnect once the decline is processed
-- Stop the service without launching the main application
+### New Simplified Approach (Recommended)
+
+The SDK now provides a much simpler way to decline incoming calls using the `connectWithDeclinePush()` method. This approach eliminates the need to wait for invite messages and manually send bye messages.
+
+**How the New Flow Works:**
+1. User taps decline on notification
+2. App or background service calls `connectWithDeclinePush()`
+3. SDK connects to socket with `decline_push: true` parameter
+4. SDK automatically handles the decline process
+5. SDK disconnects automatically
+6. No need to wait for invites or manually call `endCall()`
+
+**Example implementation:**
+```kotlin
+// In your notification decline handler
+val txPushMetadata = // ... get from notification
+val credentialConfig = CredentialConfig(
+    sipUser = username,
+    sipPassword = password,
+    fcmToken = fcmToken
+)
+
+// Use the new decline method
+telnyxClient.connectWithDeclinePush(
+    config = credentialConfig,
+    txPushMetaData = txPushMetadata.toJson()
+)
+
+// The SDK handles everything automatically - no need to wait for invites
+```
 
 ### Benefits of the New Approach
 
-- **No app launch required**: Calls can be declined without interrupting the user's current activity
-- **Reduced battery usage**: No need to launch the full application
-- **Improved user experience**: Faster decline response with no UI interruption
 - **Simplified implementation**: No need to handle complex invite/bye message flows
+- **Automatic handling**: SDK manages the entire decline process internally
+- **Reduced complexity**: No need to listen for socket events or manually call `endCall()`
+- **Consistent behavior**: Decline process is handled uniformly by the SDK
+
+### Choosing the Right Approach
+
+- **Use the new approach** (`connectWithDeclinePush()`) for new implementations or when updating existing code
+- **Legacy approach** may still be needed if you have specific requirements for handling the decline flow manually
+- The new approach is recommended for most use cases as it reduces implementation complexity and potential errors
 
 ## Best Practices
 ### Handling Push Notifications
