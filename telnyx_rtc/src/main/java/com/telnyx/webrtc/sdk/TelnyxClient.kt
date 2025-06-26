@@ -424,10 +424,21 @@ class TelnyxClient(
         val endCall = calls[callId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
-            // Default cause for locally initiated endCall
-            val causeCode = CauseCode.USER_BUSY.code
-            val causeName = CauseCode.USER_BUSY.name
+            // Determine cause code and name based on call state
+            val (causeCode, causeName) = when (callStateFlow.value) {
+                // When Active or Connecting, use NORMAL_CLEARING
+                CallState.ACTIVE -> CauseCode.NORMAL_CLEARING.code to CauseCode.NORMAL_CLEARING.name
+                // When Ringing (ie. Rejecting an incoming call), use USER_BUSY
+                CallState.RINGING, CallState.CONNECTING -> CauseCode.USER_BUSY.code to CauseCode.USER_BUSY.name
+                // Default to NORMAL_CLEARING for other states
+                else -> CauseCode.NORMAL_CLEARING.code to CauseCode.NORMAL_CLEARING.name
+            }
             val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCode)
+
+            Logger.d(
+                tag = "EndCall",
+                message = "Ending call with ID: $callId, current state: ${callStateFlow.value}, cause: $causeName ($causeCode)"
+            )
 
             val byeMessageBody = SendingMessageBody(
                 uuid, SocketMethod.BYE.methodName,
