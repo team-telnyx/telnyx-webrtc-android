@@ -1012,9 +1012,6 @@ class TelnyxClient(
         val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
 
-        Config.USERNAME = config.sipUser
-        Config.PASSWORD = config.sipPassword
-
         credentialSessionConfig = config
 
         isSocketDebug = config.debug
@@ -1180,9 +1177,6 @@ class TelnyxClient(
         val logLevel = config.logLevel
         val customLogger = config.customLogger
         autoReconnectLogin = config.autoReconnect
-
-        Config.USERNAME = config.sipUser
-        Config.PASSWORD = config.sipPassword
 
         credentialSessionConfig = config
 

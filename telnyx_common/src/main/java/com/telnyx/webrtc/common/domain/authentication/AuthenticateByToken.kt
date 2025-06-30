@@ -38,7 +38,8 @@ class AuthenticateByToken(private val context: Context) {
                 callerIdName = tokenConfig.sipCallerIDName,
                 callerIdNumber = tokenConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
-                fcmToken = tokenConfig.fcmToken
+                fcmToken = tokenConfig.fcmToken,
+                forceRelayCandidate = tokenConfig.forceRelayCandidate
             )
         )
 
