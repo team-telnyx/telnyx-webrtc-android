@@ -16,6 +16,7 @@ import com.telnyx.webrtc.sdk.model.Region
  * @param isDebug True if debug mode is enabled, false otherwise.
  * When this option is on it allows the SDK to collect WebRTC debug information.
  * That information is stored in the Telnyx customer portal
+ * @param forceRelayCandidate True to force TURN relay for peer connections to prevent local network access permission popup.
  */
 data class Profile(
     val sipUsername: String? = null,
@@ -26,7 +27,8 @@ data class Profile(
     var isUserLoggedIn: Boolean = false,
     var isDev: Boolean = false,
     var fcmToken: String? = null,
-    var region: Region = Region.AUTO
+    var region: Region = Region.AUTO,
+    var forceRelayCandidate: Boolean = false
 ) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false

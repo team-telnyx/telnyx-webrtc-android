@@ -78,6 +78,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipPass = passwordTextField.text.toString()
             val sipCallerIdName = callerIdNameTextField.text.toString()
             val sipCallerIdNumber = callerIdNumberTextField.text.toString()
+            val forceRelayCandidate = forceRelaySwitch.isChecked
 
             if (!validateProfile()) return
 
@@ -86,7 +87,8 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                 sipUsername = sipUser,
                 sipPass = sipPass,
                 callerIdName = sipCallerIdName,
-                callerIdNumber = sipCallerIdNumber
+                callerIdNumber = sipCallerIdNumber,
+                forceRelayCandidate = forceRelayCandidate
             )
             telnyxViewModel.addProfile(this@LoginBottomSheetFragment.requireContext(), newProfile)
             resetFields()
@@ -101,6 +103,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             passwordTextField.text?.clear()
             callerIdNameTextField.text?.clear()
             callerIdNumberTextField.text?.clear()
+            forceRelaySwitch.isChecked = false
         }
     }
 
@@ -146,6 +149,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                         passwordTextField.setText(profile.sipPass)
                         callerIdNameTextField.setText(profile.callerIdName)
                         callerIdNumberTextField.setText(profile.callerIdNumber)
+                        forceRelaySwitch.isChecked = profile.forceRelayCandidate
                     }
                 }
                 ProfileAction.SELECT_PROFILE -> {

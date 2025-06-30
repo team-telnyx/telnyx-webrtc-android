@@ -38,6 +38,7 @@ sealed class TelnyxConfig
  * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
+ * @property forceRelayCandidate whether to force TURN relay for peer connections to prevent local network access permission popup
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -53,7 +54,8 @@ data class CredentialConfig(
     val debug: Boolean = DEFAULT_DEBUG,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
-    val fallbackOnRegionFailure: Boolean = true
+    val fallbackOnRegionFailure: Boolean = true,
+    val forceRelayCandidate: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
@@ -76,6 +78,7 @@ data class CredentialConfig(
  * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
+ * @property forceRelayCandidate whether to force TURN relay for peer connections to prevent local network access permission popup
  */
 data class TokenConfig(
     val sipToken: String,
@@ -90,7 +93,8 @@ data class TokenConfig(
     val debug: Boolean = DEFAULT_DEBUG,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
-    val fallbackOnRegionFailure: Boolean = true
+    val fallbackOnRegionFailure: Boolean = true,
+    val forceRelayCandidate: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false

@@ -372,7 +372,8 @@ class TelnyxClient(
                 providedTurn,
                 providedStun,
                 inviteCallId,
-                prefetchIceCandidates
+                prefetchIceCandidates,
+                getForceRelayCandidate()
             ) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
@@ -1989,7 +1990,8 @@ class TelnyxClient(
                     providedTurn,
                     providedStun,
                     offerCallId,
-                    prefetchIceCandidates
+                    prefetchIceCandidates,
+                    getForceRelayCandidate()
                 ) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
@@ -2171,7 +2173,8 @@ class TelnyxClient(
                 providedTurn,
                 providedStun,
                 offerCallId,
-                prefetchIceCandidates
+                prefetchIceCandidates,
+                getForceRelayCandidate()
             ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
@@ -2248,6 +2251,15 @@ class TelnyxClient(
         resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
+    }
+
+    /**
+     * Gets the forceRelayCandidate setting from the current session config
+     */
+    private fun getForceRelayCandidate(): Boolean {
+        return credentialSessionConfig?.forceRelayCandidate 
+            ?: tokenSessionConfig?.forceRelayCandidate 
+            ?: false
     }
 
     /**

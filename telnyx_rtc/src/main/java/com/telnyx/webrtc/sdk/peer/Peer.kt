@@ -44,6 +44,7 @@ internal class Peer(
     private val providedStun: String = DEFAULT_STUN,
     private val callId: UUID,
     private val prefetchIceCandidate: Boolean = false,
+    private val forceRelayCandidate: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
 
@@ -264,6 +265,11 @@ internal class Peer(
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             iceCandidatePoolSize = getIceCandidatePool()
+            
+            // Control local network access for ICE candidate gathering
+            if (forceRelayCandidate) {
+                iceTransportsType = PeerConnection.IceTransportsType.RELAY
+            }
         }
 
         return peerConnectionFactory.createPeerConnection(config, observer)
