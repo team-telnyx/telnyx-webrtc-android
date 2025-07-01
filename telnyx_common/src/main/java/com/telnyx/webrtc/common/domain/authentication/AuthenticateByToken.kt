@@ -9,6 +9,7 @@ import com.telnyx.webrtc.sdk.TokenConfig
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * This class handles the authentication process using a token.
@@ -17,6 +18,43 @@ import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
  */
 class AuthenticateByToken(private val context: Context) {
 
+    /**
+     * Authenticates using token and returns a SharedFlow (recommended)
+     */
+    fun invokeFlow(
+        serverConfig: TxServerConfiguration = TxServerConfiguration(),
+        tokenConfig: TokenConfig,
+        txPushMetaData: String? = null,
+        autoLogin: Boolean = true
+    ): SharedFlow<SocketResponse<ReceivedMessageBody>> {
+        val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
+
+        telnyxClient.connect(
+            serverConfig,
+            tokenConfig,
+            txPushMetaData,
+            autoLogin
+        )
+
+        ProfileManager.saveProfile(
+            context, Profile(
+                sipToken = tokenConfig.sipToken,
+                callerIdName = tokenConfig.sipCallerIDName,
+                callerIdNumber = tokenConfig.sipCallerIDNumber,
+                isUserLoggedIn = true,
+                fcmToken = tokenConfig.fcmToken,
+                forceRelayCandidate = tokenConfig.forceRelayCandidate
+            )
+        )
+
+        return telnyxClient.getSocketResponseFlow()
+    }
+
+    /**
+     * Authenticates using token and returns LiveData (deprecated)
+     * @deprecated Use invokeFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use invokeFlow() instead. LiveData is deprecated in favor of Kotlin Flows.")
     operator fun invoke(
         serverConfig: TxServerConfiguration = TxServerConfiguration(),
         tokenConfig: TokenConfig,
