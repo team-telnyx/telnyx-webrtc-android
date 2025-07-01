@@ -394,12 +394,12 @@ class TelnyxViewModel : ViewModel() {
                 fcmToken = getFCMToken()
             }
 
-            AuthenticateBySIPCredentials(context = viewContext).invoke(
+            AuthenticateBySIPCredentials(context = viewContext).invokeFlow(
                 serverConfiguration,
                 profile.toCredentialConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
-            ).asFlow().collectLatest { response ->
+            ).collectLatest { response ->
                 Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
@@ -536,12 +536,12 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob = null
 
         userSessionJob = viewModelScope.launch {
-            AuthenticateByToken(context = viewContext).invoke(
+            AuthenticateByToken(context = viewContext).invokeFlow(
                 serverConfiguration,
                 profile.toTokenConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
-            ).asFlow().collectLatest { response ->
+            ).collectLatest { response ->
                 Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }

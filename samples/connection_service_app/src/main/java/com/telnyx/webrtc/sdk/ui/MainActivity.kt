@@ -53,7 +53,11 @@ import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
+import com.telnyx.webrtc.sdk.verto.receive.SocketFlowObserver
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import timber.log.Timber
 import java.io.IOException
 import java.util.*
@@ -259,7 +263,10 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
-        observeSocketResponses()
+        // Use the new Flow-based approach (recommended)
+        observeSocketResponsesFlow()
+        // Keep the old approach for backward compatibility
+        // observeSocketResponses()
         if (!isDev) {
             mainViewModel.initConnection(
                 null,
@@ -373,6 +380,94 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    /**
+     * Observes socket responses using SharedFlow (recommended approach)
+     */
+    private fun observeSocketResponsesFlow() {
+        lifecycleScope.launch {
+            mainViewModel.getSocketResponseFlow().collectLatest { response ->
+                val observer = object : SocketFlowObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        Timber.d("Connection Established")
+
+                        runOnUiThread {
+                            socketTextValue.text = getString(R.string.connected)
+                            callStateTextValue.text = "-"
+                        }
+                    }
+
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("Message received : $data")
+                        data?.let { receivedMessage ->
+                            when (receivedMessage.method) {
+                                SocketMethod.LOGIN -> {
+                                    val loginResponse = receivedMessage as LoginResponse
+                                    Timber.d("Login response: $loginResponse")
+                                    runOnUiThread {
+                                        socketTextValue.text = getString(R.string.logged_in)
+                                        callStateTextValue.text = "-"
+                                    }
+                                }
+
+                                SocketMethod.INVITE -> {
+                                    val inviteResponse = receivedMessage as InviteResponse
+                                    Timber.d("Invite response: $inviteResponse")
+                                    runOnUiThread {
+                                        callStateTextValue.text = getString(R.string.ringing)
+                                    }
+                                }
+
+                                SocketMethod.ANSWER -> {
+                                    Timber.d("Call answered")
+                                    runOnUiThread {
+                                        callStateTextValue.text = getString(R.string.active)
+                                    }
+                                }
+
+                                SocketMethod.BYE -> {
+                                    val byeResponse = receivedMessage as ByeResponse
+                                    Timber.d("Bye response: $byeResponse")
+                                    runOnUiThread {
+                                        callStateTextValue.text = getString(R.string.ended)
+                                    }
+                                }
+
+                                else -> {
+                                    Timber.d("Unknown method: ${receivedMessage.method}")
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onLoading() {
+                        Timber.d("Loading")
+                        runOnUiThread {
+                            socketTextValue.text = getString(R.string.connecting)
+                            callStateTextValue.text = "-"
+                        }
+                    }
+
+                    override fun onError(errorCode: Int?, message: String?) {
+                        Timber.e("Error: $errorCode - $message")
+                        runOnUiThread {
+                            socketTextValue.text = getString(R.string.error)
+                            callStateTextValue.text = "-"
+                        }
+                    }
+
+                    override fun onSocketDisconnect() {
+                        Timber.d("Socket disconnected")
+                        runOnUiThread {
+                            socketTextValue.text = getString(R.string.disconnected)
+                            callStateTextValue.text = "-"
+                        }
+                    }
+                }
+                observer.handleResponse(response)
+            }
+        }
     }
 
     private fun observeWsMessage() {

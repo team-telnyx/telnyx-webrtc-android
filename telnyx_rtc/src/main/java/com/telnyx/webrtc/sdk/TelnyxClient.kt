@@ -33,6 +33,9 @@ import com.telnyx.webrtc.sdk.utilities.TxLogger
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
@@ -132,11 +135,37 @@ class TelnyxClient(
     private var mediaPlayer: MediaPlayer? = null
 
     var sessid: String // sessid used to recover calls when reconnecting
+    
+    // SharedFlow for socket responses (replaces LiveData)
+    private val _socketResponseFlow = MutableSharedFlow<SocketResponse<ReceivedMessageBody>>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+    val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>> = _socketResponseFlow.asSharedFlow()
+    
+    // Deprecated LiveData - kept for backward compatibility
+    @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     lateinit var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
+    
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
+    
+    // Coroutine scope for the client
+    private val clientScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
+
+    /**
+     * Helper function to emit socket response to both SharedFlow and deprecated LiveData
+     * for backward compatibility during the migration period.
+     */
+    private fun emitSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
+        // Emit to SharedFlow (new approach)
+        _socketResponseFlow.tryEmit(response)
+        
+        // Emit to LiveData (deprecated, for backward compatibility)
+        socketResponseLiveData.postValue(response)
+    }
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
@@ -460,7 +489,7 @@ class TelnyxClient(
                 // sipCode and sipReason are null here
             )
             // send bye message to the UI
-            client.socketResponseLiveData.postValue(
+            client.emitSocketResponse(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.BYE.methodName,
@@ -534,7 +563,7 @@ class TelnyxClient(
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
 
-                    socketResponseLiveData.postValue(
+                    emitSocketResponse(
                         SocketResponse.error(
                             "No Network Connection",
                             null
@@ -619,8 +648,13 @@ class TelnyxClient(
         // Generate random UUID for sessid param, convert it to string and set globally
         sessid = UUID.randomUUID().toString()
 
+        // Initialize deprecated LiveData for backward compatibility
         socketResponseLiveData =
             MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+        
+        // Initialize both SharedFlow and LiveData with initial state
+        emitSocketResponse(SocketResponse.initialised())
+        
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
@@ -677,7 +711,7 @@ class TelnyxClient(
         txPushMetaData: String? = null,
     ) {
 
-        socketResponseLiveData.postValue(SocketResponse.initialised())
+        emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -704,7 +738,7 @@ class TelnyxClient(
 
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+            emitSocketResponse(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -730,7 +764,7 @@ class TelnyxClient(
         autoLogin: Boolean = true,
     ) {
         isSocketDebug = credentialConfig.debug
-        socketResponseLiveData.postValue(SocketResponse.initialised())
+        emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -784,7 +818,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+            emitSocketResponse(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -809,7 +843,7 @@ class TelnyxClient(
         autoLogin: Boolean = true,
     ) {
         isSocketDebug = tokenConfig.debug
-        socketResponseLiveData.postValue(SocketResponse.initialised())
+        emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -863,7 +897,7 @@ class TelnyxClient(
 
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+            emitSocketResponse(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -880,7 +914,7 @@ class TelnyxClient(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
-        socketResponseLiveData.postValue(SocketResponse.initialised())
+        emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
@@ -926,7 +960,7 @@ class TelnyxClient(
                 }
             }
         } else {
-            socketResponseLiveData.postValue(SocketResponse.error("No Network Connection", null))
+            emitSocketResponse(SocketResponse.error("No Network Connection", null))
         }
     }
 
@@ -973,11 +1007,21 @@ class TelnyxClient(
     }
 
     /**
-     * Returns the socket response in the form of LiveData
+     * Returns the socket response in the form of SharedFlow (recommended)
      * The format of each message is provided in SocketResponse and ReceivedMessageBody
      * @see [SocketResponse]
      * @see [ReceivedMessageBody]
      */
+    fun getSocketResponseFlow(): SharedFlow<SocketResponse<ReceivedMessageBody>> = socketResponseFlow
+
+    /**
+     * Returns the socket response in the form of LiveData (deprecated)
+     * The format of each message is provided in SocketResponse and ReceivedMessageBody
+     * @see [SocketResponse]
+     * @see [ReceivedMessageBody]
+     * @deprecated Use getSocketResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use getSocketResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.")
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 
     /**
@@ -1470,7 +1514,7 @@ class TelnyxClient(
             )
         )
         sessid = receivedLoginSessionId
-        socketResponseLiveData.postValue(
+        emitSocketResponse(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.LOGIN.methodName,
@@ -1488,7 +1532,7 @@ class TelnyxClient(
         }
 
         CoroutineScope(Dispatchers.Main).launch {
-            socketResponseLiveData.postValue(
+            emitSocketResponse(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.CLIENT_READY.methodName,
@@ -1533,7 +1577,7 @@ class TelnyxClient(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            socketResponseLiveData.postValue(
+                            emitSocketResponse(
                                 SocketResponse.error(
                                     "Gateway registration has timed out",
                                     SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
@@ -1552,7 +1596,7 @@ class TelnyxClient(
                 )
             )
 
-            socketResponseLiveData.postValue(
+            emitSocketResponse(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.CLIENT_READY.methodName,
@@ -1580,7 +1624,7 @@ class TelnyxClient(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(
+                emitSocketResponse(
                     SocketResponse.error(
                         "Gateway registration has timed out",
                         SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
@@ -1590,7 +1634,7 @@ class TelnyxClient(
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(
+                emitSocketResponse(
                     SocketResponse.error(
                         "Gateway registration has failed",
                         SocketError.GATEWAY_FAILURE_ERROR.errorCode
@@ -1610,7 +1654,7 @@ class TelnyxClient(
                     runBlocking { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
-                    socketResponseLiveData.postValue(
+                    emitSocketResponse(
                         SocketResponse.error(
                             "Gateway registration has received fail wait response",
                             SocketError.GATEWAY_FAILURE_ERROR.errorCode
@@ -1621,7 +1665,7 @@ class TelnyxClient(
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(
+                emitSocketResponse(
                     SocketResponse.error(
                         "Gateway registration has timed out",
                         SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
@@ -1647,7 +1691,7 @@ class TelnyxClient(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                socketResponseLiveData.postValue(
+                emitSocketResponse(
                     SocketResponse.error(
                         "Gateway registration has failed with an unknown error",
                         null
@@ -1691,7 +1735,7 @@ class TelnyxClient(
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
                     }
-                    socketResponseLiveData.postValue(
+                    emitSocketResponse(
                         SocketResponse.error(
                             "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds",
                             null
@@ -1725,7 +1769,7 @@ class TelnyxClient(
                 this@TelnyxClient.javaClass.simpleName
             )
         )
-        socketResponseLiveData.postValue(SocketResponse.established())
+        emitSocketResponse(SocketResponse.established())
 
     }
 
@@ -1733,12 +1777,12 @@ class TelnyxClient(
         val id = jsonObject.get("id").asString
         if (errorCode == null && attachCallId == id) {
             Logger.d(message = "Call Failed Error Received")
-            socketResponseLiveData.postValue(SocketResponse.error("Call Failed", null))
+            emitSocketResponse(SocketResponse.error("Call Failed", null))
             return
         }
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
-        socketResponseLiveData.postValue(SocketResponse.error(errorMessage, errorCode))
+        emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
@@ -1784,7 +1828,7 @@ class TelnyxClient(
                     sipReason = sipReason
                 )
 
-                client.socketResponseLiveData.postValue(
+                client.emitSocketResponse(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.BYE.methodName,
@@ -1835,7 +1879,7 @@ class TelnyxClient(
                         customHeaders?.toCustomHeaders() ?: arrayListOf()
                     )
                     this.answerResponse = answerResponse
-                    client.socketResponseLiveData.postValue(
+                    client.emitSocketResponse(
                         SocketResponse.messageReceived(
                             ReceivedMessageBody(
                                 SocketMethod.ANSWER.methodName,
@@ -1854,7 +1898,7 @@ class TelnyxClient(
                         customHeaders?.toCustomHeaders() ?: arrayListOf()
                     )
                     this.answerResponse = answerResponse
-                    client.socketResponseLiveData.postValue(
+                    client.emitSocketResponse(
                         SocketResponse.messageReceived(
                             ReceivedMessageBody(
                                 SocketMethod.ANSWER.methodName,
@@ -1908,7 +1952,7 @@ class TelnyxClient(
                     callerNumber,
                     sessionId,
                 )
-                client.socketResponseLiveData.postValue(
+                client.emitSocketResponse(
                     SocketResponse.messageReceived(
                         ReceivedMessageBody(
                             SocketMethod.MEDIA.methodName,
@@ -2030,7 +2074,7 @@ class TelnyxClient(
             }
             offerCall.client.playRingtone()
             addToCalls(offerCall)
-            offerCall.client.socketResponseLiveData.postValue(
+            offerCall.client.emitSocketResponse(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.INVITE.methodName,
@@ -2086,7 +2130,7 @@ class TelnyxClient(
                 sessionId,
                 customHeaders?.toCustomHeaders() ?: arrayListOf()
             )
-            client.socketResponseLiveData.postValue(
+            client.emitSocketResponse(
                 SocketResponse.messageReceived(
                     ReceivedMessageBody(
                         SocketMethod.RINGING.methodName,
@@ -2116,7 +2160,7 @@ class TelnyxClient(
             errorMessage.contains(DisablePushResponse.SUCCESS_KEY),
             errorMessage
         )
-        socketResponseLiveData.postValue(
+        emitSocketResponse(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
                     SocketMethod.RINGING.methodName,
@@ -2230,7 +2274,7 @@ class TelnyxClient(
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        socketResponseLiveData.postValue(errorMessage?.let { SocketResponse.error(it) })
+        emitSocketResponse(errorMessage?.let { SocketResponse.error(it) })
     }
 
     /**
@@ -2240,7 +2284,7 @@ class TelnyxClient(
      * @see [TxSocket]
      */
     override fun onDisconnect() {
-        socketResponseLiveData.postValue(SocketResponse.disconnect())
+        emitSocketResponse(SocketResponse.disconnect())
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
