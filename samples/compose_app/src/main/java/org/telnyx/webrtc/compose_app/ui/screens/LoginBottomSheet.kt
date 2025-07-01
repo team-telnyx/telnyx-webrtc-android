@@ -61,6 +61,7 @@ fun CredentialTokenView(
     var sipPassword by remember { mutableStateOf(profile?.sipPass ?: "") }
     var callerIdName by remember { mutableStateOf(profile?.callerIdName ?: "") }
     var callerIdNumber by remember { mutableStateOf(profile?.callerIdNumber ?: "") }
+    var forceRelayCandidate by remember { mutableStateOf(profile?.forceRelayCandidate ?: false) }
 
 
     Column(
@@ -133,6 +134,24 @@ fun CredentialTokenView(
             callerIdNumber = value
         }
 
+        // Force Relay Candidate Switch
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Dimens.spacing8dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Force TURN Relay",
+                fontWeight = FontWeight.Medium
+            )
+            Switch(
+                checked = forceRelayCandidate,
+                onCheckedChange = { forceRelayCandidate = it }
+            )
+        }
+
         Spacer(modifier = Modifier.height(Dimens.spacing8dp))
 
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -153,7 +172,8 @@ fun CredentialTokenView(
                                 sipPass = sipPassword,
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
-                                isUserLoggedIn = true
+                                isUserLoggedIn = true,
+                                forceRelayCandidate = forceRelayCandidate
                             ),
                         )
                     } else {
@@ -167,7 +187,8 @@ fun CredentialTokenView(
                                 sipToken = sipToken.trim(),
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
-                                isUserLoggedIn = true
+                                isUserLoggedIn = true,
+                                forceRelayCandidate = forceRelayCandidate
                             )
                         )
                     }
