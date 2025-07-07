@@ -141,16 +141,19 @@ class TelnyxClient(
         replay = 1,
         extraBufferCapacity = 64
     )
+    /**
+     * Returns the socket response in the form of SharedFlow (recommended)
+     * The format of each message is provided in SocketResponse and ReceivedMessageBody
+     * @see [SocketResponse]
+     * @see [ReceivedMessageBody]
+     */
     val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>> = _socketResponseFlow.asSharedFlow()
-    
+
     // Deprecated LiveData - kept for backward compatibility
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
-    lateinit var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
+    var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
     
     val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
-    
-    // Coroutine scope for the client
-    private val clientScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
@@ -1005,14 +1008,6 @@ class TelnyxClient(
             }
         }
     }
-
-    /**
-     * Returns the socket response in the form of SharedFlow (recommended)
-     * The format of each message is provided in SocketResponse and ReceivedMessageBody
-     * @see [SocketResponse]
-     * @see [ReceivedMessageBody]
-     */
-    fun getSocketResponseFlow(): SharedFlow<SocketResponse<ReceivedMessageBody>> = socketResponseFlow
 
     /**
      * Returns the socket response in the form of LiveData (deprecated)
@@ -2274,7 +2269,7 @@ class TelnyxClient(
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        emitSocketResponse(errorMessage?.let { SocketResponse.error(it) })
+        errorMessage?.let { emitSocketResponse(SocketResponse.error(it)) }
     }
 
     /**

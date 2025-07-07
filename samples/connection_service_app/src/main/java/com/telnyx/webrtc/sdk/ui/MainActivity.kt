@@ -392,77 +392,91 @@ class MainActivity : AppCompatActivity() {
                     override fun onConnectionEstablished() {
                         Timber.d("Connection Established")
 
-                        runOnUiThread {
-                            socketTextValue.text = getString(R.string.connected)
-                            callStateTextValue.text = "-"
-                        }
                     }
 
                     override fun onMessageReceived(data: ReceivedMessageBody?) {
-                        Timber.d("Message received : $data")
-                        data?.let { receivedMessage ->
-                            when (receivedMessage.method) {
-                                SocketMethod.LOGIN -> {
-                                    val loginResponse = receivedMessage as LoginResponse
-                                    Timber.d("Login response: $loginResponse")
-                                    runOnUiThread {
-                                        socketTextValue.text = getString(R.string.logged_in)
-                                        callStateTextValue.text = "-"
-                                    }
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                        when (data?.method) {
+                            SocketMethod.CLIENT_READY.methodName -> {
+                                Timber.d("You are ready to make calls.")
+
+                            }
+
+                            SocketMethod.LOGIN.methodName -> {
+                                binding.progressIndicatorId.visibility = View.INVISIBLE
+                                val sessionId = (data.result as LoginResponse).sessid
+                                Timber.d("Current Session: $sessionId")
+                                onLoginSuccessfullyViews()
+                            }
+
+                            SocketMethod.INVITE.methodName -> {
+                                val inviteResponse = data.result as InviteResponse
+                                showIncomingCall(
+                                    inviteResponse.callerIdName,
+                                    inviteResponse.callerIdNumber,
+                                    inviteResponse.callId
+                                )
+                            }
+
+                            SocketMethod.ANSWER.methodName -> {
+                                binding.apply {
+                                    callControlSectionId.callButtonId.visibility =
+                                        View.VISIBLE
+                                    callControlSectionId.cancelCallButtonId.visibility =
+                                        View.GONE
                                 }
 
-                                SocketMethod.INVITE -> {
-                                    val inviteResponse = receivedMessage as InviteResponse
-                                    Timber.d("Invite response: $inviteResponse")
-                                    runOnUiThread {
-                                        callStateTextValue.text = getString(R.string.ringing)
-                                    }
-                                }
+                                invitationSent = false
+                            }
 
-                                SocketMethod.ANSWER -> {
-                                    Timber.d("Call answered")
-                                    runOnUiThread {
-                                        callStateTextValue.text = getString(R.string.active)
-                                    }
-                                }
+                            SocketMethod.RINGING.methodName -> {
+                                // Client Can simulate ringing state
+                            }
 
-                                SocketMethod.BYE -> {
-                                    val byeResponse = receivedMessage as ByeResponse
-                                    Timber.d("Bye response: $byeResponse")
-                                    runOnUiThread {
-                                        callStateTextValue.text = getString(R.string.ended)
-                                    }
-                                }
+                            SocketMethod.MEDIA.methodName -> {
+                                // Ringback tone is streamed to the caller
+                                // early Media -  Client Can simulate ringing state
+                            }
 
-                                else -> {
-                                    Timber.d("Unknown method: ${receivedMessage.method}")
-                                }
+                            SocketMethod.BYE.methodName -> {
+                                onByeReceivedViews()
+                                val callId = (data.result as ByeResponse).callId
+                                mainViewModel.onByeReceived(callId)
                             }
                         }
                     }
 
                     override fun onLoading() {
-                        Timber.d("Loading")
-                        runOnUiThread {
-                            socketTextValue.text = getString(R.string.connecting)
-                            callStateTextValue.text = "-"
-                        }
+                        Timber.i("Loading...")
                     }
 
                     override fun onError(errorCode: Int?, message: String?) {
-                        Timber.e("Error: $errorCode - $message")
-                        runOnUiThread {
-                            socketTextValue.text = getString(R.string.error)
-                            callStateTextValue.text = "-"
-                        }
+                        Timber.e("onError: errorCode=%s, message=%s", errorCode, message)
+                        Toast.makeText(
+                            this@MainActivity,
+                            message ?: "Socket Connection Error",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
 
                     override fun onSocketDisconnect() {
-                        Timber.d("Socket disconnected")
-                        runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Socket is disconnected",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        binding.apply {
+                            progressIndicatorId.visibility = View.INVISIBLE
+                            incomingCallView.visibility = View.GONE
+                            callControlView.visibility = View.GONE
+                            loginSectionView.visibility = View.VISIBLE
+
                             socketTextValue.text = getString(R.string.disconnected)
                             callStateTextValue.text = "-"
                         }
+
+
                     }
                 }
                 observer.handleResponse(response)

@@ -80,7 +80,7 @@ class MainViewModel @Inject constructor(
      * Returns the socket response as SharedFlow (recommended)
      */
     fun getSocketResponseFlow(): SharedFlow<SocketResponse<ReceivedMessageBody>> =
-        telnyxClient.getSocketResponseFlow()
+        telnyxClient.socketResponseFlow
 
     /**
      * Returns the socket response as LiveData (deprecated)

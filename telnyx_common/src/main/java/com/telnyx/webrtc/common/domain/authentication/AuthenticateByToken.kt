@@ -20,6 +20,13 @@ class AuthenticateByToken(private val context: Context) {
 
     /**
      * Authenticates using token and returns a SharedFlow (recommended)
+     *
+     * @param serverConfig The configuration for the server.
+     * @param tokenConfig The configuration for the token.
+     * @param txPushMetaData Metadata associated with the push notification.
+     * @param autoLogin Whether to automatically log in the user.
+     *
+     * @return A SharedFlow emitting the socket response.
      */
     fun invokeFlow(
         serverConfig: TxServerConfiguration = TxServerConfiguration(),
@@ -47,7 +54,7 @@ class AuthenticateByToken(private val context: Context) {
             )
         )
 
-        return telnyxClient.getSocketResponseFlow()
+        return telnyxClient.socketResponseFlow
     }
 
     /**

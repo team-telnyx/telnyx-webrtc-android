@@ -427,14 +427,14 @@ class TelnyxViewModel : ViewModel() {
 
         userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
-                .invoke(
+                .invokeFlow(
                     txPushMetaData,
                     mapOf(Pair("X-test", "123456")),
                     debug
                 ) { answeredCall ->
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
-                .asFlow().collectLatest { response ->
+                .collectLatest { response ->
                     Timber.d("Answering income push response: $response")
                     handleSocketResponse(response)
                 }

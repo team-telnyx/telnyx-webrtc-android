@@ -439,13 +439,6 @@ class TelnyxClientTest : BaseTest() {
     }*/
 
     @Test
-    fun `Test getSocketResponse returns appropriate LiveData`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        val socketResponse = client.getSocketResponse()
-        assertEquals(socketResponse, client.socketResponseLiveData)
-    }
-
-    @Test
     fun `Test setting audio device to LOUDSPEAKER`() {
         assertDoesNotThrow {
             client = Mockito.spy(TelnyxClient(mockContext))

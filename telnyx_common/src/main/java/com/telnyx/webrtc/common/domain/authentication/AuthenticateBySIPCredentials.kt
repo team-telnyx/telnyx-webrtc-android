@@ -20,6 +20,13 @@ class AuthenticateBySIPCredentials(private val context: Context) {
 
     /**
      * Authenticates using SIP credentials and returns a SharedFlow (recommended)
+     *
+     * @param serverConfig The configuration for the server.
+     * @param credentialConfig The configuration for the SIP credentials.
+     * @param txPushMetaData Metadata associated with the push notification.
+     * @param autoLogin Whether to automatically log in the user.
+     *
+     * @return A SharedFlow emitting the socket response.
      */
     fun invokeFlow(
         serverConfig: TxServerConfiguration = TxServerConfiguration(),
@@ -49,7 +56,7 @@ class AuthenticateBySIPCredentials(private val context: Context) {
             )
         )
 
-        return telnyxClient.getSocketResponseFlow()
+        return telnyxClient.socketResponseFlow
     }
 
     /**

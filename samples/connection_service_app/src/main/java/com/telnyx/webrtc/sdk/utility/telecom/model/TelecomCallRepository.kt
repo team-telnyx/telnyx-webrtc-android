@@ -11,10 +11,13 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.utility.telecom.call.TelecomCallManager
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -41,8 +44,10 @@ class TelecomCallRepository @Inject constructor(
     val currentCall = _currentCall.asStateFlow()
 
     init {
-        telnyxCallManager.getSocketResponse().observeForever { response ->
-            handleSocketResponse(response)
+        CoroutineScope(Dispatchers.Main).launch {
+            telnyxCallManager.getSocketResponse().collectLatest { response ->
+                handleSocketResponse(response)
+            }
         }
     }
 
