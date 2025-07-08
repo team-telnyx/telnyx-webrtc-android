@@ -6,7 +6,7 @@ This section provides a reference for the various error conditions and call stat
 
 ### 1. Socket-Level Errors (via `SocketResponse`)
 
-These errors are typically reported through the `TelnyxClient.socketResponseLiveData` when `SocketResponse.status` is `SocketStatus.ERROR`. The `SocketResponse` for errors now includes an optional `errorCode: Int?` field in addition to the `errorMessage: String?`.
+These errors are typically reported through the `TelnyxClient.socketResponseFlow` (recommended) or the deprecated `TelnyxClient.socketResponseLiveData` when `SocketResponse.status` is `SocketStatus.ERROR`. The `SocketResponse` for errors now includes an optional `errorCode: Int?` field in addition to the `errorMessage: String?`.
 
 *   **Gateway Registration Issues**:
     *   `errorMessage`: "Gateway registration has timed out", `errorCode`: -32003 (Triggered if gateway status is not "REGED" e.g., `GatewayState.NOREG`, or `GatewayState.EXPIRED`).
@@ -42,11 +42,11 @@ Individual `Call` objects emit their state changes through `callStateFlow`. Seve
 *   **`CallState.ERROR`**:
     *   A general error occurred related to this specific call (e.g., failure to create offer/answer, media negotiation issues). This state itself does not carry a detailed reason object; specific error details might be logged internally or manifest as a transition to `CallState.DONE` with a reason.
 
-### 3. Enriched `ByeResponse` Details (via `socketResponseLiveData`)
+### 3. Enriched `ByeResponse` Details (via `socketResponseFlow`)
 
 When a call is terminated by the remote party, a `BYE` message is received. The `TxSocketListener.onByeReceived(jsonObject: JsonObject)` method is triggered, and `TelnyxClient` processes this.
 
-*   The `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` object, which is delivered as the `result` within `ReceivedMessageBody` (when `method` is `SocketMethod.BYE.methodName`) via `socketResponseLiveData`, is now enriched.
+*   The `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` object, which is delivered as the `result` within `ReceivedMessageBody` (when `method` is `SocketMethod.BYE.methodName`) via `socketResponseFlow` (recommended) or the deprecated `socketResponseLiveData`, is now enriched.
 *   It contains the same detailed termination fields as `CallTerminationReason`: `callId`, `cause`, `causeCode`, `sipCode`, and `sipReason`.
 
 ### 4. Error/Cause Code Reference Table
@@ -78,18 +78,71 @@ More SIP codes and their meanings can be found in the [Telnyx SIP Response Codes
 
 This section explains how to effectively use the error and state information provided by the SDK.
 
-### Observing `socketResponseLiveData` (for General SDK Events & Errors)
+### Observing Socket Responses (for General SDK Events & Errors)
 
-`TelnyxClient.socketResponseLiveData` is the primary channel for general SDK events, including connection status, errors (now with `errorCode`), and messages like incoming `BYE`.
+**Recommended approach using SharedFlow:**
+
+`TelnyxClient.socketResponseFlow` is the recommended channel for general SDK events, including connection status, errors (now with `errorCode`), and messages like incoming `BYE`.
 
 ```kotlin
+// In your Activity or ViewModel
+lifecycleScope.launch {
+    telnyxClient.socketResponseFlow.collect { response ->
+        when (response.status) {
+            SocketStatus.ERROR -> {
+                Log.e("TelnyxSDK", "General SDK Error: ${response.errorMessage}, Code: ${response.errorCode}")
+                // Handle specific error codes
+                when (response.errorCode) {
+                    -32003 -> {
+                        // Gateway registration timeout
+                        showUserMessage("Connection timeout. Please check your credentials and try again.")
+                    }
+                    -32004 -> {
+                        // Gateway registration failed
+                        showUserMessage("Login failed. Please verify your credentials.")
+                    }
+                    // Handle other error codes...
+                }
+            }
+            SocketStatus.MESSAGERECEIVED -> {
+                response.data?.let { data ->
+                    when (data.method) {
+                        SocketMethod.BYE.methodName -> {
+                            val byeResponse = data.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+                            Log.d("TelnyxSDK", "Call ${byeResponse.callId} ended by remote party. Cause: ${byeResponse.cause}, SIP Code: ${byeResponse.sipCode}")
+                            // Update UI to reflect call termination
+                        }
+                        // Handle other message types...
+                    }
+                }
+            }
+            // Handle other statuses...
+        }
+    }
+}
+```
+
+**Deprecated approach using LiveData:**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
 // In your Activity or ViewModel
 telnyxClient.socketResponseLiveData.observe(this, Observer { response ->
     when (response.status) {
         SocketStatus.ERROR -> {
             Log.e("TelnyxSDK", "General SDK Error: ${response.errorMessage}, Code: ${response.errorCode}")
-            // Example: if (response.errorCode == -32003) { /* Handle Gateway Timeout */ }
-            // Handle gateway registration issues, WebSocket errors, no network on connect, etc.
+            // Handle specific error codes
+            when (response.errorCode) {
+                -32003 -> {
+                    // Gateway registration timeout
+                    showUserMessage("Connection timeout. Please check your credentials and try again.")
+                }
+                -32004 -> {
+                    // Gateway registration failed
+                    showUserMessage("Login failed. Please verify your credentials.")
+                }
+                // Handle other error codes...
+            }
         }
         SocketStatus.MESSAGERECEIVED -> {
             response.data?.let { receivedMessageBody ->
@@ -153,7 +206,7 @@ myCall.callStateFlow.collect { state ->
 
 ## Best Practices for Error and State Handling
 
-1.  **Observe Both Channels**: Use `socketResponseLiveData` for global SDK status/errors (including `errorCode`) and `call.callStateFlow` for individual call lifecycle management.
+1.  **Observe Both Channels**: Use `socketResponseFlow` (recommended) or the deprecated `socketResponseLiveData` for global SDK status/errors (including `errorCode`) and `call.callStateFlow` for individual call lifecycle management.
 2.  **Log Extensively**: During development, log error messages (with codes), call states, and reasons to aid in debugging.
 3.  **Provide Clear User Feedback**: Translate technical error codes and states into user-understandable messages.
     *   Use `SocketResponse.errorCode` to distinguish specific socket/gateway errors.

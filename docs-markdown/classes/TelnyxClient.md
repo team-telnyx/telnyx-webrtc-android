@@ -6,7 +6,7 @@
 - **Authentication**: Supports authentication via SIP credentials or tokens.
 - **Call Control**: Provides methods to initiate (`newInvite`), accept (`acceptCall`), and end (`endCall`) calls.
 - **Event Handling**: Uses `TxSocketListener` to process events from the socket, such as incoming calls (`onOfferReceived`), call answers (`onAnswerReceived`), call termination (`onByeReceived`), and errors (`onErrorReceived`).
-- **State Exposure**: Exposes connection status, session information, and call events via `LiveData` (e.g., `socketResponseLiveData`) for UI consumption.
+- **State Exposure**: Exposes connection status, session information, and call events via `SharedFlow` (recommended: `socketResponseFlow`) and deprecated `LiveData` (e.g., `socketResponseLiveData`) for UI consumption.
 
 ## Key Components and Interactions
 
@@ -20,14 +20,51 @@
     - `onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)`: Provides updates on the registration status with the Telnyx gateway.
 - **`Call` Class**: Represents individual call sessions. `TelnyxClient` creates and manages instances of `Call`.
 - **`CallState`**: The client updates the `CallState` of individual `Call` objects based on socket events and network conditions. This includes states like `DROPPED(reason: CallNetworkChangeReason)`, `RECONNECTING(reason: CallNetworkChangeReason)`, and `DONE(reason: CallTerminationReason?)` which now provide more context.
-- **`socketResponseLiveData: LiveData<SocketResponse<ReceivedMessageBody>>`**: This LiveData stream is crucial for applications. It emits `SocketResponse` objects that wrap messages received from the Telnyx platform. For `BYE` messages, the `ReceivedMessageBody` will contain a `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` which is now enriched with termination cause details.
+- **`socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>>`**: This SharedFlow stream is the recommended approach for applications. It emits `SocketResponse` objects that wrap messages received from the Telnyx platform. For `BYE` messages, the `ReceivedMessageBody` will contain a `com.telnyx.webrtc.sdk.verto.receive.ByeResponse` which is now enriched with termination cause details.
+- **`socketResponseLiveData: LiveData<SocketResponse<ReceivedMessageBody>>`**: **[DEPRECATED]** This LiveData stream is deprecated in favor of `socketResponseFlow`. It's maintained for backward compatibility but new implementations should use SharedFlow.
 
 ## Usage Example
+
+**Recommended approach using SharedFlow:**
 
 ```kotlin
 // Initializing the client
 val telnyxClient = TelnyxClient(context)
 
+// Observing responses using SharedFlow (Recommended)
+lifecycleScope.launch {
+    telnyxClient.socketResponseFlow.collect { response ->
+        when (response.status) {
+            SocketStatus.MESSAGERECEIVED -> {
+                response.data?.let {
+                    when (it.method) {
+                        SocketMethod.INVITE.methodName -> {
+                            val invite = it.result as InviteResponse
+                            // Handle incoming call invitation
+                        }
+                        SocketMethod.BYE.methodName -> {
+                            val bye = it.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+                            // Call ended by remote party, bye.cause, bye.sipCode etc. are available
+                            Log.d("TelnyxClient", "Call ended: ${bye.callId}, Reason: ${bye.cause}")
+                        }
+                        // Handle other methods like ANSWER, RINGING, etc.
+                    }
+                }
+            }
+            SocketStatus.ERROR -> {
+                // Handle errors
+                Log.e("TelnyxClient", "Error: ${response.errorMessage}")
+            }
+            // Handle other statuses: ESTABLISHED, LOADING, DISCONNECT
+        }
+    }
+}
+```
+
+**Deprecated approach using LiveData:**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
 // Observing responses (including errors and BYE messages)
 telnyxClient.socketResponseLiveData.observe(lifecycleOwner, Observer { response ->
     when (response.status) {
@@ -136,7 +173,19 @@ Connects to the socket by token and using this client as the listener. Will resp
 ### Listening for events and reacting
 We need to react for a socket connection state or incoming calls. We do this by getting the Telnyx Socket Response callbacks from our TelnyxClient.
 
+**Recommended approach using SharedFlow:**
+
 ```kotlin
+val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>>
+```
+Returns the socket response in the form of SharedFlow (Kotlin Flows). The format of each message is provided in `SocketResponse` and `ReceivedMessageBody`.
+* @see [SocketResponse]
+* @see [ReceivedMessageBody]
+
+**Deprecated approach using LiveData:**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
 fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> = socketResponseLiveData
 ```
 Returns the socket response in the form of LiveData. The format of each message is provided in `SocketResponse` and `ReceivedMessageBody`.

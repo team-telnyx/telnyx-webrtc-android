@@ -247,9 +247,41 @@ Remember to replace `updateUi` and `showToast` with your actual UI update logic.
 
 ### Handling Incoming Calls
 
-When `TelnyxClient.socketResponseLiveData` emits a message with `SocketMethod.INVITE`, it signifies an incoming call. You would typically display an incoming call UI and provide options to accept or reject.
+**Recommended approach using SharedFlow:**
+
+When `TelnyxClient.socketResponseFlow` emits a message with `SocketMethod.INVITE`, it signifies an incoming call. You would typically display an incoming call UI and provide options to accept or reject.
 
 ```kotlin
+// Using SharedFlow (Recommended)
+lifecycleScope.launch {
+    telnyxClient.socketResponseFlow.collect { response ->
+        if (response.status == SocketStatus.MESSAGERECEIVED && 
+            response.data?.method == SocketMethod.INVITE.methodName) {
+            val inviteResponse = response.data.result as InviteResponse
+            val incomingCallId = inviteResponse.callId
+            val callerIdName = inviteResponse.callerIdName
+            val callerIdNumber = inviteResponse.callerIdNumber
+
+            // Display incoming call screen
+            showIncomingCallUi(callerIdName, callerIdNumber, incomingCallId)
+
+            // Store the inviteResponse or callId to accept/reject later
+            currentIncomingCallId = incomingCallId
+        }
+    }
+}
+
+// To accept the call:
+telnyxClient.acceptCall(currentIncomingCallId, "your_destination_number")
+
+// To reject the call:
+telnyxClient.endCall(currentIncomingCallId) // Or a specific reject method if available
+```
+
+**Deprecated approach using LiveData:**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
 // Inside the observer for telnyxClient.socketResponseLiveData
 if (response.data?.method == SocketMethod.INVITE.methodName) {
     val inviteResponse = response.data.result as InviteResponse
@@ -263,12 +295,6 @@ if (response.data?.method == SocketMethod.INVITE.methodName) {
     // Store the inviteResponse or callId to accept/reject later
     currentIncomingCallId = incomingCallId
 }
-
-// To accept the call:
-telnyxClient.acceptCall(currentIncomingCallId, "your_destination_number")
-
-// To reject the call:
-telnyxClient.endCall(currentIncomingCallId) // Or a specific reject method if available
 ```
 
 This quickstart covers the basic setup and core functionalities. Explore the SDK's classes and methods for more advanced features like call hold, DTMF, and custom headers.
