@@ -152,8 +152,29 @@ class TelnyxClient(
     // Deprecated LiveData - kept for backward compatibility
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
-    
-    val wsMessagesResponseLiveDate = MutableLiveData<JsonObject>()
+
+    // SharedFlow for ws messages responses (replaces LiveData)
+    private val _wsMessagesResponseFlow = MutableSharedFlow<JsonObject>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+    /**
+     * Returns the ws messages response in the form of SharedFlow (recommended)
+     * The format of each message is provided in JsonObject
+     */
+    val wsMessagesResponseFlow: SharedFlow<JsonObject> = _wsMessagesResponseFlow.asSharedFlow()
+
+    /**
+     * Helper function to emit socket response to both SharedFlow and deprecated LiveData
+     */
+    fun emitWsMessage(message: JsonObject) {
+        _wsMessagesResponseFlow.tryEmit(message)
+        wsMessagesResponseLiveData.postValue(message)
+    }
+
+    // Deprecated LiveData - kept for backward compatibility
+    @Deprecated("Use wsMessagesResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
+    val wsMessagesResponseLiveData = MutableLiveData<JsonObject>()
 
     private val audioManager =
         context.getSystemService(AppCompatActivity.AUDIO_SERVICE) as? AudioManager
@@ -1021,8 +1042,10 @@ class TelnyxClient(
 
     /**
      * Returns the  json messages from socket in the form of LiveData used for debugging purposes
+     * @deprecated Use wsMessageResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.
      */
-    fun getWsMessageResponse(): LiveData<JsonObject> = wsMessagesResponseLiveDate
+    @Deprecated("Use wsMessagesResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
+    fun getWsMessageResponse(): LiveData<JsonObject> = wsMessagesResponseLiveData
 
     /**
      * Returns all active calls that have been stored in our calls MutableMap

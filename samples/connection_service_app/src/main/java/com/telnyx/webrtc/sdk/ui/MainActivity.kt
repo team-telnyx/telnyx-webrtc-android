@@ -492,6 +492,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun collectWsMessage() {
+        lifecycleScope.launch {
+            mainViewModel.getWsMessageResponseFlow().collectLatest {
+                it.let { wsMesssage ->
+                    wsMessageList?.add(wsMesssage.toString())
+                }
+            }
+        }
+    }
+
     private fun updateEnvText(isDevEnvironment: Boolean) {
         binding.apply {
             if (isDevEnvironment) {
@@ -506,7 +516,7 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         mockInputs()
         getFCMToken()
-        observeWsMessage()
+        collectWsMessage()
 
         binding.loginSectionId.connectButtonId.setOnClickListener {
             if (!hasLoginEmptyFields()) {

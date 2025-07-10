@@ -90,6 +90,16 @@ class MainViewModel @Inject constructor(
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> =
         telnyxClient.getSocketResponse()
 
+    /**
+     * Returns the ws messages response as SharedFlow (recommended)
+     */
+    fun getWsMessageResponseFlow(): SharedFlow<JsonObject> = telnyxClient.wsMessagesResponseFlow
+
+    /**
+     * Returns the ws messages response as LiveData (deprecated)
+     * @deprecated Use getWsMessageResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use wsMessagesResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     fun getWsMessageResponse(): LiveData<JsonObject> = telnyxClient.getWsMessageResponse()
 
     fun disablePushNotifications() {

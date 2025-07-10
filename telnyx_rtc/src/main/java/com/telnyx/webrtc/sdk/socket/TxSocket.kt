@@ -10,8 +10,6 @@ import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
-import com.telnyx.webrtc.sdk.model.SocketError.CREDENTIAL_ERROR
-import com.telnyx.webrtc.sdk.model.SocketError.TOKEN_ERROR
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import kotlinx.coroutines.*
@@ -140,7 +138,7 @@ class TxSocket(
                         text)
                     )
                     val jsonObject = gson.fromJson(text, JsonObject::class.java)
-                    listener.wsMessagesResponseLiveDate.postValue(jsonObject)
+                    listener.emitWsMessage(jsonObject)
 
                     var params: JsonObject? = null
                     if (jsonObject.has("params")) {

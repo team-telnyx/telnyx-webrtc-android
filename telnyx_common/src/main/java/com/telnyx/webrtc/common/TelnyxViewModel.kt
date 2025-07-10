@@ -1079,7 +1079,7 @@ class TelnyxViewModel : ViewModel() {
         wsMessagesCollectorJob = viewModelScope.launch {
             Timber.d("Websocket message collection started.")
             val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            telnyxClient?.getWsMessageResponse()?.asFlow()?.collect { message ->
+            telnyxClient?.wsMessagesResponseFlow?.collect { message ->
                 if (message != null) {
                     val currentMessages = _wsMessages.value.toMutableList()
                     // Add new message at the beginning (latest first)
