@@ -71,7 +71,7 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="telnyx_channel" />
+            android:value="telnyx_call_notification_channel" />
 
         <service android:name=".utility.telecom.call.TelecomCallService"
             android:exported="false"/>
