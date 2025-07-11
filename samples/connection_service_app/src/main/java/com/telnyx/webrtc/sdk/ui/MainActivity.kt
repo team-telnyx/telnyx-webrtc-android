@@ -53,7 +53,11 @@ import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketObserver
+import com.telnyx.webrtc.sdk.verto.receive.SocketFlowObserver
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import timber.log.Timber
 import java.io.IOException
 import java.util.*
@@ -259,7 +263,10 @@ class MainActivity : AppCompatActivity() {
 
         }
         Timber.d("Connect to Socket and Observe")
-        observeSocketResponses()
+        // Use the new Flow-based approach (recommended)
+        observeSocketResponsesFlow()
+        // Keep the old approach for backward compatibility
+        // observeSocketResponses()
         if (!isDev) {
             mainViewModel.initConnection(
                 null,
@@ -375,10 +382,122 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Observes socket responses using SharedFlow (recommended approach)
+     */
+    private fun observeSocketResponsesFlow() {
+        lifecycleScope.launch {
+            mainViewModel.getSocketResponseFlow().collectLatest { response ->
+                val observer = object : SocketFlowObserver<ReceivedMessageBody>() {
+                    override fun onConnectionEstablished() {
+                        Timber.d("Connection Established")
+
+                    }
+
+                    override fun onMessageReceived(data: ReceivedMessageBody?) {
+                        Timber.d("onMessageReceived from SDK [%s]", data?.method)
+                        when (data?.method) {
+                            SocketMethod.CLIENT_READY.methodName -> {
+                                Timber.d("You are ready to make calls.")
+
+                            }
+
+                            SocketMethod.LOGIN.methodName -> {
+                                binding.progressIndicatorId.visibility = View.INVISIBLE
+                                val sessionId = (data.result as LoginResponse).sessid
+                                Timber.d("Current Session: $sessionId")
+                                onLoginSuccessfullyViews()
+                            }
+
+                            SocketMethod.INVITE.methodName -> {
+                                val inviteResponse = data.result as InviteResponse
+                                showIncomingCall(
+                                    inviteResponse.callerIdName,
+                                    inviteResponse.callerIdNumber,
+                                    inviteResponse.callId
+                                )
+                            }
+
+                            SocketMethod.ANSWER.methodName -> {
+                                binding.apply {
+                                    callControlSectionId.callButtonId.visibility =
+                                        View.VISIBLE
+                                    callControlSectionId.cancelCallButtonId.visibility =
+                                        View.GONE
+                                }
+
+                                invitationSent = false
+                            }
+
+                            SocketMethod.RINGING.methodName -> {
+                                // Client Can simulate ringing state
+                            }
+
+                            SocketMethod.MEDIA.methodName -> {
+                                // Ringback tone is streamed to the caller
+                                // early Media -  Client Can simulate ringing state
+                            }
+
+                            SocketMethod.BYE.methodName -> {
+                                onByeReceivedViews()
+                                val callId = (data.result as ByeResponse).callId
+                                mainViewModel.onByeReceived(callId)
+                            }
+                        }
+                    }
+
+                    override fun onLoading() {
+                        Timber.i("Loading...")
+                    }
+
+                    override fun onError(errorCode: Int?, message: String?) {
+                        Timber.e("onError: errorCode=%s, message=%s", errorCode, message)
+                        Toast.makeText(
+                            this@MainActivity,
+                            message ?: "Socket Connection Error",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                    override fun onSocketDisconnect() {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Socket is disconnected",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        binding.apply {
+                            progressIndicatorId.visibility = View.INVISIBLE
+                            incomingCallView.visibility = View.GONE
+                            callControlView.visibility = View.GONE
+                            loginSectionView.visibility = View.VISIBLE
+
+                            socketTextValue.text = getString(R.string.disconnected)
+                            callStateTextValue.text = "-"
+                        }
+
+
+                    }
+                }
+                observer.handleResponse(response)
+            }
+        }
+    }
+
     private fun observeWsMessage() {
         mainViewModel.getWsMessageResponse().observe(this) {
             it?.let { wsMesssage ->
                 wsMessageList?.add(wsMesssage.toString())
+            }
+        }
+    }
+
+    private fun collectWsMessage() {
+        lifecycleScope.launch {
+            mainViewModel.getWsMessageResponseFlow().collectLatest {
+                it.let { wsMesssage ->
+                    wsMessageList?.add(wsMesssage.toString())
+                }
             }
         }
     }
@@ -397,7 +516,7 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         mockInputs()
         getFCMToken()
-        observeWsMessage()
+        collectWsMessage()
 
         binding.loginSectionId.connectButtonId.setOnClickListener {
             if (!hasLoginEmptyFields()) {

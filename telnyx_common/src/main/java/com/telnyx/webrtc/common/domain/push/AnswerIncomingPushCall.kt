@@ -16,6 +16,9 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import timber.log.Timber
 
 /**
@@ -47,8 +50,63 @@ class AnswerIncomingPushCall(private val context: Context) {
      * @param txPushMetaData Metadata associated with the push notification.
      * @param customHeaders Custom headers to be included in the call.
      * @param onCallAnswered Callback to be invoked when the call is answered.
-     * @return LiveData containing the socket response.
+     * @return SharedFlow containing the socket response.
      */
+    suspend fun invokeFlow(
+        txPushMetaData: String?,
+        customHeaders: Map<String, String>? = null,
+        debug: Boolean = false,
+        onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
+        onCallAnswered: (Call) -> Unit
+    ): SharedFlow<SocketResponse<ReceivedMessageBody>> {
+        this.customHeaders = customHeaders
+        this.onCallAnswered = onCallAnswered
+        this.debug = debug
+        this.onCallQualityChange = onCallQualityChange
+
+        val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
+        val socketFlow = telnyxClient.socketResponseFlow
+
+        ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
+            val fcmToken = lastProfile.fcmToken ?: ""
+
+            // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
+            if (!lastProfile.sipToken.isNullOrEmpty()) {
+                telnyxClient.connect(
+                    TxServerConfiguration(),
+                    lastProfile.toTokenConfig(fcmToken),
+                    txPushMetaData,
+                    true
+                )
+            } else {
+
+                telnyxClient.connect(
+                    TxServerConfiguration(),
+                    lastProfile.toCredentialConfig(fcmToken),
+                    txPushMetaData,
+                    true
+                )
+            }
+
+            //answer incoming push call and redirect socket data to ViewModel
+            socketFlow.first { response ->
+                handleSocketResponse(response)
+            }
+        }
+
+        return socketFlow
+    }
+
+    /**
+     * Invokes the acceptance of an incoming push call.
+     *
+     * @param txPushMetaData Metadata associated with the push notification.
+     * @param customHeaders Custom headers to be included in the call.
+     * @param onCallAnswered Callback to be invoked when the call is answered.
+     * @return LiveData containing the socket response.
+     * @deprecated Use invokeFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use invokeFlow() instead. LiveData is deprecated in favor of Kotlin Flows.")
     operator fun invoke(
         txPushMetaData: String?,
         customHeaders: Map<String, String>? = null,
@@ -94,7 +152,7 @@ class AnswerIncomingPushCall(private val context: Context) {
      *
      * @param response The socket response containing the received message body.
      */
-    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
+    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>): Boolean {
         if (response.status == SocketStatus.MESSAGERECEIVED) {
             if (response.data?.method == SocketMethod.INVITE.methodName) {
                 (response.data?.result as? InviteResponse)?.let { inviteResponse ->
@@ -106,9 +164,12 @@ class AnswerIncomingPushCall(private val context: Context) {
                         onCallQualityChange
                     )
                     cleanUp(answeredCall)
+                    return true
                 }
             }
         }
+
+        return false
     }
 
     /**

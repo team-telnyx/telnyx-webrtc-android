@@ -394,12 +394,12 @@ class TelnyxViewModel : ViewModel() {
                 fcmToken = getFCMToken()
             }
 
-            AuthenticateBySIPCredentials(context = viewContext).invoke(
+            AuthenticateBySIPCredentials(context = viewContext).invokeFlow(
                 serverConfiguration,
                 profile.toCredentialConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
-            ).asFlow().collectLatest { response ->
+            ).collectLatest { response ->
                 Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
@@ -427,14 +427,14 @@ class TelnyxViewModel : ViewModel() {
 
         userSessionJob = viewModelScope.launch {
             AnswerIncomingPushCall(context = viewContext)
-                .invoke(
+                .invokeFlow(
                     txPushMetaData,
                     mapOf(Pair("X-test", "123456")),
                     debug
                 ) { answeredCall ->
                     notificationAcceptHandlingUUID = answeredCall.callId
                 }
-                .asFlow().collectLatest { response ->
+                .collectLatest { response ->
                     Timber.d("Answering income push response: $response")
                     handleSocketResponse(response)
                 }
@@ -536,12 +536,12 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob = null
 
         userSessionJob = viewModelScope.launch {
-            AuthenticateByToken(context = viewContext).invoke(
+            AuthenticateByToken(context = viewContext).invokeFlow(
                 serverConfiguration,
                 profile.toTokenConfig(fcmToken ?: "", _debugMode),
                 txPushMetaData,
                 autoLogin
-            ).asFlow().collectLatest { response ->
+            ).collectLatest { response ->
                 Timber.d("Auth Response: $response")
                 handleSocketResponse(response)
             }
@@ -1079,7 +1079,7 @@ class TelnyxViewModel : ViewModel() {
         wsMessagesCollectorJob = viewModelScope.launch {
             Timber.d("Websocket message collection started.")
             val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            telnyxClient?.getWsMessageResponse()?.asFlow()?.collect { message ->
+            telnyxClient?.wsMessagesResponseFlow?.collect { message ->
                 if (message != null) {
                     val currentMessages = _wsMessages.value.toMutableList()
                     // Add new message at the beginning (latest first)

@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -72,13 +73,13 @@ class TelecomCallManager @Inject constructor(
 
     suspend fun observeSocketResponse() {
         withContext(Dispatchers.Main) {
-            telnyxClient.getSocketResponse().observeForever { socketResponse ->
+            telnyxClient.socketResponseFlow.collectLatest { socketResponse ->
                 handleSocketResponse(socketResponse)
             }
         }
     }
 
-    fun getSocketResponse() = telnyxClient.getSocketResponse()
+    fun getSocketResponse() = telnyxClient.socketResponseFlow
 
     private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.data?.method) {

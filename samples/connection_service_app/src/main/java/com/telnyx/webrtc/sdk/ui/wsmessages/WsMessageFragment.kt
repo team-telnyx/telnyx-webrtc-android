@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.telnyx.webrtc.sdk.BuildConfig
 import com.telnyx.webrtc.sdk.R
@@ -16,6 +17,7 @@ import com.telnyx.webrtc.sdk.databinding.FragmentWsMessageBinding
 import com.telnyx.webrtc.sdk.ui.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,7 +45,7 @@ class WsMessageFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         setAdapter()
-        observeWsMessages()
+        collectWsMessages()
         setupViews()
     }
 
@@ -69,6 +71,16 @@ class WsMessageFragment : Fragment() {
         mainViewModel.getWsMessageResponse()?.observe(this) {
             it?.let { wsMesssage ->
                 wsMessageAdapter?.addWsMessages(wsMesssage.toString())
+            }
+        }
+    }
+
+    private fun collectWsMessages() {
+        lifecycleScope.launch {
+            mainViewModel.getWsMessageResponseFlow().collectLatest {
+                it.let { wsMesssage ->
+                    wsMessageAdapter?.addWsMessages(wsMesssage.toString())
+                }
             }
         }
     }

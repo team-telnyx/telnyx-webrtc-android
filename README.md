@@ -154,17 +154,86 @@ In order to make a call invitation, you need to provide your callerName, callerN
 ```
 
 ### Accepting a call
-In order to be able to accept a call, we first need to listen for invitations. We do this by getting the Telnyx Socket Response as LiveData:
+In order to be able to accept a call, we first need to listen for invitations. We do this by getting the Telnyx Socket Response. 
+
+**Recommended approach using SharedFlow (Kotlin Flows):**
 
 ```kotlin
-  fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
+// In your ViewModel or Activity
+lifecycleScope.launch {
+    telnyxClient.socketResponseFlow.collect { response ->
+        // Handle socket responses
+    }
+}
+```
+
+**Deprecated approach using LiveData:**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
+fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>>? =
         telnyxClient.getSocketResponse()
 ```
 
 We can then use this method to create a listener that listens for an invitation - in this example we assume getSocketResponse is a method within a ViewModel.
 
+**Using SharedFlow (Recommended):**
+
 ```kotlin
- mainViewModel.getSocketResponse()
+// In your ViewModel or Activity
+lifecycleScope.launch {
+    telnyxClient.socketResponseFlow.collect { response ->
+        when (response.status) {
+            SocketStatus.ESTABLISHED -> {
+                // Handle a successfully established connection
+            }
+            SocketStatus.MESSAGERECEIVED -> {
+                response.data?.let { data ->
+                    when (data.method) {
+                        SocketMethod.CLIENT_READY.methodName -> {
+                            // Fires once client has correctly been setup and logged into, you can now make calls.
+                        }
+                        SocketMethod.LOGIN.methodName -> {
+                            // Handle a successful login - Update UI or Navigate to new screen, etc.
+                        }
+                        SocketMethod.INVITE.methodName -> {
+                            // Handle an invitation Update UI or Navigate to new screen, etc.
+                            // Then, through an answer button of some kind we can accept the call with:
+                            val inviteResponse = data.result as InviteResponse
+                            telnyxClient.acceptCall(inviteResponse.callId, inviteResponse.callerIdNumber)
+                        }
+                        SocketMethod.ANSWER.methodName -> {
+                            // Handle a received call answer - Update UI or Navigate to new screen, etc.
+                        }
+                        SocketMethod.BYE.methodName -> {
+                            // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
+                        }
+                        SocketMethod.RINGING.methodName -> {
+                            // Client Can simulate ringing state
+                        }
+                    }
+                }
+            }
+            SocketStatus.LOADING -> {
+                // Show loading dialog
+            }
+            SocketStatus.ERROR -> {
+                // Handle errors - Update UI or Navigate to new screen, etc.
+                // response.errorCode provides additional context about the error type
+            }
+            SocketStatus.DISCONNECT -> {
+                // Handle disconnect - Update UI or Navigate to login screen, etc.
+            }
+        }
+    }
+}
+```
+
+**Using LiveData (Deprecated):**
+
+```kotlin
+@Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
+mainViewModel.getSocketResponse()
             ?.observe(this, object : SocketObserver<ReceivedMessageBody>() {
                 override fun onConnectionEstablished() {
                     // Handle a succesfully established connection 

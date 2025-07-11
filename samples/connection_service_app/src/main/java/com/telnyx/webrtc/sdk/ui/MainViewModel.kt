@@ -17,6 +17,7 @@ import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import kotlinx.coroutines.flow.SharedFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import timber.log.Timber
 import java.util.*
@@ -75,9 +76,30 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Returns the socket response as SharedFlow (recommended)
+     */
+    fun getSocketResponseFlow(): SharedFlow<SocketResponse<ReceivedMessageBody>> =
+        telnyxClient.socketResponseFlow
+
+    /**
+     * Returns the socket response as LiveData (deprecated)
+     * @deprecated Use getSocketResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use getSocketResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.")
     fun getSocketResponse(): LiveData<SocketResponse<ReceivedMessageBody>> =
         telnyxClient.getSocketResponse()
 
+    /**
+     * Returns the ws messages response as SharedFlow (recommended)
+     */
+    fun getWsMessageResponseFlow(): SharedFlow<JsonObject> = telnyxClient.wsMessagesResponseFlow
+
+    /**
+     * Returns the ws messages response as LiveData (deprecated)
+     * @deprecated Use getWsMessageResponseFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
+     */
+    @Deprecated("Use wsMessagesResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     fun getWsMessageResponse(): LiveData<JsonObject> = telnyxClient.getWsMessageResponse()
 
     fun disablePushNotifications() {
