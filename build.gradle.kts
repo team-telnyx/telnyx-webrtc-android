@@ -3,7 +3,7 @@ buildscript {
     apply(from = "versions.gradle")
 
     val kotlinVersion = "1.9.23" // Define Kotlin version
-    val androidGradlePluginVersion = "8.6.1"
+    val androidGradlePluginVersion = "8.11.1"
     val googlePlayServicesVersion = "4.4.2"
     val hiltVersion = "2.48"
     repositories {
@@ -13,7 +13,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.6.1")
+        classpath("com.android.tools.build:gradle:8.11.1")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlinx:kover:0.5.1")
         classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.21.0")
