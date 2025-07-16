@@ -238,7 +238,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White) {
+                                HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White, stringResource(R.string.end)) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
@@ -417,6 +417,7 @@ fun HomeIconButton(
     icon: Int,
     backGroundColor: Color,
     contentColor: Color?,
+    contentDescription: String = "",
     onClick: () -> Unit
 ) {
 
@@ -425,7 +426,7 @@ fun HomeIconButton(
         colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor ?: Color.Black),
         onClick = onClick) {
         Image(painter = painterResource(icon),
-            contentDescription = "",
+            contentDescription = contentDescription,
             modifier = Modifier.padding(Dimens.smallSpacing),
             colorFilter = ColorFilter.tint(contentColor ?: Color.Black))
     }
