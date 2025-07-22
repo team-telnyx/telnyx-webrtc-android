@@ -40,6 +40,7 @@ import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.timerTask
 
 /**
@@ -51,7 +52,7 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
 
-    internal var webRTCReporter: WebRTCReporter? = null
+    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> = ConcurrentHashMap<UUID, WebRTCReporter>()
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -346,8 +347,8 @@ class TelnyxClient(
 
                             // Start stats collection if debug is enabled
                             if (callDebug || socketPortalDebug) {
-                                if (webRTCReporter == null) {
-                                    webRTCReporter = WebRTCReporter(
+                                if (getWebRTCReporter(callId) == null) {
+                                    val webRTCReporter = WebRTCReporter(
                                         socket,
                                         callId,
                                         getTelnyxLegId()?.toString(),
@@ -355,10 +356,11 @@ class TelnyxClient(
                                         callDebug,
                                         socketPortalDebug
                                     )
-                                    webRTCReporter?.onCallQualityChange = { metrics ->
+                                    webRTCReporter.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
                                     }
-                                    webRTCReporter?.startStats()
+                                    webRTCReporter.startStats()
+                                    addWebRTCReporter(callId, webRTCReporter)
                                 }
                             }
 
@@ -433,7 +435,7 @@ class TelnyxClient(
 
                 // Create reporter if per-call debug is enabled or config debug is enabled
                 if (callDebug || socketPortalDebug) {
-                    webRTCReporter =
+                    val webRTCReporter =
                         WebRTCReporter(
                             socket,
                             callId,
@@ -443,11 +445,12 @@ class TelnyxClient(
                             socketPortalDebug
                         )
                     if (callDebug) {
-                        webRTCReporter?.onCallQualityChange = { metrics ->
+                        webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
                     }
-                    webRTCReporter?.startStats()
+                    webRTCReporter.startStats()
+                    addWebRTCReporter(callId, webRTCReporter)
                 }
             }
 
@@ -524,8 +527,8 @@ class TelnyxClient(
             updateCallState(CallState.DONE(terminationReason))
 
             // Stop reporter before releasing the peer connection
-            webRTCReporter?.stopStats()
-            webRTCReporter = null // Clear the reporter instance
+            removeWebRTCReporter(callId)?.stopStats()
+
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -615,7 +618,9 @@ class TelnyxClient(
 
         //Disconnect active calls for reconnection
         getActiveCalls().forEach { (_, call) ->
-            webRTCReporter?.pauseStats()
+            webRTCReportersMap.forEach { (_, webRTCReporter) ->
+                webRTCReporter.pauseStats()
+            }
             call.peerConnection?.disconnect()
             call.updateCallState(CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH))
         }
@@ -1856,8 +1861,8 @@ class TelnyxClient(
                 )
 
                 // Existing cleanup logic
-                webRTCReporter?.stopStats()
-                webRTCReporter = null // Clear the reporter instance
+                removeWebRTCReporter(callId)?.stopStats()
+
                 client.removeFromCalls(callId)
                 client.callNotOngoing()
                 resetCallOptions()
@@ -2053,7 +2058,7 @@ class TelnyxClient(
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isSocketDebug) {
-                        webRTCReporter = WebRTCReporter(
+                        val webRTCReporter = WebRTCReporter(
                             socket,
                             callId,
                             telnyxLegId?.toString(),
@@ -2061,10 +2066,11 @@ class TelnyxClient(
                             false,
                             isSocketDebug
                         )
-                        webRTCReporter?.onCallQualityChange = { metrics ->
+                        webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
-                        webRTCReporter?.startStats()
+                        webRTCReporter.startStats()
+                        addWebRTCReporter(callId, webRTCReporter)
                     }
                 }
 
@@ -2234,7 +2240,7 @@ class TelnyxClient(
             ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
-                    webRTCReporter = WebRTCReporter(
+                    val webRTCReporter = WebRTCReporter(
                         socket,
                         callId,
                         telnyxLegId?.toString(),
@@ -2242,10 +2248,11 @@ class TelnyxClient(
                         false,
                         isSocketDebug
                     )
-                    webRTCReporter?.onCallQualityChange = { metrics ->
+                    webRTCReporter.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
-                    webRTCReporter?.startStats()
+                    webRTCReporter.startStats()
+                    addWebRTCReporter(callId, webRTCReporter)
                 }
             }
 
@@ -2325,5 +2332,17 @@ class TelnyxClient(
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         onDisconnect()
+    }
+
+    private fun addWebRTCReporter(callId: UUID, webRTCReporter: WebRTCReporter) {
+        webRTCReportersMap[callId] = webRTCReporter
+    }
+
+    private fun removeWebRTCReporter(callId: UUID): WebRTCReporter? {
+        return webRTCReportersMap.remove(callId)
+    }
+
+    private fun getWebRTCReporter(callId: UUID): WebRTCReporter? {
+        return webRTCReportersMap[callId]
     }
 }
