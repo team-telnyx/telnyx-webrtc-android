@@ -832,7 +832,10 @@ class TelnyxClient(
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
-                if (voiceSDKID != null) {
+                if (txPushMetaData != null) {
+                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                    voiceSDKID = metadata.voiceSdkId
+                } else if (voiceSDKID != null) {
                     pushMetaData = PushMetaData(
                         callerName = "",
                         callerNumber = "",
@@ -910,7 +913,10 @@ class TelnyxClient(
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
-                if (voiceSDKID != null) {
+                if (txPushMetaData != null) {
+                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                    voiceSDKID = metadata.voiceSdkId
+                } else if (voiceSDKID != null) {
                     pushMetaData = PushMetaData(
                         callerName = "",
                         callerNumber = "",
@@ -967,7 +973,10 @@ class TelnyxClient(
 
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
+            if (txPushMetaData != null) {
+                val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                voiceSDKID = metadata.voiceSdkId
+            } else if (voiceSDKID != null) {
                 pushMetaData = PushMetaData(
                     callerName = "",
                     callerNumber = "",
