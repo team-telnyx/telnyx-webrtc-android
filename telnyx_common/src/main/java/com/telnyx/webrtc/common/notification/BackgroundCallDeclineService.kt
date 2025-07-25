@@ -56,6 +56,7 @@ class BackgroundCallDeclineService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var timeoutJob: Job? = null
+    private var socketStatusJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -105,7 +106,7 @@ class BackgroundCallDeclineService : Service() {
                     }
 
                     // Observe socket responses to handle login success - must be done on main thread
-                    launch(Dispatchers.Main) {
+                    socketStatusJob = launch(Dispatchers.Main) {
                         telnyxClient.socketResponseFlow.collectLatest { response ->
                             handleSocketResponse(response)
                         }
@@ -171,6 +172,7 @@ class BackgroundCallDeclineService : Service() {
         serviceScope.launch {
             try {
                 timeoutJob?.cancel()
+                socketStatusJob?.cancel()
                 val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
                 telnyxClient.disconnect()
                 
@@ -186,6 +188,7 @@ class BackgroundCallDeclineService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         timeoutJob?.cancel()
+        socketStatusJob?.cancel()
         
         Timber.d("BackgroundCallDeclineService destroyed")
     }
