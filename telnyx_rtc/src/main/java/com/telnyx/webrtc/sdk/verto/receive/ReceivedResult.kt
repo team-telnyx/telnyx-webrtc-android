@@ -6,6 +6,7 @@ package com.telnyx.webrtc.sdk.verto.receive
 
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.CustomHeaders
+import com.telnyx.webrtc.sdk.model.AiConversationParams
 import java.util.*
 
 /**
@@ -114,4 +115,14 @@ data class MediaResponse(
     val callerIdNumber: String,
     @SerializedName("sessid")
     val sessid: String
+) : ReceivedResult()
+
+/**
+ * A response containing AI conversation data
+ *
+ * @param aiConversationParams the AI conversation parameters containing transcript and widget settings
+ */
+data class AiConversationResponse(
+    @SerializedName("params")
+    val aiConversationParams: AiConversationParams? = null
 ) : ReceivedResult()

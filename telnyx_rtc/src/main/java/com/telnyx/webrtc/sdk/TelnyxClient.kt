@@ -194,6 +194,37 @@ class TelnyxClient(
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
+    // Transcript management for AI conversations
+    private val _transcript = mutableListOf<TranscriptItem>()
+    private val assistantResponseBuffers = mutableMapOf<String, StringBuilder>()
+    
+    // Current widget settings from AI conversation
+    private var _currentWidgetSettings: WidgetSettings? = null
+    
+    // SharedFlow for transcript updates
+    private val _transcriptUpdateFlow = MutableSharedFlow<List<TranscriptItem>>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+    
+    /**
+     * Returns the transcript updates in the form of SharedFlow
+     * Contains a list of TranscriptItem objects representing the conversation
+     */
+    val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> = _transcriptUpdateFlow.asSharedFlow()
+    
+    /**
+     * Returns the current transcript as an immutable list
+     */
+    val transcript: List<TranscriptItem>
+        get() = _transcript.toList()
+    
+    /**
+     * Returns the current widget settings from AI conversation
+     */
+    val currentWidgetSettings: WidgetSettings?
+        get() = _currentWidgetSettings
+
     @Deprecated("telnyxclient.call is deprecated. Use telnyxclient.[option] instead. e.g telnyxclient.newInvite()")
     val call: Call? by lazy {
         if (calls.isNotEmpty()) {
@@ -1222,6 +1253,50 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
+        socket.send(loginMessage)
+    }
+
+    /**
+     * Performs anonymous login for AI assistant connections.
+     * This method allows connecting to AI assistants without traditional SIP credentials.
+     *
+     * @param targetId the unique identifier of the target AI assistant
+     * @param targetType the type of target (defaults to "ai_assistant")
+     * @param targetVersionId optional version ID of the target
+     * @param userVariables optional user variables to include
+     * @param reconnection whether this is a reconnection attempt (defaults to false)
+     */
+    fun anonymousLogin(
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        userVariables: Map<String, Any>? = null,
+        reconnection: Boolean = false
+    ) {
+        val uuid: String = UUID.randomUUID().toString()
+        
+        val userAgent = UserAgent(
+            sdkVersion = SDK_VERSION,
+            data = "Android-$SDK_VERSION"
+        )
+
+        val anonymousLoginParams = AnonymousLoginParams(
+            targetType = targetType,
+            targetId = targetId,
+            targetVersionId = targetVersionId,
+            userVariables = userVariables,
+            reconnection = reconnection,
+            userAgent = userAgent,
+            sessid = sessid
+        )
+
+        val loginMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.ANONYMOUS_LOGIN.methodName,
+            params = anonymousLoginParams
+        )
+        
+        Logger.d("Anonymous Login Message: ${Gson().toJson(loginMessage)}")
         socket.send(loginMessage)
     }
 
@@ -2307,6 +2382,120 @@ class TelnyxClient(
         resetGatewayCounters()
         unregisterNetworkCallback()
         socket.destroy()
+    }
+
+    /**
+     * Handles AI conversation messages received from the socket
+     * Processes transcript updates and widget settings
+     *
+     * @param jsonObject the socket response containing AI conversation data
+     */
+    override fun onAiConversationReceived(jsonObject: JsonObject) {
+        Logger.i("AI CONVERSATION RECEIVED :: $jsonObject")
+        
+        try {
+            val aiConversationResponse = Gson().fromJson(jsonObject, AiConversationResponse::class.java)
+            val params = aiConversationResponse.aiConversationParams
+            
+            // Store widget settings if available
+            params?.widgetSettings?.let { settings ->
+                _currentWidgetSettings = settings
+                Logger.i("Widget settings updated")
+            }
+            
+            // Process message for transcript extraction
+            processAiConversationForTranscript(params)
+            
+            // Emit socket response
+            val receivedMessageBody = ReceivedMessageBody(
+                id = jsonObject.get("id")?.asString,
+                jsonrpc = jsonObject.get("jsonrpc")?.asString,
+                method = SocketMethod.AI_CONVERSATION.methodName,
+                result = aiConversationResponse
+            )
+            emitSocketResponse(SocketResponse.aiConversation(receivedMessageBody))
+            
+        } catch (e: Exception) {
+            Logger.e("Error processing AI conversation message: ${e.message}")
+        }
+    }
+
+    /**
+     * Process AI conversation messages for transcript extraction
+     */
+    private fun processAiConversationForTranscript(params: AiConversationParams?) {
+        if (params?.type == null) return
+        
+        when (params.type) {
+            "conversation.item.created" -> handleConversationItemCreated(params)
+            "response.text.delta" -> handleResponseTextDelta(params)
+            // Other AI conversation message types are ignored for transcript
+        }
+    }
+    
+    /**
+     * Handle user speech transcript from conversation.item.created messages
+     */
+    private fun handleConversationItemCreated(params: AiConversationParams) {
+        val item = params.item
+        if (item?.role != TranscriptItem.ROLE_USER || item.status != "completed") {
+            return // Only handle completed user messages
+        }
+        
+        val content = item.content
+            ?.mapNotNull { it.transcript }
+            ?.joinToString(" ") ?: ""
+            
+        if (content.isNotEmpty() && item.id != null) {
+            val transcriptItem = TranscriptItem(
+                id = item.id,
+                role = TranscriptItem.ROLE_USER,
+                content = content,
+                timestamp = Date()
+            )
+            
+            _transcript.add(transcriptItem)
+            _transcriptUpdateFlow.tryEmit(_transcript.toList())
+        }
+    }
+    
+    /**
+     * Handle AI response text deltas from response.text.delta messages
+     */
+    private fun handleResponseTextDelta(params: AiConversationParams) {
+        val delta = params.delta ?: return
+        val itemId = params.itemId ?: return
+        
+        // Initialize buffer for this response if not exists
+        assistantResponseBuffers.putIfAbsent(itemId, StringBuilder())
+        assistantResponseBuffers[itemId]?.append(delta)
+        
+        // Create or update transcript item for this response
+        val existingIndex = _transcript.indexOfFirst { it.id == itemId }
+        val currentContent = assistantResponseBuffers[itemId]?.toString() ?: ""
+        
+        if (existingIndex >= 0) {
+            // Update existing transcript item with accumulated content
+            _transcript[existingIndex] = TranscriptItem(
+                id = itemId,
+                role = TranscriptItem.ROLE_ASSISTANT,
+                content = currentContent,
+                timestamp = _transcript[existingIndex].timestamp,
+                isPartial = true
+            )
+        } else {
+            // Create new transcript item
+            val transcriptItem = TranscriptItem(
+                id = itemId,
+                role = TranscriptItem.ROLE_ASSISTANT,
+                content = currentContent,
+                timestamp = Date(),
+                isPartial = true
+            )
+            _transcript.add(transcriptItem)
+        }
+        
+        _transcriptUpdateFlow.tryEmit(_transcript.toList())
     }
 
     /**
