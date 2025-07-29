@@ -1,3 +1,9 @@
+## [3.0.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.0.0) (2025-07-17)
+
+### Enhancement
+- Implemented forceRelayCandidate parameter in Android WebRTC SDK.
+- Migration from LiveData to Flows. (LiveData still supported for backward compatibility however methods are marked as deprecated)
+
 ## [2.0.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.2) (2025-06-17)
 
 ### Enhancement
