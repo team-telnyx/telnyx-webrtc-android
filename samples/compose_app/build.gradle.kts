@@ -82,7 +82,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.12.0")
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
-    androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
+    androidTestImplementation("androidx.navigation:navigation-testing:2.9.2")
 
     //permissions
     implementation("com.karumi:dexter:6.2.2")
