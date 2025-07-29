@@ -175,18 +175,14 @@ internal class Peer(
                  Logger.d(tag = "Observer", message = "First ICE candidate processed, completing deferred.")
             }
 
-            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated from server: $candidate")
+            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
-                if (!it.serverUrl.isNullOrEmpty() && (it.serverUrl == providedStun || it.serverUrl == providedTurn)) {
-                    Logger.d(tag = "Observer", message = "Valid ICE candidate generated from server: ${it.serverUrl}")
-                    if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                        peerConnection?.addIceCandidate(it)
-                        Logger.d(tag = "Observer", message = "ICE candidate added: $it")
-                        onIceCandidateAdd?.invoke(it.serverUrl)
-                        lastCandidateTime = System.currentTimeMillis()
-                    }
-                } else {
-                    Logger.d(tag = "Observer", message = "Ignoring local ICE candidate: $it")
+                Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
+                if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+                    peerConnection?.addIceCandidate(it)
+                    Logger.d(tag = "Observer", message = "ICE candidate added: $it")
+                    onIceCandidateAdd?.invoke(it.serverUrl)
+                    lastCandidateTime = System.currentTimeMillis()
                 }
             }
             peerConnectionObserver?.onIceCandidate(candidate)
