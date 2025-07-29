@@ -2,9 +2,7 @@
 
 ### Enhancement
 - Implemented forceRelayCandidate parameter in Android WebRTC SDK.
-- Migration from LiveData to Flows.
-### Bug Fixing
-- Fixes warning: 'Notification Channel set in AndroidManifest.xml has not been created by the app'
+- Migration from LiveData to Flows. (LiveData still supported for backward compatibility however methods are marked as deprecated)
 
 ## [2.0.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/2.0.2) (2025-06-17)
 
