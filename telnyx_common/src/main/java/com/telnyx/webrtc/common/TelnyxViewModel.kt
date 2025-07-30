@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.authentication.AuthenticateAnonymously
 import com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall
 import com.telnyx.webrtc.common.domain.authentication.Disconnect
 import com.telnyx.webrtc.common.domain.call.AcceptCall
@@ -543,6 +544,44 @@ class TelnyxViewModel : ViewModel() {
                 autoLogin
             ).collectLatest { response ->
                 Timber.d("Auth Response: $response")
+                handleSocketResponse(response)
+            }
+        }
+    }
+
+    /**
+     * Performs anonymous login for AI assistant connections.
+     * This method allows connecting to AI assistants without traditional SIP credentials.
+     *
+     * @param viewContext The application context.
+     * @param targetId The unique identifier of the target AI assistant.
+     * @param targetType The type of target (defaults to "ai_assistant").
+     * @param targetVersionId Optional version ID of the target.
+     * @param userVariables Optional user variables to include.
+     */
+    fun anonymousLogin(
+        viewContext: Context,
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        userVariables: Map<String, Any>? = null
+    ) {
+        _isLoading.value = true
+        disconnectedByUser = false
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+        userSessionJob = viewModelScope.launch {
+            AuthenticateAnonymously(context = viewContext).invokeFlow(
+                serverConfiguration,
+                targetId = targetId,
+                targetType = targetType,
+                targetVersionId = targetVersionId,
+                userVariables = userVariables,
+                reconnection = false
+            ).collectLatest { response ->
+                Timber.d("Anonymous Login Response: $response")
                 handleSocketResponse(response)
             }
         }

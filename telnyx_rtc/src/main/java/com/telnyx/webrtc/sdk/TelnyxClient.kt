@@ -957,6 +957,61 @@ class TelnyxClient(
     }
 
     /**
+     * Connects to the socket for anonymous authentication (AI assistant connections).
+     * This method allows connecting to AI assistants without traditional SIP credentials.
+     *
+     * @param providedServerConfig The server configuration for connection
+     * @param targetId The unique identifier of the target AI assistant
+     * @param targetType The type of target (defaults to "ai_assistant")
+     * @param targetVersionId Optional version ID of the target
+     * @param userVariables Optional user variables to include
+     * @param reconnection Whether this is a reconnection attempt (defaults to false)
+     */
+    fun connectAnonymously(
+        providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        userVariables: Map<String, Any>? = null,
+        reconnection: Boolean = false
+    ) {
+        emitSocketResponse(SocketResponse.initialised())
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        resetGatewayCounters()
+
+        providedHostAddress = providedServerConfig.host
+
+        socket = TxSocket(
+            host_address = providedHostAddress!!,
+            port = providedServerConfig.port
+        )
+
+        providedPort = providedServerConfig.port
+        providedTurn = providedServerConfig.turn
+        providedStun = providedServerConfig.stun
+
+        if (ConnectivityHelper.isNetworkEnabled(context)) {
+            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, null) {
+                    // Perform anonymous login after socket is connected
+                    anonymousLogin(
+                        targetId = targetId,
+                        targetType = targetType,
+                        targetVersionId = targetVersionId,
+                        userVariables = userVariables,
+                        reconnection = reconnection
+                    )
+                }
+            }
+        } else {
+            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+        }
+    }
+
+    /**
      * Connects to the socket with decline_push parameter for background call decline.
      * This method is specifically designed for declining calls without launching the main app.
      *
