@@ -1296,7 +1296,7 @@ class TelnyxClient(
             params = anonymousLoginParams
         )
         
-        Logger.d("Anonymous Login Message: ${Gson().toJson(loginMessage)}")
+        Logger.d(message= "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
         socket.send(loginMessage)
     }
 
@@ -2391,7 +2391,7 @@ class TelnyxClient(
      * @param jsonObject the socket response containing AI conversation data
      */
     override fun onAiConversationReceived(jsonObject: JsonObject) {
-        Logger.i("AI CONVERSATION RECEIVED :: $jsonObject")
+        Logger.i(message = "AI CONVERSATION RECEIVED :: $jsonObject")
         
         try {
             val aiConversationResponse = Gson().fromJson(jsonObject, AiConversationResponse::class.java)
@@ -2400,7 +2400,7 @@ class TelnyxClient(
             // Store widget settings if available
             params?.widgetSettings?.let { settings ->
                 _currentWidgetSettings = settings
-                Logger.i("Widget settings updated")
+                Logger.i(message = "Widget settings updated :: $_currentWidgetSettings")
             }
             
             // Process message for transcript extraction
@@ -2408,15 +2408,13 @@ class TelnyxClient(
             
             // Emit socket response
             val receivedMessageBody = ReceivedMessageBody(
-                id = jsonObject.get("id")?.asString,
-                jsonrpc = jsonObject.get("jsonrpc")?.asString,
                 method = SocketMethod.AI_CONVERSATION.methodName,
                 result = aiConversationResponse
             )
             emitSocketResponse(SocketResponse.aiConversation(receivedMessageBody))
             
         } catch (e: Exception) {
-            Logger.e("Error processing AI conversation message: ${e.message}")
+            Logger.e(message = "Error processing AI conversation message: ${e.message}")
         }
     }
 
@@ -2467,7 +2465,9 @@ class TelnyxClient(
         val itemId = params.itemId ?: return
         
         // Initialize buffer for this response if not exists
-        assistantResponseBuffers.putIfAbsent(itemId, StringBuilder())
+        if (!assistantResponseBuffers.containsKey(itemId)) {
+            assistantResponseBuffers[itemId] = StringBuilder()
+        }
         assistantResponseBuffers[itemId]?.append(delta)
         
         // Create or update transcript item for this response
