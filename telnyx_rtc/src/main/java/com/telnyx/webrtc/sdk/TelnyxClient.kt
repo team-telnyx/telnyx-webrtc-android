@@ -135,19 +135,21 @@ class TelnyxClient(
     private var mediaPlayer: MediaPlayer? = null
 
     var sessid: String // sessid used to recover calls when reconnecting
-    
+
     // SharedFlow for socket responses (replaces LiveData)
     private val _socketResponseFlow = MutableSharedFlow<SocketResponse<ReceivedMessageBody>>(
         replay = 1,
         extraBufferCapacity = 64
     )
+
     /**
      * Returns the socket response in the form of SharedFlow (recommended)
      * The format of each message is provided in SocketResponse and ReceivedMessageBody
      * @see [SocketResponse]
      * @see [ReceivedMessageBody]
      */
-    val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>> = _socketResponseFlow.asSharedFlow()
+    val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>> =
+        _socketResponseFlow.asSharedFlow()
 
     // Deprecated LiveData - kept for backward compatibility
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
@@ -158,6 +160,7 @@ class TelnyxClient(
         replay = 1,
         extraBufferCapacity = 64
     )
+
     /**
      * Returns the ws messages response in the form of SharedFlow (recommended)
      * The format of each message is provided in JsonObject
@@ -186,7 +189,7 @@ class TelnyxClient(
     private fun emitSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         // Emit to SharedFlow (new approach)
         _socketResponseFlow.tryEmit(response)
-        
+
         // Emit to LiveData (deprecated, for backward compatibility)
         socketResponseLiveData.postValue(response)
     }
@@ -197,28 +200,29 @@ class TelnyxClient(
     // Transcript management for AI conversations
     private val _transcript = mutableListOf<TranscriptItem>()
     private val assistantResponseBuffers = mutableMapOf<String, StringBuilder>()
-    
+
     // Current widget settings from AI conversation
     private var _currentWidgetSettings: WidgetSettings? = null
-    
+
     // SharedFlow for transcript updates
     private val _transcriptUpdateFlow = MutableSharedFlow<List<TranscriptItem>>(
         replay = 1,
         extraBufferCapacity = 64
     )
-    
+
     /**
      * Returns the transcript updates in the form of SharedFlow
      * Contains a list of TranscriptItem objects representing the conversation
      */
-    val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> = _transcriptUpdateFlow.asSharedFlow()
-    
+    val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> =
+        _transcriptUpdateFlow.asSharedFlow()
+
     /**
      * Returns the current transcript as an immutable list
      */
     val transcript: List<TranscriptItem>
         get() = _transcript.toList()
-    
+
     /**
      * Returns the current widget settings from AI conversation
      */
@@ -706,10 +710,10 @@ class TelnyxClient(
         // Initialize deprecated LiveData for backward compatibility
         socketResponseLiveData =
             MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
-        
+
         // Initialize both SharedFlow and LiveData with initial state
         emitSocketResponse(SocketResponse.initialised())
-        
+
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
@@ -973,12 +977,15 @@ class TelnyxClient(
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
         userVariables: Map<String, Any>? = null,
-        reconnection: Boolean = false
+        reconnection: Boolean = false,
+        logLevel: LogLevel = LogLevel.NONE,
     ) {
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
+
+        setSDKLogLevel(logLevel, null)
 
         providedHostAddress = providedServerConfig.host
 
@@ -993,7 +1000,7 @@ class TelnyxClient(
 
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            
+
             CoroutineScope(Dispatchers.IO).launch {
                 socket.connect(this@TelnyxClient, providedHostAddress, providedPort, null) {
                     // Perform anonymous login after socket is connected
@@ -1002,7 +1009,7 @@ class TelnyxClient(
                         targetType = targetType,
                         targetVersionId = targetVersionId,
                         userVariables = userVariables,
-                        reconnection = reconnection
+                        reconnection = reconnection,
                     )
                 }
             }
@@ -1326,10 +1333,10 @@ class TelnyxClient(
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
         userVariables: Map<String, Any>? = null,
-        reconnection: Boolean = false
+        reconnection: Boolean = false,
     ) {
         val uuid: String = UUID.randomUUID().toString()
-        
+
         val userAgent = UserAgent(
             sdkVersion = SDK_VERSION,
             data = "Android-$SDK_VERSION"
@@ -1350,8 +1357,8 @@ class TelnyxClient(
             method = SocketMethod.ANONYMOUS_LOGIN.methodName,
             params = anonymousLoginParams
         )
-        
-        Logger.d(message= "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
+
+        Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
         socket.send(loginMessage)
     }
 
@@ -2447,27 +2454,28 @@ class TelnyxClient(
      */
     override fun onAiConversationReceived(jsonObject: JsonObject) {
         Logger.i(message = "AI CONVERSATION RECEIVED :: $jsonObject")
-        
+
         try {
-            val aiConversationResponse = Gson().fromJson(jsonObject, AiConversationResponse::class.java)
+            val aiConversationResponse =
+                Gson().fromJson(jsonObject, AiConversationResponse::class.java)
             val params = aiConversationResponse.aiConversationParams
-            
+
             // Store widget settings if available
             params?.widgetSettings?.let { settings ->
                 _currentWidgetSettings = settings
                 Logger.i(message = "Widget settings updated :: $_currentWidgetSettings")
             }
-            
+
             // Process message for transcript extraction
             processAiConversationForTranscript(params)
-            
+
             // Emit socket response
             val receivedMessageBody = ReceivedMessageBody(
                 method = SocketMethod.AI_CONVERSATION.methodName,
                 result = aiConversationResponse
             )
             emitSocketResponse(SocketResponse.aiConversation(receivedMessageBody))
-            
+
         } catch (e: Exception) {
             Logger.e(message = "Error processing AI conversation message: ${e.message}")
         }
@@ -2478,14 +2486,14 @@ class TelnyxClient(
      */
     private fun processAiConversationForTranscript(params: AiConversationParams?) {
         if (params?.type == null) return
-        
+
         when (params.type) {
             "conversation.item.created" -> handleConversationItemCreated(params)
             "response.text.delta" -> handleResponseTextDelta(params)
             // Other AI conversation message types are ignored for transcript
         }
     }
-    
+
     /**
      * Handle user speech transcript from conversation.item.created messages
      */
@@ -2494,11 +2502,11 @@ class TelnyxClient(
         if (item?.role != TranscriptItem.ROLE_USER || item.status != "completed") {
             return // Only handle completed user messages
         }
-        
+
         val content = item.content
             ?.mapNotNull { it.transcript }
             ?.joinToString(" ") ?: ""
-            
+
         if (content.isNotEmpty() && item.id != null) {
             val transcriptItem = TranscriptItem(
                 id = item.id,
@@ -2506,29 +2514,29 @@ class TelnyxClient(
                 content = content,
                 timestamp = Date()
             )
-            
+
             _transcript.add(transcriptItem)
             _transcriptUpdateFlow.tryEmit(_transcript.toList())
         }
     }
-    
+
     /**
      * Handle AI response text deltas from response.text.delta messages
      */
     private fun handleResponseTextDelta(params: AiConversationParams) {
         val delta = params.delta ?: return
         val itemId = params.itemId ?: return
-        
+
         // Initialize buffer for this response if not exists
         if (!assistantResponseBuffers.containsKey(itemId)) {
             assistantResponseBuffers[itemId] = StringBuilder()
         }
         assistantResponseBuffers[itemId]?.append(delta)
-        
+
         // Create or update transcript item for this response
         val existingIndex = _transcript.indexOfFirst { it.id == itemId }
         val currentContent = assistantResponseBuffers[itemId]?.toString() ?: ""
-        
+
         if (existingIndex >= 0) {
             // Update existing transcript item with accumulated content
             _transcript[existingIndex] = TranscriptItem(
@@ -2549,7 +2557,7 @@ class TelnyxClient(
             )
             _transcript.add(transcriptItem)
         }
-        
+
         _transcriptUpdateFlow.tryEmit(_transcript.toList())
     }
 
@@ -2557,8 +2565,8 @@ class TelnyxClient(
      * Gets the forceRelayCandidate setting from the current session config
      */
     private fun getForceRelayCandidate(): Boolean {
-        return credentialSessionConfig?.forceRelayCandidate 
-            ?: tokenSessionConfig?.forceRelayCandidate 
+        return credentialSessionConfig?.forceRelayCandidate
+            ?: tokenSessionConfig?.forceRelayCandidate
             ?: false
     }
 

@@ -50,6 +50,7 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -579,7 +580,8 @@ class TelnyxViewModel : ViewModel() {
                 targetType = targetType,
                 targetVersionId = targetVersionId,
                 userVariables = userVariables,
-                reconnection = false
+                reconnection = false,
+                logLevel = LogLevel.ALL
             ).collectLatest { response ->
                 Timber.d("Anonymous Login Response: $response")
                 handleSocketResponse(response)
@@ -717,6 +719,7 @@ class TelnyxViewModel : ViewModel() {
             SocketMethod.RINGING.methodName -> handleRinging(data)
             SocketMethod.MEDIA.methodName -> handleMedia()
             SocketMethod.BYE.methodName -> handleBye(data)
+            SocketMethod.AI_CONVERSATION.methodName -> handleAiConversation(data)
         }
     }
 
@@ -776,6 +779,11 @@ class TelnyxViewModel : ViewModel() {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
         }
+    }
+
+    private fun handleAiConversation(data: ReceivedMessageBody) {
+        // Handle AI conversation messages if needed
+        Timber.d("AI Conversation message received: %s", data.result)
     }
 
     private fun handleLoading() {

@@ -35,5 +35,5 @@ enum class SocketMethod(var methodName: String) {
     ATTACH_CALL("telnyx_rtc.attachCalls"),
     LOGIN("login"),
     ANONYMOUS_LOGIN("anonymous_login"),
-    AI_CONVERSATION("telnyx_rtc.ai_conversation")
+    AI_CONVERSATION("ai_conversation")
 }

@@ -2,6 +2,7 @@ package com.telnyx.webrtc.common.domain.authentication
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
@@ -23,6 +24,7 @@ class AuthenticateAnonymously(private val context: Context) {
      * @param targetVersionId Optional version ID of the target.
      * @param userVariables Optional user variables to include.
      * @param reconnection Whether this is a reconnection attempt (defaults to false).
+     * @param logLevel The log level for the operation (defaults to LogLevel.NONE).
      *
      * @return A SharedFlow emitting the socket response.
      */
@@ -32,7 +34,8 @@ class AuthenticateAnonymously(private val context: Context) {
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
         userVariables: Map<String, Any>? = null,
-        reconnection: Boolean = false
+        reconnection: Boolean = false,
+        logLevel: LogLevel = LogLevel.NONE
     ): SharedFlow<SocketResponse<ReceivedMessageBody>> {
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
 
@@ -43,7 +46,8 @@ class AuthenticateAnonymously(private val context: Context) {
             targetType = targetType,
             targetVersionId = targetVersionId,
             userVariables = userVariables,
-            reconnection = reconnection
+            reconnection = reconnection,
+            logLevel = logLevel
         )
 
         return telnyxClient.socketResponseFlow
