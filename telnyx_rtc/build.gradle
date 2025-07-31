@@ -187,6 +187,7 @@ dependencies {
 
     implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
     testImplementation deps.ktor.client_test
+    implementation deps.ktor.gson
 
     // Firebase
     implementation platform(deps.firebasebom)
