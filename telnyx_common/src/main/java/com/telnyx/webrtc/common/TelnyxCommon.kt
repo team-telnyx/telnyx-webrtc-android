@@ -3,6 +3,7 @@ package com.telnyx.webrtc.common
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.Observer
+import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.common.service.CallForegroundService
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -250,6 +251,17 @@ class TelnyxCommon private constructor() {
                 Timber.d("Set up call quality callback for current call: ${call.callId}")
             }
         }
+    }
+
+    /**
+     * Returns a list of supported audio codecs available on the device.
+     * This is a convenience method that delegates to the TelnyxClient.
+     *
+     * @param context The application context
+     * @return List of [AudioCodec] objects representing the supported audio codecs
+     */
+    fun getSupportedAudioCodecs(context: Context): List<AudioCodec> {
+        return getTelnyxClient(context).getSupportedAudioCodecs()
     }
 
 }

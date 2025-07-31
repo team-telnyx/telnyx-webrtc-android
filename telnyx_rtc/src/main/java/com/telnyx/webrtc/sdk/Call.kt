@@ -423,7 +423,8 @@ data class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>?
+        customHeaders: Map<String, String>?,
+        preferredCodecs: List<com.telnyx.webrtc.common.model.AudioCodec>? = null
     ) {
         // Ensure peerConnection is initialized for this Call instance before proceeding
         if (peerConnection == null) {
@@ -484,7 +485,8 @@ data class Call(
                                     clientState = clientState.encodeBase64(),
                                     callId = callId, // Use the specific call ID assigned to this Call instance
                                     destinationNumber = destinationNumber,
-                                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                                    preferredCodecs = preferredCodecs
                                 )
                             )
                         )

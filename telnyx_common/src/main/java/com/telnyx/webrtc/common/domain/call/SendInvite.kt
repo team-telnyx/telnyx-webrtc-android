@@ -2,6 +2,7 @@ package com.telnyx.webrtc.common.domain.call
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +25,7 @@ class SendInvite(private val context: Context) {
      * @param clientState The client state to send the invite.
      * @param customHeaders The custom headers to send the invite.
      * @param debug When true, enables real-time call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The created outgoing call.
@@ -35,13 +37,14 @@ class SendInvite(private val context: Context) {
         clientState: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
+        preferredCodecs: List<AudioCodec>? = null,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val telnyxClient = telnyxCommon.getTelnyxClient(context)
 
-        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug)
+        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

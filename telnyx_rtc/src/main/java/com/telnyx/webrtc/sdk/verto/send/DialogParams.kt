@@ -6,6 +6,7 @@ package com.telnyx.webrtc.sdk.verto.send
 
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.CustomHeaders
+import com.telnyx.webrtc.common.model.AudioCodec
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -34,4 +35,6 @@ data class CallDialogParams(
     val destinationNumber: String = "",
     @SerializedName("custom_headers")
     val customHeaders: ArrayList<CustomHeaders> = arrayListOf(),
+    @SerializedName("preferred_codecs")
+    val preferredCodecs: List<AudioCodec>? = null
     )

@@ -6,6 +6,7 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.MediaCodecList
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -22,6 +23,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.EARPIECE
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.SPEAKER
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.UNASSIGNED
 import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
@@ -395,6 +397,7 @@ class TelnyxClient(
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
      * @param debug When true, enables real-time call quality metrics
+     * @param preferredCodecs Optional list of preferred audio codecs for the call
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -403,7 +406,8 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false
+        debug: Boolean = false,
+        preferredCodecs: List<AudioCodec>? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -461,7 +465,8 @@ class TelnyxClient(
                 callerNumber = callerNumber,
                 destinationNumber = destinationNumber,
                 clientState = clientState,
-                customHeaders = customHeaders
+                customHeaders = customHeaders,
+                preferredCodecs = preferredCodecs
             )
 
             client.callOngoing()
@@ -2332,6 +2337,90 @@ class TelnyxClient(
         return credentialSessionConfig?.forceRelayCandidate 
             ?: tokenSessionConfig?.forceRelayCandidate 
             ?: false
+    }
+
+    /**
+     * Returns a list of supported audio codecs available on the device.
+     * This method queries the device's MediaCodecList to find all available audio encoders
+     * and returns them in a format compatible with the preferred_codecs parameter.
+     *
+     * @return List of [AudioCodec] objects representing the supported audio codecs
+     */
+    fun getSupportedAudioCodecs(): List<AudioCodec> {
+        val supportedCodecs = mutableListOf<AudioCodec>()
+        
+        try {
+            val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
+            for (codecInfo in codecList.codecInfos) {
+                if (!codecInfo.isEncoder) {
+                    continue
+                }
+
+                val types = codecInfo.supportedTypes
+                for (type in types) {
+                    if (type.startsWith("audio/")) {
+                        Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
+                        
+                        // Map common codec types to standard formats
+                        val audioCodec = when {
+                            type.contains("opus", ignoreCase = true) -> {
+                                AudioCodec(
+                                    channels = 2,
+                                    clockRate = 48000,
+                                    mimeType = "audio/opus",
+                                    sdpFmtpLine = "minptime=10;useinbandfec=1"
+                                )
+                            }
+                            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
+                                AudioCodec(
+                                    channels = 1,
+                                    clockRate = 8000,
+                                    mimeType = "audio/PCMA"
+                                )
+                            }
+                            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
+                                AudioCodec(
+                                    channels = 1,
+                                    clockRate = 8000,
+                                    mimeType = "audio/PCMU"
+                                )
+                            }
+                            type.contains("g722", ignoreCase = true) -> {
+                                AudioCodec(
+                                    channels = 1,
+                                    clockRate = 16000,
+                                    mimeType = "audio/G722"
+                                )
+                            }
+                            type.contains("g729", ignoreCase = true) -> {
+                                AudioCodec(
+                                    channels = 1,
+                                    clockRate = 8000,
+                                    mimeType = "audio/G729"
+                                )
+                            }
+                            else -> {
+                                // Generic codec mapping
+                                AudioCodec(
+                                    channels = 1,
+                                    clockRate = 8000,
+                                    mimeType = type
+                                )
+                            }
+                        }
+                        
+                        // Avoid duplicates
+                        if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
+                            supportedCodecs.add(audioCodec)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
+        }
+        
+        return supportedCodecs
     }
 
     /**
