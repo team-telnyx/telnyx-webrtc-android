@@ -6,6 +6,7 @@ import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.manager.UserManager
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.SocketMethod
@@ -122,12 +123,20 @@ class TelecomCallManager @Inject constructor(
         callerNumber: String,
         destinationNumber: String
     ) {
+        // Example: Get supported codecs and prefer OPUS first, then PCMU
+        val supportedCodecs = telnyxClient.getSupportedAudioCodecs()
+        val preferredCodecs = listOf(AudioCodec.OPUS, AudioCodec.PCMU)
+        
+        Timber.d("Supported audio codecs: ${supportedCodecs.map { it.name }}")
+        Timber.d("Using preferred codecs: ${preferredCodecs.map { it.name }}")
+        
         val newCall = telnyxClient.newInvite(
             callerName,
             callerNumber,
             destinationNumber,
             clientState = "Sample Client State",
-            customHeaders = mapOf("X-test" to "123456")
+            customHeaders = mapOf("X-test" to "123456"),
+            preferredCodecs = preferredCodecs
         )
         currentCall = newCall
         listenToCallState(newCall)

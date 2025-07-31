@@ -675,6 +675,22 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.getActiveCalls(), mutableMapOf())
     }
 
+    @Test
+    fun `Test getSupportedAudioCodecs returns expected codecs`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        val supportedCodecs = client.getSupportedAudioCodecs()
+        
+        // Verify that common codecs are included
+        val codecNames = supportedCodecs.map { it.name }
+        assert(codecNames.contains("OPUS"))
+        assert(codecNames.contains("PCMU"))
+        assert(codecNames.contains("PCMA"))
+        assert(codecNames.contains("G722"))
+        
+        // Verify that the list is not empty
+        assert(supportedCodecs.isNotEmpty())
+    }
+
     // Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,

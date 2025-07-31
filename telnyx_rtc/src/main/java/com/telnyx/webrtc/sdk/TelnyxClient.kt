@@ -387,6 +387,15 @@ class TelnyxClient(
 
 
     /**
+     * Returns a list of supported audio codecs that can be used for calls.
+     * 
+     * @return List of [AudioCodec] objects representing supported codecs
+     */
+    fun getSupportedAudioCodecs(): List<AudioCodec> {
+        return AudioCodec.getCommonCodecs()
+    }
+
+    /**
      * Creates a new outgoing call invitation.
      *
      * @param callerName The name of the caller to display
@@ -394,6 +403,7 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address to call
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
+     * @param preferredCodecs Optional list of preferred audio codecs in order of preference
      * @param debug When true, enables real-time call quality metrics
      * @return A new [Call] instance representing the outgoing call
      */
@@ -403,6 +413,7 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null,
+        preferredCodecs: List<AudioCodec>? = null,
         debug: Boolean = false
     ): Call {
         var callDebug = debug
@@ -461,7 +472,8 @@ class TelnyxClient(
                 callerNumber = callerNumber,
                 destinationNumber = destinationNumber,
                 clientState = clientState,
-                customHeaders = customHeaders
+                customHeaders = customHeaders,
+                preferredCodecs = preferredCodecs
             )
 
             client.callOngoing()
