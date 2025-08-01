@@ -3,10 +3,10 @@ package com.telnyx.webrtc.common
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.Observer
-import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.common.service.CallForegroundService
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.ICECandidate

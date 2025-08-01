@@ -23,7 +23,6 @@ import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.EARPIECE
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.SPEAKER
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.UNASSIGNED
 import com.telnyx.webrtc.sdk.model.*
-import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
@@ -2356,58 +2355,11 @@ class TelnyxClient(
                     continue
                 }
 
-                val types = codecInfo.supportedTypes
-                for (type in types) {
+                for (type in codecInfo.supportedTypes) {
                     if (type.startsWith("audio/")) {
                         Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
                         
-                        // Map common codec types to standard formats
-                        val audioCodec = when {
-                            type.contains("opus", ignoreCase = true) -> {
-                                AudioCodec(
-                                    channels = 2,
-                                    clockRate = 48000,
-                                    mimeType = "audio/opus",
-                                    sdpFmtpLine = "minptime=10;useinbandfec=1"
-                                )
-                            }
-                            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
-                                AudioCodec(
-                                    channels = 1,
-                                    clockRate = 8000,
-                                    mimeType = "audio/PCMA"
-                                )
-                            }
-                            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
-                                AudioCodec(
-                                    channels = 1,
-                                    clockRate = 8000,
-                                    mimeType = "audio/PCMU"
-                                )
-                            }
-                            type.contains("g722", ignoreCase = true) -> {
-                                AudioCodec(
-                                    channels = 1,
-                                    clockRate = 16000,
-                                    mimeType = "audio/G722"
-                                )
-                            }
-                            type.contains("g729", ignoreCase = true) -> {
-                                AudioCodec(
-                                    channels = 1,
-                                    clockRate = 8000,
-                                    mimeType = "audio/G729"
-                                )
-                            }
-                            else -> {
-                                // Generic codec mapping
-                                AudioCodec(
-                                    channels = 1,
-                                    clockRate = 8000,
-                                    mimeType = type
-                                )
-                            }
-                        }
+                        val audioCodec = mapTypeToAudioCodec(type)
                         
                         // Avoid duplicates
                         if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
@@ -2421,6 +2373,60 @@ class TelnyxClient(
         }
         
         return supportedCodecs
+    }
+
+    /**
+     * Maps a codec type string to an AudioCodec object with appropriate settings.
+     * 
+     * @param type The codec type string (e.g., "audio/opus")
+     * @return AudioCodec object configured for the given type
+     */
+    private fun mapTypeToAudioCodec(type: String): AudioCodec {
+        return when {
+            type.contains("opus", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 2,
+                    clockRate = 48000,
+                    mimeType = "audio/opus",
+                    sdpFmtpLine = "minptime=10;useinbandfec=1"
+                )
+            }
+            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/PCMA"
+                )
+            }
+            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/PCMU"
+                )
+            }
+            type.contains("g722", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 16000,
+                    mimeType = "audio/G722"
+                )
+            }
+            type.contains("g729", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/G729"
+                )
+            }
+            else -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = type
+                )
+            }
+        }
     }
 
     /**

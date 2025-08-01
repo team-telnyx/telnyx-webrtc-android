@@ -2,8 +2,8 @@ package com.telnyx.webrtc.common.domain.call
 
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
-import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

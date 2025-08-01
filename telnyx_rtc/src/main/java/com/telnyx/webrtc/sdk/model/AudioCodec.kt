@@ -2,8 +2,7 @@
  * Copyright © 2025 Telnyx LLC. All rights reserved.
  */
 
-package com.telnyx.webrtc.common.model
-
+package com.telnyx.webrtc.sdk.model
 import com.google.gson.annotations.SerializedName
 
 /**

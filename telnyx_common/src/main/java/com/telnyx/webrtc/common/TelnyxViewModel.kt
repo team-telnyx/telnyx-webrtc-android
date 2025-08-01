@@ -17,7 +17,6 @@ import com.telnyx.webrtc.common.domain.call.HoldUnholdCall
 import com.telnyx.webrtc.common.domain.call.OnByeReceived
 import com.telnyx.webrtc.common.domain.call.RejectCall
 import com.telnyx.webrtc.common.domain.call.SendInvite
-import com.telnyx.webrtc.common.model.AudioCodec
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.data.CallHistoryRepository
@@ -50,6 +49,7 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow

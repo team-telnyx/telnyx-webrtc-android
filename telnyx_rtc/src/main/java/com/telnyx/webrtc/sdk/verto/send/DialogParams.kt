@@ -6,7 +6,7 @@ package com.telnyx.webrtc.sdk.verto.send
 
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.CustomHeaders
-import com.telnyx.webrtc.common.model.AudioCodec
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import java.util.*
 import kotlin.collections.ArrayList
 
