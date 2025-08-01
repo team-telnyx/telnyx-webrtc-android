@@ -103,6 +103,9 @@ object LoginScreenNav
 @Serializable
 object CallScreenNav
 
+@Serializable
+object AIAssistantScreenNav
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -293,6 +296,21 @@ fun HomeScreen(
                                     }
                                 )
 
+                                // AI Assistant option
+                                DropdownMenuItem(
+                                    text = { Text("AI Assistant") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        navController.navigate(AIAssistantScreenNav)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_message),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
                                 // Prefetch ICE Candidates option
                                 DropdownMenuItem(
                                     text = { 
@@ -445,6 +463,12 @@ fun HomeScreen(
                 }
                 composable<CallScreenNav> {
                     CallScreen(telnyxViewModel)
+                }
+                composable<AIAssistantScreenNav> {
+                    AIAssistantScreen(
+                        telnyxViewModel = telnyxViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
             }
 

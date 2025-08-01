@@ -49,7 +49,7 @@ import kotlin.concurrent.timerTask
  */
 class TelnyxClient(
     var context: Context,
-) : TxSocketListener {
+) : TxSocketListener, AIAssistantManager.AIAssistantDelegate {
 
     internal var webRTCReporter: WebRTCReporter? = null
 
@@ -197,37 +197,41 @@ class TelnyxClient(
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
-    // Transcript management for AI conversations
-    private val _transcript = mutableListOf<TranscriptItem>()
-    private val assistantResponseBuffers = mutableMapOf<String, StringBuilder>()
+    // AI Assistant Manager for handling AI-related functionality
+    private var _aiAssistantManager: AIAssistantManager? = null
 
-    // Current widget settings from AI conversation
-    private var _currentWidgetSettings: WidgetSettings? = null
-
-    // SharedFlow for transcript updates
-    private val _transcriptUpdateFlow = MutableSharedFlow<List<TranscriptItem>>(
-        replay = 1,
-        extraBufferCapacity = 64
-    )
+    /**
+     * Returns the AI Assistant Manager instance
+     * Creates a new instance if one doesn't exist
+     */
+    val aiAssistantManager: AIAssistantManager
+        get() {
+            if (_aiAssistantManager == null) {
+                _aiAssistantManager = AIAssistantManager(socket, sessid).apply {
+                    delegate = this@TelnyxClient
+                }
+            }
+            return _aiAssistantManager!!
+        }
 
     /**
      * Returns the transcript updates in the form of SharedFlow
      * Contains a list of TranscriptItem objects representing the conversation
      */
-    val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> =
-        _transcriptUpdateFlow.asSharedFlow()
+    val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>>
+        get() = aiAssistantManager.transcriptUpdateFlow
 
     /**
      * Returns the current transcript as an immutable list
      */
     val transcript: List<TranscriptItem>
-        get() = _transcript.toList()
+        get() = aiAssistantManager.transcript
 
     /**
      * Returns the current widget settings from AI conversation
      */
     val currentWidgetSettings: WidgetSettings?
-        get() = _currentWidgetSettings
+        get() = aiAssistantManager.currentWidgetSettings
 
     @Deprecated("telnyxclient.call is deprecated. Use telnyxclient.[option] instead. e.g telnyxclient.newInvite()")
     val call: Call? by lazy {
@@ -1335,31 +1339,13 @@ class TelnyxClient(
         userVariables: Map<String, Any>? = null,
         reconnection: Boolean = false,
     ) {
-        val uuid: String = UUID.randomUUID().toString()
-
-        val userAgent = UserAgent(
-            sdkVersion = SDK_VERSION,
-            data = "Android-$SDK_VERSION"
-        )
-
-        val anonymousLoginParams = AnonymousLoginParams(
-            targetType = targetType,
+        aiAssistantManager.anonymousLogin(
             targetId = targetId,
+            targetType = targetType,
             targetVersionId = targetVersionId,
             userVariables = userVariables,
-            reconnection = reconnection,
-            userAgent = userAgent,
-            sessid = sessid
+            reconnection = reconnection
         )
-
-        val loginMessage = SendingMessageBody(
-            id = uuid,
-            method = SocketMethod.ANONYMOUS_LOGIN.methodName,
-            params = anonymousLoginParams
-        )
-
-        Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
-        socket.send(loginMessage)
     }
 
     /**
@@ -1679,6 +1665,9 @@ class TelnyxClient(
         )
 
         socket.isLoggedIn = true
+        
+        // Notify AI Assistant Manager of successful login
+        _aiAssistantManager?.handleLoginResponse()
 
         Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
         //if there is a call pending from push, attach it
@@ -2443,6 +2432,7 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
+        _aiAssistantManager?.disconnect()
         socket.destroy()
     }
 
@@ -2453,112 +2443,22 @@ class TelnyxClient(
      * @param jsonObject the socket response containing AI conversation data
      */
     override fun onAiConversationReceived(jsonObject: JsonObject) {
-        Logger.i(message = "AI CONVERSATION RECEIVED :: $jsonObject")
-
-        try {
-            val aiConversationResponse =
-                Gson().fromJson(jsonObject, AiConversationResponse::class.java)
-            val params = aiConversationResponse.aiConversationParams
-
-            // Store widget settings if available
-            params?.widgetSettings?.let { settings ->
-                _currentWidgetSettings = settings
-                Logger.i(message = "Widget settings updated :: $_currentWidgetSettings")
-            }
-
-            // Process message for transcript extraction
-            processAiConversationForTranscript(params)
-
-            // Emit socket response
-            val receivedMessageBody = ReceivedMessageBody(
-                method = SocketMethod.AI_CONVERSATION.methodName,
-                result = aiConversationResponse
-            )
-            emitSocketResponse(SocketResponse.aiConversation(receivedMessageBody))
-
-        } catch (e: Exception) {
-            Logger.e(message = "Error processing AI conversation message: ${e.message}")
-        }
+        aiAssistantManager.handleAiConversationReceived(jsonObject)
     }
 
-    /**
-     * Process AI conversation messages for transcript extraction
-     */
-    private fun processAiConversationForTranscript(params: AiConversationParams?) {
-        if (params?.type == null) return
-
-        when (params.type) {
-            "conversation.item.created" -> handleConversationItemCreated(params)
-            "response.text.delta" -> handleResponseTextDelta(params)
-            // Other AI conversation message types are ignored for transcript
-        }
+    // AIAssistantDelegate implementation
+    override fun onSocketResponse(response: SocketResponse) {
+        emitSocketResponse(response)
     }
 
-    /**
-     * Handle user speech transcript from conversation.item.created messages
-     */
-    private fun handleConversationItemCreated(params: AiConversationParams) {
-        val item = params.item
-        if (item?.role != TranscriptItem.ROLE_USER || item.status != "completed") {
-            return // Only handle completed user messages
-        }
-
-        val content = item.content
-            ?.mapNotNull { it.transcript }
-            ?.joinToString(" ") ?: ""
-
-        if (content.isNotEmpty() && item.id != null) {
-            val transcriptItem = TranscriptItem(
-                id = item.id,
-                role = TranscriptItem.ROLE_USER,
-                content = content,
-                timestamp = Date()
-            )
-
-            _transcript.add(transcriptItem)
-            _transcriptUpdateFlow.tryEmit(_transcript.toList())
-        }
+    override fun onTranscriptUpdated(transcript: List<TranscriptItem>) {
+        // Transcript updates are automatically handled through the SharedFlow
+        // Additional custom logic can be added here if needed
     }
 
-    /**
-     * Handle AI response text deltas from response.text.delta messages
-     */
-    private fun handleResponseTextDelta(params: AiConversationParams) {
-        val delta = params.delta ?: return
-        val itemId = params.itemId ?: return
-
-        // Initialize buffer for this response if not exists
-        if (!assistantResponseBuffers.containsKey(itemId)) {
-            assistantResponseBuffers[itemId] = StringBuilder()
-        }
-        assistantResponseBuffers[itemId]?.append(delta)
-
-        // Create or update transcript item for this response
-        val existingIndex = _transcript.indexOfFirst { it.id == itemId }
-        val currentContent = assistantResponseBuffers[itemId]?.toString() ?: ""
-
-        if (existingIndex >= 0) {
-            // Update existing transcript item with accumulated content
-            _transcript[existingIndex] = TranscriptItem(
-                id = itemId,
-                role = TranscriptItem.ROLE_ASSISTANT,
-                content = currentContent,
-                timestamp = _transcript[existingIndex].timestamp,
-                isPartial = true
-            )
-        } else {
-            // Create new transcript item
-            val transcriptItem = TranscriptItem(
-                id = itemId,
-                role = TranscriptItem.ROLE_ASSISTANT,
-                content = currentContent,
-                timestamp = Date(),
-                isPartial = true
-            )
-            _transcript.add(transcriptItem)
-        }
-
-        _transcriptUpdateFlow.tryEmit(_transcript.toList())
+    override fun onWidgetSettingsUpdated(settings: WidgetSettings) {
+        // Widget settings updates are automatically handled
+        // Additional custom logic can be added here if needed
     }
 
     /**
