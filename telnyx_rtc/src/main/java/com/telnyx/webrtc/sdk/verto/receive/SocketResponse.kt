@@ -55,5 +55,14 @@ data class SocketResponse<out T>(
                 null
             )
         }
+
+        fun <T> aiConversation(data: T): SocketResponse<T> {
+            return SocketResponse(
+                SocketStatus.MESSAGERECEIVED,
+                data,
+                null,
+                null
+            )
+        }
     }
 }
