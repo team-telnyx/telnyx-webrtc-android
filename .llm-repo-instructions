@@ -34,3 +34,5 @@ Use meaningful variable and function names that make the code self-documenting.
 Never modify ProGuard rules without explicit instruction, as they are critical for WebRTC functionality.
 When adding new public APIs, ensure they are properly documented with KDoc comments.
 Maintain backward compatibility when possible, especially for public SDK interfaces.
+
+Files need to end with a new line!

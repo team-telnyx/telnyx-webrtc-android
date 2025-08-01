@@ -122,12 +122,17 @@ class TelecomCallManager @Inject constructor(
         callerNumber: String,
         destinationNumber: String
     ) {
+        // Example: Get supported codecs and prefer Opus if available
+        val supportedCodecs = telnyxClient.getSupportedAudioCodecs()
+        val preferredCodecs = supportedCodecs.filter { it.mimeType.contains("opus", ignoreCase = true) }
+        
         val newCall = telnyxClient.newInvite(
             callerName,
             callerNumber,
             destinationNumber,
             clientState = "Sample Client State",
-            customHeaders = mapOf("X-test" to "123456")
+            customHeaders = mapOf("X-test" to "123456"),
+            preferredCodecs = preferredCodecs.ifEmpty { null }
         )
         currentCall = newCall
         listenToCallState(newCall)

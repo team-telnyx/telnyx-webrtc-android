@@ -49,6 +49,7 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -832,11 +833,13 @@ class TelnyxViewModel : ViewModel() {
      * @param viewContext The application context.
      * @param destinationNumber The phone number to call.
      * @param debug Whether to enable debug mode for call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
      */
     fun sendInvite(
         viewContext: Context,
         destinationNumber: String,
-        debug: Boolean
+        debug: Boolean,
+        preferredCodecs: List<AudioCodec>? = null
     ) {
 
         callStateJob?.cancel()
@@ -852,6 +855,7 @@ class TelnyxViewModel : ViewModel() {
                     "",
                     mapOf(Pair("X-test", "123456")),
                     debug,
+                    preferredCodecs,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -864,6 +868,16 @@ class TelnyxViewModel : ViewModel() {
         if (debug) {
             collectAudioLevels()
         }
+    }
+
+    /**
+     * Returns a list of supported audio codecs available on the device.
+     *
+     * @param viewContext The application context.
+     * @return List of [AudioCodec] objects representing the supported audio codecs.
+     */
+    fun getSupportedAudioCodecs(viewContext: Context): List<AudioCodec> {
+        return TelnyxCommon.getInstance().getSupportedAudioCodecs(viewContext)
     }
 
     /**
