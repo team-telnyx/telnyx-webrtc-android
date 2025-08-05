@@ -2,7 +2,6 @@ plugins {
     id 'com.android.library'
     id 'kotlin-android'
     id 'kotlin-kapt'
-    id 'com.google.dagger.hilt.android'
     id 'org.jetbrains.dokka'
     id 'maven-publish'
     id 'io.gitlab.arturbosch.detekt'
@@ -16,7 +15,7 @@ android {
 }
 
 def getVersionName = { ->
-    return "2.0.2"
+    return "3.0.0"
 }
 
 def getArtifactId = { ->
@@ -174,33 +173,21 @@ tasks.koverXmlReport {
 dependencies {
 
     implementation deps.kotlin.stdlib
-    implementation deps.androidx_core
     implementation deps.appcompat
-    implementation deps.material
-    implementation deps.constraint_layout
 
     implementation "com.telnyx.webrtc.lib:library:1.0.1"
 
     implementation deps.gson
-    implementation deps.retrofit.runtime
-    implementation deps.retrofit.gson
-
 
     implementation deps.coroutines.core
     implementation deps.coroutines.android
 
-    implementation deps.websocket
-
     implementation deps.okhttp
     implementation deps.interceptor
 
-    implementation deps.ktor.android
-    implementation deps.ktor.cio
-    implementation deps.ktor.gson
-    implementation deps.ktor.websockets
-    implementation deps.ktor.okhttp
     implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
     testImplementation deps.ktor.client_test
+    implementation deps.ktor.gson
 
     // Firebase
     implementation platform(deps.firebasebom)
@@ -209,12 +196,6 @@ dependencies {
 
     // Timber
     implementation deps.timber
-
-    //permissions
-    implementation deps.dexter
-
-    implementation deps.hilt.android
-    kapt deps.hilt.compiler
 
     //Testing:
     testImplementation "androidx.arch.core:core-testing:2.1.0"
@@ -271,4 +252,5 @@ dependencies {
     def lifecycle_version = "2.7.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle_version"
+    testImplementation deps.material
 }

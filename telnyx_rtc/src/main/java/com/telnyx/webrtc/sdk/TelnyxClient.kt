@@ -6,6 +6,7 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.MediaCodecList
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -40,6 +41,7 @@ import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.timerTask
 
 /**
@@ -51,7 +53,7 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
 
-    internal var webRTCReporter: WebRTCReporter? = null
+    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> = ConcurrentHashMap<UUID, WebRTCReporter>()
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -381,8 +383,8 @@ class TelnyxClient(
 
                             // Start stats collection if debug is enabled
                             if (callDebug || socketPortalDebug) {
-                                if (webRTCReporter == null) {
-                                    webRTCReporter = WebRTCReporter(
+                                if (getWebRTCReporter(callId) == null) {
+                                    val webRTCReporter = WebRTCReporter(
                                         socket,
                                         callId,
                                         getTelnyxLegId()?.toString(),
@@ -390,10 +392,11 @@ class TelnyxClient(
                                         callDebug,
                                         socketPortalDebug
                                     )
-                                    webRTCReporter?.onCallQualityChange = { metrics ->
+                                    webRTCReporter.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
                                     }
-                                    webRTCReporter?.startStats()
+                                    webRTCReporter.startStats()
+                                    addWebRTCReporter(callId, webRTCReporter)
                                 }
                             }
 
@@ -428,6 +431,7 @@ class TelnyxClient(
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
      * @param debug When true, enables real-time call quality metrics
+     * @param preferredCodecs Optional list of preferred audio codecs for the call
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -436,7 +440,8 @@ class TelnyxClient(
         destinationNumber: String,
         clientState: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false
+        debug: Boolean = false,
+        preferredCodecs: List<AudioCodec>? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -468,7 +473,7 @@ class TelnyxClient(
 
                 // Create reporter if per-call debug is enabled or config debug is enabled
                 if (callDebug || socketPortalDebug) {
-                    webRTCReporter =
+                    val webRTCReporter =
                         WebRTCReporter(
                             socket,
                             callId,
@@ -478,11 +483,12 @@ class TelnyxClient(
                             socketPortalDebug
                         )
                     if (callDebug) {
-                        webRTCReporter?.onCallQualityChange = { metrics ->
+                        webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
                     }
-                    webRTCReporter?.startStats()
+                    webRTCReporter.startStats()
+                    addWebRTCReporter(callId, webRTCReporter)
                 }
             }
 
@@ -493,7 +499,8 @@ class TelnyxClient(
                 callerNumber = callerNumber,
                 destinationNumber = destinationNumber,
                 clientState = clientState,
-                customHeaders = customHeaders
+                customHeaders = customHeaders,
+                preferredCodecs = preferredCodecs
             )
 
             client.callOngoing()
@@ -559,8 +566,8 @@ class TelnyxClient(
             updateCallState(CallState.DONE(terminationReason))
 
             // Stop reporter before releasing the peer connection
-            webRTCReporter?.stopStats()
-            webRTCReporter = null // Clear the reporter instance
+            removeWebRTCReporter(callId)?.stopStats()
+
             client.removeFromCalls(callId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
@@ -650,7 +657,9 @@ class TelnyxClient(
 
         //Disconnect active calls for reconnection
         getActiveCalls().forEach { (_, call) ->
-            webRTCReporter?.pauseStats()
+            webRTCReportersMap.forEach { (_, webRTCReporter) ->
+                webRTCReporter.pauseStats()
+            }
             call.peerConnection?.disconnect()
             call.updateCallState(CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH))
         }
@@ -862,7 +871,10 @@ class TelnyxClient(
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
-                if (voiceSDKID != null) {
+                if (txPushMetaData != null) {
+                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                    voiceSDKID = metadata.voiceSdkId
+                } else if (voiceSDKID != null) {
                     pushMetaData = PushMetaData(
                         callerName = "",
                         callerNumber = "",
@@ -940,7 +952,10 @@ class TelnyxClient(
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
-                if (voiceSDKID != null) {
+                if (txPushMetaData != null) {
+                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                    voiceSDKID = metadata.voiceSdkId
+                } else if (voiceSDKID != null) {
                     pushMetaData = PushMetaData(
                         callerName = "",
                         callerNumber = "",
@@ -1055,7 +1070,10 @@ class TelnyxClient(
 
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (voiceSDKID != null) {
+            if (txPushMetaData != null) {
+                val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                voiceSDKID = metadata.voiceSdkId
+            } else if (voiceSDKID != null) {
                 pushMetaData = PushMetaData(
                     callerName = "",
                     callerNumber = "",
@@ -1993,8 +2011,8 @@ class TelnyxClient(
                 )
 
                 // Existing cleanup logic
-                webRTCReporter?.stopStats()
-                webRTCReporter = null // Clear the reporter instance
+                removeWebRTCReporter(callId)?.stopStats()
+
                 client.removeFromCalls(callId)
                 client.callNotOngoing()
                 resetCallOptions()
@@ -2190,7 +2208,7 @@ class TelnyxClient(
                 }.also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isSocketDebug) {
-                        webRTCReporter = WebRTCReporter(
+                        val webRTCReporter = WebRTCReporter(
                             socket,
                             callId,
                             telnyxLegId?.toString(),
@@ -2198,10 +2216,11 @@ class TelnyxClient(
                             false,
                             isSocketDebug
                         )
-                        webRTCReporter?.onCallQualityChange = { metrics ->
+                        webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
                         }
-                        webRTCReporter?.startStats()
+                        webRTCReporter.startStats()
+                        addWebRTCReporter(callId, webRTCReporter)
                     }
                 }
 
@@ -2371,7 +2390,7 @@ class TelnyxClient(
             ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
-                    webRTCReporter = WebRTCReporter(
+                    val webRTCReporter = WebRTCReporter(
                         socket,
                         callId,
                         telnyxLegId?.toString(),
@@ -2379,10 +2398,11 @@ class TelnyxClient(
                         false,
                         isSocketDebug
                     )
-                    webRTCReporter?.onCallQualityChange = { metrics ->
+                    webRTCReporter.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
                     }
-                    webRTCReporter?.startStats()
+                    webRTCReporter.startStats()
+                    addWebRTCReporter(callId, webRTCReporter)
                 }
             }
 
@@ -2571,11 +2591,114 @@ class TelnyxClient(
     }
 
     /**
+     * Returns a list of supported audio codecs available on the device.
+     * This method queries the device's MediaCodecList to find all available audio encoders
+     * and returns them in a format compatible with the preferred_codecs parameter.
+     *
+     * @return List of [AudioCodec] objects representing the supported audio codecs
+     */
+    fun getSupportedAudioCodecs(): List<AudioCodec> {
+        val supportedCodecs = mutableListOf<AudioCodec>()
+        
+        try {
+            val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
+            for (codecInfo in codecList.codecInfos) {
+                if (!codecInfo.isEncoder) {
+                    continue
+                }
+
+                for (type in codecInfo.supportedTypes) {
+                    if (type.startsWith("audio/")) {
+                        Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
+                        
+                        val audioCodec = mapTypeToAudioCodec(type)
+                        
+                        // Avoid duplicates
+                        if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
+                            supportedCodecs.add(audioCodec)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
+        }
+        
+        return supportedCodecs
+    }
+
+    /**
+     * Maps a codec type string to an AudioCodec object with appropriate settings.
+     * 
+     * @param type The codec type string (e.g., "audio/opus")
+     * @return AudioCodec object configured for the given type
+     */
+    private fun mapTypeToAudioCodec(type: String): AudioCodec {
+        return when {
+            type.contains("opus", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 2,
+                    clockRate = 48000,
+                    mimeType = "audio/opus",
+                    sdpFmtpLine = "minptime=10;useinbandfec=1"
+                )
+            }
+            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/PCMA"
+                )
+            }
+            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/PCMU"
+                )
+            }
+            type.contains("g722", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 16000,
+                    mimeType = "audio/G722"
+                )
+            }
+            type.contains("g729", ignoreCase = true) -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = "audio/G729"
+                )
+            }
+            else -> {
+                AudioCodec(
+                    channels = 1,
+                    clockRate = 8000,
+                    mimeType = type
+                )
+            }
+        }
+    }
+
+    /**
      * Disconnects the TelnyxClient, resets all internal states, and stops any ongoing audio playback.
      * This method should be called when the client is no longer needed or when the user logs out.
      */
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         onDisconnect()
+    }
+
+    private fun addWebRTCReporter(callId: UUID, webRTCReporter: WebRTCReporter) {
+        webRTCReportersMap[callId] = webRTCReporter
+    }
+
+    private fun removeWebRTCReporter(callId: UUID): WebRTCReporter? {
+        return webRTCReportersMap.remove(callId)
+    }
+
+    private fun getWebRTCReporter(callId: UUID): WebRTCReporter? {
+        return webRTCReportersMap[callId]
     }
 }
