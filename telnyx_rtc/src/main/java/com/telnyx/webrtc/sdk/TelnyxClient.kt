@@ -2504,7 +2504,7 @@ class TelnyxClient(
         }
 
         val content = item.content
-            ?.mapNotNull { it.transcript }
+            ?.mapNotNull { it.transcript ?: it.text }
             ?.joinToString(" ") ?: ""
 
         if (content.isNotEmpty() && item.id != null) {

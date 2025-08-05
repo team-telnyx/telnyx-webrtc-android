@@ -32,6 +32,8 @@ data class ConversationItem(
     val role: String? = null,
     @SerializedName("status")
     val status: String? = null,
+    @SerializedName("type")
+    val type: String? = null,
     @SerializedName("content")
     val content: List<ConversationContent>? = null
 )
@@ -41,7 +43,11 @@ data class ConversationItem(
  */
 data class ConversationContent(
     @SerializedName("transcript")
-    val transcript: String? = null
+    val transcript: String? = null,
+    @SerializedName("type")
+    val type: String? = null,
+    @SerializedName("text")
+    val text: String? = null
 )
 
 /**
