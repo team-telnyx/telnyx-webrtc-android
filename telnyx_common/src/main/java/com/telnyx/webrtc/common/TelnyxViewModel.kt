@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.authentication.AuthenticateAnonymously
 import com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall
 import com.telnyx.webrtc.common.domain.authentication.Disconnect
 import com.telnyx.webrtc.common.domain.call.AcceptCall
@@ -49,6 +50,7 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
 import kotlinx.coroutines.Job
@@ -550,6 +552,45 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Performs anonymous login for AI assistant connections.
+     * This method allows connecting to AI assistants without traditional SIP credentials.
+     *
+     * @param viewContext The application context.
+     * @param targetId The unique identifier of the target AI assistant.
+     * @param targetType The type of target (defaults to "ai_assistant").
+     * @param targetVersionId Optional version ID of the target.
+     * @param userVariables Optional user variables to include.
+     */
+    fun anonymousLogin(
+        viewContext: Context,
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        userVariables: Map<String, Any>? = null
+    ) {
+        _isLoading.value = true
+        disconnectedByUser = false
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+        userSessionJob = viewModelScope.launch {
+            AuthenticateAnonymously(context = viewContext).invokeFlow(
+                serverConfiguration,
+                targetId = targetId,
+                targetType = targetType,
+                targetVersionId = targetVersionId,
+                userVariables = userVariables,
+                reconnection = false,
+                logLevel = LogLevel.ALL
+            ).collectLatest { response ->
+                Timber.d("Anonymous Login Response: $response")
+                handleSocketResponse(response)
+            }
+        }
+    }
+
+    /**
      * State flow for call quality metrics of the current call, observed from TelnyxCommon.
      * Observe this flow to display real-time call quality metrics in the UI.
      */
@@ -679,6 +720,7 @@ class TelnyxViewModel : ViewModel() {
             SocketMethod.RINGING.methodName -> handleRinging(data)
             SocketMethod.MEDIA.methodName -> handleMedia()
             SocketMethod.BYE.methodName -> handleBye(data)
+            SocketMethod.AI_CONVERSATION.methodName -> handleAiConversation(data)
         }
     }
 
@@ -738,6 +780,11 @@ class TelnyxViewModel : ViewModel() {
                 TelnyxSocketEvent.OnCallAnswered(it.callId)
             } ?: TelnyxSocketEvent.OnCallEnded(byeResponse)
         }
+    }
+
+    private fun handleAiConversation(data: ReceivedMessageBody) {
+        // Handle AI conversation messages if needed
+        Timber.d("AI Conversation message received: %s", data.result)
     }
 
     private fun handleLoading() {
