@@ -14,13 +14,13 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonSyntaxException
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
-import com.telnyx.webrtc.sdk.stats.ICECandidate
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
@@ -423,7 +423,8 @@ data class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>?
+        customHeaders: Map<String, String>?,
+        preferredCodecs: List<AudioCodec>? = null
     ) {
         // Ensure peerConnection is initialized for this Call instance before proceeding
         if (peerConnection == null) {
@@ -442,7 +443,8 @@ data class Call(
                     callerNumber,
                     destinationNumber,
                     clientState,
-                    customHeaders
+                    customHeaders,
+                    preferredCodecs
                 )
             }
 
@@ -461,7 +463,8 @@ data class Call(
         callerNumber: String,
         destinationNumber: String,
         clientState: String,
-        customHeaders: Map<String, String>?
+        customHeaders: Map<String, String>?,
+        preferredCodecs: List<AudioCodec>?
     ) {
         resetIceCandidateTimer() // Ensure any previous timer is cancelled
         iceCandidateTimer = Timer("call-${this.callId}-iceTimer") // Name the timer thread
@@ -484,7 +487,8 @@ data class Call(
                                     clientState = clientState.encodeBase64(),
                                     callId = callId, // Use the specific call ID assigned to this Call instance
                                     destinationNumber = destinationNumber,
-                                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                                    preferredCodecs = preferredCodecs
                                 )
                             )
                         )
