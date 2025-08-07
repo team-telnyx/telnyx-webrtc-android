@@ -147,6 +147,13 @@ class TelnyxViewModel : ViewModel() {
     val debugMode = _debugMode
 
     /**
+     * Flag indicating whether the user is connected anonymously (for AI assistant).
+     */
+    private var _isAnonymouslyConnected = false
+    val isAnonymouslyConnected: Boolean
+        get() = _isAnonymouslyConnected
+
+    /**
      * State flow for the list of user profiles.
      * Observe this flow to display the list of profiles in the UI.
      */
@@ -569,6 +576,7 @@ class TelnyxViewModel : ViewModel() {
         userVariables: Map<String, Any>? = null
     ) {
         _isLoading.value = true
+        _isAnonymouslyConnected = true
         disconnectedByUser = false
 
         userSessionJob?.cancel()
@@ -822,6 +830,7 @@ class TelnyxViewModel : ViewModel() {
         Timber.i("Disconnect...")
         userSessionJob?.cancel()
         userSessionJob = null
+        _isAnonymouslyConnected = false
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }

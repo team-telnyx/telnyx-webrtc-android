@@ -21,6 +21,7 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CallQualitySummaryBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
+import org.telnyx.webrtc.xml_app.assistant.AssistantTranscriptDialogFragment
 import java.util.*
 
 
@@ -121,6 +122,11 @@ class HomeCallFragment : Fragment() {
         binding.callHistoryButton.setOnClickListener {
             showCallHistoryBottomSheet()
         }
+
+        // Setup the "Assistant Dial" button
+        binding.assistantDialButton.setOnClickListener {
+            showAssistantTranscriptDialog()
+        }
     }
 
     private fun showCallQualityBottomSheet() {
@@ -141,6 +147,11 @@ class HomeCallFragment : Fragment() {
             requireActivity().supportFragmentManager,
             CallHistoryBottomSheet.TAG
         )
+    }
+
+    private fun showAssistantTranscriptDialog() {
+        val dialog = AssistantTranscriptDialogFragment.newInstance()
+        dialog.show(requireActivity().supportFragmentManager, AssistantTranscriptDialogFragment.TAG)
     }
 
     private fun bindEvents() {
@@ -199,6 +210,14 @@ class HomeCallFragment : Fragment() {
         binding.destinationInfo.visibility = View.VISIBLE
         binding.callInput.isEnabled = true
         callQualitySummaryBinding.root.visibility = View.GONE
+        
+        // Show assistant dial button only when connected anonymously
+        binding.assistantDialButton.visibility = if (telnyxViewModel.isAnonymouslyConnected) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        
         if (callQualityBottomSheetFragment.isAdded) {
             callQualityBottomSheetFragment.dismiss()
         }

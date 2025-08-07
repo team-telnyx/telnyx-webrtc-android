@@ -122,6 +122,20 @@
                     style="@style/CustomOutlinedButton"
                     android:textSize="@dimen/font_button"
                     />
+
+                <Button
+                    android:id="@+id/assistantDialButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/spacing_medium"
+                    android:layout_marginTop="@dimen/spacing_small"
+                    android:text="@string/assistant_dial_button"
+                    android:textAllCaps="false"
+                    android:paddingStart="@dimen/spacing_tiny"
+                    android:paddingEnd="@dimen/spacing_tiny"
+                    style="@style/CustomOutlinedButton"
+                    android:textSize="@dimen/font_button"
+                    android:visibility="gone"
+                    />
             </LinearLayout>
 
             <LinearLayout

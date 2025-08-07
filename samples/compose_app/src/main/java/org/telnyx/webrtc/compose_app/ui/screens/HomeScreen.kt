@@ -96,6 +96,8 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -117,6 +119,8 @@ fun HomeScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
+    var showAssistantLoginBottomSheet by remember { mutableStateOf(false) }
+    var showAssistantTranscriptBottomSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
@@ -324,6 +328,21 @@ fun HomeScreen(
                                 )
                             } else {
                                 // Non-logged user options - only
+
+                                // Assistant Login option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.assistant_login)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showAssistantLoginBottomSheet = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_message),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
 
                                 // Region selection
                                 DropdownMenuItem(
@@ -736,6 +755,24 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+
+    // Assistant Login Bottom Sheet
+    if (showAssistantLoginBottomSheet) {
+        AssistantLoginBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) {
+            showAssistantLoginBottomSheet = false
+        }
+    }
+
+    // Assistant Transcript Bottom Sheet
+    if (showAssistantTranscriptBottomSheet) {
+        AssistantTranscriptBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) {
+            showAssistantTranscriptBottomSheet = false
         }
     }
 }

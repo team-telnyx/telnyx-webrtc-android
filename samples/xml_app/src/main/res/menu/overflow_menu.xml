@@ -43,4 +43,10 @@
         android:title="@string/debug_mode_on"
         android:icon="@drawable/ic_debug_on"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_assistant_login"
+        android:title="@string/assistant_login"
+        android:icon="@drawable/ic_message"
+        app:showAsAction="never" />
 </menu>

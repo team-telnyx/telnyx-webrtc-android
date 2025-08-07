@@ -153,4 +153,21 @@
     <!-- Prefetch ICE Candidates -->
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
+    
+    <!-- Assistant Login -->
+    <string name="assistant_login">Assistant Login</string>
+    <string name="assistant_login_dialog_title">Assistant Login</string>
+    <string name="assistant_target_id">Target ID</string>
+    <string name="assistant_target_id_hint">Enter Assistant Target ID</string>
+    <string name="assistant_login_button">Login</string>
+    <string name="assistant_cancel_button">Cancel</string>
+    <string name="assistant_dial_button">Call Assistant</string>
+    <string name="assistant_connected">Connected to Assistant</string>
+    <string name="assistant_disconnected">Disconnected from Assistant</string>
+    <string name="assistant_transcript_title">Assistant Transcript</string>
+    <string name="assistant_message_hint">Type your message...</string>
+    <string name="assistant_send_button">Send</string>
+    <string name="assistant_transcript_empty">No conversation yet</string>
+    <string name="assistant_error_empty_target_id">Please enter a Target ID</string>
+    <string name="assistant_error_connection_failed">Failed to connect to Assistant</string>
 </resources>

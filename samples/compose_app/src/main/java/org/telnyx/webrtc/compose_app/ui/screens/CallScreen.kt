@@ -88,6 +88,7 @@ import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.utils.Utils
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
@@ -109,6 +110,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     var showDialpadSection by remember { mutableStateOf(false) }
     var showCallQualityMetrics by remember { mutableStateOf(false) }
     var showCallHistoryBottomSheet by remember { mutableStateOf(false) }
+    var showAssistantTranscriptBottomSheet by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
     val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
@@ -190,9 +192,27 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.spacing18dp)
                         ) {
-                            HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
-                                if (destinationNumber.isNotEmpty())
-                                    telnyxViewModel.sendInvite(context, destinationNumber, true)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.spacing16dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                                    if (destinationNumber.isNotEmpty())
+                                        telnyxViewModel.sendInvite(context, destinationNumber, true)
+                                }
+                                
+                                // Assistant dial button - only show when connected anonymously
+                                if (telnyxViewModel.isAnonymouslyConnected) {
+                                    HomeIconButton(
+                                        modifier = Modifier.testTag("assistantCall"),
+                                        icon = R.drawable.ic_message,
+                                        backGroundColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = Color.Black,
+                                        text = stringResource(R.string.assistant_dial)
+                                    ) {
+                                        showAssistantTranscriptBottomSheet = true
+                                    }
+                                }
                             }
                             
                             RoundSmallButton(
@@ -294,6 +314,14 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 destinationNumber = it
             }
             showCallHistoryBottomSheet = false
+        }
+    }
+
+    if (showAssistantTranscriptBottomSheet) {
+        AssistantTranscriptBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) {
+            showAssistantTranscriptBottomSheet = false
         }
     }
 }
