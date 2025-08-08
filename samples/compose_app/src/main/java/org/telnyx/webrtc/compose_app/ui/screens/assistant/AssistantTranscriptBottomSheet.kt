@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.telnyx.webrtc.common.TelnyxViewModel
+import com.telnyx.webrtc.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import java.text.SimpleDateFormat
@@ -36,7 +37,7 @@ fun AssistantTranscriptBottomSheet(
 ) {
     val context = LocalContext.current
     var messageText by remember { mutableStateOf("") }
-    val transcriptItems = remember { mutableStateListOf<TranscriptItem>() }
+    val transcriptItems by telnyxViewModel.transcriptMessages?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<TranscriptItem>()) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -88,10 +89,9 @@ fun AssistantTranscriptBottomSheet(
                     keyboardActions = KeyboardActions(
                         onSend = {
                             if (messageText.isNotBlank()) {
-                                sendMessage(
-                                    telnyxViewModel = telnyxViewModel,
-                                    message = messageText.trim(),
-                                    transcriptItems = transcriptItems
+                                telnyxViewModel.sendAIAssistantMessage(
+                                    context,
+                                    message = messageText.trim()
                                 )
                                 messageText = ""
                                 
@@ -110,10 +110,9 @@ fun AssistantTranscriptBottomSheet(
                 IconButton(
                     onClick = {
                         if (messageText.isNotBlank()) {
-                            sendMessage(
-                                telnyxViewModel = telnyxViewModel,
-                                message = messageText.trim(),
-                                transcriptItems = transcriptItems
+                            telnyxViewModel.sendAIAssistantMessage(
+                                context,
+                                message = messageText.trim()
                             )
                             messageText = ""
                             
@@ -139,7 +138,7 @@ fun AssistantTranscriptBottomSheet(
 
 @Composable
 private fun TranscriptItemComposable(item: TranscriptItem) {
-    val isUser = item.role == "user"
+    val isUser = item.role == TranscriptItem.ROLE_USER
     val backgroundColor = if (isUser) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     } else {
@@ -181,34 +180,3 @@ private fun TranscriptItemComposable(item: TranscriptItem) {
         }
     }
 }
-
-private fun sendMessage(
-    telnyxViewModel: TelnyxViewModel,
-    message: String,
-    transcriptItems: MutableList<TranscriptItem>
-) {
-    // Add user message to transcript
-    transcriptItems.add(
-        TranscriptItem(
-            role = "user",
-            content = message,
-            timestamp = Date()
-        )
-    )
-
-    // TODO: Send message through TelnyxViewModel
-    // For now, we'll add a placeholder AI response
-    transcriptItems.add(
-        TranscriptItem(
-            role = "assistant",
-            content = "This is a placeholder response. Actual AI integration will be implemented when the backend is ready.",
-            timestamp = Date()
-        )
-    )
-}
-
-data class TranscriptItem(
-    val role: String,
-    val content: String,
-    val timestamp: Date
-)

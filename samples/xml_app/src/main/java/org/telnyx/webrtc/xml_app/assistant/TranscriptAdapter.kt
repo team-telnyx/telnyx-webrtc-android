@@ -48,7 +48,7 @@ class TranscriptAdapter : RecyclerView.Adapter<TranscriptAdapter.TranscriptViewH
             tvRole.text = when (item.role) {
                 TranscriptItem.ROLE_USER -> "You"
                 TranscriptItem.ROLE_ASSISTANT -> "Assistant"
-                else -> item.role.capitalize(Locale.getDefault())
+                else -> item.role.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             }
             tvContent.text = item.content
             tvTimestamp.text = dateFormat.format(item.timestamp)

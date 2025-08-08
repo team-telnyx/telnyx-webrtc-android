@@ -53,6 +53,8 @@ import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.model.TranscriptItem
+import com.telnyx.webrtc.sdk.verto.receive.AiConversationResponse
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -214,6 +216,14 @@ class TelnyxViewModel : ViewModel() {
      */
     private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
     val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
+
+    /**
+     * Shared flow for AI assistant transcript messages from TelnyxClient.
+     * Observe this flow to display conversation transcript in the UI.
+     */
+    val transcriptMessages: SharedFlow<List<TranscriptItem>>?
+        get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
+
 
     /**
      * Job for collecting audio levels.
@@ -793,6 +803,8 @@ class TelnyxViewModel : ViewModel() {
     private fun handleAiConversation(data: ReceivedMessageBody) {
         // Handle AI conversation messages if needed
         Timber.d("AI Conversation message received: %s", data.result)
+        // AI conversation processing is now handled directly in TelnyxClient
+        // which updates the transcriptUpdateFlow
     }
 
     private fun handleLoading() {
@@ -923,6 +935,31 @@ class TelnyxViewModel : ViewModel() {
 
         if (debug) {
             collectAudioLevels()
+        }
+    }
+
+    /**
+     * Initiates an outgoing AI assistant call.
+     *
+     * @param viewContext The application context.
+     * @param debug Whether to enable debug mode for call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     */
+    fun sendAiAssistantInvite(
+        viewContext: Context,
+        debug: Boolean,
+        preferredCodecs: List<AudioCodec>? = null
+    ) {
+        sendInvite(viewContext,
+            AI_ASSISTANT_NUMBER,
+            debug,
+            preferredCodecs)
+    }
+
+    fun sendAIAssistantMessage(viewContext: Context, message: String) {
+        val telnyxCommon = TelnyxCommon.getInstance()
+        viewModelScope.launch {
+            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message)
         }
     }
 
@@ -1242,5 +1279,6 @@ class TelnyxViewModel : ViewModel() {
     companion object {
         private const val MAX_AUDIO_LEVELS = 100
         private const val MAX_WS_MESSAGES = 100
+        private const val AI_ASSISTANT_NUMBER = "AI_ASSISTANT"
     }
 }

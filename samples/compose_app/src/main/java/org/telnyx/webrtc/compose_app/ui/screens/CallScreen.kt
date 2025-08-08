@@ -201,7 +201,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     backGroundColor = telnyxGreen,
                                     contentColor = Color.White
                                 ) {
-                                    showAssistantTranscriptBottomSheet = true
+                                    telnyxViewModel.sendAiAssistantInvite(context, true)
                                 }
                             } else {
                                 // Regular mode - show green call button
@@ -251,8 +251,16 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
-                                HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    showDialpadSection = true
+                                if (telnyxViewModel.isAnonymouslyConnected) {
+                                    // Assistant mode - show message button to open transcript
+                                    HomeIconButton(Modifier.testTag("assistantTranscript"), icon = R.drawable.ic_message, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        showAssistantTranscriptBottomSheet = true
+                                    }
+                                } else {
+                                    // Regular mode - show dialpad button
+                                    HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        showDialpadSection = true
+                                    }
                                 }
                             }
                             Row(

@@ -202,6 +202,17 @@
                         android:contentDescription="@string/fab_transformation_scrim_behavior"
                         app:icon="@drawable/dialpad_24"
                         />
+
+                    <Button
+                        style="@style/IconControlButton"
+                        android:id="@+id/assistantTranscript"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/fab_transformation_scrim_behavior"
+                        app:icon="@drawable/ic_message"
+                        android:visibility="gone"
+                        />
                 </LinearLayout>
 
                 <LinearLayout

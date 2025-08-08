@@ -113,6 +113,10 @@ class HomeCallFragment : Fragment() {
             }
         }
 
+        binding.assistantTranscript.setOnClickListener {
+            showAssistantTranscriptDialog()
+        }
+
         // Setup the "View all call metrics" button
         callQualitySummaryBinding.viewAllMetricsButton.setOnClickListener {
             showCallQualityBottomSheet()
@@ -125,7 +129,7 @@ class HomeCallFragment : Fragment() {
 
         // Setup the "Assistant Dial" button
         binding.assistantDialButton.setOnClickListener {
-            showAssistantTranscriptDialog()
+            telnyxViewModel.sendAiAssistantInvite(this@HomeCallFragment.requireContext(), true)
         }
     }
 
@@ -234,8 +238,10 @@ class HomeCallFragment : Fragment() {
         binding.callIncomingView.visibility = View.INVISIBLE
         // Quality display visibility is handled by observeCallQuality based on metrics
         binding.callTypeSwitch.visibility = View.GONE
-        binding.destinationInfo.visibility = View.VISIBLE
+        binding.destinationInfo.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.GONE else View.VISIBLE
         binding.callInput.isEnabled = false
+        binding.dialpad.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.GONE else View.VISIBLE
+        binding.assistantTranscript.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.VISIBLE else View.GONE
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {

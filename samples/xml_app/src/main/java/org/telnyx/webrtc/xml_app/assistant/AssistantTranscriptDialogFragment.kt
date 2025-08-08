@@ -1,64 +1,85 @@
 package org.telnyx.webrtc.xml_app.assistant
 
-import android.app.Dialog
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
-import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.DialogFragment
+import android.view.ViewGroup
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
+import org.telnyx.webrtc.xmlapp.databinding.DialogAssistantTranscriptBinding
+import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
 import java.util.*
 
-class AssistantTranscriptDialogFragment : DialogFragment() {
+class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
+
+    private var _binding: DialogAssistantTranscriptBinding? = null
+    private val binding get() = _binding!!
+
     private lateinit var transcriptAdapter: TranscriptAdapter
-    private lateinit var rvTranscript: RecyclerView
-    private lateinit var etMessage: TextInputEditText
-    private lateinit var btnSend: MaterialButton
     
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val view = layoutInflater.inflate(R.layout.dialog_assistant_transcript, null)
-        
-        setupViews(view)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = DialogAssistantTranscriptBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val dialog = dialog as? BottomSheetDialog
+        dialog?.let {
+            val bottomSheet =
+                it.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+
+            bottomSheet?.let { sheet ->
+                val behavior = BottomSheetBehavior.from(sheet)
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED // Fullscreen
+                sheet.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+        }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupListeners()
         observeTranscript()
-        
-        return AlertDialog.Builder(requireContext())
-            .setView(view)
-            .create()
-    }
-    
-    private fun setupViews(view: View) {
-        rvTranscript = view.findViewById(R.id.rvTranscript)
-        etMessage = view.findViewById(R.id.etMessage)
-        btnSend = view.findViewById(R.id.btnSend)
     }
     
     private fun setupRecyclerView() {
         transcriptAdapter = TranscriptAdapter()
-        rvTranscript.apply {
+        binding.rvTranscript.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = transcriptAdapter
         }
     }
     
     private fun setupListeners() {
-        btnSend.setOnClickListener {
-            val message = etMessage.text?.toString()?.trim()
+        binding.btnSend.setOnClickListener {
+            val message = binding.etMessage.text?.toString()?.trim()
             if (!message.isNullOrEmpty()) {
                 sendMessage(message)
-                etMessage.text?.clear()
+                binding.etMessage.text?.clear()
             }
+        }
+
+        binding.closeButton.setOnClickListener {
+            dismiss()
         }
     }
     
@@ -90,19 +111,17 @@ class AssistantTranscriptDialogFragment : DialogFragment() {
     }
     
     private fun observeTranscript() {
-        // This would observe actual transcript updates from the TelnyxViewModel
-        // For now, we'll leave this as a placeholder for future implementation
         lifecycleScope.launch {
-            // telnyxViewModel.transcriptItems.collect { items ->
-            //     transcriptAdapter.updateTranscript(items)
-            //     scrollToBottom()
-            // }
+            telnyxViewModel.transcriptMessages?.collect { transcriptItems ->
+                transcriptAdapter.updateTranscript(transcriptItems)
+                scrollToBottom()
+            }
         }
     }
     
     private fun scrollToBottom() {
         if (transcriptAdapter.itemCount > 0) {
-            rvTranscript.scrollToPosition(transcriptAdapter.itemCount - 1)
+            binding.rvTranscript.scrollToPosition(transcriptAdapter.itemCount - 1)
         }
     }
     
