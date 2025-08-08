@@ -23,7 +23,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.common.model.TranscriptItem
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
 import java.text.SimpleDateFormat
@@ -207,3 +206,9 @@ private fun sendMessage(
         )
     )
 }
+
+data class TranscriptItem(
+    val role: String,
+    val content: String,
+    val timestamp: Date
+)

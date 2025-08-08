@@ -166,5 +166,5 @@
     <string name="assistant_send">Send</string>
     <string name="assistant_you">You</string>
     <string name="assistant_ai">Assistant</string>
-    <string name="assistant_dial">Assistant</string>
+    <string name="assistant_dial">Dial the connected Assistant</string>
 </resources>

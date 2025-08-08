@@ -154,9 +154,9 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     ) {
         var isPhoneNumber by remember { mutableStateOf(false) }
 
-        // Add the toggle button at the top
+        // Add the toggle button at the top - only show when not using Assistant Login
         AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
-            if (callState == CallUIState.IDLE) {
+            if (callState == CallUIState.IDLE && !telnyxViewModel.isAnonymouslyConnected) {
                 DestinationTypeSwitcher(isPhoneNumber) {
                     isPhoneNumber = it
                 }
@@ -164,7 +164,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         }
 
         AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
-            if (callState != CallUIState.INCOMING) {
+            if (callState != CallUIState.INCOMING && !telnyxViewModel.isAnonymouslyConnected) {
                 OutlinedEdiText(
                     text = destinationNumber,
                     hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
@@ -192,25 +192,26 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.spacing18dp)
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.spacing16dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
-                                    if (destinationNumber.isNotEmpty())
-                                        telnyxViewModel.sendInvite(context, destinationNumber, true)
+                            if (telnyxViewModel.isAnonymouslyConnected) {
+                                // Assistant mode - only show the Assistant button
+                                HomeButton(
+                                    modifier = Modifier.testTag("assistantCall"),
+                                    text = stringResource(R.string.assistant_dial),
+                                    icon = R.drawable.baseline_call_24,
+                                    backGroundColor = telnyxGreen,
+                                    contentColor = Color.White
+                                ) {
+                                    showAssistantTranscriptBottomSheet = true
                                 }
-                                
-                                // Assistant dial button - only show when connected anonymously
-                                if (telnyxViewModel.isAnonymouslyConnected) {
-                                    HomeIconButton(
-                                        modifier = Modifier.testTag("assistantCall"),
-                                        icon = R.drawable.ic_message,
-                                        backGroundColor = MaterialTheme.colorScheme.secondary,
-                                        contentColor = Color.Black,
-                                        text = stringResource(R.string.assistant_dial)
-                                    ) {
-                                        showAssistantTranscriptBottomSheet = true
+                            } else {
+                                // Regular mode - show green call button
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacing16dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                                        if (destinationNumber.isNotEmpty())
+                                            telnyxViewModel.sendInvite(context, destinationNumber, true)
                                     }
                                 }
                             }
@@ -457,6 +458,48 @@ fun HomeIconButton(
             contentDescription = contentDescription,
             modifier = Modifier.padding(Dimens.smallSpacing),
             colorFilter = ColorFilter.tint(contentColor ?: Color.Black))
+    }
+}
+
+@Composable
+fun HomeButton(
+    modifier: Modifier = Modifier,
+    text: String,
+    icon: Int = R.drawable.baseline_call_24,
+    backGroundColor: Color,
+    contentColor: Color = Color.Black,
+    contentDescription: String = "",
+    onClick: () -> Unit
+) {
+    Button(
+        modifier = modifier
+            .fillMaxWidth(0.7f)
+            .height(Dimens.size60dp),
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backGroundColor,
+            contentColor = contentColor
+        ),
+        shape = RoundedCornerShape(Dimens.buttonRoundedCorner),
+        contentPadding = PaddingValues(horizontal = Dimens.smallSpacing, vertical = Dimens.extraSmallSpacing)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(icon),
+                contentDescription = contentDescription,
+                modifier = Modifier.size(Dimens.size24dp),
+                colorFilter = ColorFilter.tint(contentColor)
+            )
+            Spacer(modifier = Modifier.width(Dimens.extraSmallSpacing))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor
+            )
+        }
     }
 }
 

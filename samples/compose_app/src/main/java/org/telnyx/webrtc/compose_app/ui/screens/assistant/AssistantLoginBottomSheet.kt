@@ -41,11 +41,16 @@ fun AssistantLoginBottomSheet(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
+            Text(
+                text = stringResource(R.string.assistant_target_id_hint),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(bottom = 13.dp)
+            )
+
             OutlinedTextField(
                 value = targetId,
                 onValueChange = { targetId = it },
                 label = { Text(stringResource(R.string.assistant_target_id)) },
-                placeholder = { Text(stringResource(R.string.assistant_target_id_hint)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),

@@ -329,21 +329,6 @@ fun HomeScreen(
                             } else {
                                 // Non-logged user options - only
 
-                                // Assistant Login option
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.assistant_login)) },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        showAssistantLoginBottomSheet = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_message),
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
-
                                 // Region selection
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.region)) },
@@ -378,6 +363,21 @@ fun HomeScreen(
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(id = R.drawable.ic_debug_on),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Assistant Login option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.assistant_login)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showAssistantLoginBottomSheet = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_login),
                                             contentDescription = null
                                         )
                                     }

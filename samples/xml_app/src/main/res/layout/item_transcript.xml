@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:textStyle="bold"
         android:textSize="12sp"
-        android:textColor="@color/telnyx_blue"
+        android:textColor="@color/black"
         android:layout_marginBottom="4dp" />
 
     <TextView

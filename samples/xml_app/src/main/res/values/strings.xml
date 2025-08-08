@@ -161,7 +161,7 @@
     <string name="assistant_target_id_hint">Enter Assistant Target ID</string>
     <string name="assistant_login_button">Login</string>
     <string name="assistant_cancel_button">Cancel</string>
-    <string name="assistant_dial_button">Call Assistant</string>
+    <string name="assistant_dial_button">Dial the connected Assistant</string>
     <string name="assistant_connected">Connected to Assistant</string>
     <string name="assistant_disconnected">Disconnected from Assistant</string>
     <string name="assistant_transcript_title">Assistant Transcript</string>

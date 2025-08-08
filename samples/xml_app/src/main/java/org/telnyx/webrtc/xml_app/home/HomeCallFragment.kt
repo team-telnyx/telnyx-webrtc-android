@@ -206,16 +206,21 @@ class HomeCallFragment : Fragment() {
         binding.callIdleView.visibility = View.VISIBLE
         binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.GONE
-        binding.callTypeSwitch.visibility = View.VISIBLE
-        binding.destinationInfo.visibility = View.VISIBLE
-        binding.callInput.isEnabled = true
         callQualitySummaryBinding.root.visibility = View.GONE
         
-        // Show assistant dial button only when connected anonymously
-        binding.assistantDialButton.visibility = if (telnyxViewModel.isAnonymouslyConnected) {
-            View.VISIBLE
+        if (telnyxViewModel.isAnonymouslyConnected) {
+            // Assistant Login mode - hide SIP/phone toggles and input fields, show only Assistant button
+            binding.callTypeSwitch.visibility = View.GONE
+            binding.destinationInfo.visibility = View.GONE
+            binding.call.visibility = View.GONE
+            binding.assistantDialButton.visibility = View.VISIBLE
         } else {
-            View.GONE
+            // Regular mode - show all controls
+            binding.callTypeSwitch.visibility = View.VISIBLE
+            binding.destinationInfo.visibility = View.VISIBLE
+            binding.callInput.isEnabled = true
+            binding.call.visibility = View.VISIBLE
+            binding.assistantDialButton.visibility = View.GONE
         }
         
         if (callQualityBottomSheetFragment.isAdded) {
