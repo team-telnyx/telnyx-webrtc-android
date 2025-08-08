@@ -29,6 +29,8 @@ android {
 
         if (localPropertiesFile.exists()) {
             FileInputStream(localPropertiesFile).use { properties.load(it) }
+
+
         }
 
         buildConfigField("String", "TEST_SIP_USERNAME", "\"${properties.getProperty("TEST_SIP_USERNAME", "default_username")}\"")

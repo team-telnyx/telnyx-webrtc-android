@@ -21,6 +21,7 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.CallQualitySummaryBinding
 import org.telnyx.webrtc.xmlapp.databinding.FragmentHomeCallBinding
 import org.telnyx.webrtc.xml_app.login.DialpadFragment
+import org.telnyx.webrtc.xml_app.assistant.AssistantTranscriptDialogFragment
 import java.util.*
 
 
@@ -112,6 +113,10 @@ class HomeCallFragment : Fragment() {
             }
         }
 
+        binding.assistantTranscript.setOnClickListener {
+            showAssistantTranscriptDialog()
+        }
+
         // Setup the "View all call metrics" button
         callQualitySummaryBinding.viewAllMetricsButton.setOnClickListener {
             showCallQualityBottomSheet()
@@ -120,6 +125,11 @@ class HomeCallFragment : Fragment() {
         // Setup the "Call History" button
         binding.callHistoryButton.setOnClickListener {
             showCallHistoryBottomSheet()
+        }
+
+        // Setup the "Assistant Dial" button
+        binding.assistantDialButton.setOnClickListener {
+            telnyxViewModel.sendAiAssistantInvite(this@HomeCallFragment.requireContext(), true)
         }
     }
 
@@ -141,6 +151,11 @@ class HomeCallFragment : Fragment() {
             requireActivity().supportFragmentManager,
             CallHistoryBottomSheet.TAG
         )
+    }
+
+    private fun showAssistantTranscriptDialog() {
+        val dialog = AssistantTranscriptDialogFragment.newInstance()
+        dialog.show(requireActivity().supportFragmentManager, AssistantTranscriptDialogFragment.TAG)
     }
 
     private fun bindEvents() {
@@ -195,10 +210,23 @@ class HomeCallFragment : Fragment() {
         binding.callIdleView.visibility = View.VISIBLE
         binding.callActiveView.visibility = View.GONE
         binding.callIncomingView.visibility = View.GONE
-        binding.callTypeSwitch.visibility = View.VISIBLE
-        binding.destinationInfo.visibility = View.VISIBLE
-        binding.callInput.isEnabled = true
         callQualitySummaryBinding.root.visibility = View.GONE
+        
+        if (telnyxViewModel.isAnonymouslyConnected) {
+            // Assistant Login mode - hide SIP/phone toggles and input fields, show only Assistant button
+            binding.callTypeSwitch.visibility = View.GONE
+            binding.destinationInfo.visibility = View.GONE
+            binding.call.visibility = View.GONE
+            binding.assistantDialButton.visibility = View.VISIBLE
+        } else {
+            // Regular mode - show all controls
+            binding.callTypeSwitch.visibility = View.VISIBLE
+            binding.destinationInfo.visibility = View.VISIBLE
+            binding.callInput.isEnabled = true
+            binding.call.visibility = View.VISIBLE
+            binding.assistantDialButton.visibility = View.GONE
+        }
+        
         if (callQualityBottomSheetFragment.isAdded) {
             callQualityBottomSheetFragment.dismiss()
         }
@@ -210,8 +238,10 @@ class HomeCallFragment : Fragment() {
         binding.callIncomingView.visibility = View.INVISIBLE
         // Quality display visibility is handled by observeCallQuality based on metrics
         binding.callTypeSwitch.visibility = View.GONE
-        binding.destinationInfo.visibility = View.VISIBLE
+        binding.destinationInfo.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.GONE else View.VISIBLE
         binding.callInput.isEnabled = false
+        binding.dialpad.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.GONE else View.VISIBLE
+        binding.assistantTranscript.visibility = if (telnyxViewModel.isAnonymouslyConnected) View.VISIBLE else View.GONE
     }
 
     private fun onCallIncoming(callId: UUID, callerIdNumber: String) {

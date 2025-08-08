@@ -577,6 +577,7 @@ class TelnyxClient(
             peerConnection = null
             answerResponse = null
             inviteResponse = null
+            _transcriptUpdateFlow.tryEmit(emptyList())
         }
     }
 
@@ -1378,6 +1379,38 @@ class TelnyxClient(
 
         Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
         socket.send(loginMessage)
+    }
+
+    fun sendAIAssistantMessage(
+        message: String
+    ) {
+        val uuid: String = UUID.randomUUID().toString()
+
+        val conversationContent = ConversationContent(
+            type = "input_text",
+            text = message
+        )
+
+        val conversationItem = ConversationItem(
+            id = UUID.randomUUID().toString(),
+            type = "message",
+            role = "user",
+            content = listOf(conversationContent)
+        )
+
+        val aiConversationParams = AiConversationParams(
+            type = "conversation.item.create",
+            item = conversationItem
+        )
+
+        val aiConversationMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.AI_CONVERSATION.methodName,
+            params = aiConversationParams
+        )
+
+        Logger.d(message = "AI Conversation Message: ${Gson().toJson(aiConversationMessage)}")
+        socket.send(aiConversationMessage)
     }
 
     /**
