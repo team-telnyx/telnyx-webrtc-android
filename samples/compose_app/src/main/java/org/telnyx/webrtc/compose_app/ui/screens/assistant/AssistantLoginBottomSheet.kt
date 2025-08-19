@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -38,12 +39,14 @@ fun AssistantLoginBottomSheet(
             Text(
                 text = stringResource(R.string.assistant_login),
                 style = MaterialTheme.typography.headlineSmall,
+                color = Color.Black,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             Text(
                 text = stringResource(R.string.assistant_target_id_hint),
                 style = MaterialTheme.typography.labelMedium,
+                color = Color.Black,
                 modifier = Modifier.padding(bottom = 13.dp)
             )
 
