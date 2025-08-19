@@ -950,10 +950,31 @@ class TelnyxViewModel : ViewModel() {
         debug: Boolean,
         preferredCodecs: List<AudioCodec>? = null
     ) {
-        sendInvite(viewContext,
-            AI_ASSISTANT_NUMBER,
-            debug,
-            preferredCodecs)
+
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            Log.d("Call", "AI assistant")
+            SendInvite(viewContext).invoke(
+                "",
+                "",
+                AI_ASSISTANT_NUMBER,
+                "",
+                mapOf(Pair("X-test", "123456")),
+                debug,
+                preferredCodecs,
+                onCallHistoryAdd = { number ->
+                    addCallToHistory(CallType.OUTBOUND, number)
+                }
+            ).callStateFlow.collect {
+                handleCallState(it)
+            }
+        }
+
+        if (debug) {
+            collectAudioLevels()
+        }
     }
 
     fun sendAIAssistantMessage(viewContext: Context, message: String) {
