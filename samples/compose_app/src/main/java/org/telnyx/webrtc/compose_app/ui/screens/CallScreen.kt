@@ -134,6 +134,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
             is TelnyxSocketEvent.OnCallEnded -> {
                 destinationNumber = ""
+                showAssistantTranscriptBottomSheet = false
 
                 if (telnyxViewModel.currentCall != null)
                     CallUIState.ACTIVE
