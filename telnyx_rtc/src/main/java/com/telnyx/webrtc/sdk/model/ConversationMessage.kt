@@ -4,7 +4,9 @@
 
 package com.telnyx.webrtc.sdk.model
 
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
+import com.telnyx.webrtc.sdk.utilities.ConversationContentDeserializer
 
 /**
  * Data class representing a conversation item
@@ -19,6 +21,7 @@ data class ConversationItem(
     @SerializedName("type")
     val type: String? = null,
     @SerializedName("content")
+    @JsonAdapter(ConversationContentDeserializer::class)
     val content: List<ConversationContent>? = null
 )
 
