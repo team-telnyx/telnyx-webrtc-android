@@ -23,7 +23,7 @@ fun AssistantLoginBottomSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var targetId by remember { mutableStateOf("") }
+    var targetId by remember { mutableStateOf("assistant-b26afd32-84a9-4c09-8346-b667002d0d63") }
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
     ModalBottomSheet(
