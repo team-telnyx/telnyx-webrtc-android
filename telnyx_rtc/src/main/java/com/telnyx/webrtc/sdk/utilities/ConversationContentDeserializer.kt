@@ -56,7 +56,7 @@ ConversationContentDeserializer : JsonDeserializer<List<ConversationContent>?> {
             }
         } catch (e: Exception) {
             // Log the error and return null to prevent crashes
-            com.telnyx.webrtc.sdk.utilities.Logger.e(
+            Logger.e(
                 message = "Error deserializing conversation content: ${e.message}, JSON: $json"
             )
             null
