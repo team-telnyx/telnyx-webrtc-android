@@ -3,6 +3,7 @@ package com.telnyx.webrtc.common.domain.call
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,7 @@ class AcceptCall(private val context: Context) {
      * @param callerIdNumber The destination number to accept the call.
      * @param customHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
@@ -32,11 +34,12 @@ class AcceptCall(private val context: Context) {
         callerIdNumber: String, 
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
+        preferredCodecs: List<AudioCodec>? = null,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug)
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, preferredCodecs)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

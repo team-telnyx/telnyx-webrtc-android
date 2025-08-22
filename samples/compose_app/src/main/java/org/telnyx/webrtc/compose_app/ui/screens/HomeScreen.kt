@@ -73,6 +73,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
@@ -95,6 +96,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 
 @Serializable
@@ -117,6 +119,7 @@ fun HomeScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
+    var showCodecSelectionDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
@@ -139,6 +142,20 @@ fun HomeScreen(
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
     var isDebugModeOn by remember { mutableStateOf(telnyxViewModel.debugMode) }
+    
+    // Available audio codecs for selection
+    val availableCodecs = remember {
+        listOf(
+            AudioCodec("audio/opus", 48000, 2),
+            AudioCodec("audio/PCMU", 8000, 1),
+            AudioCodec("audio/PCMA", 8000, 1),
+            AudioCodec("audio/G722", 8000, 1),
+            AudioCodec("audio/G729", 8000, 1),
+            AudioCodec("audio/speex", 8000, 1),
+            AudioCodec("audio/speex", 16000, 1),
+            AudioCodec("audio/speex", 32000, 1)
+        )
+    }
 
     LaunchedEffect(sessionState) {
         sessionId = when (sessionState) {
@@ -318,6 +335,21 @@ fun HomeScreen(
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(id = R.drawable.ic_handshake),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Preferred Codecs option
+                                DropdownMenuItem(
+                                    text = { Text("Preferred Codecs") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showCodecSelectionDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_settings),
                                             contentDescription = null
                                         )
                                     }
@@ -738,6 +770,23 @@ fun HomeScreen(
             }
         }
     }
+
+    // Codec Selection Dialog
+    CodecSelectionDialog(
+        isVisible = showCodecSelectionDialog,
+        availableCodecs = availableCodecs,
+        selectedCodecs = telnyxViewModel.getPreferredAudioCodecs() ?: emptyList(),
+        onDismiss = { showCodecSelectionDialog = false },
+        onConfirm = { selectedCodecs ->
+            telnyxViewModel.setPreferredAudioCodecs(selectedCodecs)
+            showCodecSelectionDialog = false
+            Toast.makeText(
+                context,
+                "Preferred codecs updated: ${selectedCodecs.joinToString(", ") { it.mimeType }}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    )
 }
 
 
