@@ -44,6 +44,7 @@ dependencies {
 
     implementation deps.kotlin.stdlib
     implementation deps.androidx_core
+    implementation deps.material
 
     api project(':telnyx_rtc')
 

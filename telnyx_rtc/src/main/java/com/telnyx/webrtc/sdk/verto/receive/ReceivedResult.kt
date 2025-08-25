@@ -6,7 +6,7 @@ package com.telnyx.webrtc.sdk.verto.receive
 
 import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.CustomHeaders
-import com.telnyx.webrtc.sdk.model.AiConversationParams
+import com.telnyx.webrtc.sdk.verto.send.AiConversationParams
 import java.util.*
 
 /**
