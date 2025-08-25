@@ -577,6 +577,7 @@ class TelnyxClient(
             peerConnection = null
             answerResponse = null
             inviteResponse = null
+            _transcript.clear()
             _transcriptUpdateFlow.tryEmit(emptyList())
         }
     }
@@ -2054,6 +2055,8 @@ class TelnyxClient(
                 peerConnection = null
                 answerResponse = null
                 inviteResponse = null
+                _transcript.clear()
+                _transcriptUpdateFlow.tryEmit(emptyList())
             } ?: run {
                 Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
             }
