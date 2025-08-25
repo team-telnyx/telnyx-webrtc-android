@@ -68,10 +68,16 @@ class MainActivityTest {
 
         onView(withId(R.id.confirmButton))
             .check(matches(isDisplayed()))
-            .perform(click())
+            .perform(scrollTo(), click())
+
+        // Wait for profile to be saved and RecyclerView to be populated
+        val profileSaveIdlingResource = ElapsedTimeIdlingResource(3000)
+        IdlingRegistry.getInstance().register(profileSaveIdlingResource)
 
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
+            
+        IdlingRegistry.getInstance().unregister(profileSaveIdlingResource)
 
         onView(withId(R.id.profileConfirmButton))
             .check(matches(isDisplayed()))
@@ -99,8 +105,45 @@ class MainActivityTest {
         onView(withId(R.id.switchProfile))
             .perform(click())
 
+        val switchIdlingResource = ElapsedTimeIdlingResource(2000)
+        IdlingRegistry.getInstance().register(switchIdlingResource)
+
+        // Check if profiles exist, if not create one
+        onView(withId(R.id.addNewProfile))
+            .check(matches(isDisplayed()))
+            .perform(click())
+
+        IdlingRegistry.getInstance().unregister(switchIdlingResource)
+
+        // Create a profile for the test
+        onView(withId(R.id.usernameTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_USERNAME), closeSoftKeyboard())
+
+        onView(withId(R.id.passwordTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD), closeSoftKeyboard())
+
+        onView(withId(R.id.callerIdNameTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME), closeSoftKeyboard())
+
+        onView(withId(R.id.callerIdNumberTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NUMBER), closeSoftKeyboard())
+
+        onView(withId(R.id.confirmButton))
+            .check(matches(isDisplayed()))
+            .perform(scrollTo(), click())
+
+        // Wait for profile to be saved and RecyclerView to be populated
+        val profileSaveIdlingResource = ElapsedTimeIdlingResource(3000)
+        IdlingRegistry.getInstance().register(profileSaveIdlingResource)
+
         onView(withId(R.id.allProfiles))
             .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
+            
+        IdlingRegistry.getInstance().unregister(profileSaveIdlingResource)
 
         onView(withId(R.id.profileConfirmButton))
             .check(matches(isDisplayed()))
