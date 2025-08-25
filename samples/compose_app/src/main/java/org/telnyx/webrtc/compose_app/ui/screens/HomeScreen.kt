@@ -120,7 +120,6 @@ fun HomeScreen(
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     var showAssistantLoginBottomSheet by remember { mutableStateOf(false) }
-    var showAssistantTranscriptBottomSheet by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
@@ -764,15 +763,6 @@ fun HomeScreen(
             telnyxViewModel = telnyxViewModel
         ) {
             showAssistantLoginBottomSheet = false
-        }
-    }
-
-    // Assistant Transcript Bottom Sheet
-    if (showAssistantTranscriptBottomSheet) {
-        AssistantTranscriptBottomSheet(
-            telnyxViewModel = telnyxViewModel
-        ) {
-            showAssistantTranscriptBottomSheet = false
         }
     }
 }

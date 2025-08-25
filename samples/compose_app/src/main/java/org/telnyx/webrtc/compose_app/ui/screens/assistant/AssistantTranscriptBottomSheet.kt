@@ -1,31 +1,31 @@
 package org.telnyx.webrtc.compose_app.ui.screens.assistant
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.ui.theme.Dimens
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,27 +35,67 @@ fun AssistantTranscriptBottomSheet(
     telnyxViewModel: TelnyxViewModel,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var messageText by remember { mutableStateOf("") }
     val transcriptItems by telnyxViewModel.transcriptMessages?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<TranscriptItem>()) }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
+
+    val sendMessage = {
+        if (messageText.isNotBlank()) {
+            telnyxViewModel.sendAIAssistantMessage(
+                context,
+                message = messageText.trim()
+            )
+            messageText = ""
+            
+            // Scroll to bottom after message is sent
+            scope.launch {
+                kotlinx.coroutines.delay(100)
+                if (transcriptItems.isNotEmpty()) {
+                    listState.animateScrollToItem(transcriptItems.size)
+                }
+            }
+        }
+    }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxHeight(0.8f)
+        modifier = Modifier.fillMaxSize(),
+        onDismissRequest = {
+            onDismiss.invoke()
+        },
+        containerColor = Color.White,
+        sheetState = sheetState
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+            modifier = Modifier.padding(Dimens.mediumSpacing),
+            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
         ) {
-            // Header
-            Text(
-                text = stringResource(R.string.assistant_transcript),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                MediumTextBold(
+                    text = stringResource(R.string.assistant_transcript),
+                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                )
+                IconButton(onClick = {
+                    scope.launch {
+                        sheetState.hide()
+                    }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            onDismiss.invoke()
+                        }
+                    }
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = stringResource(R.string.close_button_dessc),
+                        modifier = Modifier.size(Dimens.size16dp)
+                    )
+                }
+            }
 
             // Transcript list
             LazyColumn(
@@ -65,7 +105,8 @@ fun AssistantTranscriptBottomSheet(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(transcriptItems) { item ->
+                items(transcriptItems.size) { index ->
+                    val item = transcriptItems[index]
                     TranscriptItemComposable(item = item)
                 }
             }
@@ -87,20 +128,8 @@ fun AssistantTranscriptBottomSheet(
                         imeAction = ImeAction.Send
                     ),
                     keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (messageText.isNotBlank()) {
-                                telnyxViewModel.sendAIAssistantMessage(
-                                    context,
-                                    message = messageText.trim()
-                                )
-                                messageText = ""
-                                
-                                // Scroll to bottom
-                                coroutineScope.launch {
-                                    listState.animateScrollToItem(transcriptItems.size - 1)
-                                }
-                            }
-                        }
+                        onSend = { sendMessage() },
+                        onDone = { sendMessage() }
                     ),
                     maxLines = 3
                 )
@@ -108,30 +137,22 @@ fun AssistantTranscriptBottomSheet(
                 Spacer(modifier = Modifier.width(8.dp))
 
                 IconButton(
-                    onClick = {
-                        if (messageText.isNotBlank()) {
-                            telnyxViewModel.sendAIAssistantMessage(
-                                context,
-                                message = messageText.trim()
-                            )
-                            messageText = ""
-                            
-                            // Scroll to bottom
-                            coroutineScope.launch {
-                                listState.animateScrollToItem(transcriptItems.size - 1)
-                            }
-                        }
-                    },
+                    onClick = { sendMessage() },
                     enabled = messageText.isNotBlank()
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = stringResource(R.string.assistant_send)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+    
+    // Auto-scroll to bottom when new items are added
+    LaunchedEffect(transcriptItems.size) {
+        if (transcriptItems.isNotEmpty()) {
+            listState.animateScrollToItem(transcriptItems.size - 1)
         }
     }
 }
