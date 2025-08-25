@@ -17,9 +17,7 @@ import com.telnyx.webrtc.sdk.verto.receive.InviteResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
-import timber.log.Timber
 
 /**
  * Class responsible for handling the acceptance of incoming push calls.
@@ -161,6 +159,7 @@ class AnswerIncomingPushCall(private val context: Context) {
                         inviteResponse.callerIdNumber,
                         customHeaders,
                         debug,
+                        null, // No need to pass preferred codecs when answering push call
                         onCallQualityChange
                     )
                     cleanUp(answeredCall)
@@ -178,7 +177,8 @@ class AnswerIncomingPushCall(private val context: Context) {
      * @param call The call that was answered.
      */
     private fun cleanUp(call: Call) {
-        TelnyxCommon.getInstance().getTelnyxClient(context).getSocketResponse().removeObserver(incomingCallObserver)
+        TelnyxCommon.getInstance().getTelnyxClient(context).getSocketResponse()
+            .removeObserver(incomingCallObserver)
         onCallAnswered?.invoke(call)
     }
 }
