@@ -115,8 +115,11 @@ class MainActivityTest {
         composeTestRule.onNodeWithTag("callerIDName").performTextInput(BuildConfig.TEST_SIP_CALLER_NAME)
         composeTestRule.onNodeWithTag("callerIDNumber").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
+        composeTestRule.onNodeWithTag("callerIDNumber").performImeAction()
+
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("credentialsForm").performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.save)).performClick()
+        composeTestRule.onNodeWithText(context.getString(R.string.save)).performScrollTo().performClick()
 
         composeTestRule.waitForIdle()
         composeTestRule.waitUntil(40000) {
