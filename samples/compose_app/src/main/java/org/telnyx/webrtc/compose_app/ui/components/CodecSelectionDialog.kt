@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,8 +43,15 @@ fun CodecSelectionDialog(
     if (!isVisible) return
 
     var currentSelection by remember(selectedCodecs) { 
-        mutableStateOf(selectedCodecs.toMutableList()) 
+        mutableStateOf(selectedCodecs.toList()) 
     }
+    
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Available", "Selected")
+    
+    // Create unique keys for codecs by combining mimeType and clockRate
+    fun codecKey(codec: AudioCodec): String = "${codec.mimeType}_${codec.clockRate}_${codec.channels}"
+    
     val reorderableState = rememberReorderableLazyListState(
         onMove = { from, to ->
             currentSelection = currentSelection.toMutableList().apply {
@@ -56,13 +63,16 @@ fun CodecSelectionDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(16.dp),
+                .fillMaxWidth(0.98f)
+                .fillMaxHeight(0.85f)
+                .widthIn(min = 400.dp, max = 600.dp)
+                .padding(4.dp),
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
             ) {
                 Text(
                     text = "Preferred Audio Codecs",
@@ -71,77 +81,136 @@ fun CodecSelectionDialog(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                Text(
-                    text = "Select and reorder your preferred codecs. Drag to reorder by priority.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Tab Row
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
                     modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Available codecs section
-                Text(
-                    text = "Available Codecs:",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(availableCodecs.size) { index ->
-                        val codec = availableCodecs[index]
-                        val isSelected = currentSelection.contains(codec)
-                        
-                        CodecItem(
-                            codec = codec,
-                            isSelected = isSelected,
-                            onClick = {
-                                currentSelection = if (isSelected) {
-                                    currentSelection.toMutableList().apply { remove(codec) }
-                                } else {
-                                    currentSelection.toMutableList().apply { add(codec) }
-                                }
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { 
+                                Text(
+                                    text = if (title == "Selected" && currentSelection.isNotEmpty()) {
+                                        "$title (${currentSelection.size})"
+                                    } else {
+                                        title
+                                    }
+                                )
                             }
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Selected codecs section (reorderable)
-                Text(
-                    text = "Selected Codecs (in order of preference):",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                LazyColumn(
-                    state = reorderableState.listState,
+                // Tab Content
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                        .padding(8.dp)
-                        .reorderable(reorderableState),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .weight(1f)
                 ) {
-                    itemsIndexed(currentSelection, key = { _, codec -> codec.mimeType }) { index, codec ->
-                        ReorderableItem(reorderableState, key = codec.mimeType) { isDragging ->
-                            SelectedCodecItem(
-                                codec = codec,
-                                index = index + 1,
-                                isDragging = isDragging,
-                                onRemove = {
-                                    currentSelection = currentSelection.toMutableList().apply { remove(codec) }
+                    when (selectedTabIndex) {
+                        0 -> {
+                            // Available Codecs Tab
+                            Column(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Text(
+                                    text = "Select codecs to use:",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                                
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = availableCodecs,
+                                        key = { _, codec -> codecKey(codec) }
+                                    ) { _, codec ->
+                                        val isSelected = currentSelection.contains(codec)
+                                        
+                                        CodecItem(
+                                            codec = codec,
+                                            isSelected = isSelected,
+                                            onClick = {
+                                                currentSelection = if (isSelected) {
+                                                    currentSelection.filter { it != codec }
+                                                } else {
+                                                    currentSelection + codec
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
-                            )
+                            }
+                        }
+                        1 -> {
+                            // Selected Codecs Tab (Reorderable)
+                            Column(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Text(
+                                    text = if (currentSelection.isEmpty()) {
+                                        "No codecs selected. Go to Available tab to select codecs."
+                                    } else {
+                                        "Drag to reorder by priority (top = highest):"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                                
+                                if (currentSelection.isNotEmpty()) {
+                                    LazyColumn(
+                                        state = reorderableState.listState,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                            .padding(12.dp)
+                                            .reorderable(reorderableState),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        itemsIndexed(
+                                            items = currentSelection,
+                                            key = { _, codec -> codecKey(codec) }
+                                        ) { index, codec ->
+                                            ReorderableItem(reorderableState, key = codecKey(codec)) { isDragging ->
+                                                SelectedCodecItem(
+                                                    codec = codec,
+                                                    index = index + 1,
+                                                    isDragging = isDragging,
+                                                    reorderableState = reorderableState,
+                                                    onRemove = {
+                                                        currentSelection = currentSelection.filter { it != codec }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No codecs selected",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -151,16 +220,30 @@ fun CodecSelectionDialog(
                 // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { onConfirm(currentSelection) }
+                    // Clear All button (left side)
+                    TextButton(
+                        onClick = { 
+                            currentSelection = emptyList()
+                            selectedTabIndex = 0 // Switch to Available tab
+                        },
+                        enabled = currentSelection.isNotEmpty()
                     ) {
-                        Text("Apply")
+                        Text("Clear All")
+                    }
+                    
+                    // Cancel and Save buttons (right side)
+                    Row {
+                        TextButton(onClick = onDismiss) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { onConfirm(currentSelection) }
+                        ) {
+                            Text("Save")
+                        }
                     }
                 }
             }
@@ -211,6 +294,7 @@ private fun SelectedCodecItem(
     codec: AudioCodec,
     index: Int,
     isDragging: Boolean,
+    reorderableState: ReorderableLazyListState,
     onRemove: () -> Unit
 ) {
     Row(
@@ -225,9 +309,10 @@ private fun SelectedCodecItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.DragHandle,
+            imageVector = Icons.Default.Menu,
             contentDescription = "Drag to reorder",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.detectReorderAfterLongPress(reorderableState)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(

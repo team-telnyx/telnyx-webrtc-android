@@ -2,13 +2,23 @@ package org.telnyx.webrtc.xml_app.home
 
 import android.app.Dialog
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import org.telnyx.webrtc.xmlapp.R
@@ -17,23 +27,16 @@ class CodecSelectionDialogFragment(
     private val telnyxViewModel: TelnyxViewModel
 ) : DialogFragment() {
 
-    private lateinit var availableCodecsAdapter: AvailableCodecsAdapter
-    private lateinit var selectedCodecsAdapter: SelectedCodecsAdapter
     private val selectedCodecs = mutableListOf<AudioCodec>()
-    
-    private val availableCodecs = listOf(
-        AudioCodec("audio/opus", 48000, 2),
-        AudioCodec("audio/PCMU", 8000, 1),
-        AudioCodec("audio/PCMA", 8000, 1),
-        AudioCodec("audio/G722", 8000, 1),
-        AudioCodec("audio/G729", 8000, 1),
-        AudioCodec("audio/speex", 8000, 1),
-        AudioCodec("audio/speex", 16000, 1),
-        AudioCodec("audio/speex", 32000, 1)
-    )
+    private lateinit var availableCodecs: List<AudioCodec>
+    private var availableCodecsFragment: AvailableCodecsFragment? = null
+    private var selectedCodecsFragment: SelectedCodecsFragment? = null
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val view = layoutInflater.inflate(R.layout.dialog_codec_selection, null)
+        val view = layoutInflater.inflate(R.layout.dialog_codec_selection_tabbed, null)
+        
+        // Fetch available codecs from SDK
+        availableCodecs = telnyxViewModel.getSupportedAudioCodecs(requireContext())
         
         // Initialize selected codecs with current preferences
         selectedCodecs.clear()
@@ -41,114 +44,150 @@ class CodecSelectionDialogFragment(
             selectedCodecs.addAll(preferred)
         }
         
-        // Setup RecyclerViews
-        setupAvailableCodecsRecyclerView(view)
-        setupSelectedCodecsRecyclerView(view)
+        // Setup ViewPager and TabLayout
+        setupViewPagerAndTabs(view)
         
         // Setup buttons
-        val cancelButton = view.findViewById<Button>(R.id.cancelButton)
-        val applyButton = view.findViewById<Button>(R.id.applyButton)
+        setupButtons(view)
         
         val dialog = AlertDialog.Builder(requireContext())
             .setView(view)
             .create()
         
-        cancelButton.setOnClickListener {
-            dialog.dismiss()
+        // Make the dialog larger
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.95).toInt(),
+            (resources.displayMetrics.heightPixels * 0.85).toInt()
+        )
+        
+        return dialog
+    }
+    
+    private fun setupViewPagerAndTabs(view: View) {
+        val viewPager = view.findViewById<ViewPager2>(R.id.viewPager)
+        val tabLayout = view.findViewById<TabLayout>(R.id.tabLayout)
+        
+        val adapter = CodecPagerAdapter(requireActivity())
+        viewPager.adapter = adapter
+        
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            when (position) {
+                0 -> tab.text = "Available"
+                1 -> tab.text = "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+            }
+        }.attach()
+        
+        // Update tab text when selection changes
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                if (position == 1) {
+                    tabLayout.getTabAt(1)?.text = "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                }
+            }
+        })
+    }
+    
+    private fun setupButtons(view: View) {
+        val clearAllButton = view.findViewById<Button>(R.id.clearAllButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelButton)
+        val saveButton = view.findViewById<Button>(R.id.saveButton)
+        
+        clearAllButton.setOnClickListener {
+            selectedCodecs.clear()
+            availableCodecsFragment?.updateAdapter()
+            selectedCodecsFragment?.updateAdapter()
+            updateClearAllButton(clearAllButton)
         }
         
-        applyButton.setOnClickListener {
+        cancelButton.setOnClickListener {
+            dialog?.dismiss()
+        }
+        
+        saveButton.setOnClickListener {
             telnyxViewModel.setPreferredAudioCodecs(selectedCodecs.toList())
             Toast.makeText(
                 requireContext(),
                 "Preferred codecs updated: ${selectedCodecs.joinToString(", ") { it.mimeType }}",
                 Toast.LENGTH_SHORT
             ).show()
-            dialog.dismiss()
+            dialog?.dismiss()
         }
         
-        return dialog
+        updateClearAllButton(clearAllButton)
     }
     
-    private fun setupAvailableCodecsRecyclerView(view: android.view.View) {
-        val recyclerView = view.findViewById<RecyclerView>(R.id.availableCodecsRecyclerView)
-        
-        availableCodecsAdapter = AvailableCodecsAdapter(
-            codecs = availableCodecs,
-            selectedCodecs = selectedCodecs,
-            onCodecToggled = { codec, isSelected ->
-                if (isSelected) {
-                    if (!selectedCodecs.any { 
-                        it.mimeType == codec.mimeType && 
-                        it.clockRate == codec.clockRate && 
-                        it.channels == codec.channels 
-                    }) {
-                        selectedCodecs.add(codec)
-                        selectedCodecsAdapter.notifyItemInserted(selectedCodecs.size - 1)
-                    }
-                } else {
-                    val index = selectedCodecs.indexOfFirst { 
-                        it.mimeType == codec.mimeType && 
-                        it.clockRate == codec.clockRate && 
-                        it.channels == codec.channels 
-                    }
-                    if (index != -1) {
-                        selectedCodecs.removeAt(index)
-                        selectedCodecsAdapter.notifyItemRemoved(index)
-                        selectedCodecsAdapter.notifyItemRangeChanged(index, selectedCodecs.size)
-                    }
-                }
-                availableCodecsAdapter.notifyDataSetChanged()
-            }
-        )
-        
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = availableCodecsAdapter
+    private fun updateClearAllButton(button: Button) {
+        button.isEnabled = selectedCodecs.isNotEmpty()
     }
     
-    private fun setupSelectedCodecsRecyclerView(view: android.view.View) {
-        val recyclerView = view.findViewById<RecyclerView>(R.id.selectedCodecsRecyclerView)
+    inner class CodecPagerAdapter(fa: FragmentActivity) : FragmentStateAdapter(fa) {
+        override fun getItemCount(): Int = 2
         
-        selectedCodecsAdapter = SelectedCodecsAdapter(
-            selectedCodecs = selectedCodecs,
-            onCodecRemoved = { codec ->
-                val index = selectedCodecs.indexOfFirst { 
-                    it.mimeType == codec.mimeType && 
-                    it.clockRate == codec.clockRate && 
-                    it.channels == codec.channels 
+        override fun createFragment(position: Int): Fragment {
+            return when (position) {
+                0 -> {
+                    availableCodecsFragment = AvailableCodecsFragment()
+                    availableCodecsFragment!!.initialize(
+                        availableCodecs = availableCodecs,
+                        selectedCodecs = selectedCodecs,
+                        onCodecToggled = { codec, isSelected ->
+                            if (isSelected) {
+                                if (!selectedCodecs.any { 
+                                    it.mimeType == codec.mimeType && 
+                                    it.clockRate == codec.clockRate && 
+                                    it.channels == codec.channels 
+                                }) {
+                                    selectedCodecs.add(codec)
+                                }
+                            } else {
+                                selectedCodecs.removeIf { 
+                                    it.mimeType == codec.mimeType && 
+                                    it.clockRate == codec.clockRate && 
+                                    it.channels == codec.channels 
+                                }
+                            }
+                            availableCodecsFragment?.updateAdapter()
+                            selectedCodecsFragment?.updateAdapter()
+                            
+                            // Update clear all button state
+                            dialog?.findViewById<Button>(R.id.clearAllButton)?.let {
+                                updateClearAllButton(it)
+                            }
+                            
+                            // Update tab text
+                            dialog?.findViewById<TabLayout>(R.id.tabLayout)?.getTabAt(1)?.text = 
+                                "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                        }
+                    )
+                    availableCodecsFragment!!
                 }
-                if (index != -1) {
-                    selectedCodecs.removeAt(index)
-                    selectedCodecsAdapter.notifyItemRemoved(index)
-                    selectedCodecsAdapter.notifyItemRangeChanged(index, selectedCodecs.size)
-                    availableCodecsAdapter.notifyDataSetChanged()
+                1 -> {
+                    selectedCodecsFragment = SelectedCodecsFragment()
+                    selectedCodecsFragment!!.initialize(
+                        selectedCodecs = selectedCodecs,
+                        onCodecRemoved = { codec ->
+                            selectedCodecs.removeIf { 
+                                it.mimeType == codec.mimeType && 
+                                it.clockRate == codec.clockRate && 
+                                it.channels == codec.channels 
+                            }
+                            availableCodecsFragment?.updateAdapter()
+                            selectedCodecsFragment?.updateAdapter()
+                            
+                            // Update clear all button state
+                            dialog?.findViewById<Button>(R.id.clearAllButton)?.let {
+                                updateClearAllButton(it)
+                            }
+                            
+                            // Update tab text
+                            dialog?.findViewById<TabLayout>(R.id.tabLayout)?.getTabAt(1)?.text = 
+                                "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                        }
+                    )
+                    selectedCodecsFragment!!
                 }
+                else -> throw IllegalArgumentException("Invalid position $position")
             }
-        )
-        
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = selectedCodecsAdapter
-        
-        // Setup drag and drop
-        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
-        ) {
-            override fun onMove(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val fromPosition = viewHolder.adapterPosition
-                val toPosition = target.adapterPosition
-                selectedCodecsAdapter.moveItem(fromPosition, toPosition)
-                return true
-            }
-            
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                // Not used
-            }
-        })
-        
-        itemTouchHelper.attachToRecyclerView(recyclerView)
+        }
     }
 }

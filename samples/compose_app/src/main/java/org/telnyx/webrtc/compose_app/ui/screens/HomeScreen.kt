@@ -30,6 +30,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -143,18 +145,9 @@ fun HomeScreen(
 
     var isDebugModeOn by remember { mutableStateOf(telnyxViewModel.debugMode) }
     
-    // Available audio codecs for selection
+    // Available audio codecs fetched from the SDK
     val availableCodecs = remember {
-        listOf(
-            AudioCodec("audio/opus", 48000, 2),
-            AudioCodec("audio/PCMU", 8000, 1),
-            AudioCodec("audio/PCMA", 8000, 1),
-            AudioCodec("audio/G722", 8000, 1),
-            AudioCodec("audio/G729", 8000, 1),
-            AudioCodec("audio/speex", 8000, 1),
-            AudioCodec("audio/speex", 16000, 1),
-            AudioCodec("audio/speex", 32000, 1)
-        )
+        telnyxViewModel.getSupportedAudioCodecs(context)
     }
 
     LaunchedEffect(sessionState) {
@@ -349,7 +342,7 @@ fun HomeScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            painter = painterResource(id = R.drawable.ic_settings),
+                                            imageVector = Icons.Default.Settings,
                                             contentDescription = null
                                         )
                                     }
