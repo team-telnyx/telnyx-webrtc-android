@@ -72,8 +72,8 @@ class CodecSelectionDialogFragment(
         
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             when (position) {
-                0 -> tab.text = "Available"
-                1 -> tab.text = "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                0 -> tab.text = getString(R.string.codec_available_tab)
+                1 -> tab.text = if (selectedCodecs.isNotEmpty()) getString(R.string.codec_selected_tab_count, selectedCodecs.size) else getString(R.string.codec_selected_tab)
             }
         }.attach()
         
@@ -81,7 +81,7 @@ class CodecSelectionDialogFragment(
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 if (position == 1) {
-                    tabLayout.getTabAt(1)?.text = "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                    tabLayout.getTabAt(1)?.text = if (selectedCodecs.isNotEmpty()) getString(R.string.codec_selected_tab_count, selectedCodecs.size) else getString(R.string.codec_selected_tab)
                 }
             }
         })
@@ -107,7 +107,7 @@ class CodecSelectionDialogFragment(
             telnyxViewModel.setPreferredAudioCodecs(selectedCodecs.toList())
             Toast.makeText(
                 requireContext(),
-                "Preferred codecs updated: ${selectedCodecs.joinToString(", ") { it.mimeType }}",
+                getString(R.string.preferred_codecs_updated, selectedCodecs.joinToString(", ") { it.mimeType }),
                 Toast.LENGTH_SHORT
             ).show()
             dialog?.dismiss()
@@ -156,7 +156,7 @@ class CodecSelectionDialogFragment(
                             
                             // Update tab text
                             dialog?.findViewById<TabLayout>(R.id.tabLayout)?.getTabAt(1)?.text = 
-                                "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                                if (selectedCodecs.isNotEmpty()) getString(R.string.codec_selected_tab_count, selectedCodecs.size) else getString(R.string.codec_selected_tab)
                         }
                     )
                     availableCodecsFragment!!
@@ -181,12 +181,12 @@ class CodecSelectionDialogFragment(
                             
                             // Update tab text
                             dialog?.findViewById<TabLayout>(R.id.tabLayout)?.getTabAt(1)?.text = 
-                                "Selected${if (selectedCodecs.isNotEmpty()) " (${selectedCodecs.size})" else ""}"
+                                if (selectedCodecs.isNotEmpty()) getString(R.string.codec_selected_tab_count, selectedCodecs.size) else getString(R.string.codec_selected_tab)
                         }
                     )
                     selectedCodecsFragment!!
                 }
-                else -> throw IllegalArgumentException("Invalid position $position")
+                else -> throw IllegalArgumentException(getString(R.string.invalid_position, position))
             }
         }
     }

@@ -18,9 +18,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import org.burnoutcrew.reorderable.*
+import org.telnyx.webrtc.compose_app.R
 
 /**
  * Dialog for selecting and reordering preferred audio codecs.
@@ -47,7 +49,7 @@ fun CodecSelectionDialog(
     }
     
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Available", "Selected")
+    val tabs = listOf(stringResource(R.string.codec_available_tab), stringResource(R.string.codec_selected_tab))
     
     // Create unique keys for codecs by combining mimeType and clockRate
     fun codecKey(codec: AudioCodec): String = "${codec.mimeType}_${codec.clockRate}_${codec.channels}"
@@ -75,7 +77,7 @@ fun CodecSelectionDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "Preferred Audio Codecs",
+                    text = stringResource(R.string.preferred_audio_codecs),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -92,8 +94,8 @@ fun CodecSelectionDialog(
                             onClick = { selectedTabIndex = index },
                             text = { 
                                 Text(
-                                    text = if (title == "Selected" && currentSelection.isNotEmpty()) {
-                                        "$title (${currentSelection.size})"
+                                    text = if (index == 1 && currentSelection.isNotEmpty()) {
+                                        stringResource(R.string.codec_selected_tab_count, currentSelection.size)
                                     } else {
                                         title
                                     }
@@ -116,7 +118,7 @@ fun CodecSelectionDialog(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 Text(
-                                    text = "Select codecs to use:",
+                                    text = stringResource(R.string.select_codecs_to_use),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(bottom = 12.dp)
@@ -158,9 +160,9 @@ fun CodecSelectionDialog(
                             ) {
                                 Text(
                                     text = if (currentSelection.isEmpty()) {
-                                        "No codecs selected. Go to Available tab to select codecs."
+                                        stringResource(R.string.no_codecs_selected_instruction)
                                     } else {
-                                        "Drag to reorder by priority (top = highest):"
+                                        stringResource(R.string.drag_to_reorder_priority)
                                     },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -204,7 +206,7 @@ fun CodecSelectionDialog(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = "No codecs selected",
+                                            text = stringResource(R.string.no_codecs_selected),
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -230,19 +232,19 @@ fun CodecSelectionDialog(
                         },
                         enabled = currentSelection.isNotEmpty()
                     ) {
-                        Text("Clear All")
+                        Text(stringResource(R.string.clear_all))
                     }
                     
                     // Cancel and Save buttons (right side)
                     Row {
                         TextButton(onClick = onDismiss) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.Cancel))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = { onConfirm(currentSelection) }
                         ) {
-                            Text("Save")
+                            Text(stringResource(R.string.save))
                         }
                     }
                 }
@@ -281,7 +283,7 @@ private fun CodecItem(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "${codec.clockRate} Hz, ${codec.channels} ch",
+                text = stringResource(R.string.codec_format, codec.clockRate, codec.channels),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -310,7 +312,7 @@ private fun SelectedCodecItem(
     ) {
         Icon(
             imageVector = Icons.Default.Menu,
-            contentDescription = "Drag to reorder",
+            contentDescription = stringResource(R.string.drag_to_reorder),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.detectReorderAfterLongPress(reorderableState)
         )
@@ -329,7 +331,7 @@ private fun SelectedCodecItem(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "${codec.clockRate} Hz, ${codec.channels} ch",
+                text = stringResource(R.string.codec_format, codec.clockRate, codec.channels),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -337,7 +339,7 @@ private fun SelectedCodecItem(
         IconButton(onClick = onRemove) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Remove codec",
+                contentDescription = stringResource(R.string.remove_codec),
                 tint = MaterialTheme.colorScheme.error
             )
         }

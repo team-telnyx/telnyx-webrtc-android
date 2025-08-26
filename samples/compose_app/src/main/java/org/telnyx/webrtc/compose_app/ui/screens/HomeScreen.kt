@@ -144,7 +144,7 @@ fun HomeScreen(
     val preCallDiagnosisState by telnyxViewModel.precallDiagnosisState.collectAsState()
 
     var isDebugModeOn by remember { mutableStateOf(telnyxViewModel.debugMode) }
-    
+
     // Available audio codecs fetched from the SDK
     val availableCodecs = remember {
         telnyxViewModel.getSupportedAudioCodecs(context)
@@ -178,7 +178,7 @@ fun HomeScreen(
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = { showErrorDialog = false },
-            title = { Text(text = "Error") },
+            title = { Text(text = stringResource(R.string.error_dialog_title)) },
             text = { dialogErrorMessage?.let { Text(text = it) } },
             confirmButton = {
                 TextButton(onClick = { showErrorDialog = false }) {
@@ -203,7 +203,7 @@ fun HomeScreen(
                 ) {
                     // Empty space on the left to balance the layout
                     Spacer(modifier = Modifier.width(Dimens.extraLargeSpacing))
-                    
+
                     // Logo in the center
                     Image(
                         painter = painterResource(id = R.drawable.telnyx_logo),
@@ -231,7 +231,7 @@ fun HomeScreen(
                         IconButton(onClick = { showOverflowMenu = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_more_vert),
-                                contentDescription = "Menu",
+                                contentDescription = stringResource(R.string.menu),
                                 modifier = Modifier.size(Dimens.mediumSpacing)
                             )
                         }
@@ -245,7 +245,7 @@ fun HomeScreen(
                                 // Logged in user options
                                 // Websocket Messages option
                                 DropdownMenuItem(
-                                    text = { Text("Websocket Messages") },
+                                    text = { Text(stringResource(R.string.websocket_messages)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         showWsMessagesBottomSheet.value = true
@@ -260,7 +260,7 @@ fun HomeScreen(
 
                                 // Copy FCM Token option
                                 DropdownMenuItem(
-                                    text = { Text("Copy FCM Token") },
+                                    text = { Text(stringResource(R.string.copy_fcm_token_menu)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         onCopyFcmToken()
@@ -275,7 +275,7 @@ fun HomeScreen(
 
                                 // Disable Push Notifications option
                                 DropdownMenuItem(
-                                    text = { Text("Disable Push Notifications") },
+                                    text = { Text(stringResource(R.string.disable_push_notifications_menu)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         onDisablePushNotifications()
@@ -305,7 +305,7 @@ fun HomeScreen(
 
                                 // Prefetch ICE Candidates option
                                 DropdownMenuItem(
-                                    text = { 
+                                    text = {
                                         Text(
                                             if (telnyxViewModel.prefetchIceCandidate) {
                                                 stringResource(R.string.disable_prefetch_ice_candidates)
@@ -335,7 +335,7 @@ fun HomeScreen(
 
                                 // Preferred Codecs option
                                 DropdownMenuItem(
-                                    text = { Text("Preferred Codecs") },
+                                    text = { Text(stringResource(R.string.preferred_codecs)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         showCodecSelectionDialog = true
@@ -365,7 +365,8 @@ fun HomeScreen(
                                     },
                                     trailingIcon = {
                                         Text(
-                                            text = currentConfig?.region?.displayName ?: Region.AUTO.displayName,
+                                            text = currentConfig?.region?.displayName
+                                                ?: Region.AUTO.displayName,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -405,7 +406,10 @@ fun HomeScreen(
                                         val profile = currentConfig ?: Profile(region = region)
                                         telnyxViewModel.updateRegion(context, region)
                                         if (currentConfig == null) {
-                                            telnyxViewModel.setCurrentConfig(context, profile.copy(region = region))
+                                            telnyxViewModel.setCurrentConfig(
+                                                context,
+                                                profile.copy(region = region)
+                                            )
                                         }
                                     },
                                     leadingIcon = {
@@ -429,23 +433,28 @@ fun HomeScreen(
         },
         bottomBar = {
             if (callState is CallState.DONE || callState is CallState.ERROR)
-            BottomBar(
-                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
-                telnyxViewModel,
-                currentConfig
-            )
+                BottomBar(
+                    state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                    telnyxViewModel,
+                    currentConfig
+                )
 
         }) {
         Column(
-            modifier = Modifier.padding(
-                bottom = it.calculateBottomPadding(),
-                top = it.calculateTopPadding()
-            )
+            modifier = Modifier
+                .padding(
+                    bottom = it.calculateBottomPadding(),
+                    top = it.calculateTopPadding()
+                )
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(Dimens.spacingNormal),
         ) {
 
-            MediumTextBold(text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(id = R.string.home_info) else stringResource(id = R.string.login_info))
+            MediumTextBold(
+                text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(
+                    id = R.string.home_info
+                ) else stringResource(id = R.string.login_info)
+            )
 
             ConnectionState(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
@@ -478,21 +487,21 @@ fun HomeScreen(
 
         //BottomSheet
         // Pre-call diagnosis bottom sheet
-    if (showPreCallDiagnosisBottomSheet) {
-        PreCallDiagnosisBottomSheet(
-            preCallDiagnosisState = preCallDiagnosisState,
-            onDismiss = {
-                showPreCallDiagnosisBottomSheet = false
+        if (showPreCallDiagnosisBottomSheet) {
+            PreCallDiagnosisBottomSheet(
+                preCallDiagnosisState = preCallDiagnosisState,
+                onDismiss = {
+                    showPreCallDiagnosisBottomSheet = false
+                }
+            )
+
+            // Start the diagnosis call
+            LaunchedEffect(Unit) {
+                telnyxViewModel.makePreCallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
             }
-        )
-
-        // Start the diagnosis call
-        LaunchedEffect(Unit) {
-            telnyxViewModel.makePreCallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
         }
-    }
 
-    if (showLoginBottomSheet) {
+        if (showLoginBottomSheet) {
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
@@ -655,6 +664,7 @@ fun HomeScreen(
                     popUpTo(CallScreenNav) { inclusive = true }
                 }
             }
+
             else -> {}
         }
     }
@@ -708,7 +718,10 @@ fun HomeScreen(
                                 val token = telnyxViewModel.retrieveFCMToken()
                                 val clipboardManager =
                                     context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("FCM Token", token)
+                                val clip = ClipData.newPlainText(
+                                    context.getString(R.string.fcm_token_label),
+                                    token
+                                )
                                 clipboardManager.setPrimaryClip(clip)
                             }
 
@@ -775,7 +788,9 @@ fun HomeScreen(
             showCodecSelectionDialog = false
             Toast.makeText(
                 context,
-                "Preferred codecs updated: ${selectedCodecs.joinToString(", ") { it.mimeType }}",
+                context.getString(
+                    R.string.preferred_codecs_updated,
+                    selectedCodecs.joinToString(", ") { it.mimeType }),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -799,7 +814,8 @@ fun ProfileListView(
         ) {
             profileList.forEach { item ->
                 item {
-                    ProfileItem(item, selected = selectedProfile?.callerIdName == item.callerIdName,
+                    ProfileItem(
+                        item, selected = selectedProfile?.callerIdName == item.callerIdName,
                         onItemSelected = {
                             onItemSelected(item)
                         },
@@ -822,7 +838,7 @@ fun ProfileListView(
 fun PosNegButton(
     positiveText: String,
     negativeText: String,
-    contentAlignment:Alignment = Alignment.BottomEnd,
+    contentAlignment: Alignment = Alignment.BottomEnd,
     onPositiveClick: () -> Unit = {},
     onNegativeClick: () -> Unit = {}
 ) {
@@ -832,13 +848,22 @@ fun PosNegButton(
             horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("negativeButton"),
+            RoundedOutlinedButton(
+                modifier = Modifier
+                    .height(Dimens.size32dp)
+                    .testTag("negativeButton"),
                 text = negativeText,
                 contentColor = MaterialTheme.colorScheme.primary,
-                backgroundColor = Color.White) {
+                backgroundColor = Color.White
+            ) {
                 onNegativeClick()
             }
-            RoundedOutlinedButton(modifier = Modifier.height(Dimens.size32dp).testTag("positiveButton"), text = positiveText) {
+            RoundedOutlinedButton(
+                modifier = Modifier
+                    .height(Dimens.size32dp)
+                    .testTag("positiveButton"),
+                text = positiveText
+            ) {
                 onPositiveClick()
             }
 
@@ -865,10 +890,16 @@ fun ProfileItem(
         horizontalArrangement = Arrangement.spacedBy(Dimens.extraSmallSpacing),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RegularText(text = item.callerIdName, modifier = Modifier
-            .weight(1f)
-            .background(color = if (selected) secondary_background_color else Color.Transparent)
-            .padding(start = Dimens.spacing8dp, top = Dimens.spacing4dp, end = Dimens.spacing8dp, bottom = Dimens.spacing4dp)
+        RegularText(
+            text = item.callerIdName, modifier = Modifier
+                .weight(1f)
+                .background(color = if (selected) secondary_background_color else Color.Transparent)
+                .padding(
+                    start = Dimens.spacing8dp,
+                    top = Dimens.spacing4dp,
+                    end = Dimens.spacing8dp,
+                    bottom = Dimens.spacing4dp
+                )
         )
 
         if (selected) {
@@ -969,7 +1000,7 @@ fun ConnectionState(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     MediumTextBold(
-                        text = "Websocket Messages",
+                        text = stringResource(R.string.websocket_messages),
                         modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                     )
                     IconButton(onClick = {
@@ -994,11 +1025,11 @@ fun ConnectionState(
                 // Clear messages button
                 RoundSmallButton(
                     modifier = Modifier.height(Dimens.size32dp),
-                    text = "Clear Messages",
+                    text = stringResource(R.string.clear_messages),
                     textSize = 12.sp,
                     backgroundColor = secondary_background_color,
                     icon = painterResource(R.drawable.ic_delete),
-                    iconContentDescription = "Clear Messages"
+                    iconContentDescription = stringResource(R.string.clear_messages)
                 ) {
                     telnyxViewModel.clearWebsocketMessages()
                 }
@@ -1014,7 +1045,7 @@ fun ConnectionState(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No websocket messages yet",
+                            text = stringResource(R.string.no_websocket_messages),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.Gray
                         )
@@ -1027,7 +1058,12 @@ fun ConnectionState(
                     ) {
                         items(wsMessages.size) { index ->
                             val message = wsMessages[index]
-                            val dateFormat = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()) }
+                            val dateFormat = remember {
+                                java.text.SimpleDateFormat(
+                                    "HH:mm:ss",
+                                    java.util.Locale.getDefault()
+                                )
+                            }
 
                             Column(
                                 modifier = Modifier
@@ -1040,13 +1076,18 @@ fun ConnectionState(
                                     .padding(Dimens.spacing8dp)
                             ) {
                                 Text(
-                                    text = "Message ${index + 1} - ${dateFormat.format(message.timestamp)}",
+                                    text = stringResource(
+                                        R.string.message_format,
+                                        index + 1,
+                                        dateFormat.format(message.timestamp)
+                                    ),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.height(Dimens.spacing4dp))
                                 Text(
-                                    text = GsonBuilder().setPrettyPrinting().create().toJson(message.message),
+                                    text = GsonBuilder().setPrettyPrinting().create()
+                                        .toJson(message.message),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -1078,11 +1119,12 @@ fun CurrentCallState(state: TelnyxSocketEvent) {
         is TelnyxSocketEvent.OnCallEnded -> {
             val cause = state.message?.cause
             if (cause != null) {
-                "Done - $cause"
+                stringResource(R.string.done_with_cause, cause)
             } else {
-                "Done"
+                stringResource(R.string.done)
             }
         }
+
         is TelnyxSocketEvent.OnRinging -> stringResource(R.string.call_state_ringing)
         is TelnyxSocketEvent.OnCallDropped -> stringResource(R.string.call_state_dropped)
         is TelnyxSocketEvent.OnCallReconnecting -> stringResource(R.string.call_state_reconnecting)
@@ -1121,8 +1163,10 @@ fun BottomBar(
     val context = LocalContext.current
     val selectProfileTitle = stringResource(R.string.please_select_profile)
 
-    Column (modifier = Modifier
-        .fillMaxHeight(0.16f)) {
+    Column(
+        modifier = Modifier
+            .fillMaxHeight(0.16f)
+    ) {
 
         RoundedOutlinedButton(
             text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
@@ -1152,20 +1196,29 @@ fun BottomBar(
             }
         }
 
-        Column (modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = Dimens.mediumPadding),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = Dimens.mediumPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center) {
-                val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
-                    stringResource(R.string.development_label)
-                } else {
-                    stringResource(R.string.production_label)
-                }.capitalizeFirstChar()!!
+            verticalArrangement = Arrangement.Center
+        ) {
+            val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                stringResource(R.string.development_label)
+            } else {
+                stringResource(R.string.production_label)
+            }.capitalizeFirstChar()!!
 
-                RegularText(text = stringResource(R.string.bottom_bar_production_text, environmentLabel, TelnyxClient.SDK_VERSION, BuildConfig.VERSION_NAME),
-                        color = MaterialTheme.colorScheme.tertiary,
-                        textAlign = TextAlign.Center)
+            RegularText(
+                text = stringResource(
+                    R.string.bottom_bar_production_text,
+                    environmentLabel,
+                    TelnyxClient.SDK_VERSION,
+                    BuildConfig.VERSION_NAME
+                ),
+                color = MaterialTheme.colorScheme.tertiary,
+                textAlign = TextAlign.Center
+            )
         }
     }
 

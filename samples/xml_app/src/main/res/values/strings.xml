@@ -153,4 +153,19 @@
     <!-- Prefetch ICE Candidates -->
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
+    
+    <!-- Codec Selection -->
+    <string name="preferred_codecs">Preferred Codecs</string>
+    <string name="preferred_audio_codecs">Preferred Audio Codecs</string>
+    <string name="preferred_codecs_updated">Preferred codecs updated: %1$s</string>
+    <string name="codec_available_tab">Available</string>
+    <string name="codec_selected_tab">Selected</string>
+    <string name="codec_selected_tab_count">Selected (%1$d)</string>
+    <string name="no_codecs_selected_instruction">No codecs selected. Go to Available tab to select codecs.</string>
+    <string name="clear_all">Clear All</string>
+    <string name="apply">Apply</string>
+    <string name="invalid_position">Invalid position %1$d</string>
+    <string name="select_reorder_codecs">Select and reorder your preferred codecs. Drag to reorder by priority.</string>
+    <string name="available_codecs">Available Codecs:</string>
+    <string name="selected_codecs_order">Selected Codecs (in order of preference):</string>
 </resources>

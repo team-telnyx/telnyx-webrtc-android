@@ -97,7 +97,7 @@ class SelectedCodecsFragment : Fragment() {
         if (selectedCodecs.isEmpty()) {
             recyclerView.visibility = View.GONE
             emptyStateText.visibility = View.VISIBLE
-            emptyStateText.text = "No codecs selected. Go to Available tab to select codecs."
+            emptyStateText.text = getString(R.string.no_codecs_selected_instruction)
         } else {
             recyclerView.visibility = View.VISIBLE
             emptyStateText.visibility = View.GONE
