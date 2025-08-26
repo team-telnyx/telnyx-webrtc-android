@@ -577,6 +577,8 @@ class TelnyxClient(
             peerConnection = null
             answerResponse = null
             inviteResponse = null
+            _transcript.clear()
+            _transcriptUpdateFlow.tryEmit(emptyList())
         }
     }
 
@@ -1380,6 +1382,38 @@ class TelnyxClient(
         socket.send(loginMessage)
     }
 
+    fun sendAIAssistantMessage(
+        message: String
+    ) {
+        val uuid: String = UUID.randomUUID().toString()
+
+        val conversationContent = ConversationContent(
+            type = "input_text",
+            text = message
+        )
+
+        val conversationItem = ConversationItem(
+            id = UUID.randomUUID().toString(),
+            type = "message",
+            role = "user",
+            content = listOf(conversationContent)
+        )
+
+        val aiConversationParams = AiConversationParams(
+            type = "conversation.item.create",
+            item = conversationItem
+        )
+
+        val aiConversationMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.AI_CONVERSATION.methodName,
+            params = aiConversationParams
+        )
+
+        Logger.d(message = "AI Conversation Message: ${Gson().toJson(aiConversationMessage)}")
+        socket.send(aiConversationMessage)
+    }
+
     /**
      * Performs credential login with decline_push parameter for background call decline.
      * This method sends a login message with decline_push set to true.
@@ -2021,6 +2055,8 @@ class TelnyxClient(
                 peerConnection = null
                 answerResponse = null
                 inviteResponse = null
+                _transcript.clear()
+                _transcriptUpdateFlow.tryEmit(emptyList())
             } ?: run {
                 Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
             }

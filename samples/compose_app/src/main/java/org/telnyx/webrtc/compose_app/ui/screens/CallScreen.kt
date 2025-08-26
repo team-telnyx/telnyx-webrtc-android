@@ -88,6 +88,7 @@ import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.OutlinedEdiText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.utils.Utils
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
@@ -109,6 +110,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     var showDialpadSection by remember { mutableStateOf(false) }
     var showCallQualityMetrics by remember { mutableStateOf(false) }
     var showCallHistoryBottomSheet by remember { mutableStateOf(false) }
+    var showAssistantTranscriptBottomSheet by remember { mutableStateOf(false) }
     var destinationNumber by remember { mutableStateOf("") }
     val callQualityMetrics by telnyxViewModel.callQualityMetrics.collectAsState()
     val inboundLevels by telnyxViewModel.inboundAudioLevels.collectAsState()
@@ -132,6 +134,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
             is TelnyxSocketEvent.OnCallEnded -> {
                 destinationNumber = ""
+                showAssistantTranscriptBottomSheet = false
 
                 if (telnyxViewModel.currentCall != null)
                     CallUIState.ACTIVE
@@ -152,9 +155,9 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     ) {
         var isPhoneNumber by remember { mutableStateOf(false) }
 
-        // Add the toggle button at the top
+        // Add the toggle button at the top - only show when not using Assistant Login
         AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
-            if (callState == CallUIState.IDLE) {
+            if (callState == CallUIState.IDLE && !telnyxViewModel.isAnonymouslyConnected) {
                 DestinationTypeSwitcher(isPhoneNumber) {
                     isPhoneNumber = it
                 }
@@ -162,7 +165,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         }
 
         AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
-            if (callState != CallUIState.INCOMING) {
+            if (callState != CallUIState.INCOMING && !telnyxViewModel.isAnonymouslyConnected) {
                 OutlinedEdiText(
                     text = destinationNumber,
                     hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
@@ -190,9 +193,28 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.spacing18dp)
                         ) {
-                            HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
-                                if (destinationNumber.isNotEmpty())
-                                    telnyxViewModel.sendInvite(context, destinationNumber, true)
+                            if (telnyxViewModel.isAnonymouslyConnected) {
+                                // Assistant mode - only show the Assistant button
+                                HomeButton(
+                                    modifier = Modifier.testTag("assistantCall"),
+                                    text = stringResource(R.string.assistant_dial),
+                                    icon = R.drawable.baseline_call_24,
+                                    backGroundColor = telnyxGreen,
+                                    contentColor = Color.White
+                                ) {
+                                    telnyxViewModel.sendAiAssistantInvite(context, true)
+                                }
+                            } else {
+                                // Regular mode - show green call button
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacing16dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                                        if (destinationNumber.isNotEmpty())
+                                            telnyxViewModel.sendInvite(context, destinationNumber, true)
+                                    }
+                                }
                             }
                             
                             RoundSmallButton(
@@ -230,8 +252,16 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
-                                HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
-                                    showDialpadSection = true
+                                if (telnyxViewModel.isAnonymouslyConnected) {
+                                    // Assistant mode - show message button to open transcript
+                                    HomeIconButton(Modifier.testTag("assistantTranscript"), icon = R.drawable.ic_message, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        showAssistantTranscriptBottomSheet = true
+                                    }
+                                } else {
+                                    // Regular mode - show dialpad button
+                                    HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                        showDialpadSection = true
+                                    }
                                 }
                             }
                             Row(
@@ -294,6 +324,14 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 destinationNumber = it
             }
             showCallHistoryBottomSheet = false
+        }
+    }
+
+    if (showAssistantTranscriptBottomSheet) {
+        AssistantTranscriptBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) {
+            showAssistantTranscriptBottomSheet = false
         }
     }
 }
@@ -429,6 +467,48 @@ fun HomeIconButton(
             contentDescription = contentDescription,
             modifier = Modifier.padding(Dimens.smallSpacing),
             colorFilter = ColorFilter.tint(contentColor ?: Color.Black))
+    }
+}
+
+@Composable
+fun HomeButton(
+    modifier: Modifier = Modifier,
+    text: String,
+    icon: Int = R.drawable.baseline_call_24,
+    backGroundColor: Color,
+    contentColor: Color = Color.Black,
+    contentDescription: String = "",
+    onClick: () -> Unit
+) {
+    Button(
+        modifier = modifier
+            .fillMaxWidth(0.7f)
+            .height(Dimens.size60dp),
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backGroundColor,
+            contentColor = contentColor
+        ),
+        shape = RoundedCornerShape(Dimens.buttonRoundedCorner),
+        contentPadding = PaddingValues(horizontal = Dimens.smallSpacing, vertical = Dimens.extraSmallSpacing)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(icon),
+                contentDescription = contentDescription,
+                modifier = Modifier.size(Dimens.size24dp),
+                colorFilter = ColorFilter.tint(contentColor)
+            )
+            Spacer(modifier = Modifier.width(Dimens.extraSmallSpacing))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor
+            )
+        }
     }
 }
 

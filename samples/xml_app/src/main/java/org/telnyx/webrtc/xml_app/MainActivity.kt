@@ -44,6 +44,7 @@ import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 import androidx.appcompat.app.AlertDialog
 import org.telnyx.webrtc.xml_app.home.PreCallDiagnosisBottomSheetFragment
+import org.telnyx.webrtc.xml_app.assistant.AssistantLoginDialogFragment
 import android.view.ViewGroup
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
@@ -140,6 +141,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Show debug mode for non-logged users
         popupMenu.menu.findItem(R.id.action_debug_mode).isVisible = !isConnected
 
+        // Show assistant login for non-logged users
+        popupMenu.menu.findItem(R.id.action_assistant_login).isVisible = !isConnected
+
         // Update state of debug mode menu item
         popupMenu.menu.findItem(R.id.action_debug_mode).title = getString(if (telnyxViewModel.debugMode) R.string.debug_mode_off else R.string.debug_mode_on)
 
@@ -195,6 +199,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     currentDebugMode = !currentDebugMode
 
                     telnyxViewModel.updateDebugMode(currentDebugMode)
+                    true
+                }
+                R.id.action_assistant_login -> {
+                    showAssistantLoginDialog()
                     true
                 }
                 else -> false
@@ -264,6 +272,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.disable_prefetch_ice_candidates)
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Shows the Assistant Login dialog
+     */
+    private fun showAssistantLoginDialog() {
+        val dialog = AssistantLoginDialogFragment.newInstance()
+        dialog.show(supportFragmentManager, AssistantLoginDialogFragment.TAG)
     }
 
     private fun bindEvents() {

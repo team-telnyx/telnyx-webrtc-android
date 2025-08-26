@@ -53,6 +53,8 @@ import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.model.TranscriptItem
+import com.telnyx.webrtc.sdk.verto.receive.AiConversationResponse
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -147,6 +149,13 @@ class TelnyxViewModel : ViewModel() {
     val debugMode = _debugMode
 
     /**
+     * Flag indicating whether the user is connected anonymously (for AI assistant).
+     */
+    private var _isAnonymouslyConnected = false
+    val isAnonymouslyConnected: Boolean
+        get() = _isAnonymouslyConnected
+
+    /**
      * State flow for the list of user profiles.
      * Observe this flow to display the list of profiles in the UI.
      */
@@ -207,6 +216,14 @@ class TelnyxViewModel : ViewModel() {
      */
     private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
     val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
+
+    /**
+     * Shared flow for AI assistant transcript messages from TelnyxClient.
+     * Observe this flow to display conversation transcript in the UI.
+     */
+    val transcriptMessages: SharedFlow<List<TranscriptItem>>?
+        get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
+
 
     /**
      * Job for collecting audio levels.
@@ -569,6 +586,7 @@ class TelnyxViewModel : ViewModel() {
         userVariables: Map<String, Any>? = null
     ) {
         _isLoading.value = true
+        _isAnonymouslyConnected = true
         disconnectedByUser = false
 
         userSessionJob?.cancel()
@@ -785,6 +803,8 @@ class TelnyxViewModel : ViewModel() {
     private fun handleAiConversation(data: ReceivedMessageBody) {
         // Handle AI conversation messages if needed
         Timber.d("AI Conversation message received: %s", data.result)
+        // AI conversation processing is now handled directly in TelnyxClient
+        // which updates the transcriptUpdateFlow
     }
 
     private fun handleLoading() {
@@ -822,6 +842,7 @@ class TelnyxViewModel : ViewModel() {
         Timber.i("Disconnect...")
         userSessionJob?.cancel()
         userSessionJob = null
+        _isAnonymouslyConnected = false
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }
@@ -914,6 +935,52 @@ class TelnyxViewModel : ViewModel() {
 
         if (debug) {
             collectAudioLevels()
+        }
+    }
+
+    /**
+     * Initiates an outgoing AI assistant call.
+     *
+     * @param viewContext The application context.
+     * @param debug Whether to enable debug mode for call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     */
+    fun sendAiAssistantInvite(
+        viewContext: Context,
+        debug: Boolean,
+        preferredCodecs: List<AudioCodec>? = null
+    ) {
+
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            Log.d("Call", "AI assistant")
+            SendInvite(viewContext).invoke(
+                "",
+                "",
+                AI_ASSISTANT_NUMBER,
+                "",
+                mapOf(Pair("X-test", "123456")),
+                debug,
+                preferredCodecs,
+                onCallHistoryAdd = { number ->
+                    addCallToHistory(CallType.OUTBOUND, number)
+                }
+            ).callStateFlow.collect {
+                handleCallState(it)
+            }
+        }
+
+        if (debug) {
+            collectAudioLevels()
+        }
+    }
+
+    fun sendAIAssistantMessage(viewContext: Context, message: String) {
+        val telnyxCommon = TelnyxCommon.getInstance()
+        viewModelScope.launch {
+            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message)
         }
     }
 
@@ -1233,5 +1300,6 @@ class TelnyxViewModel : ViewModel() {
     companion object {
         private const val MAX_AUDIO_LEVELS = 100
         private const val MAX_WS_MESSAGES = 100
+        private const val AI_ASSISTANT_NUMBER = "AI_ASSISTANT"
     }
 }
