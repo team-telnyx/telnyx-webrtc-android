@@ -155,4 +155,31 @@
     <!-- Prefetch ICE Candidates -->
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
+    
+    <!-- Codec Selection -->
+    <string name="preferred_codecs">Preferred Codecs</string>
+    <string name="preferred_audio_codecs">Preferred Audio Codecs</string>
+    <string name="websocket_messages">Websocket Messages</string>
+    <string name="copy_fcm_token_menu">Copy FCM Token</string>
+    <string name="disable_push_notifications_menu">Disable Push Notifications</string>
+    <string name="menu">Menu</string>
+    <string name="error_dialog_title">Error</string>
+    <string name="clear_messages">Clear Messages</string>
+    <string name="no_websocket_messages">No websocket messages yet</string>
+    <string name="message_format">Message %1$d - %2$s</string>
+    <string name="done_with_cause">Done - %1$s</string>
+    <string name="done">Done</string>
+    <string name="preferred_codecs_updated">Preferred codecs updated: %1$s</string>
+    <string name="codec_available_tab">Available</string>
+    <string name="codec_selected_tab">Selected</string>
+    <string name="codec_selected_tab_count">Selected (%1$d)</string>
+    <string name="select_codecs_to_use">Select codecs to use:</string>
+    <string name="no_codecs_selected_instruction">No codecs selected. Go to Available tab to select codecs.</string>
+    <string name="drag_to_reorder_priority">Drag to reorder by priority (top = highest):</string>
+    <string name="no_codecs_selected">No codecs selected</string>
+    <string name="clear_all">Clear All</string>
+    <string name="codec_format">%1$d Hz, %2$d ch</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
+    <string name="remove_codec">Remove codec</string>
+    <string name="fcm_token_label">FCM Token</string>
 </resources>
