@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
+import com.telnyx.webrtc.common.domain.authentication.AuthenticateAnonymously
 import com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall
 import com.telnyx.webrtc.common.domain.authentication.Disconnect
 import com.telnyx.webrtc.common.domain.call.AcceptCall
@@ -49,8 +50,11 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
 import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
+import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.model.TranscriptItem
+import com.telnyx.webrtc.sdk.verto.receive.AiConversationResponse
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -151,6 +155,13 @@ class TelnyxViewModel : ViewModel() {
     val debugMode = _debugMode
 
     /**
+     * Flag indicating whether the user is connected anonymously (for AI assistant).
+     */
+    private var _isAnonymouslyConnected = false
+    val isAnonymouslyConnected: Boolean
+        get() = _isAnonymouslyConnected
+
+    /**
      * State flow for the list of user profiles.
      * Observe this flow to display the list of profiles in the UI.
      */
@@ -211,6 +222,14 @@ class TelnyxViewModel : ViewModel() {
      */
     private val _wsMessages = MutableStateFlow<List<WebsocketMessage>>(emptyList())
     val wsMessages: StateFlow<List<WebsocketMessage>> = _wsMessages.asStateFlow()
+
+    /**
+     * Shared flow for AI assistant transcript messages from TelnyxClient.
+     * Observe this flow to display conversation transcript in the UI.
+     */
+    val transcriptMessages: SharedFlow<List<TranscriptItem>>?
+        get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
+
 
     /**
      * Job for collecting audio levels.
@@ -575,6 +594,46 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Performs anonymous login for AI assistant connections.
+     * This method allows connecting to AI assistants without traditional SIP credentials.
+     *
+     * @param viewContext The application context.
+     * @param targetId The unique identifier of the target AI assistant.
+     * @param targetType The type of target (defaults to "ai_assistant").
+     * @param targetVersionId Optional version ID of the target.
+     * @param userVariables Optional user variables to include.
+     */
+    fun anonymousLogin(
+        viewContext: Context,
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        userVariables: Map<String, Any>? = null
+    ) {
+        _isLoading.value = true
+        _isAnonymouslyConnected = true
+        disconnectedByUser = false
+
+        userSessionJob?.cancel()
+        userSessionJob = null
+
+        userSessionJob = viewModelScope.launch {
+            AuthenticateAnonymously(context = viewContext).invokeFlow(
+                serverConfiguration,
+                targetId = targetId,
+                targetType = targetType,
+                targetVersionId = targetVersionId,
+                userVariables = userVariables,
+                reconnection = false,
+                logLevel = LogLevel.ALL
+            ).collectLatest { response ->
+                Timber.d("Anonymous Login Response: $response")
+                handleSocketResponse(response)
+            }
+        }
+    }
+
+    /**
      * State flow for call quality metrics of the current call, observed from TelnyxCommon.
      * Observe this flow to display real-time call quality metrics in the UI.
      */
@@ -704,6 +763,7 @@ class TelnyxViewModel : ViewModel() {
             SocketMethod.RINGING.methodName -> handleRinging(data)
             SocketMethod.MEDIA.methodName -> handleMedia()
             SocketMethod.BYE.methodName -> handleBye(data)
+            SocketMethod.AI_CONVERSATION.methodName -> handleAiConversation(data)
         }
     }
 
@@ -765,6 +825,13 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
+    private fun handleAiConversation(data: ReceivedMessageBody) {
+        // Handle AI conversation messages if needed
+        Timber.d("AI Conversation message received: %s", data.result)
+        // AI conversation processing is now handled directly in TelnyxClient
+        // which updates the transcriptUpdateFlow
+    }
+
     private fun handleLoading() {
         Timber.i("Loading...")
     }
@@ -800,6 +867,7 @@ class TelnyxViewModel : ViewModel() {
         Timber.i("Disconnect...")
         userSessionJob?.cancel()
         userSessionJob = null
+        _isAnonymouslyConnected = false
         _sessionsState.value = TelnyxSessionState.ClientDisconnected
         _uiState.value = TelnyxSocketEvent.InitState
     }
@@ -892,6 +960,52 @@ class TelnyxViewModel : ViewModel() {
 
         if (debug) {
             collectAudioLevels()
+        }
+    }
+
+    /**
+     * Initiates an outgoing AI assistant call.
+     *
+     * @param viewContext The application context.
+     * @param debug Whether to enable debug mode for call quality metrics.
+     * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     */
+    fun sendAiAssistantInvite(
+        viewContext: Context,
+        debug: Boolean,
+        preferredCodecs: List<AudioCodec>? = null
+    ) {
+
+        callStateJob?.cancel()
+        callStateJob = null
+
+        callStateJob = viewModelScope.launch {
+            Log.d("Call", "AI assistant")
+            SendInvite(viewContext).invoke(
+                "",
+                "",
+                AI_ASSISTANT_NUMBER,
+                "",
+                mapOf(Pair("X-test", "123456")),
+                debug,
+                preferredCodecs,
+                onCallHistoryAdd = { number ->
+                    addCallToHistory(CallType.OUTBOUND, number)
+                }
+            ).callStateFlow.collect {
+                handleCallState(it)
+            }
+        }
+
+        if (debug) {
+            collectAudioLevels()
+        }
+    }
+
+    fun sendAIAssistantMessage(viewContext: Context, message: String) {
+        val telnyxCommon = TelnyxCommon.getInstance()
+        viewModelScope.launch {
+            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message)
         }
     }
 
@@ -1212,5 +1326,6 @@ class TelnyxViewModel : ViewModel() {
     companion object {
         private const val MAX_AUDIO_LEVELS = 100
         private const val MAX_WS_MESSAGES = 100
+        private const val AI_ASSISTANT_NUMBER = "AI_ASSISTANT"
     }
 }

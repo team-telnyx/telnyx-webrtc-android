@@ -216,6 +216,9 @@ class TxSocket(
                                 DISABLE_PUSH.methodName -> {
                                     listener.onDisablePushReceived(jsonObject)
                                 }
+                                AI_CONVERSATION.methodName -> {
+                                    listener.onAiConversationReceived(jsonObject)
+                                }
                                 PINGPONG.methodName -> {
                                     isPing = true
                                     webSocket.send(text)

@@ -156,6 +156,18 @@
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
     
+    <!-- Assistant -->
+    <string name="assistant_login">Assistant Login</string>
+    <string name="assistant_target_id">Target ID</string>
+    <string name="assistant_target_id_hint">Enter assistant target ID</string>
+    <string name="assistant_login_button">Login</string>
+    <string name="assistant_transcript">Assistant Transcript</string>
+    <string name="assistant_message_hint">Type your message...</string>
+    <string name="assistant_send">Send</string>
+    <string name="assistant_you">You</string>
+    <string name="assistant_ai">Assistant</string>
+    <string name="assistant_dial">Dial the connected Assistant</string>
+
     <!-- Codec Selection -->
     <string name="preferred_codecs">Preferred Codecs</string>
     <string name="preferred_audio_codecs">Preferred Audio Codecs</string>
