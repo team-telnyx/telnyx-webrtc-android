@@ -112,4 +112,11 @@ interface TxSocketListener {
      * Fires when the socket has disconnected
      * */
     fun onDisconnect()
+
+    /**
+     * Fires when an AI conversation message is received
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onAiConversationReceived(jsonObject: JsonObject)
 }

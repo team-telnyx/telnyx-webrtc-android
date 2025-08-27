@@ -100,6 +100,8 @@ import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -121,6 +123,7 @@ fun HomeScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
+    var showAssistantLoginBottomSheet by remember { mutableStateOf(false) }
     var showCodecSelectionDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
@@ -385,6 +388,21 @@ fun HomeScreen(
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(id = R.drawable.ic_debug_on),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Assistant Login option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.assistant_login)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showAssistantLoginBottomSheet = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_login),
                                             contentDescription = null
                                         )
                                     }
@@ -777,6 +795,15 @@ fun HomeScreen(
         }
     }
 
+    // Assistant Login Bottom Sheet
+    if (showAssistantLoginBottomSheet) {
+        AssistantLoginBottomSheet(
+            telnyxViewModel = telnyxViewModel
+        ) {
+            showAssistantLoginBottomSheet = false
+        }
+    }
+    
     // Codec Selection Dialog
     CodecSelectionDialog(
         isVisible = showCodecSelectionDialog,
