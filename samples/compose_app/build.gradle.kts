@@ -99,5 +99,8 @@ dependencies {
     val nav_version = "2.8.7"
     implementation("androidx.navigation:navigation-compose:$nav_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
+    
+    // Reorderable list for codec selection
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
 }

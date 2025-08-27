@@ -308,7 +308,8 @@ class TelnyxClient(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false
+        debug: Boolean = false,
+        preferredCodecs: List<AudioCodec>? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -374,7 +375,8 @@ class TelnyxClient(
                                         callId = callId,
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
+                                            ?: arrayListOf(),
+                                        preferredCodecs = preferredCodecs
                                     )
                                 )
                             )

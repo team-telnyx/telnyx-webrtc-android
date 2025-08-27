@@ -132,6 +132,12 @@ class TelnyxViewModel : ViewModel() {
     private var fcmToken: String? = null
 
     /**
+     * List of preferred audio codecs for calls.
+     * These codecs will be used for both outgoing and incoming calls.
+     */
+    private var preferredAudioCodecs: List<AudioCodec>? = null
+
+    /**
      * Server configuration for the Telnyx WebRTC SDK.
      */
     private var serverConfiguration = TxServerConfiguration()
@@ -336,6 +342,25 @@ class TelnyxViewModel : ViewModel() {
      */
     fun updateDebugMode(debugMode: Boolean) {
         _debugMode = debugMode
+    }
+
+    /**
+     * Sets the preferred audio codecs for calls.
+     * These codecs will be used for both outgoing and incoming calls.
+     *
+     * @param codecs List of preferred audio codecs in order of preference.
+     */
+    fun setPreferredAudioCodecs(codecs: List<AudioCodec>?) {
+        preferredAudioCodecs = codecs
+    }
+
+    /**
+     * Gets the currently set preferred audio codecs.
+     *
+     * @return List of preferred audio codecs or null if none are set.
+     */
+    fun getPreferredAudioCodecs(): List<AudioCodec>? {
+        return preferredAudioCodecs
     }
 
     /**
@@ -923,7 +948,7 @@ class TelnyxViewModel : ViewModel() {
                     "",
                     mapOf(Pair("X-test", "123456")),
                     debug,
-                    preferredCodecs,
+                    preferredCodecs ?: preferredAudioCodecs,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -1065,6 +1090,7 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
+                    preferredAudioCodecs,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }
