@@ -1192,10 +1192,10 @@ class TelnyxClient(
     
     /**
      * Returns the current connection quality based on the latest metrics
-     * @return Current [SocketConnectionQuality], or CALCULATING if no metrics available
+     * @return Current [SocketConnectionQuality], or DISCONNECTED if no metrics available
      */
     fun getCurrentConnectionQuality(): SocketConnectionQuality {
-        return currentSocketConnectionMetrics?.quality ?: SocketConnectionQuality.CALCULATING
+        return currentSocketConnectionMetrics?.quality ?: SocketConnectionQuality.DISCONNECTED
     }
     
     /**
@@ -2015,7 +2015,7 @@ class TelnyxClient(
         emitSocketResponse(SocketResponse.established())
         
         // Emit initial connection metrics with CALCULATING state
-        val initialMetrics = SocketConnectionMetrics()
+        val initialMetrics = SocketConnectionMetrics(quality = SocketConnectionQuality.CALCULATING)
         _socketConnectionMetricsFlow.tryEmit(initialMetrics)
         currentSocketConnectionMetrics = initialMetrics
     }

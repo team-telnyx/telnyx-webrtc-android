@@ -8,6 +8,7 @@ package com.telnyx.webrtc.sdk.model
  * Represents the quality level of a WebSocket connection based on ping interval and jitter metrics.
  * 
  * Quality levels for 30-second server ping intervals:
+ * - DISCONNECTED: Not connected to the socket
  * - CALCULATING: Initial connection phase, not enough data to assess quality yet
  * - EXCELLENT: Ping intervals close to 30s with minimal jitter (±2s, <1s jitter)
  * - GOOD: Ping intervals reasonably close to 30s with moderate jitter (±5s, <2s jitter)
@@ -15,11 +16,12 @@ package com.telnyx.webrtc.sdk.model
  * - POOR: Significant deviation from expected intervals or high jitter
  */
 enum class SocketConnectionQuality {
-    CALCULATING, // Initial connection, insufficient data
-    EXCELLENT,   // ~30s ±2s interval, <1s jitter
-    GOOD,        // ~30s ±5s interval, <2s jitter
-    FAIR,        // ~30s ±10s interval, <5s jitter
-    POOR         // Significant deviation from 30s or high jitter
+    DISCONNECTED, // Not connected to socket
+    CALCULATING,  // Initial connection, insufficient data
+    EXCELLENT,    // ~30s ±2s interval, <1s jitter
+    GOOD,         // ~30s ±5s interval, <2s jitter
+    FAIR,         // ~30s ±10s interval, <5s jitter
+    POOR          // Significant deviation from 30s or high jitter
 }
 
 /**
@@ -30,7 +32,7 @@ enum class SocketConnectionQuality {
  * @property minIntervalMs Minimum observed ping interval (milliseconds)
  * @property maxIntervalMs Maximum observed ping interval (milliseconds)
  * @property jitterMs Variation in ping intervals (standard deviation in milliseconds)
- * @property missedPings Count of expected pings that were not received
+ * @property missedPings Count of expected pings that were not received within the expected interval plus tolerance
  * @property totalPings Total number of pings received
  * @property quality Overall connection quality assessment
  * @property timestamp System time when these metrics were calculated
@@ -44,7 +46,7 @@ data class SocketConnectionMetrics(
     val jitterMs: Long? = null,             // Standard deviation of intervals
     val missedPings: Int = 0,               // Missed expected pings
     val totalPings: Int = 0,                // Total pings received
-    val quality: SocketConnectionQuality = SocketConnectionQuality.CALCULATING,
+    val quality: SocketConnectionQuality = SocketConnectionQuality.DISCONNECTED,
     val timestamp: Long = System.currentTimeMillis(),
     val lastPingTimestamp: Long? = null
 ) {

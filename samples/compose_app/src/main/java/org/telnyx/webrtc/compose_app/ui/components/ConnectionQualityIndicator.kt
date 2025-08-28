@@ -31,16 +31,17 @@ fun ConnectionQualityIndicator(
     modifier: Modifier = Modifier,
     showDetails: Boolean = false
 ) {
-    val quality = connectionMetrics?.quality ?: SocketConnectionQuality.CALCULATING
+    val quality = connectionMetrics?.quality ?: SocketConnectionQuality.DISCONNECTED
     
     // Animate color changes
     val indicatorColor by animateColorAsState(
         targetValue = when (quality) {
-            SocketConnectionQuality.CALCULATING -> Color(0xFF9E9E9E) // Gray
-            SocketConnectionQuality.EXCELLENT -> Color(0xFF4CAF50)   // Green
-            SocketConnectionQuality.GOOD -> Color(0xFF8BC34A)        // Light Green
-            SocketConnectionQuality.FAIR -> Color(0xFFFFC107)        // Amber
-            SocketConnectionQuality.POOR -> Color(0xFFF44336)        // Red
+            SocketConnectionQuality.DISCONNECTED -> Color(0xFF616161)  // Dark Gray
+            SocketConnectionQuality.CALCULATING -> Color(0xFF9E9E9E)   // Gray
+            SocketConnectionQuality.EXCELLENT -> Color(0xFF4CAF50)     // Green
+            SocketConnectionQuality.GOOD -> Color(0xFF8BC34A)          // Light Green
+            SocketConnectionQuality.FAIR -> Color(0xFFFFC107)          // Amber
+            SocketConnectionQuality.POOR -> Color(0xFFF44336)          // Red
         },
         animationSpec = tween(durationMillis = 300),
         label = "Connection Quality Color"
@@ -70,6 +71,7 @@ fun ConnectionQualityIndicator(
             // Quality text
             Text(
                 text = when (quality) {
+                    SocketConnectionQuality.DISCONNECTED -> "Disconnected"
                     SocketConnectionQuality.CALCULATING -> "Calculating..."
                     else -> quality.name
                 },
@@ -120,15 +122,16 @@ fun ConnectionQualityDot(
     connectionMetrics: SocketConnectionMetrics?,
     modifier: Modifier = Modifier
 ) {
-    val quality = connectionMetrics?.quality ?: SocketConnectionQuality.CALCULATING
+    val quality = connectionMetrics?.quality ?: SocketConnectionQuality.DISCONNECTED
     
     val indicatorColor by animateColorAsState(
         targetValue = when (quality) {
-            SocketConnectionQuality.CALCULATING -> Color(0xFF9E9E9E) // Gray
-            SocketConnectionQuality.EXCELLENT -> Color(0xFF4CAF50)   // Green
-            SocketConnectionQuality.GOOD -> Color(0xFF8BC34A)        // Light Green
-            SocketConnectionQuality.FAIR -> Color(0xFFFFC107)        // Amber
-            SocketConnectionQuality.POOR -> Color(0xFFF44336)        // Red
+            SocketConnectionQuality.DISCONNECTED -> Color(0xFF616161)  // Dark Gray
+            SocketConnectionQuality.CALCULATING -> Color(0xFF9E9E9E)   // Gray
+            SocketConnectionQuality.EXCELLENT -> Color(0xFF4CAF50)     // Green
+            SocketConnectionQuality.GOOD -> Color(0xFF8BC34A)          // Light Green
+            SocketConnectionQuality.FAIR -> Color(0xFFFFC107)          // Amber
+            SocketConnectionQuality.POOR -> Color(0xFFF44336)          // Red
         },
         animationSpec = tween(durationMillis = 300),
         label = "Connection Dot Color"
@@ -157,11 +160,11 @@ fun ConnectionMetricsDetail(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(2.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(

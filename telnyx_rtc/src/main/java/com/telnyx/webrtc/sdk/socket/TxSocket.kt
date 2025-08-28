@@ -55,9 +55,11 @@ class TxSocket(
     private val pingIntervals = mutableListOf<Long>()
     private val maxPingHistorySize = 30 // Keep last 30 ping intervals
     private var lastPingTimestamp: Long? = null
+    private var connectionStartTime: Long? = null
     private var expectedPingTimer: Timer? = null
     private var missedPingCount = 0
-    private val expectedPingIntervalMs = 30000L // Expected max interval between pings (30 seconds)
+    private val expectedPingIntervalMs = 30000L // Expected interval between pings (30 seconds)
+    private val pingToleranceMs = 500L // Tolerance for ping timing (500ms leeway)
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -138,6 +140,7 @@ class TxSocket(
                         this@TxSocket.javaClass.simpleName)
                     )
                     isConnected = true
+                    connectionStartTime = System.currentTimeMillis()
                     onConnected(true)
                     listener.onConnectionEstablished()
                 }
@@ -369,6 +372,16 @@ class TxSocket(
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
+        
+        // Reset connection metrics tracking
+        connectionStartTime = null
+        lastPingTimestamp = null
+        pingTimestamps.clear()
+        pingIntervals.clear()
+        missedPingCount = 0
+        expectedPingTimer?.cancel()
+        expectedPingTimer = null
+        
         if (this::webSocket.isInitialized) {
             webSocket.cancel()
             // socket.close(1000, "Websocket connection was asked to close")
@@ -382,9 +395,10 @@ class TxSocket(
     private fun handlePingReceived() {
         val currentTime = System.currentTimeMillis()
         
-        // Calculate interval from last ping
-        lastPingTimestamp?.let { lastTime ->
-            val interval = currentTime - lastTime
+        // Calculate interval from last ping or connection start time
+        val referenceTime = lastPingTimestamp ?: connectionStartTime
+        referenceTime?.let { refTime ->
+            val interval = currentTime - refTime
             pingIntervals.add(interval)
             
             // Keep only recent intervals
@@ -412,11 +426,11 @@ class TxSocket(
         expectedPingTimer = Timer()
         expectedPingTimer?.schedule(
             timerTask {
-                // If this fires, we missed an expected ping
+                // If this fires, we missed an expected ping (with tolerance)
                 missedPingCount++
-                Logger.w(message = "Expected ping not received within ${expectedPingIntervalMs}ms")
+                Logger.w(message = "Expected ping not received within ${expectedPingIntervalMs + pingToleranceMs}ms")
             },
-            expectedPingIntervalMs
+            expectedPingIntervalMs + pingToleranceMs
         )
     }
     

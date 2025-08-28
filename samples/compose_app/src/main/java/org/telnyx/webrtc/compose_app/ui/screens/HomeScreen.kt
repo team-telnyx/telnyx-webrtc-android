@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -987,6 +989,7 @@ fun ConnectionState(
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
+    var showConnectionDetailsDialog by remember { mutableStateOf(false) }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
@@ -1008,14 +1011,74 @@ fun ConnectionState(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
             
-            // Show connection quality indicator when connected
-            if (state && connectionMetrics != null) {
-                ConnectionQualityIndicator(
-                    connectionMetrics = connectionMetrics,
-                    modifier = Modifier.padding(start = Dimens.extraSmallSpacing)
+            // Show info icon for connection details
+            IconButton(
+                onClick = { showConnectionDetailsDialog = true },
+                modifier = Modifier.size(20.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_more_vert),
+                    contentDescription = "Connection Details",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
         }
+    }
+    
+    // Connection details dialog
+    if (showConnectionDetailsDialog) {
+        AlertDialog(
+            onDismissRequest = { showConnectionDetailsDialog = false },
+            title = { 
+                Text(
+                    text = "Connection Details",
+                    fontWeight = FontWeight.Bold
+                ) 
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Connection status
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(
+                                    color = if (state) MainGreen else Color.Red,
+                                    shape = CircleShape
+                                )
+                        )
+                        Text(
+                            text = if (state) "Connected" else "Disconnected",
+                            fontSize = 14.sp
+                        )
+                    }
+                    
+                    // Connection quality indicator and metrics
+                    if (connectionMetrics != null) {
+                        ConnectionMetricsDetail(
+                            connectionMetrics = connectionMetrics
+                        )
+                    } else {
+                        Text(
+                            text = "No connection metrics available",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showConnectionDetailsDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 
     // Websocket messages bottom sheet
