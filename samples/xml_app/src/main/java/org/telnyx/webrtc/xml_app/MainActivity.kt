@@ -38,7 +38,10 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
@@ -57,6 +60,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
     private var lastShownErrorMessage: String? = null
+    private var currentConnectionMetrics: SocketConnectionMetrics? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<AppCompatActivity>.onCreate(savedInstanceState)
@@ -116,6 +120,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Set up overflow menu
         binding.menuButton.setOnClickListener {
             showOverflowMenu()
+        }
+        
+        // Set up connection details button
+        binding.connectionDetailsButton.setOnClickListener {
+            showConnectionDetailsDialog()
         }
     }
 
@@ -375,6 +384,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 websocketMessagesAdapter.updateMessages(messages)
             }
         }
+        
+        // Listen for connection metrics
+        lifecycleScope.launch {
+            telnyxViewModel.connectionMetrics.collect { metrics ->
+                currentConnectionMetrics = metrics
+            }
+        }
     }
 
     private fun updateCallState(uiState: TelnyxSocketEvent) {
@@ -600,6 +616,151 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()
+    }
+    
+    /**
+     * Shows the connection details dialog
+     */
+    private fun showConnectionDetailsDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_connection_details, null)
+        
+        val sessionState = telnyxViewModel.sessionsState.value
+        var isConnected = sessionState !is TelnyxSessionState.ClientDisconnected
+        
+        // Set connection status
+        val statusIcon = dialogView.findViewById<View>(R.id.connectionStatusIcon)
+        val statusText = dialogView.findViewById<TextView>(R.id.connectionStatusText)
+        
+        statusIcon.isEnabled = isConnected
+        statusText.text = if (isConnected) getString(R.string.client_ready) else getString(R.string.disconnected)
+        
+        // Set up connection metrics initially
+        populateConnectionMetrics(dialogView, currentConnectionMetrics, isConnected)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setPositiveButton(getString(R.string.close)) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .create()
+        
+        // Observe metrics changes while dialog is open
+        var metricsJob: kotlinx.coroutines.Job? = null
+        var sessionJob: kotlinx.coroutines.Job? = null
+        
+        dialog.setOnShowListener {
+            // Observe connection metrics
+            metricsJob = lifecycleScope.launch {
+                telnyxViewModel.connectionMetrics.collect { metrics ->
+                    populateConnectionMetrics(dialogView, metrics, isConnected)
+                }
+            }
+            
+            // Observe session state changes
+            sessionJob = lifecycleScope.launch {
+                telnyxViewModel.sessionsState.collect { sessionState ->
+                    isConnected = sessionState !is TelnyxSessionState.ClientDisconnected
+                    statusIcon.isEnabled = isConnected
+                    statusText.text = if (isConnected) getString(R.string.client_ready) else getString(R.string.disconnected)
+                    populateConnectionMetrics(dialogView, currentConnectionMetrics, isConnected)
+                }
+            }
+        }
+        
+        dialog.setOnDismissListener {
+            metricsJob?.cancel()
+            sessionJob?.cancel()
+        }
+        
+        dialog.show()
+    }
+    
+    private fun populateConnectionMetrics(dialogView: View, metrics: SocketConnectionMetrics?, isConnected: Boolean) {
+        val qualityDot = dialogView.findViewById<View>(R.id.qualityIndicatorDot)
+        val qualityText = dialogView.findViewById<TextView>(R.id.qualityText)
+        val metricsContainer = dialogView.findViewById<View>(R.id.metricsContainer)
+        val noMetricsMessage = dialogView.findViewById<TextView>(R.id.noMetricsMessage)
+        
+        if (metrics != null && isConnected) {
+            // Show metrics container, hide no metrics message
+            metricsContainer.visibility = View.VISIBLE
+            noMetricsMessage.visibility = View.GONE
+            
+            // Set quality indicator
+            val quality = metrics.quality
+            val qualityColor = when (quality) {
+                SocketConnectionQuality.DISCONNECTED -> ContextCompat.getColor(this, R.color.grey)
+                SocketConnectionQuality.CALCULATING -> ContextCompat.getColor(this, R.color.quality_unknown)
+                SocketConnectionQuality.EXCELLENT -> ContextCompat.getColor(this, R.color.quality_excellent)
+                SocketConnectionQuality.GOOD -> ContextCompat.getColor(this, R.color.quality_good)
+                SocketConnectionQuality.FAIR -> ContextCompat.getColor(this, R.color.quality_fair)
+                SocketConnectionQuality.POOR -> ContextCompat.getColor(this, R.color.quality_poor)
+            }
+            
+            qualityDot.setBackgroundColor(qualityColor)
+            qualityText.text = when (quality) {
+                SocketConnectionQuality.DISCONNECTED -> getString(R.string.connection_quality_disconnected)
+                SocketConnectionQuality.CALCULATING -> getString(R.string.connection_quality_calculating)
+                SocketConnectionQuality.EXCELLENT -> getString(R.string.connection_quality_excellent)
+                SocketConnectionQuality.GOOD -> getString(R.string.connection_quality_good)
+                SocketConnectionQuality.FAIR -> getString(R.string.connection_quality_fair)
+                SocketConnectionQuality.POOR -> getString(R.string.connection_quality_poor)
+            }
+            
+            // Set metric values
+            dialogView.findViewById<TextView>(R.id.intervalValue).text = 
+                metrics.intervalMs?.let { getString(R.string.connection_metrics_ms, it) } 
+                    ?: getString(R.string.connection_metrics_not_available)
+                    
+            dialogView.findViewById<TextView>(R.id.avgIntervalValue).text = 
+                metrics.averageIntervalMs?.let { getString(R.string.connection_metrics_ms, it) } 
+                    ?: getString(R.string.connection_metrics_not_available)
+                    
+            dialogView.findViewById<TextView>(R.id.jitterValue).text = 
+                metrics.jitterMs?.let { getString(R.string.connection_metrics_ms, it) } 
+                    ?: getString(R.string.connection_metrics_not_available)
+                    
+            dialogView.findViewById<TextView>(R.id.minIntervalValue).text = 
+                metrics.minIntervalMs?.let { getString(R.string.connection_metrics_ms, it) } 
+                    ?: getString(R.string.connection_metrics_not_available)
+                    
+            dialogView.findViewById<TextView>(R.id.maxIntervalValue).text = 
+                metrics.maxIntervalMs?.let { getString(R.string.connection_metrics_ms, it) } 
+                    ?: getString(R.string.connection_metrics_not_available)
+            
+            // Success rate
+            val successRate = metrics.getSuccessRate()
+            dialogView.findViewById<TextView>(R.id.successRateValue).text = 
+                getString(R.string.connection_metrics_percent, successRate)
+            
+            val successRateTextView = dialogView.findViewById<TextView>(R.id.successRateValue)
+            successRateTextView.setTextColor(when {
+                successRate >= 99 -> ContextCompat.getColor(this, R.color.quality_excellent)
+                successRate >= 95 -> ContextCompat.getColor(this, R.color.quality_good)
+                successRate >= 90 -> ContextCompat.getColor(this, R.color.quality_fair)
+                else -> ContextCompat.getColor(this, R.color.quality_bad)
+            })
+            
+            // Ping statistics
+            dialogView.findViewById<TextView>(R.id.totalPingsValue).text = metrics.totalPings.toString()
+            
+            val missedPingsRow = dialogView.findViewById<View>(R.id.missedPingsRow)
+            if (metrics.missedPings > 0) {
+                missedPingsRow.visibility = View.VISIBLE
+                dialogView.findViewById<TextView>(R.id.missedPingsValue).text = metrics.missedPings.toString()
+            } else {
+                missedPingsRow.visibility = View.GONE
+            }
+            
+        } else {
+            // Hide metrics container, show no metrics message
+            metricsContainer.visibility = View.GONE
+            noMetricsMessage.visibility = View.VISIBLE
+            
+            // Set disconnected quality
+            qualityDot.setBackgroundColor(ContextCompat.getColor(this, R.color.grey))
+            qualityText.text = getString(R.string.connection_quality_disconnected)
+        }
     }
 
     private fun refreshVersionInfoText() {

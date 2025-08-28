@@ -15,8 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
+import org.telnyx.webrtc.compose_app.R
 
 /**
  * A composable that displays the current connection quality as a visual indicator.
@@ -71,9 +73,12 @@ fun ConnectionQualityIndicator(
             // Quality text
             Text(
                 text = when (quality) {
-                    SocketConnectionQuality.DISCONNECTED -> "Disconnected"
-                    SocketConnectionQuality.CALCULATING -> "Calculating..."
-                    else -> quality.name
+                    SocketConnectionQuality.DISCONNECTED -> stringResource(R.string.connection_quality_disconnected)
+                    SocketConnectionQuality.CALCULATING -> stringResource(R.string.connection_quality_calculating)
+                    SocketConnectionQuality.EXCELLENT -> stringResource(R.string.connection_quality_excellent)
+                    SocketConnectionQuality.GOOD -> stringResource(R.string.connection_quality_good)
+                    SocketConnectionQuality.FAIR -> stringResource(R.string.connection_quality_fair)
+                    SocketConnectionQuality.POOR -> stringResource(R.string.connection_quality_poor)
                 },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
@@ -92,7 +97,7 @@ fun ConnectionQualityIndicator(
                 // Interval
                 connectionMetrics.averageIntervalMs?.let { interval ->
                     Text(
-                        text = "${interval / 1000}s",
+                        text = stringResource(R.string.connection_metrics_seconds, interval / 1000),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -101,7 +106,7 @@ fun ConnectionQualityIndicator(
                 // Jitter
                 connectionMetrics.jitterMs?.let { jitter ->
                     Text(
-                        text = "±${jitter}ms",
+                        text = "±" + stringResource(R.string.connection_metrics_ms, jitter),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -168,7 +173,7 @@ fun ConnectionMetricsDetail(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Connection Quality",
+                text = stringResource(R.string.connection_quality),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -187,17 +192,17 @@ fun ConnectionMetricsDetail(
                 )
 
                 // Detailed metrics
-                ConnectionMetricRow(label = "Ping Interval", value = connectionMetrics.intervalMs?.let { "${it}ms" } ?: "N/A")
-                ConnectionMetricRow(label = "Average Interval", value = connectionMetrics.averageIntervalMs?.let { "${it}ms" } ?: "N/A")
-                ConnectionMetricRow(label = "Jitter", value = connectionMetrics.jitterMs?.let { "${it}ms" } ?: "N/A")
-                ConnectionMetricRow(label = "Min Interval", value = connectionMetrics.minIntervalMs?.let { "${it}ms" } ?: "N/A")
-                ConnectionMetricRow(label = "Max Interval", value = connectionMetrics.maxIntervalMs?.let { "${it}ms" } ?: "N/A")
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_interval), value = connectionMetrics.intervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_average_interval), value = connectionMetrics.averageIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_jitter), value = connectionMetrics.jitterMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_min_interval), value = connectionMetrics.minIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_max_interval), value = connectionMetrics.maxIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
                 
                 // Success rate
                 val successRate = connectionMetrics.getSuccessRate()
                 ConnectionMetricRow(
-                    label = "Success Rate",
-                    value = String.format("%.1f%%", successRate),
+                    label = stringResource(R.string.connection_metrics_success_rate),
+                    value = stringResource(R.string.connection_metrics_percent, successRate),
                     valueColor = when {
                         successRate >= 99 -> Color(0xFF4CAF50)
                         successRate >= 95 -> Color(0xFF8BC34A)
@@ -207,17 +212,17 @@ fun ConnectionMetricsDetail(
                 )
                 
                 // Ping statistics
-                ConnectionMetricRow(label = "Total Pings", value = connectionMetrics.totalPings.toString())
+                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_total_pings), value = connectionMetrics.totalPings.toString())
                 if (connectionMetrics.missedPings > 0) {
                     ConnectionMetricRow(
-                        label = "Missed Pings",
+                        label = stringResource(R.string.connection_metrics_missed_pings),
                         value = connectionMetrics.missedPings.toString(),
                         valueColor = Color(0xFFF44336)
                     )
                 }
             } else {
                 Text(
-                    text = "No connection metrics available",
+                    text = stringResource(R.string.no_connection_metrics),
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

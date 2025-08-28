@@ -1018,7 +1018,7 @@ fun ConnectionState(
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_more_vert),
-                    contentDescription = "Connection Details",
+                    contentDescription = stringResource(R.string.connection_details),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -1032,7 +1032,7 @@ fun ConnectionState(
             onDismissRequest = { showConnectionDetailsDialog = false },
             title = { 
                 Text(
-                    text = "Connection Details",
+                    text = stringResource(R.string.connection_details),
                     fontWeight = FontWeight.Bold
                 ) 
             },
@@ -1054,7 +1054,7 @@ fun ConnectionState(
                                 )
                         )
                         Text(
-                            text = if (state) "Connected" else "Disconnected",
+                            text = if (state) stringResource(R.string.connected) else stringResource(R.string.disconnected),
                             fontSize = 14.sp
                         )
                     }
@@ -1066,7 +1066,7 @@ fun ConnectionState(
                         )
                     } else {
                         Text(
-                            text = "No connection metrics available",
+                            text = stringResource(R.string.no_connection_metrics),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -1075,7 +1075,7 @@ fun ConnectionState(
             },
             confirmButton = {
                 TextButton(onClick = { showConnectionDetailsDialog = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.close))
                 }
             }
         )
