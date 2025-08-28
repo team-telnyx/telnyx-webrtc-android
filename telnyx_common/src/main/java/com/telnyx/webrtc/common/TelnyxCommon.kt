@@ -8,11 +8,16 @@ import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.PushMetaData
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.ICECandidate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.*
 
@@ -44,6 +49,13 @@ class TelnyxCommon private constructor() {
      */
     private val _callQualityMetrics = MutableStateFlow<CallQualityMetrics?>(null)
     val callQualityMetrics: StateFlow<CallQualityMetrics?> = _callQualityMetrics.asStateFlow()
+
+    /**
+     * State flow for socket connection metrics.
+     * Observe this flow to display real-time connection quality in the UI.
+     */
+    private val _connectionMetrics = MutableStateFlow<SocketConnectionMetrics?>(null)
+    val connectionMetrics: StateFlow<SocketConnectionMetrics?> = _connectionMetrics.asStateFlow()
 
     private val holdStatusObservers: MutableMap<Call, Observer<Boolean>> = mutableMapOf()
 
@@ -175,7 +187,24 @@ class TelnyxCommon private constructor() {
      */
     internal fun getTelnyxClient(context: Context): TelnyxClient {
         return _telnyxClient ?: synchronized(this) {
-            _telnyxClient ?: TelnyxClient(context.applicationContext).also { _telnyxClient = it }
+            _telnyxClient ?: TelnyxClient(context.applicationContext).also { 
+                _telnyxClient = it
+                observeConnectionMetrics(it)
+            }
+        }
+    }
+    
+    /**
+     * Observes connection metrics from the TelnyxClient and updates the state flow.
+     *
+     * @param client The TelnyxClient instance to observe
+     */
+    private fun observeConnectionMetrics(client: TelnyxClient) {
+        CoroutineScope(Dispatchers.Main).launch {
+            client.socketConnectionMetricsFlow.collect { metrics ->
+                _connectionMetrics.value = metrics
+                Timber.d("Connection Quality: ${metrics.quality}, Interval: ${metrics.averageIntervalMs}ms, Jitter: ${metrics.jitterMs}ms")
+            }
         }
     }
 

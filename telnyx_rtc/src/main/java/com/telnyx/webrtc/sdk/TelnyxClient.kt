@@ -218,6 +218,24 @@ class TelnyxClient(
      */
     val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> =
         _transcriptUpdateFlow.asSharedFlow()
+    
+    // SharedFlow for connection metrics updates
+    private val _socketConnectionMetricsFlow = MutableSharedFlow<SocketConnectionMetrics>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+    
+    /**
+     * Returns the connection metrics updates in the form of SharedFlow (recommended)
+     * Contains connection quality information including latency, jitter, and overall quality score
+     * Note: This flow emits updates whenever new connection metrics are calculated, the first calculation will only occur after the first ping-pong round trip - 30 seconds after connection
+     * @see [SocketConnectionMetrics]
+     * @see [SocketConnectionQuality]
+     */
+    val socketConnectionMetricsFlow: SharedFlow<SocketConnectionMetrics> = _socketConnectionMetricsFlow.asSharedFlow()
+    
+    // Store the latest connection metrics
+    private var currentSocketConnectionMetrics: SocketConnectionMetrics? = null
 
     /**
      * Returns the current transcript as an immutable list
@@ -1171,6 +1189,22 @@ class TelnyxClient(
     fun getActiveCalls(): Map<UUID, Call> {
         return calls.toMap()
     }
+    
+    /**
+     * Returns the current connection quality based on the latest metrics
+     * @return Current [SocketConnectionQuality], or CALCULATING if no metrics available
+     */
+    fun getCurrentConnectionQuality(): SocketConnectionQuality {
+        return currentSocketConnectionMetrics?.quality ?: SocketConnectionQuality.CALCULATING
+    }
+    
+    /**
+     * Returns the latest connection metrics
+     * @return Current [SocketConnectionMetrics], or null if no metrics available yet
+     */
+    fun getConnectionMetrics(): SocketConnectionMetrics? {
+        return currentSocketConnectionMetrics
+    }
 
     /**
      * Logs the user in with credentials provided via CredentialConfig
@@ -1979,7 +2013,11 @@ class TelnyxClient(
             )
         )
         emitSocketResponse(SocketResponse.established())
-
+        
+        // Emit initial connection metrics with CALCULATING state
+        val initialMetrics = SocketConnectionMetrics()
+        _socketConnectionMetricsFlow.tryEmit(initialMetrics)
+        currentSocketConnectionMetrics = initialMetrics
     }
 
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
@@ -2476,13 +2514,22 @@ class TelnyxClient(
         call?.setCallRecovering()
     }
 
-    override fun pingPong() {
+    override fun pingPong(socketConnectionMetrics: SocketConnectionMetrics?) {
         Logger.d(
             message = Logger.formatMessage(
-                "[%s] :: pingPong ",
-                this@TelnyxClient.javaClass.simpleName
+                "[%s] :: pingPong - Quality: %s, Interval: %sms, Jitter: %sms",
+                this@TelnyxClient.javaClass.simpleName,
+                socketConnectionMetrics?.quality,
+                socketConnectionMetrics?.averageIntervalMs,
+                socketConnectionMetrics?.jitterMs
             )
         )
+        
+        // Store and emit the connection metrics
+        socketConnectionMetrics?.let { metrics ->
+            currentSocketConnectionMetrics = metrics
+            _socketConnectionMetricsFlow.tryEmit(metrics)
+        }
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
@@ -2501,6 +2548,10 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
+        
+        // Clear connection metrics on disconnect
+        currentSocketConnectionMetrics = null
+        
         socket.destroy()
     }
 

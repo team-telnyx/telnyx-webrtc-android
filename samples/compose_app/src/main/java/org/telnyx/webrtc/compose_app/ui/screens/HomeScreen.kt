@@ -79,6 +79,7 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -92,6 +93,8 @@ import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
+import org.telnyx.webrtc.compose_app.ui.components.ConnectionQualityIndicator
+import org.telnyx.webrtc.compose_app.ui.components.ConnectionMetricsDetail
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
@@ -136,6 +139,7 @@ fun HomeScreen(
         ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+    val connectionMetrics by telnyxViewModel.connectionMetrics.collectAsState()
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
@@ -477,7 +481,8 @@ fun HomeScreen(
             ConnectionState(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel = telnyxViewModel,
-                showWsMessagesBottomSheet = showWsMessagesBottomSheet
+                showWsMessagesBottomSheet = showWsMessagesBottomSheet,
+                connectionMetrics = connectionMetrics
             )
 
             if (sessionState !is TelnyxSessionState.ClientDisconnected) {
@@ -976,7 +981,8 @@ fun SessionItem(sessionId: String) {
 fun ConnectionState(
     state: Boolean,
     telnyxViewModel: TelnyxViewModel = viewModel(),
-    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
+    connectionMetrics: SocketConnectionMetrics? = null
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
     val sheetState = rememberModalBottomSheetState(true)
@@ -1001,6 +1007,14 @@ fun ConnectionState(
             RegularText(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
+            
+            // Show connection quality indicator when connected
+            if (state && connectionMetrics != null) {
+                ConnectionQualityIndicator(
+                    connectionMetrics = connectionMetrics,
+                    modifier = Modifier.padding(start = Dimens.extraSmallSpacing)
+                )
+            }
         }
     }
 
