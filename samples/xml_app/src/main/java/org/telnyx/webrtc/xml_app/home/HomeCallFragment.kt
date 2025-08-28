@@ -164,6 +164,9 @@ class HomeCallFragment : Fragment() {
                 when (uiState) {
                     is TelnyxSocketEvent.OnClientReady -> {
                         if (telnyxViewModel.currentCall != null) {
+                            telnyxViewModel.currentCallCallerName?.let {
+                                binding.callInput.setText(it)
+                            }
                             onCallActive()
                             registerObservers() // Register observers when call is answered
                         } else

@@ -119,9 +119,10 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     LaunchedEffect(uiState) {
         callUIState = when (uiState) {
             is TelnyxSocketEvent.OnClientReady -> {
-                if (telnyxViewModel.currentCall != null)
+                if (telnyxViewModel.currentCall != null) {
+                    destinationNumber = telnyxViewModel.currentCallCallerName ?: ""
                     CallUIState.ACTIVE
-                else
+                } else
                     CallUIState.IDLE
             }
             is TelnyxSocketEvent.OnIncomingCall -> {
