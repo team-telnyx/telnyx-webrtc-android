@@ -178,6 +178,13 @@ class TelnyxViewModel : ViewModel() {
         get() = TelnyxCommon.getInstance().currentCall
 
     /**
+     * The caller name of the current call, if any.
+     * Returns null if there is no active call.
+     */
+    val currentCallCallerName : String?
+        get() = TelnyxCommon.getInstance().currentCall?.inviteResponse?.callerIdName
+
+    /**
      * State flow for the current user profile.
      * Observe this flow to react to profile changes.
      */

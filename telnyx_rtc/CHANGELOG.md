@@ -1,3 +1,9 @@
+## [3.1.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.1.0) (2025-08-27)
+
+### Enhancement
+- Anonymous Login + AI Agent related features 
+- Preferred Codec implementation
+
 ## [3.0.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.0.0) (2025-07-17)
 
 ### Enhancement
