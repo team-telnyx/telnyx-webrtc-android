@@ -640,6 +640,7 @@ fun HomeScreen(
                                             telnyxViewModel.addProfile(context, profile)
                                             editableUserProfile = null
                                         }
+                                        selectedUserProfile = profile
                                         isAddProfile = !isAddProfile
                                     },
                                     onDismiss = {
