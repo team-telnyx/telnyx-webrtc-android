@@ -7,7 +7,7 @@ pluginManagement {
         maven { url = uri("https://jitpack.io") }
     }
     plugins {
-        id("com.android.application") version "8.6.1"
+        id("com.android.application") version "8.12.2"
         id("org.jetbrains.kotlin.android") version "1.9.23"
         id("org.jetbrains.kotlin.plugin.compose") version "1.9.23"
         id("io.gitlab.arturbosch.detekt") version "1.23.7"
