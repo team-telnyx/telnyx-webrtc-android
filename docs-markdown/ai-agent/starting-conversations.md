@@ -177,6 +177,6 @@ activeCall?.let { call ->
 ## Next Steps
 
 After starting a conversation:
-1. [Set up transcript updates](transcript-updates.md) to receive real-time conversation data
-2. [Send text messages](text-messaging.md) during the active call
+1. [Set up transcript updates](https://developers.telnyx.com/development/webrtc/android-sdk/ai-agent/transcript-updates) to receive real-time conversation data
+2. [Send text messages](https://developers.telnyx.com/development/webrtc/android-sdk/ai-agent/text-messaging) during the active call
 3. Use standard call controls for mute, hold, and end call operations

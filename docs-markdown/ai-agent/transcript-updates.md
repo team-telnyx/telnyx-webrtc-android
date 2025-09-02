@@ -219,6 +219,4 @@ lifecycleScope.launch {
 ## Next Steps
 
 After setting up transcript updates:
-1. [Send text messages](text-messaging.md) to interact with the AI Assistant via text
-2. Implement UI features like search, export, or conversation history
-3. Use transcript data for analytics or conversation analysis
+1. [Send text messages](https://developers.telnyx.com/development/webrtc/android-sdk/ai-agent/text-messaging) to interact with the AI Assistant via text

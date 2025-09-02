@@ -515,25 +515,27 @@ Once your AI Agent is up and running, you can use the SDK to communicate with yo
 
 ### 1. Logging in to communicate with the AI Agent
 
-To connect with an AI Assistant, you can use the `anonymousLogin` method. This allows you to establish a connection without traditional authentication credentials.
+To connect with an AI Assistant, you can use the `connectAnonymously` method. This allows you to establish a connection without traditional authentication credentials.
 
 This method takes a `targetId` which is the ID of your AI assistant, and an optional `targetVersionId`. If a `targetVersionId` is not provided, the SDK will use the latest version available. 
 
-**Note:** After a successful `anonymousLogin`, any subsequent call, regardless of the destination, will be directed to the specified AI Assistant.
+**Note:** After a successful anonymous connection, any subsequent call, regardless of the destination, will be directed to the specified AI Assistant.
 
 Here's an example of how to use it:
 
 ```kotlin
 try {
-    telnyxClient.anonymousLogin(
+    telnyxClient.connectAnonymously(
         targetId = "your_assistant_id",
         // targetType = "ai_assistant", // This is the default value
-        // targetVersionId = "your_assistant_version_id" // Optional
+        // targetVersionId = "your_assistant_version_id", // Optional
+        // userVariables = mapOf("user_id" to "12345"), // Optional user variables
+        // logLevel = LogLevel.NONE // Optional log level configuration
     )
     // You are now connected and can make a call to the AI Assistant.
 } catch (e: Exception) {
-    // Handle login error
-    Log.e("TelnyxClient", "Login failed: ${e.message}")
+    // Handle connection error
+    Log.e("TelnyxClient", "Connection failed: ${e.message}")
 }
 ```
 
