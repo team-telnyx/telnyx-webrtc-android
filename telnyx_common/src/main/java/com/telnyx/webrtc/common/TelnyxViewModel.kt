@@ -299,6 +299,12 @@ class TelnyxViewModel : ViewModel() {
         }
 
     /**
+     * Flag indicating whether trickle ICE should be enabled for new calls.
+     * This preference will be used when making or accepting calls.
+     */
+    var useTrickleIce: Boolean = false
+
+    /**
      * Changes the server configuration environment.
      *
      * @param isDev If true, uses the development environment; otherwise, uses production.
@@ -729,7 +735,9 @@ class TelnyxViewModel : ViewModel() {
                     testNumber,
                     "",
                     mapOf(Pair("X-test", "123456")),
-                    true
+                    true,
+                    null,
+                    useTrickleIce
                 ).callStateFlow.collect {
                     handlePrecallDiagnosisCallState(it)
                 }
@@ -956,6 +964,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
+                    useTrickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -996,6 +1005,7 @@ class TelnyxViewModel : ViewModel() {
                 mapOf(Pair("X-test", "123456")),
                 debug,
                 preferredCodecs,
+                useTrickleIce,
                 onCallHistoryAdd = { number ->
                     addCallToHistory(CallType.OUTBOUND, number)
                 }
@@ -1098,6 +1108,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredAudioCodecs,
+                    useTrickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }

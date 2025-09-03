@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_trickle_ice).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_preferred_codecs).isVisible = isConnected
 
         // Show region selection for non-logged users
@@ -169,6 +170,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.enable_prefetch_ice_candidates)
         }
 
+        // Update trickle ICE menu item title based on current state
+        val trickleIceMenuItem = popupMenu.menu.findItem(R.id.action_trickle_ice)
+        trickleIceMenuItem.title = if (telnyxViewModel.useTrickleIce) {
+            getString(R.string.disable_trickle_ice)
+        } else {
+            getString(R.string.enable_trickle_ice)
+        }
+
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_websocket_messages -> {
@@ -189,6 +198,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_prefetch_ice_candidates -> {
                     togglePrefetchIceCandidates()
+                    true
+                }
+                R.id.action_trickle_ice -> {
+                    toggleTrickleIce()
                     true
                 }
                 R.id.action_preferred_codecs -> {
@@ -276,6 +289,20 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.enable_prefetch_ice_candidates)
         } else {
             getString(R.string.disable_prefetch_ice_candidates)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Toggles the trickle ICE setting
+     */
+    private fun toggleTrickleIce() {
+        val newState = !telnyxViewModel.useTrickleIce
+        telnyxViewModel.useTrickleIce = newState
+        val message = if (newState) {
+            getString(R.string.enable_trickle_ice)
+        } else {
+            getString(R.string.disable_trickle_ice)
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }

@@ -18,15 +18,16 @@ class EndCurrentAndAcceptIncoming(private val context: Context) {
      * @param callId The call ID to accept.
      * @param callerIdNumber The destination number to accept the call.
      * @param customeHeaders The custom headers to accept the call.
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @return The accepted incoming call.
      */
-    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null): Call {
+    operator fun invoke(callId: UUID, callerIdNumber: String, customeHeaders: Map<String, String>? = null, useTrickleIce: Boolean = false): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         telnyxCommon.currentCall?.let { currentCall ->
             telnyxCommon.getTelnyxClient(context).endCall(currentCall.callId)
             telnyxCommon.unregisterCall(currentCall.callId)
         }
 
-        return AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders)
+        return AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders, useTrickleIce = useTrickleIce)
     }
 }

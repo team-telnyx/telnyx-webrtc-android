@@ -156,6 +156,10 @@
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
     
+    <!-- Trickle ICE -->
+    <string name="enable_trickle_ice">Enable Trickle ICE</string>
+    <string name="disable_trickle_ice">Disable Trickle ICE</string>
+    
     <!-- Assistant -->
     <string name="assistant_login">Assistant Login</string>
     <string name="assistant_target_id">Target ID</string>

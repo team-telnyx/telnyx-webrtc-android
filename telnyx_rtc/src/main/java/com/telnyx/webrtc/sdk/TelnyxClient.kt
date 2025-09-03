@@ -303,6 +303,8 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
+     * @param preferredCodecs Optional list of preferred audio codecs for the call
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -310,10 +312,14 @@ class TelnyxClient(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        useTrickleIce: Boolean = false
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
+        
+        // Set trickle ICE for this call
+        this.useTrickleIce = useTrickleIce
 
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
@@ -435,6 +441,7 @@ class TelnyxClient(
      * @param customHeaders Optional custom SIP headers to include with the call
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -444,11 +451,15 @@ class TelnyxClient(
         clientState: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        useTrickleIce: Boolean = false
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
+        
+        // Set trickle ICE for this call
+        this.useTrickleIce = useTrickleIce
 
         val inviteCall = Call(
             context = context,
@@ -1200,7 +1211,6 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
-        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1322,7 +1332,6 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
-        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1444,7 +1453,6 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
-        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1498,7 +1506,6 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
-        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
