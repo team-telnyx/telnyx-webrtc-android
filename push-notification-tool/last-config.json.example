@@ -1,0 +1,10 @@
+{
+  "deviceToken": "",
+  "projectId": "",
+  "serviceAccountPath": "",
+  "serviceAccountJson": "",
+  "data": {
+    "caller_name": "",
+    "caller_number": ""
+  }
+}
