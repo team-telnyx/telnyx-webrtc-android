@@ -79,6 +79,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
             val sipCallerIdName = callerIdNameTextField.text.toString()
             val sipCallerIdNumber = callerIdNumberTextField.text.toString()
             val forceRelayCandidate = forceRelaySwitch.isChecked
+            val useTrickleIce = trickleIceSwitch.isChecked
 
             if (!validateProfile()) return
 
@@ -88,7 +89,8 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                 sipPass = sipPass,
                 callerIdName = sipCallerIdName,
                 callerIdNumber = sipCallerIdNumber,
-                forceRelayCandidate = forceRelayCandidate
+                forceRelayCandidate = forceRelayCandidate,
+                useTrickleIce = useTrickleIce
             )
             telnyxViewModel.addProfile(this@LoginBottomSheetFragment.requireContext(), newProfile)
             lifecycleScope.launch {
@@ -156,6 +158,7 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                         callerIdNameTextField.setText(profile.callerIdName)
                         callerIdNumberTextField.setText(profile.callerIdNumber)
                         forceRelaySwitch.isChecked = profile.forceRelayCandidate
+                        trickleIceSwitch.isChecked = profile.useTrickleIce
                     }
                 }
                 ProfileAction.SELECT_PROFILE -> {

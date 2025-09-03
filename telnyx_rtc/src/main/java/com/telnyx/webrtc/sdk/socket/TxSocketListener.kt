@@ -119,4 +119,18 @@ interface TxSocketListener {
      * @see [TxSocket]
      */
     fun onAiConversationReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when an ICE candidate is received via trickle ICE
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onCandidateReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when end-of-candidates is received via trickle ICE
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onEndOfCandidatesReceived(jsonObject: JsonObject)
 }

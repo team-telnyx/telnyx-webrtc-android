@@ -11,8 +11,13 @@ import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
+import com.telnyx.webrtc.sdk.verto.send.CandidateParams
+import com.telnyx.webrtc.sdk.verto.send.EndOfCandidatesParams
+import com.telnyx.webrtc.sdk.verto.send.CallDialogParams
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel
@@ -164,6 +169,13 @@ internal class Peer(
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
             Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
+            
+            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
+            if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
+                sendEndOfCandidates()
+                Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+            }
+            
             peerConnectionObserver?.onIceGatheringChange(p0)
         }
 
@@ -179,8 +191,15 @@ internal class Peer(
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
                 if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                    peerConnection?.addIceCandidate(it)
-                    Logger.d(tag = "Observer", message = "ICE candidate added: $it")
+                    if (client.getUseTrickleIce()) {
+                        // Send candidate via signaling for trickle ICE
+                        sendIceCandidate(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate sent via trickle ICE: $it")
+                    } else {
+                        // Traditional ICE: add candidate locally
+                        peerConnection?.addIceCandidate(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate added locally: $it")
+                    }
                     onIceCandidateAdd?.invoke(it.serverUrl)
                     lastCandidateTime = System.currentTimeMillis()
                 }
@@ -475,6 +494,56 @@ internal class Peer(
      */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
         peerConnection?.addIceCandidate(iceCandidate)
+    }
+
+    /**
+     * Sends an ICE candidate via signaling for trickle ICE
+     * @param candidate the [IceCandidate] to send
+     */
+    private fun sendIceCandidate(candidate: IceCandidate) {
+        val call = client.calls[callId]
+        call?.let {
+            val candidateMessage = SendingMessageBody(
+                id = UUID.randomUUID().toString(),
+                method = SocketMethod.CANDIDATE.methodName,
+                params = CandidateParams(
+                    sessid = it.sessionId,
+                    candidate = candidate.sdp,
+                    sdpMid = candidate.sdpMid,
+                    sdpMLineIndex = candidate.sdpMLineIndex,
+                    dialogParams = CallDialogParams(
+                        callId = callId.toString(),
+                        destinationNumber = it.destinationNumber ?: "",
+                        customHeaders = arrayListOf(),
+                        preferredCodecs = arrayListOf()
+                    )
+                )
+            )
+            client.socket.send(candidateMessage)
+        }
+    }
+
+    /**
+     * Sends end-of-candidates signal for trickle ICE
+     */
+    private fun sendEndOfCandidates() {
+        val call = client.calls[callId]
+        call?.let {
+            val endOfCandidatesMessage = SendingMessageBody(
+                id = UUID.randomUUID().toString(),
+                method = SocketMethod.END_OF_CANDIDATES.methodName,
+                params = EndOfCandidatesParams(
+                    sessid = it.sessionId,
+                    dialogParams = CallDialogParams(
+                        callId = callId.toString(),
+                        destinationNumber = it.destinationNumber ?: "",
+                        customHeaders = arrayListOf(),
+                        preferredCodecs = arrayListOf()
+                    )
+                )
+            )
+            client.socket.send(endOfCandidatesMessage)
+        }
     }
 
     /**

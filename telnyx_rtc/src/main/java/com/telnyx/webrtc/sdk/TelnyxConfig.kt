@@ -39,6 +39,7 @@ sealed class TelnyxConfig
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  * @property forceRelayCandidate whether to force TURN relay for peer connections. Note that this may cause issues with some networks that do not allow TURN connections. Enabling this may affect the quality of calls when devices are on the same local network, as all media will be relayed through TURN servers.
+ * @property useTrickleIce whether to use trickle ICE for peer connections. When enabled, ICE candidates are sent individually as they are discovered rather than waiting for all candidates to be gathered before sending the offer/answer.
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -55,7 +56,8 @@ data class CredentialConfig(
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
-    val forceRelayCandidate: Boolean = false
+    val forceRelayCandidate: Boolean = false,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
@@ -79,6 +81,7 @@ data class CredentialConfig(
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  * @property forceRelayCandidate whether to force TURN relay for peer connections. Note that this may cause issues with some networks that do not allow TURN connections. Enabling this may affect the quality of calls when devices are on the same local network, as all media will be relayed through TURN servers.
+ * @property useTrickleIce whether to use trickle ICE for peer connections. When enabled, ICE candidates are sent individually as they are discovered rather than waiting for all candidates to be gathered before sending the offer/answer.
  */
 data class TokenConfig(
     val sipToken: String,
@@ -94,7 +97,8 @@ data class TokenConfig(
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
-    val forceRelayCandidate: Boolean = false
+    val forceRelayCandidate: Boolean = false,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false

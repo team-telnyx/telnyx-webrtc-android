@@ -110,6 +110,7 @@ class TelnyxClient(
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
+    private var useTrickleIce: Boolean = false
     private var reconnecting = false
 
     // Reconnection timeout timer
@@ -764,6 +765,15 @@ class TelnyxClient(
     }
 
     /**
+     * Gets the current trickle ICE setting
+     *
+     * @return true if trickle ICE is enabled, false otherwise
+     */
+    fun getUseTrickleIce(): Boolean {
+        return useTrickleIce
+    }
+
+    /**
      * Connects to the socket using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
      * @see [TxSocket]
@@ -1190,6 +1200,7 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
+        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1311,6 +1322,7 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
+        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1432,6 +1444,7 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
+        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -1485,6 +1498,7 @@ class TelnyxClient(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
+        useTrickleIce = config.useTrickleIce
 
         isSocketDebug = config.debug
 
@@ -2715,6 +2729,58 @@ class TelnyxClient(
                     clockRate = 8000,
                     mimeType = type
                 )
+            }
+        }
+    }
+
+    override fun onCandidateReceived(jsonObject: JsonObject) {
+        Logger.d(message = "ICE CANDIDATE RECEIVED :: $jsonObject")
+        
+        if (jsonObject.has("params")) {
+            val params = jsonObject.get("params").asJsonObject
+            
+            if (params.has("candidate") && params.has("sdpMid") && params.has("sdpMLineIndex")) {
+                val candidateString = params.get("candidate").asString
+                val sdpMid = params.get("sdpMid").asString
+                val sdpMLineIndex = params.get("sdpMLineIndex").asInt
+                
+                // Extract call ID from dialog params
+                if (params.has("dialogParams")) {
+                    val dialogParams = params.get("dialogParams").asJsonObject
+                    if (dialogParams.has("callId")) {
+                        val callId = UUID.fromString(dialogParams.get("callId").asString)
+                        val call = calls[callId]
+                        
+                        call?.let {
+                            val iceCandidate = com.telnyx.webrtc.lib.IceCandidate(sdpMid, sdpMLineIndex, candidateString)
+                            it.peerConnection?.addIceCandidate(iceCandidate)
+                            Logger.d(message = "Added received ICE candidate: $iceCandidate")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
+        Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
+        
+        if (jsonObject.has("params")) {
+            val params = jsonObject.get("params").asJsonObject
+            
+            // Extract call ID from dialog params
+            if (params.has("dialogParams")) {
+                val dialogParams = params.get("dialogParams").asJsonObject
+                if (dialogParams.has("callId")) {
+                    val callId = UUID.fromString(dialogParams.get("callId").asString)
+                    val call = calls[callId]
+                    
+                    call?.let {
+                        // Add a null candidate to signal end of candidates
+                        it.peerConnection?.addIceCandidate(null)
+                        Logger.d(message = "End of candidates signaled for call: $callId")
+                    }
+                }
             }
         }
     }

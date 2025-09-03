@@ -112,3 +112,16 @@ data class InfoParams(
 ) : ParamRequest()
 
 data class StateParams(val state: String?) : ParamRequest()
+
+data class CandidateParams(
+    val sessid: String,
+    val candidate: String,
+    val sdpMid: String?,
+    val sdpMLineIndex: Int,
+    val dialogParams: CallDialogParams
+) : ParamRequest()
+
+data class EndOfCandidatesParams(
+    val sessid: String,
+    val dialogParams: CallDialogParams
+) : ParamRequest()
