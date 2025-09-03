@@ -38,6 +38,7 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
@@ -361,6 +362,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             }
         }
 
+        // Listen for connection status changes
+        lifecycleScope.launch {
+            telnyxViewModel.connectionStatus?.collect { connectionStatus ->
+                updateConnectionStatus(connectionStatus)
+            }
+        }
+
         // Listen for call state changes:
         lifecycleScope.launch {
             telnyxViewModel.uiState.collect { uiState ->
@@ -403,6 +411,19 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         }
         binding.callStateIcon.setBackgroundResource(iconDrawable)
         binding.callStateInfo.text = callStateName
+    }
+
+    private fun updateConnectionStatus(connectionStatus: ConnectionStatus) {
+        val statusText = when (connectionStatus) {
+            ConnectionStatus.DISCONNECTED -> getString(R.string.disconnected)
+            ConnectionStatus.CONNECTED -> getString(R.string.connected)
+            ConnectionStatus.RECONNECTING -> "Reconnecting"
+            ConnectionStatus.CLIENT_READY -> getString(R.string.client_ready)
+        }
+        
+        val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
+        binding.socketStatusIcon.isEnabled = isConnected
+        binding.socketStatusInfo.text = statusText
     }
 
     fun highlightButton(button: MaterialButton) {

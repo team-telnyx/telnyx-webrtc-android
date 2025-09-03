@@ -79,6 +79,7 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -136,6 +137,8 @@ fun HomeScreen(
         ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+    val connectionStatus by telnyxViewModel.connectionStatus?.collectAsState(initial = ConnectionStatus.DISCONNECTED)
+        ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
@@ -475,7 +478,7 @@ fun HomeScreen(
             )
 
             ConnectionState(
-                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                connectionStatus = connectionStatus,
                 telnyxViewModel = telnyxViewModel,
                 showWsMessagesBottomSheet = showWsMessagesBottomSheet
             )
@@ -975,7 +978,7 @@ fun SessionItem(sessionId: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionState(
-    state: Boolean,
+    connectionStatus: ConnectionStatus,
     telnyxViewModel: TelnyxViewModel = viewModel(),
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
@@ -995,12 +998,22 @@ fun ConnectionState(
                 modifier = Modifier
                     .size(Dimens.size12dp)
                     .background(
-                        color = if (state) MainGreen else Color.Red,
+                        color = when (connectionStatus) {
+                            ConnectionStatus.CONNECTED -> MainGreen
+                            ConnectionStatus.CLIENT_READY -> MainGreen
+                            ConnectionStatus.RECONNECTING -> Color.Yellow
+                            ConnectionStatus.DISCONNECTED -> Color.Red
+                        },
                         shape = Dimens.shape100Percent
                     )
             )
             RegularText(
-                text = stringResource(if (state) R.string.connected else R.string.disconnected)
+                text = when (connectionStatus) {
+                    ConnectionStatus.CONNECTED -> stringResource(R.string.connected)
+                    ConnectionStatus.CLIENT_READY -> "Client Ready"
+                    ConnectionStatus.RECONNECTING -> "Reconnecting"
+                    ConnectionStatus.DISCONNECTED -> stringResource(R.string.disconnected)
+                }
             )
         }
     }

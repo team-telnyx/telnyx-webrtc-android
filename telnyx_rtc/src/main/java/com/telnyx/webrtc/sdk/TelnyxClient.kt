@@ -169,6 +169,26 @@ class TelnyxClient(
      */
     val wsMessagesResponseFlow: SharedFlow<JsonObject> = _wsMessagesResponseFlow.asSharedFlow()
 
+    // SharedFlow for connection status
+    private val _connectionStatusFlow = MutableSharedFlow<ConnectionStatus>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+
+    /**
+     * Returns the connection status in the form of SharedFlow
+     * Exposes the current connection state of the Telnyx client
+     * @see [ConnectionStatus]
+     */
+    val connectionStatusFlow: SharedFlow<ConnectionStatus> = _connectionStatusFlow.asSharedFlow()
+
+    /**
+     * Helper function to emit connection status updates
+     */
+    private fun emitConnectionStatus(status: ConnectionStatus) {
+        _connectionStatusFlow.tryEmit(status)
+    }
+
     /**
      * Helper function to emit socket response to both SharedFlow and deprecated LiveData
      */
@@ -658,6 +678,9 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         // Start the reconnection timer to track timeout
         startReconnectionTimer()
+        
+        // Emit reconnecting status
+        emitConnectionStatus(ConnectionStatus.RECONNECTING)
 
         //Disconnect active calls for reconnection
         getActiveCalls().forEach { (_, call) ->
@@ -726,6 +749,9 @@ class TelnyxClient(
 
         // Initialize both SharedFlow and LiveData with initial state
         emitSocketResponse(SocketResponse.initialised())
+        
+        // Initialize connection status as disconnected
+        emitConnectionStatus(ConnectionStatus.DISCONNECTED)
 
         socket = TxSocket(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
@@ -1821,6 +1847,7 @@ class TelnyxClient(
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
+                emitConnectionStatus(ConnectionStatus.CLIENT_READY)
                 receivedSessionId?.let {
                     resetGatewayCounters()
                     onLoginSuccessful(it)
@@ -1979,7 +2006,7 @@ class TelnyxClient(
             )
         )
         emitSocketResponse(SocketResponse.established())
-
+        emitConnectionStatus(ConnectionStatus.CONNECTED)
     }
 
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
@@ -2498,6 +2525,7 @@ class TelnyxClient(
      */
     override fun onDisconnect() {
         emitSocketResponse(SocketResponse.disconnect())
+        emitConnectionStatus(ConnectionStatus.DISCONNECTED)
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
