@@ -127,8 +127,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
         popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
 
-        val sessionState = telnyxViewModel.sessionsState.value
-        val isConnected = sessionState !is TelnyxSessionState.ClientDisconnected
+        val connectionStatus = telnyxViewModel.connectionStatus?.value ?: ConnectionStatus.DISCONNECTED
+        val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
 
         // Hide logged-in user options when not connected
         popupMenu.menu.findItem(R.id.action_websocket_messages).isVisible = isConnected
@@ -417,7 +417,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val statusText = when (connectionStatus) {
             ConnectionStatus.DISCONNECTED -> getString(R.string.disconnected)
             ConnectionStatus.CONNECTED -> getString(R.string.connected)
-            ConnectionStatus.RECONNECTING -> "Reconnecting"
+            ConnectionStatus.RECONNECTING -> getString(R.string.call_state_reconnecting)
             ConnectionStatus.CLIENT_READY -> getString(R.string.client_ready)
         }
         
@@ -468,8 +468,9 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun setupGestureDetector() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
-                // Only show environment bottom sheet when not logged in
-                if (telnyxViewModel.sessionsState.value is TelnyxSessionState.ClientDisconnected) {
+                // Only show environment bottom sheet when disconnected
+                val currentConnectionStatus = telnyxViewModel.connectionStatus?.value ?: ConnectionStatus.DISCONNECTED
+                if (currentConnectionStatus == ConnectionStatus.DISCONNECTED) {
                     showEnvironmentBottomSheet()
                 }
             }

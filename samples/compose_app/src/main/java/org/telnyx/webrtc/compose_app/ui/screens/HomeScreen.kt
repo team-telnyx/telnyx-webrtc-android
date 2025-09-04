@@ -220,8 +220,8 @@ fun HomeScreen(
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onLongPress = {
-                                        // Only show environment bottom sheet when not logged in
-                                        if (sessionState is TelnyxSessionState.ClientDisconnected) {
+                                        // Only show environment bottom sheet when not connected
+                                        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
                                             showEnvironmentBottomSheet = true
                                         }
                                     }
@@ -247,7 +247,7 @@ fun HomeScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
-                            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+                            if (connectionStatus != ConnectionStatus.DISCONNECTED) {
                                 // Logged in user options
                                 // Websocket Messages option
                                 DropdownMenuItem(
@@ -455,7 +455,7 @@ fun HomeScreen(
         bottomBar = {
             if (callState is CallState.DONE || callState is CallState.ERROR)
                 BottomBar(
-                    state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                    state = (connectionStatus != ConnectionStatus.DISCONNECTED),
                     telnyxViewModel,
                     currentConfig
                 )
@@ -472,7 +472,7 @@ fun HomeScreen(
         ) {
 
             MediumTextBold(
-                text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(
+                text = if (connectionStatus == ConnectionStatus.CLIENT_READY) stringResource(
                     id = R.string.home_info
                 ) else stringResource(id = R.string.login_info)
             )
@@ -483,7 +483,7 @@ fun HomeScreen(
                 showWsMessagesBottomSheet = showWsMessagesBottomSheet
             )
 
-            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+            if (connectionStatus == ConnectionStatus.CLIENT_READY) {
                 CurrentCallState(state = uiState)
             }
 
@@ -1001,7 +1001,7 @@ fun ConnectionState(
                         color = when (connectionStatus) {
                             ConnectionStatus.CONNECTED -> MainGreen
                             ConnectionStatus.CLIENT_READY -> MainGreen
-                            ConnectionStatus.RECONNECTING -> Color.Yellow
+                            ConnectionStatus.RECONNECTING -> RingingIconColor
                             ConnectionStatus.DISCONNECTED -> Color.Red
                         },
                         shape = Dimens.shape100Percent
@@ -1010,8 +1010,8 @@ fun ConnectionState(
             RegularText(
                 text = when (connectionStatus) {
                     ConnectionStatus.CONNECTED -> stringResource(R.string.connected)
-                    ConnectionStatus.CLIENT_READY -> "Client Ready"
-                    ConnectionStatus.RECONNECTING -> "Reconnecting"
+                    ConnectionStatus.CLIENT_READY -> stringResource(R.string.client_ready)
+                    ConnectionStatus.RECONNECTING -> stringResource(R.string.call_state_reconnecting)
                     ConnectionStatus.DISCONNECTED -> stringResource(R.string.disconnected)
                 }
             )

@@ -1839,6 +1839,8 @@ class TelnyxClient(
                     )
                 )
             )
+
+            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
         }
     }
 
@@ -1847,7 +1849,6 @@ class TelnyxClient(
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                emitConnectionStatus(ConnectionStatus.CLIENT_READY)
                 receivedSessionId?.let {
                     resetGatewayCounters()
                     onLoginSuccessful(it)
