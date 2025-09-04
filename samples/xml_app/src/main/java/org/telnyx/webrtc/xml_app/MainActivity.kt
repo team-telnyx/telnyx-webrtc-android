@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
     private var lastShownErrorMessage: String? = null
+    private var currentConnectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<AppCompatActivity>.onCreate(savedInstanceState)
@@ -127,7 +128,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
         popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
 
-        val connectionStatus = telnyxViewModel.connectionStatus?.value ?: ConnectionStatus.DISCONNECTED
+        val connectionStatus = currentConnectionStatus
         val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
 
         // Hide logged-in user options when not connected
@@ -414,6 +415,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     }
 
     private fun updateConnectionStatus(connectionStatus: ConnectionStatus) {
+        currentConnectionStatus = connectionStatus
         val statusText = when (connectionStatus) {
             ConnectionStatus.DISCONNECTED -> getString(R.string.disconnected)
             ConnectionStatus.CONNECTED -> getString(R.string.connected)
@@ -469,7 +471,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
                 // Only show environment bottom sheet when disconnected
-                val currentConnectionStatus = telnyxViewModel.connectionStatus?.value ?: ConnectionStatus.DISCONNECTED
                 if (currentConnectionStatus == ConnectionStatus.DISCONNECTED) {
                     showEnvironmentBottomSheet()
                 }
