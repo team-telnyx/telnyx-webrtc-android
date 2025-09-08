@@ -4,6 +4,35 @@
 
 Enable Telnyx real-time communication services on Android 
 
+## Table of Contents
+
+- [Project structure](#project-structure)
+- [Project Setup](#project-setup)
+- [Using Jetpack Compose?](#using-jetpack-compose)
+- [SIP Credentials](#sip-credentials)
+- [Usage](#usage)
+  - [Telnyx Client](#telnyx-client)
+  - [Logging into Telnyx Client](#logging-into-telnyx-client)
+  - [Creating a call invitation](#creating-a-call-invitation)
+  - [Accepting a call](#accepting-a-call)
+  - [Handling Multiple Calls](#handling-multiple-calls)
+- [Adding push notifications](#adding-push-notifications)
+  - [Providing our SDK with the FCM Token to receive Push Notifications](#providing-our-sdk-with-the-fcm-token-to-receive-push-notifications)
+- [Custom Logging](#custom-logging)
+- [Call Quality Metrics](#call-quality-metrics)
+  - [Enabling Call Quality Metrics](#enabling-call-quality-metrics)
+  - [CallQualityMetrics Properties](#callqualitymetrics-properties)
+  - [CallQuality Enum](#callquality-enum)
+- [AI Agent Usage](#ai-agent-usage)
+  - [1. Logging in to communicate with the AI Agent](#1-logging-in-to-communicate-with-the-ai-agent)
+  - [2. Starting a Conversation with the AI Assistant](#2-starting-a-conversation-with-the-ai-assistant)
+  - [3. Receiving Transcript Updates](#3-receiving-transcript-updates)
+  - [4. Sending a text message to the AI Agent](#4-sending-a-text-message-to-the-ai-agent)
+- [ProGuard changes](#proguard-changes)
+- [Additional Resources](#additional-resources)
+- [Questions? Comments?](#questions-comments)
+- [License](#license)
+
 ## Project structure: 
 
 - SDK project: sdk module, containing all Telnyx SDK components as well as tests.
@@ -475,6 +504,121 @@ The Telnyx WebRTC SDK allows for multiple calls to be handled at once. You can u
     // Retrieve a specific call by callId
     val currentCall: Call? = calls[callId]
 ```
+
+## AI Agent Usage
+
+The Android WebRTC SDK supports [Voice AI Agent](https://telnyx.com/products/voice-ai-agents) implementations. 
+
+To get started, follow the steps [described here](https://telnyx.com/resources/ai-assistant-builder) to build your first AI Assistant. 
+
+Once your AI Agent is up and running, you can use the SDK to communicate with your AI Agent with the following steps:
+
+### 1. Logging in to communicate with the AI Agent
+
+To connect with an AI Assistant, you can use the `connectAnonymously` method. This allows you to establish a connection without traditional authentication credentials.
+
+This method takes a `targetId` which is the ID of your AI assistant, and an optional `targetVersionId`. If a `targetVersionId` is not provided, the SDK will use the latest version available. 
+
+**Note:** After a successful anonymous connection, any subsequent call, regardless of the destination, will be directed to the specified AI Assistant.
+
+Here's an example of how to use it:
+
+```kotlin
+try {
+    telnyxClient.connectAnonymously(
+        targetId = "your_assistant_id",
+        // targetType = "ai_assistant", // This is the default value
+        // targetVersionId = "your_assistant_version_id", // Optional
+        // userVariables = mapOf("user_id" to "12345"), // Optional user variables
+        // logLevel = LogLevel.NONE // Optional log level configuration
+    )
+    // You are now connected and can make a call to the AI Assistant.
+} catch (e: Exception) {
+    // Handle connection error
+    Log.e("TelnyxClient", "Connection failed: ${e.message}")
+}
+```
+
+Once connected, you can use the standard `newInvite` method to start a conversation with the AI Assistant.
+
+### 2. Starting a Conversation with the AI Assistant
+
+After a successful `anonymousLogin`, you can initiate a call to your AI Assistant using the `newInvite` method. Because the session is now locked to the AI Assistant, the `destinationNumber` parameter in the `newInvite` method will be ignored. Any values provided for `callerName` and `callerNumber` will be passed on, but the call will always be routed to the AI Assistant specified during the login.
+
+Here is an example of how to start the call:
+
+```kotlin
+// After a successful anonymousLogin...
+
+telnyxClient.call.newInvite(
+    callerName = "Your Name",
+    callerNumber = "Your Number",
+    destinationNumber = "", // Destination is ignored, can be an empty string
+    clientState = "Your custom state"
+)
+```
+
+The call will be automatically answered by the AI Assistant. From this point on, the call flow is handled in the same way as any other answered call, allowing you to use standard call control methods like `endCall`, `mute`, etc.
+
+### 3. Receiving Transcript Updates
+
+During an AI Assistant conversation, the SDK provides real-time transcript updates that include both the caller's speech and the AI Assistant's responses. This allows you to display a live conversation transcript in your application.
+
+To receive transcript updates, use the `transcriptUpdateFlow` SharedFlow on your `TelnyxClient` instance:
+
+```kotlin
+// Set up transcript listener
+lifecycleScope.launch {
+    telnyxClient.transcriptUpdateFlow.collect { transcript ->
+        // Handle the updated transcript
+        transcript.forEach { item ->
+            Log.d("Transcript", "${item.role}: ${item.content}")
+            // item.role will be either "user" or "assistant"
+            // item.content contains the spoken text
+            // item.timestamp contains when the message was received
+        }
+        
+        // Update your UI to display the conversation
+        updateConversationUI(transcript)
+    }
+}
+```
+
+The `TranscriptItem` contains the following properties:
+- `id`: Unique identifier for the transcript item
+- `role`: Either "user" (for the caller) or "assistant" (for the AI Agent)
+- `content`: The transcribed text content
+- `timestamp`: When the transcript item was created
+- `isPartial`: Whether this is a partial response (for streaming AI responses)
+
+You can also manually retrieve the current transcript at any time:
+
+```kotlin
+val currentTranscript = telnyxClient.transcript
+```
+
+**Note:** Transcript updates are only available during AI Assistant conversations initiated through `anonymousLogin`. Regular calls between users do not provide transcript functionality.
+
+### 4. Sending a text message to the AI Agent
+
+In addition to voice conversation, you can send text messages directly to the AI Agent during an active call. This allows for mixed-mode communication where users can both speak and type messages to the AI Assistant.
+
+To send a text message to the AI Agent, use the `sendAIAssistantMessage` method:
+
+```kotlin
+// Send a text message to the AI Agent during an active call
+telnyxClient.sendAIAssistantMessage("Hello, can you help me with my account?")
+```
+
+**Important Notes:**
+- The `sendAIAssistantMessage` method is only available during AI Assistant conversations
+- Text messages sent this way will appear in the transcript updates alongside spoken conversation
+- The AI Agent will process and respond to text messages just like spoken input
+- You must have an active call established before sending text messages
+
+This feature enables rich conversational experiences where users can seamlessly switch between voice and text communication with the AI Assistant.
+
+For detailed documentation and advanced usage examples, see the [AI Agent documentation](docs-markdown/ai-agent/introduction.md).
 
  ## ProGuard changes
  NOTE:
