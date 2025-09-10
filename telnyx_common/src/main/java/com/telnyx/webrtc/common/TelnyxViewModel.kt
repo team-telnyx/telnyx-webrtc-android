@@ -237,6 +237,12 @@ class TelnyxViewModel : ViewModel() {
     val transcriptMessages: SharedFlow<List<TranscriptItem>>?
         get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
 
+    /**
+     * Shared flow for connection status from TelnyxClient.
+     * Observe this flow to display connection state in the UI.
+     */
+    val connectionStatus: SharedFlow<com.telnyx.webrtc.sdk.model.ConnectionStatus>?
+        get() = TelnyxCommon.getInstance().telnyxClient?.connectionStatusFlow
 
     /**
      * Job for collecting audio levels.

@@ -38,6 +38,7 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
@@ -57,6 +58,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
     private var lastShownErrorMessage: String? = null
+    private var currentConnectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super<AppCompatActivity>.onCreate(savedInstanceState)
@@ -126,8 +128,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val popupMenu = androidx.appcompat.widget.PopupMenu(this, binding.menuButton)
         popupMenu.menuInflater.inflate(R.menu.overflow_menu, popupMenu.menu)
 
-        val sessionState = telnyxViewModel.sessionsState.value
-        val isConnected = sessionState !is TelnyxSessionState.ClientDisconnected
+        val connectionStatus = currentConnectionStatus
+        val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
 
         // Hide logged-in user options when not connected
         popupMenu.menu.findItem(R.id.action_websocket_messages).isVisible = isConnected
@@ -388,6 +390,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             }
         }
 
+        // Listen for connection status changes
+        lifecycleScope.launch {
+            telnyxViewModel.connectionStatus?.collect { connectionStatus ->
+                updateConnectionStatus(connectionStatus)
+            }
+        }
+
         // Listen for call state changes:
         lifecycleScope.launch {
             telnyxViewModel.uiState.collect { uiState ->
@@ -432,6 +441,20 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         binding.callStateInfo.text = callStateName
     }
 
+    private fun updateConnectionStatus(connectionStatus: ConnectionStatus) {
+        currentConnectionStatus = connectionStatus
+        val statusText = when (connectionStatus) {
+            ConnectionStatus.DISCONNECTED -> getString(R.string.disconnected)
+            ConnectionStatus.CONNECTED -> getString(R.string.connected)
+            ConnectionStatus.RECONNECTING -> getString(R.string.call_state_reconnecting)
+            ConnectionStatus.CLIENT_READY -> getString(R.string.client_ready)
+        }
+        
+        val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
+        binding.socketStatusIcon.isEnabled = isConnected
+        binding.socketStatusInfo.text = statusText
+    }
+
     fun highlightButton(button: MaterialButton) {
         button.setBackgroundColor(ContextCompat.getColor(this, R.color.main_green))
         button.setTextColor(ContextCompat.getColor(this, android.R.color.white))
@@ -474,8 +497,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun setupGestureDetector() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
-                // Only show environment bottom sheet when not logged in
-                if (telnyxViewModel.sessionsState.value is TelnyxSessionState.ClientDisconnected) {
+                // Only show environment bottom sheet when disconnected
+                if (currentConnectionStatus == ConnectionStatus.DISCONNECTED) {
                     showEnvironmentBottomSheet()
                 }
             }
