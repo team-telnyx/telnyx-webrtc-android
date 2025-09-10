@@ -367,7 +367,7 @@ fun HomeScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            painter = painterResource(id = R.drawable.ic_network),
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
                                             contentDescription = null
                                         )
                                     }

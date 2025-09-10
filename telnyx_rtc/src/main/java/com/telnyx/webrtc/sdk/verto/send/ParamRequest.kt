@@ -118,10 +118,10 @@ data class CandidateParams(
     val candidate: String,
     val sdpMid: String?,
     val sdpMLineIndex: Int,
-    val dialogParams: CallDialogParams
+    val dialogParams: CandidateDialogParams
 ) : ParamRequest()
 
 data class EndOfCandidatesParams(
     val sessid: String,
-    val dialogParams: CallDialogParams
+    val dialogParams: CandidateDialogParams
 ) : ParamRequest()

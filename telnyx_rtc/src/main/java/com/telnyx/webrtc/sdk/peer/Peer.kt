@@ -18,6 +18,7 @@ import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.verto.send.CandidateParams
 import com.telnyx.webrtc.sdk.verto.send.EndOfCandidatesParams
 import com.telnyx.webrtc.sdk.verto.send.CallDialogParams
+import com.telnyx.webrtc.sdk.verto.send.CandidateDialogParams
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel
@@ -511,11 +512,8 @@ internal class Peer(
                     candidate = candidate.sdp,
                     sdpMid = candidate.sdpMid,
                     sdpMLineIndex = candidate.sdpMLineIndex,
-                    dialogParams = CallDialogParams(
-                        callId = callId.toString(),
-                        destinationNumber = it.destinationNumber ?: "",
-                        customHeaders = arrayListOf(),
-                        preferredCodecs = arrayListOf()
+                    dialogParams = CandidateDialogParams(
+                        callId = callId
                     )
                 )
             )
@@ -534,11 +532,8 @@ internal class Peer(
                 method = SocketMethod.END_OF_CANDIDATES.methodName,
                 params = EndOfCandidatesParams(
                     sessid = it.sessionId,
-                    dialogParams = CallDialogParams(
-                        callId = callId.toString(),
-                        destinationNumber = it.destinationNumber ?: "",
-                        customHeaders = arrayListOf(),
-                        preferredCodecs = arrayListOf()
+                    dialogParams = CandidateDialogParams(
+                        callId = callId
                     )
                 )
             )

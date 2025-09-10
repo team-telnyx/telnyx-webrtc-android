@@ -21,7 +21,6 @@ fun Profile.toCredentialConfig(fcmToken: String, isDebug: Boolean = false): Cred
         autoReconnect = true,
         region = this.region,
         forceRelayCandidate = this.forceRelayCandidate,
-        useTrickleIce = this.useTrickleIce
     )
 }
 
@@ -39,6 +38,5 @@ fun Profile.toTokenConfig(fcmToken: String, isDebug: Boolean = false): TokenConf
         autoReconnect = true,
         region = this.region,
         forceRelayCandidate = this.forceRelayCandidate,
-        useTrickleIce = this.useTrickleIce
     )
 }
