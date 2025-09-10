@@ -37,6 +37,9 @@ class AnswerIncomingPushCall(private val context: Context) {
     // Callback to be invoked when there is a change in call quality metrics.
     private var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
+    // Indicates whether trickle ICE should be enabled for the call.
+    private var useTrickleIce: Boolean = false
+
     // Observer for incoming call responses.
     private val incomingCallObserver = Observer<SocketResponse<ReceivedMessageBody>> { response ->
         handleSocketResponse(response)
@@ -47,6 +50,9 @@ class AnswerIncomingPushCall(private val context: Context) {
      *
      * @param txPushMetaData Metadata associated with the push notification.
      * @param customHeaders Custom headers to be included in the call.
+     * @param debug When true, enables real-time call quality metrics.
+     * @param onCallQualityChange Callback to be invoked when there is a change in call quality metrics.
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @param onCallAnswered Callback to be invoked when the call is answered.
      * @return SharedFlow containing the socket response.
      */
@@ -55,12 +61,14 @@ class AnswerIncomingPushCall(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
+        useTrickleIce: Boolean = false,
         onCallAnswered: (Call) -> Unit
     ): SharedFlow<SocketResponse<ReceivedMessageBody>> {
         this.customHeaders = customHeaders
         this.onCallAnswered = onCallAnswered
         this.debug = debug
         this.onCallQualityChange = onCallQualityChange
+        this.useTrickleIce = useTrickleIce
 
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         val socketFlow = telnyxClient.socketResponseFlow
@@ -100,6 +108,9 @@ class AnswerIncomingPushCall(private val context: Context) {
      *
      * @param txPushMetaData Metadata associated with the push notification.
      * @param customHeaders Custom headers to be included in the call.
+     * @param debug When true, enables real-time call quality metrics.
+     * @param onCallQualityChange Callback to be invoked when there is a change in call quality metrics.
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @param onCallAnswered Callback to be invoked when the call is answered.
      * @return LiveData containing the socket response.
      * @deprecated Use invokeFlow() instead. LiveData is deprecated in favor of Kotlin Flows.
@@ -110,12 +121,14 @@ class AnswerIncomingPushCall(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
+        useTrickleIce: Boolean = false,
         onCallAnswered: (Call) -> Unit
     ): LiveData<SocketResponse<ReceivedMessageBody>> {
         this.customHeaders = customHeaders
         this.onCallAnswered = onCallAnswered
         this.debug = debug
         this.onCallQualityChange = onCallQualityChange
+        this.useTrickleIce = useTrickleIce
 
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
@@ -160,6 +173,7 @@ class AnswerIncomingPushCall(private val context: Context) {
                         customHeaders,
                         debug,
                         null, // No need to pass preferred codecs when answering push call
+                        useTrickleIce,
                         onCallQualityChange
                     )
                     cleanUp(answeredCall)

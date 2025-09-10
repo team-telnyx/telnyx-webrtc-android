@@ -33,6 +33,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_trickle_ice"
+        android:title="@string/enable_trickle_ice"
+        android:icon="@drawable/ic_network"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_preferred_codecs"
         android:title="Preferred Codecs"
         android:icon="@drawable/ic_more_vert"

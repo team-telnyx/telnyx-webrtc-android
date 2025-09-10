@@ -179,4 +179,51 @@ internal object SdpUtils {
             null
         }
     }
+
+    /**
+     * Adds the trickle ICE capability to an SDP if not already present.
+     * This adds "a=ice-options:trickle" at the session level after the origin (o=) line.
+     * 
+     * @param sdp The original SDP string
+     * @return The modified SDP with ice-options:trickle added
+     */
+    internal fun addTrickleIceCapability(sdp: String): String {
+        // Check if ice-options:trickle already exists
+        if (sdp.contains("a=ice-options:trickle")) {
+            Logger.d(tag = "SDP_Modify", message = "SDP already contains ice-options:trickle")
+            return sdp
+        }
+
+        val lines = sdp.lines().toMutableList()
+        
+        // Find the origin line (o=) to insert ice-options after it at session level
+        var insertIndex = -1
+        for (i in lines.indices) {
+            if (lines[i].startsWith("o=")) {
+                // Insert after the origin line
+                insertIndex = i + 1
+                break
+            }
+        }
+
+        if (insertIndex != -1) {
+            // Insert ice-options:trickle at session level
+            lines.add(insertIndex, "a=ice-options:trickle")
+            Logger.d(tag = "SDP_Modify", message = "Added a=ice-options:trickle to SDP at index $insertIndex")
+            return lines.joinToString("\r\n")
+        } else {
+            Logger.w(tag = "SDP_Modify", message = "Could not find origin line in SDP, returning original")
+            return sdp
+        }
+    }
+
+    /**
+     * Checks if an SDP contains trickle ICE capability.
+     * 
+     * @param sdp The SDP string to check
+     * @return true if the SDP advertises trickle ICE support
+     */
+    internal fun hasTrickleIceCapability(sdp: String): Boolean {
+        return sdp.contains("a=ice-options:trickle")
+    }
 }

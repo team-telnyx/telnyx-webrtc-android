@@ -25,6 +25,7 @@ class AcceptCall(private val context: Context) {
      * @param customHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
@@ -35,11 +36,12 @@ class AcceptCall(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
+        useTrickleIce: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, preferredCodecs)
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, preferredCodecs, useTrickleIce)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

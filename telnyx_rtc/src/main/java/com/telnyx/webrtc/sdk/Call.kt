@@ -22,6 +22,7 @@ import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
@@ -438,14 +439,27 @@ data class Call(
         // Create offer using this Call's peerConnection
         peerConnection?.createOfferForSdp(object : AppSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
-                startIceCandidateTimer(
-                    callerName,
-                    callerNumber,
-                    destinationNumber,
-                    clientState,
-                    customHeaders,
-                    preferredCodecs
-                )
+                if (client.getUseTrickleIce()) {
+                    // For trickle ICE, send INVITE immediately without waiting for candidates
+                    sendInviteImmediately(
+                        callerName,
+                        callerNumber,
+                        destinationNumber,
+                        clientState,
+                        customHeaders,
+                        preferredCodecs
+                    )
+                } else {
+                    // For traditional ICE, wait for candidates
+                    startIceCandidateTimer(
+                        callerName,
+                        callerNumber,
+                        destinationNumber,
+                        clientState,
+                        customHeaders,
+                        preferredCodecs
+                    )
+                }
             }
 
             override fun onCreateFailure(p0: String?) {
@@ -453,6 +467,50 @@ data class Call(
                  updateCallState(CallState.ERROR)
             }
         })
+    }
+
+    /**
+     * Sends the INVITE message immediately for trickle ICE without waiting for candidates.
+     */
+    private fun sendInviteImmediately(
+        callerName: String,
+        callerNumber: String,
+        destinationNumber: String,
+        clientState: String,
+        customHeaders: Map<String, String>?,
+        preferredCodecs: List<AudioCodec>?
+    ) {
+        var sdpDescription = peerConnection?.getLocalDescription()?.description
+        if (sdpDescription != null && outgoingInviteUUID != null) {
+            // Add trickle ICE capability to SDP
+            sdpDescription = SdpUtils.addTrickleIceCapability(sdpDescription)
+            
+            Logger.d(message = "Sending INVITE immediately with trickle ICE for Call [$callId]")
+            
+            val inviteMessageBody = SendingMessageBody(
+                id = outgoingInviteUUID!!,
+                method = SocketMethod.INVITE.methodName,
+                params = CallParams(
+                    sessid = sessionId,
+                    sdp = sdpDescription,
+                    dialogParams = CallDialogParams(
+                        callerIdName = callerName,
+                        callerIdNumber = callerNumber,
+                        clientState = clientState.encodeBase64(),
+                        callId = callId,
+                        destinationNumber = destinationNumber,
+                        customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                        preferredCodecs = preferredCodecs
+                    ),
+                    trickle = true
+                )
+            )
+            socket.send(inviteMessageBody)
+        } else {
+            if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")
+            if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [$callId]. Cannot send invite.")
+            updateCallState(CallState.ERROR)
+        }
     }
 
     /**
@@ -473,8 +531,13 @@ data class Call(
                 // Check this Call instance's list
                 if (iceCandidateList.isNotEmpty()) {
                     // Send invite with gathered candidates
-                    val sdpDescription = peerConnection?.getLocalDescription()?.description
+                    var sdpDescription = peerConnection?.getLocalDescription()?.description
                     if (sdpDescription != null && outgoingInviteUUID != null) {
+                        // Add trickle ICE capability to SDP if trickle ICE is enabled
+                        if (client.getUseTrickleIce()) {
+                            sdpDescription = SdpUtils.addTrickleIceCapability(sdpDescription)
+                        }
+                        
                         val inviteMessageBody = SendingMessageBody(
                             id = outgoingInviteUUID!!, // Use the stored UUID
                             method = SocketMethod.INVITE.methodName,
@@ -489,7 +552,8 @@ data class Call(
                                     destinationNumber = destinationNumber,
                                     customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
                                     preferredCodecs = preferredCodecs
-                                )
+                                ),
+                                trickle = if (client.getUseTrickleIce()) true else null
                             )
                         )
                         socket.send(inviteMessageBody)
