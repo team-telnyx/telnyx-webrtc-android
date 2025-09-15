@@ -2874,24 +2874,58 @@ class TelnyxClient(
             val params = jsonObject.get("params").asJsonObject
             
             if (params.has("candidate") && params.has("sdpMid") && params.has("sdpMLineIndex")) {
-                val candidateString = params.get("candidate").asString
+                var candidateString = params.get("candidate").asString
                 val sdpMid = params.get("sdpMid").asString
                 val sdpMLineIndex = params.get("sdpMLineIndex").asInt
+
+                // Strip "a=" prefix if present (server sends in SDP attribute format)
+                if (candidateString.startsWith("a=candidate:")) {
+                    // Only strip "a=" not "a=candidate:"
+                    candidateString = candidateString.substring(2)  // Remove "a="
+                    Logger.d(message = "Stripped 'a=' prefix from candidate string")
+                } else if (!candidateString.startsWith("candidate:")) {
+                    // If it doesn't start with "candidate:", add it
+                    candidateString = "candidate:$candidateString"
+                    Logger.d(message = "Added 'candidate:' prefix to candidate string")
+                }
+
+                // Try to get call ID from multiple possible locations
+                var callId: UUID? = null
                 
-                // Extract call ID from dialog params
-                if (params.has("dialogParams")) {
+                // 1. Check directly in params for "callID" (new server format)
+                if (params.has("callID")) {
+                    try {
+                        callId = UUID.fromString(params.get("callID").asString)
+                        Logger.d(message = "Found callID directly in params: $callId")
+                    } catch (e: Exception) {
+                        Logger.e(message = "Failed to parse callID from params: ${e.message}")
+                    }
+                }
+                
+                // 2. Fallback to dialogParams for "callId" (legacy format)
+                if (callId == null && params.has("dialogParams")) {
                     val dialogParams = params.get("dialogParams").asJsonObject
                     if (dialogParams.has("callId")) {
-                        val callId = UUID.fromString(dialogParams.get("callId").asString)
-                        val call = calls[callId]
-                        
-                        call?.let {
-                            val iceCandidate = IceCandidate(sdpMid, sdpMLineIndex, candidateString)
-                            it.peerConnection?.addIceCandidate(iceCandidate)
-                            Logger.d(message = "Added received ICE candidate: $iceCandidate")
+                        try {
+                            callId = UUID.fromString(dialogParams.get("callId").asString)
+                            Logger.d(message = "Found callId in dialogParams: $callId")
+                        } catch (e: Exception) {
+                            Logger.e(message = "Failed to parse callId from dialogParams: ${e.message}")
                         }
                     }
                 }
+                
+                // Process the candidate if we found a call ID
+                callId?.let { id ->
+                    val call = calls[id]
+                    call?.let {
+                        val iceCandidate = IceCandidate(sdpMid, sdpMLineIndex, candidateString)
+                        it.peerConnection?.addIceCandidate(iceCandidate)
+                        Logger.d(message = "Added received ICE candidate for call $id: $candidateString")
+                    } ?: Logger.w(message = "No call found for ID: $id")
+                } ?: Logger.w(message = "Could not extract call ID from candidate message")
+            } else {
+                Logger.w(message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)")
             }
         }
     }
@@ -2902,20 +2936,44 @@ class TelnyxClient(
         if (jsonObject.has("params")) {
             val params = jsonObject.get("params").asJsonObject
             
-            // Extract call ID from dialog params
-            if (params.has("dialogParams")) {
+            // Try to get call ID from multiple possible locations
+            var callId: UUID? = null
+            
+            // 1. Check directly in params for "callID" (new server format)
+            if (params.has("callID")) {
+                try {
+                    callId = UUID.fromString(params.get("callID").asString)
+                    Logger.d(message = "Found callID directly in params for end-of-candidates: $callId")
+                } catch (e: Exception) {
+                    Logger.e(message = "Failed to parse callID from params: ${e.message}")
+                }
+            }
+            
+            // 2. Fallback to dialogParams for "callId" (legacy format)
+            if (callId == null && params.has("dialogParams")) {
                 val dialogParams = params.get("dialogParams").asJsonObject
                 if (dialogParams.has("callId")) {
-                    val callId = UUID.fromString(dialogParams.get("callId").asString)
-                    val call = calls[callId]
-                    
-                    call?.let {
-                        // Add a null candidate to signal end of candidates
-                        it.peerConnection?.addIceCandidate(null)
-                        Logger.d(message = "End of candidates signaled for call: $callId")
+                    try {
+                        callId = UUID.fromString(dialogParams.get("callId").asString)
+                        Logger.d(message = "Found callId in dialogParams for end-of-candidates: $callId")
+                    } catch (e: Exception) {
+                        Logger.e(message = "Failed to parse callId from dialogParams: ${e.message}")
                     }
                 }
             }
+            
+            // Process end-of-candidates if we found a call ID
+            callId?.let { id ->
+                val call = calls[id]
+                call?.let {
+                    // Note: In WebRTC, we typically don't need to add a null candidate
+                    // The end-of-candidates signal is handled differently in trickle ICE
+                    // But we log it for debugging purposes
+                    Logger.d(message = "End of candidates received for call: $id")
+                    // Optionally notify the call that all candidates have been received
+                    // it.onEndOfCandidatesReceived()
+                } ?: Logger.w(message = "No call found for ID: $id")
+            } ?: Logger.w(message = "Could not extract call ID from end-of-candidates message")
         }
     }
 
