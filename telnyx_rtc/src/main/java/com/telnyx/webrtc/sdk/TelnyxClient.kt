@@ -2886,7 +2886,7 @@ class TelnyxClient(
                         val call = calls[callId]
                         
                         call?.let {
-                            val iceCandidate = com.telnyx.webrtc.lib.IceCandidate(sdpMid, sdpMLineIndex, candidateString)
+                            val iceCandidate = IceCandidate(sdpMid, sdpMLineIndex, candidateString)
                             it.peerConnection?.addIceCandidate(iceCandidate)
                             Logger.d(message = "Added received ICE candidate: $iceCandidate")
                         }

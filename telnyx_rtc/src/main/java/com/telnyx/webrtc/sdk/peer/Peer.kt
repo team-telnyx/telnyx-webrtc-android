@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.verto.send.CandidateParams
 import com.telnyx.webrtc.sdk.verto.send.EndOfCandidatesParams
@@ -69,6 +70,10 @@ internal class Peer(
     // Deferred to signal when the first ICE candidate (local or remote) is processed
     internal val firstCandidateDeferred = CompletableDeferred<Unit>()
     private var firstCandidateReceived = false // Flag to ensure deferred completes only once
+
+    // Trickle ICE candidate management
+    private val queuedCandidates = mutableListOf<IceCandidate>()
+    private var remoteDescriptionSet = false
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -193,9 +198,16 @@ internal class Peer(
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
                 if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
                     if (client.getUseTrickleIce()) {
-                        // Send candidate via signaling for trickle ICE
-                        sendIceCandidate(it)
-                        Logger.d(tag = "Observer", message = "ICE candidate sent via trickle ICE: $it")
+                        // Trickle ICE: Queue candidates until remote description is set
+                        if (remoteDescriptionSet) {
+                            // Remote description already set, send candidate immediately
+                            sendIceCandidate(it)
+                            Logger.d(tag = "Observer", message = "ICE candidate sent immediately via trickle ICE: $it")
+                        } else {
+                            // Queue candidate until remote description is set
+                            queuedCandidates.add(it)
+                            Logger.d(tag = "Observer", message = "ICE candidate queued for trickle ICE: $it")
+                        }
                     } else {
                         // Traditional ICE: add candidate locally
                         peerConnection?.addIceCandidate(it)
@@ -475,6 +487,9 @@ internal class Peer(
                 override fun onSetSuccess() {
                     Logger.d(tag="RemoteSessionReceived", message = "Set Remote Description Success")
                     logAllTransceiverStates("After setRemoteDescription success")
+                    
+                    // Flush any queued ICE candidates now that remote description is set
+                    flushQueuedCandidates()
                 }
 
                 override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
@@ -504,12 +519,15 @@ internal class Peer(
     private fun sendIceCandidate(candidate: IceCandidate) {
         val call = client.calls[callId]
         call?.let {
+            // Clean the candidate string to remove WebRTC-specific extensions
+            val cleanedCandidateString = SdpUtils.cleanCandidateString(candidate.sdp)
+            
             val candidateMessage = SendingMessageBody(
                 id = UUID.randomUUID().toString(),
                 method = SocketMethod.CANDIDATE.methodName,
                 params = CandidateParams(
                     sessid = it.sessionId,
-                    candidate = candidate.sdp,
+                    candidate = cleanedCandidateString,
                     sdpMid = candidate.sdpMid,
                     sdpMLineIndex = candidate.sdpMLineIndex,
                     dialogParams = CandidateDialogParams(
@@ -517,6 +535,8 @@ internal class Peer(
                     )
                 )
             )
+            
+            Logger.d(tag = "CandidateSend", message = "Sending cleaned candidate: $cleanedCandidateString")
             client.socket.send(candidateMessage)
         }
     }
@@ -539,6 +559,33 @@ internal class Peer(
             )
             client.socket.send(endOfCandidatesMessage)
         }
+    }
+
+    /**
+     * Flushes all queued ICE candidates after setRemoteDescription is called.
+     * This is called by TelnyxClient after successfully setting the remote description.
+     */
+    internal fun flushQueuedCandidates() {
+        if (!client.getUseTrickleIce()) {
+            Logger.d(tag = "CandidateFlush", message = "Trickle ICE disabled, not flushing queued candidates")
+            return
+        }
+
+        Logger.d(tag = "CandidateFlush", message = "Flushing ${queuedCandidates.size} queued candidates")
+        
+        // Send all queued candidates
+        queuedCandidates.forEach { candidate ->
+            sendIceCandidate(candidate)
+            Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
+        }
+        
+        // Clear the queue
+        queuedCandidates.clear()
+        
+        // Mark that remote description is set so future candidates are sent immediately
+        remoteDescriptionSet = true
+        
+        Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, remoteDescriptionSet = true")
     }
 
     /**
@@ -622,6 +669,9 @@ internal class Peer(
     fun release() {
         Logger.d(message="Releasing Peer resources...")
         stopNegotiationTimer()
+        // Clear any queued candidates
+        queuedCandidates.clear()
+        remoteDescriptionSet = false
         if (peerConnection != null) {
             disconnect()
         }
@@ -633,7 +683,9 @@ internal class Peer(
     init {
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
-        // Reset the flag when a new Peer is created
+        // Reset flags when a new Peer is created
         firstCandidateReceived = false
+        remoteDescriptionSet = false
+        queuedCandidates.clear()
     }
 }

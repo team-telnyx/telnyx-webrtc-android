@@ -226,4 +226,116 @@ internal object SdpUtils {
     internal fun hasTrickleIceCapability(sdp: String): Boolean {
         return sdp.contains("a=ice-options:trickle")
     }
+
+    /**
+     * Cleans an ICE candidate string to remove WebRTC-specific extensions.
+     * Extracts only the RFC 5245/8838 standard fields from a WebRTC candidate string.
+     * 
+     * Standard format: candidate:<foundation> <component> <transport> <priority> <IP address> <port> <candidate-type> [rel-addr <IP>] [rel-port <port>]
+     * 
+     * @param candidateString The raw candidate string from WebRTC (e.g., from IceCandidate.sdp)
+     * @return The cleaned candidate string with only RFC-compliant fields
+     */
+    internal fun cleanCandidateString(candidateString: String): String {
+        Logger.d(tag = "CandidateClean", message = "Original candidate: $candidateString")
+        
+        // Split the candidate string into parts
+        val parts = candidateString.trim().split(" ")
+        
+        if (parts.isEmpty() || !parts[0].startsWith("candidate:")) {
+            Logger.w(tag = "CandidateClean", message = "Invalid candidate format: $candidateString")
+            return candidateString // Return original if format is unexpected
+        }
+        
+        val cleanedParts = mutableListOf<String>()
+        var i = 0
+        
+        // Process standard fields in order
+        while (i < parts.size) {
+            val part = parts[i]
+            
+            when {
+                // Foundation (candidate:...)
+                part.startsWith("candidate:") -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // Component (1 or 2)
+                i == 1 && part.matches(Regex("\\d+")) -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // Transport (udp, tcp)
+                i == 2 && (part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)) -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // Priority (numeric)
+                i == 3 && part.matches(Regex("\\d+")) -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // IP address (IPv4 or IPv6)
+                i == 4 -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // Port (numeric)
+                i == 5 && part.matches(Regex("\\d+")) -> {
+                    cleanedParts.add(part)
+                    i++
+                }
+                // Candidate type (typ)
+                part == "typ" && i == 6 -> {
+                    cleanedParts.add(part)
+                    i++
+                    // Add the actual type (host, srflx, prflx, relay)
+                    if (i < parts.size) {
+                        cleanedParts.add(parts[i])
+                        i++
+                    }
+                }
+                // Related address (raddr)
+                part == "raddr" -> {
+                    cleanedParts.add(part)
+                    i++
+                    // Add the related address value
+                    if (i < parts.size) {
+                        cleanedParts.add(parts[i])
+                        i++
+                    }
+                }
+                // Related port (rport)
+                part == "rport" -> {
+                    cleanedParts.add(part)
+                    i++
+                    // Add the related port value
+                    if (i < parts.size) {
+                        cleanedParts.add(parts[i])
+                        i++
+                    }
+                }
+                // Skip WebRTC-specific extensions
+                part == "generation" || part == "ufrag" || part == "network-id" || part == "network-cost" -> {
+                    Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
+                    i++
+                    // Skip the value that follows
+                    if (i < parts.size && !parts[i].contains("=") && !parts[i].startsWith("candidate:")) {
+                        Logger.d(tag = "CandidateClean", message = "Skipping extension value: ${parts[i]}")
+                        i++
+                    }
+                }
+                else -> {
+                    // Skip unknown extensions
+                    Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
+                    i++
+                }
+            }
+        }
+        
+        val cleanedCandidate = cleanedParts.joinToString(" ")
+        Logger.d(tag = "CandidateClean", message = "Cleaned candidate: $cleanedCandidate")
+        
+        return cleanedCandidate
+    }
 }
