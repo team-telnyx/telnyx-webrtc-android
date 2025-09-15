@@ -59,6 +59,7 @@ internal class Peer(
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
+        private const val END_OF_CANDIDATES_TIMEOUT = 3000L // 3 seconds timeout for end-of-candidates
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
     }
@@ -74,6 +75,10 @@ internal class Peer(
     // Trickle ICE candidate management
     private val queuedCandidates = mutableListOf<IceCandidate>()
     private var remoteDescriptionSet = false
+    
+    // End-of-candidates timer management
+    private var endOfCandidatesTimer: Timer? = null
+    private var endOfCandidatesSent = false
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -203,10 +208,14 @@ internal class Peer(
                             // Remote description already set, send candidate immediately
                             sendIceCandidate(it)
                             Logger.d(tag = "Observer", message = "ICE candidate sent immediately via trickle ICE: $it")
+                            
+                            // Start/restart the end-of-candidates timer only when actually sending candidates
+                            startEndOfCandidatesTimer()
                         } else {
                             // Queue candidate until remote description is set
                             queuedCandidates.add(it)
                             Logger.d(tag = "Observer", message = "ICE candidate queued for trickle ICE: $it")
+                            // DO NOT start timer while queuing - wait until after setRemoteDescription
                         }
                     } else {
                         // Traditional ICE: add candidate locally
@@ -545,6 +554,12 @@ internal class Peer(
      * Sends end-of-candidates signal for trickle ICE
      */
     private fun sendEndOfCandidates() {
+        // Prevent sending duplicate end-of-candidates signals
+        if (endOfCandidatesSent) {
+            Logger.d(tag = "EndOfCandidates", message = "Already sent, skipping duplicate")
+            return
+        }
+        
         val call = client.calls[callId]
         call?.let {
             val endOfCandidatesMessage = SendingMessageBody(
@@ -558,6 +573,12 @@ internal class Peer(
                 )
             )
             client.socket.send(endOfCandidatesMessage)
+            endOfCandidatesSent = true
+            
+            // Stop the timer since we've sent the signal
+            stopEndOfCandidatesTimer()
+            
+            Logger.d(tag = "EndOfCandidates", message = "Signal sent successfully")
         }
     }
 
@@ -573,6 +594,8 @@ internal class Peer(
 
         Logger.d(tag = "CandidateFlush", message = "Flushing ${queuedCandidates.size} queued candidates")
         
+        val hadCandidates = queuedCandidates.isNotEmpty()
+        
         // Send all queued candidates
         queuedCandidates.forEach { candidate ->
             sendIceCandidate(candidate)
@@ -581,6 +604,11 @@ internal class Peer(
         
         // Clear the queue
         queuedCandidates.clear()
+        
+        // Start the end-of-candidates timer after flushing candidates (if there were any)
+        if (hadCandidates) {
+            startEndOfCandidatesTimer()
+        }
         
         // Mark that remote description is set so future candidates are sent immediately
         remoteDescriptionSet = true
@@ -664,14 +692,67 @@ internal class Peer(
     }
 
     /**
+     * Starts the end-of-candidates timer that sends end-of-candidates signal
+     * after a period of inactivity in ICE candidate discovery
+     */
+    private fun startEndOfCandidatesTimer() {
+        // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
+        if (!client.getUseTrickleIce()) {
+            Logger.d(tag = "EndOfCandidatesTimer", message = "Timer not started - Trickle ICE disabled")
+            return
+        }
+        if (endOfCandidatesSent) {
+            Logger.d(tag = "EndOfCandidatesTimer", message = "Timer not started - end-of-candidates already sent")
+            return
+        }
+
+        // Cancel any existing timer
+        endOfCandidatesTimer?.cancel()
+        endOfCandidatesTimer?.purge()
+
+        endOfCandidatesTimer = Timer()
+        endOfCandidatesTimer?.schedule(
+            timerTask {
+                Logger.d(
+                    tag = "EndOfCandidatesTimer",
+                    message = "Timer triggered after ${END_OF_CANDIDATES_TIMEOUT}ms of inactivity"
+                )
+                
+                // Send end-of-candidates if not already sent
+                if (!endOfCandidatesSent && client.getUseTrickleIce()) {
+                    Logger.d(tag = "EndOfCandidatesTimer", message = "Sending end-of-candidates via timer")
+                    sendEndOfCandidates()
+                }
+                
+                stopEndOfCandidatesTimer()
+            },
+            END_OF_CANDIDATES_TIMEOUT
+        )
+        
+        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer started/restarted")
+    }
+
+    /**
+     * Stops and cleans up the end-of-candidates timer
+     */
+    private fun stopEndOfCandidatesTimer() {
+        endOfCandidatesTimer?.cancel()
+        endOfCandidatesTimer?.purge()
+        endOfCandidatesTimer = null
+        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer stopped")
+    }
+
+    /**
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
         Logger.d(message="Releasing Peer resources...")
         stopNegotiationTimer()
+        stopEndOfCandidatesTimer()
         // Clear any queued candidates
         queuedCandidates.clear()
         remoteDescriptionSet = false
+        endOfCandidatesSent = false
         if (peerConnection != null) {
             disconnect()
         }
@@ -686,6 +767,7 @@ internal class Peer(
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
         remoteDescriptionSet = false
+        endOfCandidatesSent = false
         queuedCandidates.clear()
     }
 }
