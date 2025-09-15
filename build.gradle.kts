@@ -2,7 +2,7 @@
 buildscript {
     apply(from = "versions.gradle")
 
-    val kotlinVersion = "1.9.23" // Define Kotlin version
+    val kotlinVersion = "2.2.20" // Define Kotlin version
     val androidGradlePluginVersion = "8.6.1"
     val googlePlayServicesVersion = "4.4.2"
     val hiltVersion = "2.48"
