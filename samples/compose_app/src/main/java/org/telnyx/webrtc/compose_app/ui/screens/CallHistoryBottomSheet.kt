@@ -69,7 +69,7 @@ fun CallHistoryBottomSheet(
                         CallHistoryItemCompose(
                             callItem = callItem,
                             onCallClick = { number ->
-                                telnyxViewModel.sendInvite(context, number, true)
+                                telnyxViewModel.sendInvite(context, number, true, trickleIce = true)
                                 onDismiss(number)
                             }
                         )

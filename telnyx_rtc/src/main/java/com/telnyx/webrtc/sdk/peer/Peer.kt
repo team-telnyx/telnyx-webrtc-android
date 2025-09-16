@@ -52,6 +52,7 @@ internal class Peer(
     private val callId: UUID,
     private val prefetchIceCandidate: Boolean = false,
     private val forceRelayCandidate: Boolean = false,
+    private val isAnswering: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null
 ) {
 
@@ -72,10 +73,10 @@ internal class Peer(
     internal val firstCandidateDeferred = CompletableDeferred<Unit>()
     private var firstCandidateReceived = false // Flag to ensure deferred completes only once
 
-    // Trickle ICE candidate management
+    // Selective candidate queuing for answering side (until ANSWER is sent)
     private val queuedCandidates = mutableListOf<IceCandidate>()
-    private var remoteDescriptionSet = false
-    
+    private var answerSent = false
+
     // End-of-candidates timer management
     private var endOfCandidatesTimer: Timer? = null
     private var endOfCandidatesSent = false
@@ -201,30 +202,33 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
-                if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
-                    if (client.getUseTrickleIce()) {
-                        // Trickle ICE: Queue candidates until remote description is set
-                        if (remoteDescriptionSet) {
-                            // Remote description already set, send candidate immediately
-                            sendIceCandidate(it)
-                            Logger.d(tag = "Observer", message = "ICE candidate sent immediately via trickle ICE: $it")
-                            
-                            // Start/restart the end-of-candidates timer only when actually sending candidates
-                            startEndOfCandidatesTimer()
-                        } else {
-                            // Queue candidate until remote description is set
-                            queuedCandidates.add(it)
-                            Logger.d(tag = "Observer", message = "ICE candidate queued for trickle ICE: $it")
-                            // DO NOT start timer while queuing - wait until after setRemoteDescription
-                        }
+                val callState = client.calls[callId]?.getCallState()?.value
+
+                if (client.getUseTrickleIce()) {
+                    if (isAnswering && !answerSent) {
+                        // Answering side: Queue candidate until ANSWER is sent
+                        queuedCandidates.add(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate queued for answering side (ANSWER not sent yet): $it")
                     } else {
-                        // Traditional ICE: add candidate locally
-                        peerConnection?.addIceCandidate(it)
-                        Logger.d(tag = "Observer", message = "ICE candidate added locally: $it")
+                        // Calling side OR answering side after ANSWER sent: Send immediately
+                        sendIceCandidate(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)")
+
+                        // Start/restart the end-of-candidates timer when sending candidates
+                        startEndOfCandidatesTimer()
                     }
-                    onIceCandidateAdd?.invoke(it.serverUrl)
-                    lastCandidateTime = System.currentTimeMillis()
+                } else {
+                    // Traditional ICE: Only process if call is not ACTIVE yet
+                    if (callState != CallState.ACTIVE) {
+                        peerConnection?.addIceCandidate(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate added locally (traditional ICE): $it")
+                    } else {
+                        Logger.d(tag = "Observer", message = "Skipping ICE candidate - traditional ICE and call is ACTIVE")
+                    }
                 }
+
+                onIceCandidateAdd?.invoke(it.serverUrl)
+                lastCandidateTime = System.currentTimeMillis()
             }
             peerConnectionObserver?.onIceCandidate(candidate)
         }
@@ -496,9 +500,6 @@ internal class Peer(
                 override fun onSetSuccess() {
                     Logger.d(tag="RemoteSessionReceived", message = "Set Remote Description Success")
                     logAllTransceiverStates("After setRemoteDescription success")
-                    
-                    // Flush any queued ICE candidates now that remote description is set
-                    flushQueuedCandidates()
                 }
 
                 override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
@@ -583,40 +584,6 @@ internal class Peer(
     }
 
     /**
-     * Flushes all queued ICE candidates after setRemoteDescription is called.
-     * This is called by TelnyxClient after successfully setting the remote description.
-     */
-    internal fun flushQueuedCandidates() {
-        if (!client.getUseTrickleIce()) {
-            Logger.d(tag = "CandidateFlush", message = "Trickle ICE disabled, not flushing queued candidates")
-            return
-        }
-
-        Logger.d(tag = "CandidateFlush", message = "Flushing ${queuedCandidates.size} queued candidates")
-        
-        val hadCandidates = queuedCandidates.isNotEmpty()
-        
-        // Send all queued candidates
-        queuedCandidates.forEach { candidate ->
-            sendIceCandidate(candidate)
-            Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
-        }
-        
-        // Clear the queue
-        queuedCandidates.clear()
-        
-        // Start the end-of-candidates timer after flushing candidates (if there were any)
-        if (hadCandidates) {
-            startEndOfCandidatesTimer()
-        }
-        
-        // Mark that remote description is set so future candidates are sent immediately
-        remoteDescriptionSet = true
-        
-        Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, remoteDescriptionSet = true")
-    }
-
-    /**
      * Returns the current local SDP
      * @return [SessionDescription]
      */
@@ -692,10 +659,43 @@ internal class Peer(
     }
 
     /**
+     * Flushes all queued ICE candidates after ANSWER is sent.
+     * This is called when the answering side sends the ANSWER message.
+     */
+    internal fun flushQueuedCandidatesAfterAnswer() {
+        if (!client.getUseTrickleIce() || !isAnswering) {
+            Logger.d(tag = "CandidateFlush", message = "Not flushing - trickleIce=${client.getUseTrickleIce()}, isAnswering=$isAnswering")
+            return
+        }
+
+        Logger.d(tag = "CandidateFlush", message = "Flushing ${queuedCandidates.size} queued candidates after ANSWER sent")
+
+        val hadCandidates = queuedCandidates.isNotEmpty()
+
+        // Send all queued candidates
+        queuedCandidates.forEach { candidate ->
+            sendIceCandidate(candidate)
+            Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
+        }
+
+        // Clear the queue and mark answer as sent
+        queuedCandidates.clear()
+        answerSent = true
+
+        // Start the end-of-candidates timer after flushing candidates (if there were any)
+        if (hadCandidates) {
+            startEndOfCandidatesTimer()
+        }
+
+        Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, answerSent = true")
+    }
+
+    /**
      * Starts the end-of-candidates timer that sends end-of-candidates signal
      * after a period of inactivity in ICE candidate discovery
      */
     private fun startEndOfCandidatesTimer() {
+        return
         // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
         if (!client.getUseTrickleIce()) {
             Logger.d(tag = "EndOfCandidatesTimer", message = "Timer not started - Trickle ICE disabled")
@@ -749,9 +749,9 @@ internal class Peer(
         Logger.d(message="Releasing Peer resources...")
         stopNegotiationTimer()
         stopEndOfCandidatesTimer()
-        // Clear any queued candidates
+        // Clear queued candidates and reset flags
         queuedCandidates.clear()
-        remoteDescriptionSet = false
+        answerSent = false
         endOfCandidatesSent = false
         if (peerConnection != null) {
             disconnect()
@@ -766,7 +766,7 @@ internal class Peer(
         peerConnection = buildPeerConnection()
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
-        remoteDescriptionSet = false
+        answerSent = false
         endOfCandidatesSent = false
         queuedCandidates.clear()
     }

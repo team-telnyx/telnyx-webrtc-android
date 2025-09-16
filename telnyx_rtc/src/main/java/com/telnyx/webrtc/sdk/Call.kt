@@ -26,6 +26,9 @@ import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
 import com.telnyx.webrtc.sdk.verto.receive.*
 import com.telnyx.webrtc.sdk.verto.send.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
@@ -98,6 +101,9 @@ data class Call(
 
     // Per-call ICE candidate management
     private var iceCandidateTimer: Timer? = null
+    
+    // ICE parameters extracted from remote SDP for candidate enhancement
+    internal var remoteIceParameters: SdpUtils.IceParameters? = null
     private val iceCandidateList: MutableList<String> = mutableListOf()
     private var outgoingInviteUUID: String? = null // To store the UUID for the outgoing invite message
 
@@ -441,6 +447,8 @@ data class Call(
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
                 if (client.getUseTrickleIce()) {
                     // For trickle ICE, send INVITE immediately without waiting for candidates
+                    Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [$callId]")
+
                     sendInviteImmediately(
                         callerName,
                         callerNumber,

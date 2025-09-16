@@ -188,15 +188,28 @@ internal object SdpUtils {
      * @return The modified SDP with ice-options:trickle added
      */
     internal fun addTrickleIceCapability(sdp: String): String {
-        // Check if ice-options:trickle already exists
-        if (sdp.contains("a=ice-options:trickle")) {
-            Logger.d(tag = "SDP_Modify", message = "SDP already contains ice-options:trickle")
-            return sdp
+        val lines = sdp.lines().toMutableList()
+
+        // Check if there's an existing ice-options line that needs modification
+        for (i in lines.indices) {
+            if (lines[i].startsWith("a=ice-options:")) {
+                val currentOptions = lines[i]
+
+                // If it already contains just "trickle", we're done
+                if (currentOptions == "a=ice-options:trickle") {
+                    Logger.d(tag = "SDP_Modify", message = "SDP already contains a=ice-options:trickle")
+                    return sdp
+                }
+
+                // Replace any ice-options line with just trickle
+                // This handles cases like "a=ice-options:trickle renomination"
+                lines[i] = "a=ice-options:trickle"
+                Logger.d(tag = "SDP_Modify", message = "Replaced ice-options line from '$currentOptions' to 'a=ice-options:trickle'")
+                return lines.joinToString("\r\n")
+            }
         }
 
-        val lines = sdp.lines().toMutableList()
-        
-        // Find the origin line (o=) to insert ice-options after it at session level
+        // If no ice-options line exists, find the origin line (o=) to insert after it
         var insertIndex = -1
         for (i in lines.indices) {
             if (lines[i].startsWith("o=")) {
@@ -228,6 +241,89 @@ internal object SdpUtils {
     }
 
     /**
+     * Data class to hold ICE parameters extracted from SDP
+     */
+    data class IceParameters(
+        val ufrag: String? = null,
+        val pwd: String? = null,
+        val generation: Int = 0
+    )
+
+    /**
+     * Extracts ICE parameters (ufrag, pwd) from an SDP string.
+     * These parameters can be used to enhance ICE candidates for consistency.
+     * 
+     * @param sdp The SDP string to parse
+     * @return IceParameters containing extracted values, or default values if not found
+     */
+    internal fun extractIceParameters(sdp: String): IceParameters {
+        val lines = sdp.lines()
+        var ufrag: String? = null
+        var pwd: String? = null
+        var inAudioSection = false
+        
+        for (line in lines) {
+            when {
+                line.startsWith("m=audio") -> {
+                    inAudioSection = true
+                }
+                line.startsWith("m=") && !line.startsWith("m=audio") -> {
+                    // If we found values in audio section, stop looking
+                    if (inAudioSection && ufrag != null && pwd != null) break
+                    inAudioSection = false
+                }
+                line.startsWith("a=ice-ufrag:") -> {
+                    val extractedUfrag = line.substringAfter("a=ice-ufrag:").trim()
+                    if (inAudioSection || ufrag == null) {
+                        ufrag = extractedUfrag
+                    }
+                }
+                line.startsWith("a=ice-pwd:") -> {
+                    val extractedPwd = line.substringAfter("a=ice-pwd:").trim()
+                    if (inAudioSection || pwd == null) {
+                        pwd = extractedPwd
+                    }
+                }
+            }
+        }
+        
+        Logger.d(tag = "SDP_Ice", message = "Extracted ICE parameters - ufrag: $ufrag, pwd: $pwd")
+        return IceParameters(ufrag = ufrag, pwd = pwd, generation = 0)
+    }
+
+    /**
+     * Enhances an ICE candidate string with additional parameters for consistency.
+     * Adds ufrag, generation, and placeholder network parameters if not present.
+     * 
+     * @param candidateString The original candidate string
+     * @param iceParameters The ICE parameters extracted from SDP
+     * @return Enhanced candidate string with additional parameters
+     */
+    internal fun enhanceCandidateString(candidateString: String, iceParameters: IceParameters): String {
+        // Check if the candidate already has these parameters
+        if (candidateString.contains("ufrag") || candidateString.contains("generation")) {
+            Logger.d(tag = "CandidateEnhance", message = "Candidate already contains extensions, not enhancing")
+            return candidateString
+        }
+        
+        val enhancedCandidate = StringBuilder(candidateString)
+        
+        // Add generation (always 0 for trickle ICE)
+        enhancedCandidate.append(" generation ${iceParameters.generation}")
+        
+        // Add ufrag if available
+        iceParameters.ufrag?.let { ufrag ->
+            enhancedCandidate.append(" ufrag $ufrag")
+        }
+        
+        // Add placeholder network parameters for consistency with local candidates
+        enhancedCandidate.append(" network-id 1 network-cost 10")
+        
+        Logger.d(tag = "CandidateEnhance", message = "Enhanced candidate: $enhancedCandidate")
+        return enhancedCandidate.toString()
+    }
+
+    /**
      * Cleans an ICE candidate string to remove WebRTC-specific extensions.
      * Extracts only the RFC 5245/8838 standard fields from a WebRTC candidate string.
      * 
@@ -238,7 +334,7 @@ internal object SdpUtils {
      */
     internal fun cleanCandidateString(candidateString: String): String {
         Logger.d(tag = "CandidateClean", message = "Original candidate: $candidateString")
-        
+
         // Split the candidate string into parts
         val parts = candidateString.trim().split(" ")
         

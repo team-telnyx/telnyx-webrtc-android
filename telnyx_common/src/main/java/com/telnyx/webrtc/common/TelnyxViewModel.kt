@@ -953,9 +953,11 @@ class TelnyxViewModel : ViewModel() {
         viewContext: Context,
         destinationNumber: String,
         debug: Boolean,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        trickleIce: Boolean = false
     ) {
 
+        useTrickleIce = trickleIce
         callStateJob?.cancel()
         callStateJob = null
 
@@ -970,7 +972,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
-                    useTrickleIce,
+                    trickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
