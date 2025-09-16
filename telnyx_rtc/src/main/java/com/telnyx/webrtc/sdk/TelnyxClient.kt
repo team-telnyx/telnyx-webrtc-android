@@ -2995,49 +2995,6 @@ class TelnyxClient(
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
         Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
-
-        if (jsonObject.has("params")) {
-            val params = jsonObject.get("params").asJsonObject
-
-            // Try to get call ID from multiple possible locations
-            var callId: UUID? = null
-
-            // 1. Check directly in params for "callID" (new server format)
-            if (params.has("callID")) {
-                try {
-                    callId = UUID.fromString(params.get("callID").asString)
-                    Logger.d(message = "Found callID directly in params for end-of-candidates: $callId")
-                } catch (e: Exception) {
-                    Logger.e(message = "Failed to parse callID from params: ${e.message}")
-                }
-            }
-
-            // 2. Fallback to dialogParams for "callId" (legacy format)
-            if (callId == null && params.has("dialogParams")) {
-                val dialogParams = params.get("dialogParams").asJsonObject
-                if (dialogParams.has("callId")) {
-                    try {
-                        callId = UUID.fromString(dialogParams.get("callId").asString)
-                        Logger.d(message = "Found callId in dialogParams for end-of-candidates: $callId")
-                    } catch (e: Exception) {
-                        Logger.e(message = "Failed to parse callId from dialogParams: ${e.message}")
-                    }
-                }
-            }
-
-            // Process end-of-candidates if we found a call ID
-            callId?.let { id ->
-                val call = calls[id]
-                call?.let {
-                    // Note: In WebRTC, we typically don't need to add a null candidate
-                    // The end-of-candidates signal is handled differently in trickle ICE
-                    // But we log it for debugging purposes
-                    Logger.d(message = "End of candidates received for call: $id")
-                    // Optionally notify the call that all candidates have been received
-                    // it.onEndOfCandidatesReceived()
-                } ?: Logger.w(message = "No call found for ID: $id")
-            } ?: Logger.w(message = "Could not extract call ID from end-of-candidates message")
-        }
     }
 
     /**
