@@ -341,8 +341,8 @@ class TelnyxClient(
         preferredCodecs: List<AudioCodec>? = null,
         useTrickleIce: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isSocketDebug
+        val callDebug = debug
+        val socketPortalDebug = isSocketDebug
 
         // Set trickle ICE for this call
         this.useTrickleIce = useTrickleIce
@@ -569,8 +569,8 @@ class TelnyxClient(
         preferredCodecs: List<AudioCodec>? = null,
         useTrickleIce: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isSocketDebug
+        val callDebug = debug
+        val socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
         // Set trickle ICE for this call
@@ -763,7 +763,7 @@ class TelnyxClient(
             )
             reconnecting = true
 
-            Handler(Looper.getMainLooper()).postDelayed(Runnable {
+            Handler(Looper.getMainLooper()).postDelayed( {
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
@@ -1708,7 +1708,6 @@ class TelnyxClient(
             AudioDevice.BLUETOOTH -> {
                 if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
                     audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-                    audioManager?.startBluetoothSco()
                     audioManager?.isBluetoothScoOn = true
                 } else {
                     Logger.d(
@@ -1723,7 +1722,6 @@ class TelnyxClient(
             AudioDevice.PHONE_EARPIECE -> {
                 // For phone ear piece
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = false
             }
@@ -1731,7 +1729,6 @@ class TelnyxClient(
             AudioDevice.LOUDSPEAKER -> {
                 // For phone speaker(loudspeaker)
                 audioManager?.mode = AudioManager.MODE_NORMAL
-                audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = true
             }
@@ -1749,12 +1746,12 @@ class TelnyxClient(
         // set speakerState to current audioManager settings
         speakerState = if (speakerState != UNASSIGNED) {
             if (audioManager?.isSpeakerphoneOn == true) {
-                SpeakerMode.SPEAKER
+                SPEAKER
             } else {
-                SpeakerMode.EARPIECE
+                EARPIECE
             }
         } else {
-            SpeakerMode.EARPIECE
+            EARPIECE
         }
 
         // set audioManager to ringtone settings
@@ -1765,9 +1762,9 @@ class TelnyxClient(
             stopMediaPlayer()
             try {
 
-                if (it.getRingtoneType() == RingtoneType.URI) {
+                if (it.getRingtoneType() == URI) {
                     mediaPlayer = MediaPlayer.create(context, it as Uri)
-                } else if (it.getRingtoneType() == RingtoneType.RAW) {
+                } else if (it.getRingtoneType() == RAW) {
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
@@ -1790,11 +1787,11 @@ class TelnyxClient(
 
     private fun setSpeakerMode(speakerMode: SpeakerMode) {
         when (speakerMode) {
-            SpeakerMode.SPEAKER -> {
+            SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
 
-            SpeakerMode.EARPIECE -> {
+            EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
 
@@ -1804,8 +1801,8 @@ class TelnyxClient(
 
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> RingtoneType.URI
-            is Int -> RingtoneType.RAW
+            is Uri -> URI
+            is Int -> RAW
             else -> null
         }
     }
@@ -2182,7 +2179,7 @@ class TelnyxClient(
                 updateCallState(CallState.DONE(terminationReason))
 
                 // Create the rich ByeResponse to be sent to the UI/ViewModel
-                val byeResponseForUi = com.telnyx.webrtc.sdk.verto.receive.ByeResponse(
+                val byeResponseForUi = ByeResponse(
                     callId = callId,
                     cause = cause,
                     causeCode = causeCode,
@@ -2468,8 +2465,6 @@ class TelnyxClient(
 
                 // Set global callID
                 callId = offerCallId
-                val call = this
-
 
                 //retrieve custom headers
                 val customHeaders =
