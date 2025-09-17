@@ -417,81 +417,179 @@ internal object SdpUtils {
      */
     private fun processCandidatePart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
         return when {
-            // Foundation (candidate:...)
-            part.startsWith("candidate:") -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // Component (1 or 2)
-            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // Transport (udp, tcp)
-            index == CANDIDATE_TRANSPORT_INDEX && (part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)) -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // Priority (numeric)
-            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // IP address (IPv4 or IPv6)
-            index == CANDIDATE_IP_ADDRESS_INDEX -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // Port (numeric)
-            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> {
-                cleanedParts.add(part)
-                true to (index + 1)
-            }
-            // Candidate type (typ)
-            part == "typ" && index == CANDIDATE_TYPE_INDEX -> {
-                cleanedParts.add(part)
-                // Add the actual type (host, srflx, prflx, relay)
-                if (index + 1 < parts.size) {
-                    cleanedParts.add(parts[index + 1])
-                    true to (index + 2)
-                } else {
-                    true to (index + 1)
-                }
-            }
-            // Related address (raddr)
-            part == "raddr" -> {
-                cleanedParts.add(part)
-                // Add the related address value
-                if (index + 1 < parts.size) {
-                    cleanedParts.add(parts[index + 1])
-                    true to (index + 2)
-                } else {
-                    true to (index + 1)
-                }
-            }
-            // Related port (rport)
-            part == "rport" -> {
-                cleanedParts.add(part)
-                // Add the related port value
-                if (index + 1 < parts.size) {
-                    cleanedParts.add(parts[index + 1])
-                    true to (index + 2)
-                } else {
-                    true to (index + 1)
-                }
-            }
-            // Skip WebRTC-specific extensions
-            isWebRtcExtension(part) -> {
-                Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
-                val nextIndex = skipExtensionValue(index, parts)
-                true to nextIndex
-            }
-            else -> {
-                // Skip unknown extensions
-                Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
-                true to (index + 1)
-            }
+            // Handle standard candidate fields
+            isStandardCandidateField(part, index) -> handleStandardCandidateField(part, index, cleanedParts)
+            // Handle related fields (raddr, rport)
+            isRelatedField(part) -> handleRelatedField(part, index, parts, cleanedParts)
+            // Handle WebRTC extensions
+            isWebRtcExtension(part) -> handleWebRtcExtensionPart(part, index, parts)
+            // Handle unknown fields
+            else -> handleUnknownPart(part, index)
         }
+    }
+
+    /**
+     * Checks if the part is a standard candidate field.
+     */
+    private fun isStandardCandidateField(part: String, index: Int): Boolean {
+        return when {
+            part.startsWith("candidate:") -> true
+            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> true
+            index == CANDIDATE_TRANSPORT_INDEX && isValidTransport(part) -> true
+            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> true
+            index == CANDIDATE_IP_ADDRESS_INDEX -> true
+            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> true
+            part == "typ" && index == CANDIDATE_TYPE_INDEX -> true
+            else -> false
+        }
+    }
+
+    /**
+     * Handles standard candidate fields.
+     */
+    private fun handleStandardCandidateField(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when {
+            part.startsWith("candidate:") -> handleFoundationPart(part, index, cleanedParts)
+            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> handleComponentPart(part, index, cleanedParts)
+            index == CANDIDATE_TRANSPORT_INDEX && isValidTransport(part) -> handleTransportPart(part, index, cleanedParts)
+            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> handlePriorityPart(part, index, cleanedParts)
+            index == CANDIDATE_IP_ADDRESS_INDEX -> handleIpAddressPart(part, index, cleanedParts)
+            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> handlePortPart(part, index, cleanedParts)
+            part == "typ" && index == CANDIDATE_TYPE_INDEX -> handleCandidateTypePart(part, index, emptyList(), cleanedParts)
+            else -> true to (index + 1)
+        }
+    }
+
+    /**
+     * Checks if the part is a related field (raddr or rport).
+     */
+    private fun isRelatedField(part: String): Boolean {
+        return part == "raddr" || part == "rport"
+    }
+
+    /**
+     * Handles related fields (raddr or rport).
+     */
+    private fun handleRelatedField(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when (part) {
+            "raddr" -> handleRelatedAddressPart(part, index, parts, cleanedParts)
+            "rport" -> handleRelatedPortPart(part, index, parts, cleanedParts)
+            else -> true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the foundation part (candidate:...).
+     */
+    private fun handleFoundationPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the component part (1 or 2).
+     */
+    private fun handleComponentPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Checks if the transport part is valid (udp or tcp).
+     */
+    private fun isValidTransport(part: String): Boolean {
+        return part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)
+    }
+
+    /**
+     * Handles the transport part (udp, tcp).
+     */
+    private fun handleTransportPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the priority part (numeric).
+     */
+    private fun handlePriorityPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the IP address part (IPv4 or IPv6).
+     */
+    private fun handleIpAddressPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the port part (numeric).
+     */
+    private fun handlePortPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the candidate type part (typ).
+     */
+    private fun handleCandidateTypePart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the actual type (host, srflx, prflx, relay)
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the related address part (raddr).
+     */
+    private fun handleRelatedAddressPart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the related address value
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the related port part (rport).
+     */
+    private fun handleRelatedPortPart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the related port value
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles WebRTC-specific extensions.
+     */
+    private fun handleWebRtcExtensionPart(part: String, index: Int, parts: List<String>): Pair<Boolean, Int> {
+        Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
+        val nextIndex = skipExtensionValue(index, parts)
+        return true to nextIndex
+    }
+
+    /**
+     * Handles unknown parts.
+     */
+    private fun handleUnknownPart(part: String, index: Int): Pair<Boolean, Int> {
+        Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
+        return true to (index + 1)
     }
     
     /**
