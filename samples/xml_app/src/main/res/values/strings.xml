@@ -189,4 +189,5 @@
     <string name="select_reorder_codecs">Select and reorder your preferred codecs. Drag to reorder by priority.</string>
     <string name="available_codecs">Available Codecs:</string>
     <string name="selected_codecs_order">Selected Codecs (in order of preference):</string>
+    <string name="region">Region</string>
 </resources>

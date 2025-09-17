@@ -35,18 +35,18 @@
     <item
         android:id="@+id/action_trickle_ice"
         android:title="@string/enable_trickle_ice"
-        android:icon="@drawable/ic_network"
+        android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_preferred_codecs"
-        android:title="Preferred Codecs"
+        android:title="@string/preferred_codecs"
         android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_region_selection"
-        android:title="Region"
+        android:title="@string/region"
         android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
 
