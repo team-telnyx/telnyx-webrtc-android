@@ -62,7 +62,6 @@ fun CredentialTokenView(
     var callerIdName by remember { mutableStateOf(profile?.callerIdName ?: "") }
     var callerIdNumber by remember { mutableStateOf(profile?.callerIdNumber ?: "") }
     var forceRelayCandidate by remember { mutableStateOf(profile?.forceRelayCandidate ?: false) }
-    var useTrickleIce by remember { mutableStateOf(profile?.useTrickleIce ?: false) }
 
 
     Column(
@@ -153,23 +152,7 @@ fun CredentialTokenView(
             )
         }
 
-        // Trickle ICE Switch
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = Dimens.spacing8dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Use Trickle ICE",
-                fontWeight = FontWeight.Medium
-            )
-            Switch(
-                checked = useTrickleIce,
-                onCheckedChange = { useTrickleIce = it }
-            )
-        }
+        
 
         Spacer(modifier = Modifier.height(Dimens.spacing8dp))
 
@@ -192,8 +175,7 @@ fun CredentialTokenView(
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
                                 isUserLoggedIn = true,
-                                forceRelayCandidate = forceRelayCandidate,
-                                useTrickleIce = useTrickleIce
+                                forceRelayCandidate = forceRelayCandidate
                             ),
                         )
                     } else {
@@ -208,8 +190,7 @@ fun CredentialTokenView(
                                 callerIdName = callerIdName.trim(),
                                 callerIdNumber = callerIdNumber.trim(),
                                 isUserLoggedIn = true,
-                                forceRelayCandidate = forceRelayCandidate,
-                                useTrickleIce = useTrickleIce
+                                forceRelayCandidate = forceRelayCandidate
                             )
                         )
                     }

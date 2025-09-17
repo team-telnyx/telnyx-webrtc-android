@@ -309,6 +309,18 @@ class TelnyxViewModel : ViewModel() {
      * This preference will be used when making or accepting calls.
      */
     var useTrickleIce: Boolean = false
+        private set
+
+    /**
+     * Toggles the trickle ICE setting for new calls.
+     * This method allows the overflow menu to control the trickle ICE preference.
+     *
+     * @param enabled True to enable trickle ICE, false to disable it.
+     */
+    fun toggleTrickleIce(enabled: Boolean) {
+        useTrickleIce = enabled
+        Timber.d("Trickle ICE toggled: $enabled")
+    }
 
     /**
      * Changes the server configuration environment.

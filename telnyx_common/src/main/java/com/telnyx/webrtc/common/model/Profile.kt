@@ -17,7 +17,6 @@ import com.telnyx.webrtc.sdk.model.Region
  * When this option is on it allows the SDK to collect WebRTC debug information.
  * That information is stored in the Telnyx customer portal
  * @param forceRelayCandidate True to force TURN relay for peer connections to prevent local network access permission popup.
- * @param useTrickleIce True to enable trickle ICE for faster call establishment, false otherwise.
  */
 data class Profile(
     val sipUsername: String? = null,
@@ -29,8 +28,7 @@ data class Profile(
     var isDev: Boolean = false,
     var fcmToken: String? = null,
     var region: Region = Region.AUTO,
-    var forceRelayCandidate: Boolean = false,
-    var useTrickleIce: Boolean = false
+    var forceRelayCandidate: Boolean = false
 ) {
     fun isToken(): Boolean {
         return sipToken?.trim()?.isNotEmpty() ?: false
