@@ -353,7 +353,7 @@ fun HomeScreen(
                                     onClick = {
                                         showOverflowMenu = false
                                         val newState = !telnyxViewModel.useTrickleIce
-                                        telnyxViewModel.useTrickleIce = newState
+                                        telnyxViewModel.toggleTrickleIce(newState)
                                         val message = if (newState) {
                                             context.getString(R.string.enable_trickle_ice)
                                         } else {

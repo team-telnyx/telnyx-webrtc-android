@@ -313,7 +313,8 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Toggles the trickle ICE setting for new calls.
-     * This method allows the overflow menu to control the trickle ICE preference.
+     * This method provides a centralized way to control the trickle ICE preference
+     * that will be used when making or accepting calls.
      *
      * @param enabled True to enable trickle ICE, false to disable it.
      */
@@ -969,7 +970,7 @@ class TelnyxViewModel : ViewModel() {
         trickleIce: Boolean = false
     ) {
 
-        useTrickleIce = trickleIce
+        toggleTrickleIce(trickleIce)
         callStateJob?.cancel()
         callStateJob = null
 
