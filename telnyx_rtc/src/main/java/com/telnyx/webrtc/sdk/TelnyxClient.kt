@@ -83,6 +83,8 @@ class TelnyxClient(
         UNASSIGNED
     }
 
+    
+
     /**
      * Companion object containing constant values used throughout the client.
      */
@@ -106,7 +108,7 @@ class TelnyxClient(
         const val TIMEOUT_DIVISOR: Long = 1000
 
         /** SDK version*/
-        val SDK_VERSION = BuildConfig.SDK_VERSION
+        const val SDK_VERSION = BuildConfig.SDK_VERSION
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
@@ -220,6 +222,9 @@ class TelnyxClient(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+
+    // Keeps track of pending ICE candidates that arrive before remote description is set
+    private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> = mutableMapOf()
 
     // Transcript management for AI conversations
     private val _transcript = mutableListOf<TranscriptItem>()
@@ -721,6 +726,14 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
+        
+        // Clean up any pending ICE candidates for this call
+        synchronized(pendingIceCandidates) {
+            val removedCandidates = pendingIceCandidates.remove(callId)
+            removedCandidates?.let {
+                Logger.d(tag = "removeFromCalls", message = "Cleaned up ${it.size} pending ICE candidates for ended call $callId")
+            }
+        }
     }
 
     private var socketReconnection: TxSocket? = null
@@ -2246,6 +2259,9 @@ class TelnyxClient(
 
                     peerConnection?.onRemoteSessionReceived(sdp)
 
+                    // Process any queued ICE candidates after remote description is set
+                    processQueuedIceCandidates(UUID.fromString(callId))
+
                     updateCallState(CallState.ACTIVE)
 
                     val answerResponse = AnswerResponse(
@@ -2299,6 +2315,47 @@ class TelnyxClient(
         }
         answeredCall?.let {
             addToCalls(it)
+        }
+    }
+
+    /**
+     * Processes queued ICE candidates for a specific call after the remote description has been set.
+     * This ensures that ICE candidates are added to the peer connection in the correct order.
+     *
+     * @param callId The UUID of the call to process queued candidates for
+     */
+    private fun processQueuedIceCandidates(callId: UUID) {
+        synchronized(pendingIceCandidates) {
+            val candidates = pendingIceCandidates.remove(callId)
+            candidates?.let { queuedCandidates ->
+                Logger.d(tag = "processQueuedIceCandidates", message = "Processing ${queuedCandidates.size} queued ICE candidates for call $callId")
+                
+                val call = calls[callId]
+                call?.let {
+                    queuedCandidates.forEach { pendingCandidate ->
+                        // Enhance candidate string with ICE parameters for consistency if trickle ICE is enabled
+                        // Now we have access to remoteIceParameters since the remote description has been set
+                        val finalCandidateString =
+                            if (useTrickleIce && it.remoteIceParameters != null) {
+                                SdpUtils.enhanceCandidateString(
+                                    pendingCandidate.candidateString,
+                                    it.remoteIceParameters!!
+                                )
+                            } else {
+                                pendingCandidate.candidateString
+                            }
+
+                        val iceCandidate = IceCandidate(
+                            pendingCandidate.sdpMid,
+                            pendingCandidate.sdpMLineIndex,
+                            finalCandidateString
+                        )
+                        it.peerConnection?.addIceCandidate(iceCandidate)
+                        Logger.d(tag = "processQueuedIceCandidates", message = "Added queued ICE candidate for call $callId: ${pendingCandidate.candidateString}")
+                    }
+                    Logger.d(tag = "processQueuedIceCandidates", message = "Successfully processed all queued ICE candidates for call $callId")
+                } ?: Logger.w(tag = "processQueuedIceCandidates", message = "No call found for ID: $callId while processing queued candidates")
+            } ?: Logger.d(tag = "processQueuedIceCandidates", message = "No queued ICE candidates to process for call $callId")
         }
     }
 
@@ -2970,21 +3027,23 @@ class TelnyxClient(
                 callId?.let { id ->
                     val call = calls[id]
                     call?.let {
-                        // Enhance candidate string with ICE parameters for consistency if trickle ICE is enabled
-                        val enhancedCandidateString =
-                            if (useTrickleIce && it.remoteIceParameters != null) {
-                                SdpUtils.enhanceCandidateString(
-                                    candidateString,
-                                    it.remoteIceParameters!!
-                                )
-                            } else {
-                                candidateString
-                            }
+                        // Create pending ICE candidate and queue it instead of immediately adding
+                        // Note: We don't enhance the candidate string here because remoteIceParameters 
+                        // won't be available until after the remote description is set in onAnswerReceived
+                        val pendingCandidate = PendingIceCandidate(
+                            callId = id,
+                            sdpMid = sdpMid,
+                            sdpMLineIndex = sdpMLineIndex,
+                            candidateString = candidateString,
+                            enhancedCandidateString = candidateString // Store original for now, will enhance later
+                        )
 
-                        val iceCandidate =
-                            IceCandidate(sdpMid, sdpMLineIndex, candidateString)
-                        it.peerConnection?.addIceCandidate(iceCandidate)
-                        Logger.d(tag = "onCandidateReceived", message = "Added received ICE candidate for call $id: $candidateString")
+                        // Add to pending candidates map
+                        synchronized(pendingIceCandidates) {
+                            val candidates = pendingIceCandidates.getOrPut(id) { mutableListOf() }
+                            candidates.add(pendingCandidate)
+                            Logger.d(tag = "onCandidateReceived", message = "Queued ICE candidate for call $id. Total queued: ${candidates.size}")
+                        }
                     } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $id")
                 } ?: Logger.w(tag = "onCandidateReceived", message = "Could not extract call ID from candidate message")
             } else {

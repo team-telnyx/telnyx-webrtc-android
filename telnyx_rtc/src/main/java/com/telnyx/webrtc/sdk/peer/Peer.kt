@@ -695,7 +695,6 @@ internal class Peer(
      * after a period of inactivity in ICE candidate discovery
      */
     private fun startEndOfCandidatesTimer() {
-        return
         // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
         if (!client.getUseTrickleIce()) {
             Logger.d(tag = "EndOfCandidatesTimer", message = "Timer not started - Trickle ICE disabled")
