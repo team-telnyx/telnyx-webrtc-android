@@ -63,7 +63,11 @@ class PushSender {
             console.log('Device Token (first 20 chars):', config.deviceToken.substring(0, 20) + '...');
             console.log('Payload:', JSON.stringify(payload, null, 2));
 
-            const response = await axios.post(url, payload, { headers });
+            const response = await axios.post(url, payload, { 
+                headers,
+                maxContentLength: 50 * 1024 * 1024,  // 50 MB
+                maxBodyLength: 50 * 1024 * 1024       // 50 MB
+            });
 
             if (response.status === 200) {
                 console.log('\n✅ Push notification sent successfully!');
