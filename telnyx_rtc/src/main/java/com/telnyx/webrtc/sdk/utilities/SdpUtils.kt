@@ -12,6 +12,14 @@ internal object SdpUtils {
     private const val PAYLOAD_START_INDEX = 3
     private const val MEDIA_LINE_PREFIX = "m=audio"
     private const val ATTRIBUTE_PREFIX = "a="
+    
+    // Constants for candidate parsing
+    private const val CANDIDATE_COMPONENT_INDEX = 1
+    private const val CANDIDATE_TRANSPORT_INDEX = 2
+    private const val CANDIDATE_PRIORITY_INDEX = 3
+    private const val CANDIDATE_IP_ADDRESS_INDEX = 4
+    private const val CANDIDATE_PORT_INDEX = 5
+    private const val CANDIDATE_TYPE_INDEX = 6
 
     /**
      * SDP Munging function to modify the generated Answer SDP to include audio codecs from the Offer SDP
@@ -189,45 +197,73 @@ internal object SdpUtils {
      */
     internal fun addTrickleIceCapability(sdp: String): String {
         val lines = sdp.lines().toMutableList()
+        var result: String? = null
 
         // Check if there's an existing ice-options line that needs modification
-        for (i in lines.indices) {
-            if (lines[i].startsWith("a=ice-options:")) {
-                val currentOptions = lines[i]
+        val existingIceOptionsIndex = findExistingIceOptionsIndex(lines)
+        if (existingIceOptionsIndex != -1) {
+            result = handleExistingIceOptions(lines, existingIceOptionsIndex)
+        }
 
-                // If it already contains just "trickle", we're done
-                if (currentOptions == "a=ice-options:trickle") {
-                    Logger.d(tag = "SDP_Modify", message = "SDP already contains a=ice-options:trickle")
-                    return sdp
-                }
+        // If no existing ice-options line was found, try to add a new one
+        if (result == null) {
+            result = addNewIceOptions(lines)
+        }
 
+        return result ?: sdp
+    }
+    
+    /**
+     * Finds the index of an existing ice-options line.
+     */
+    private fun findExistingIceOptionsIndex(lines: List<String>): Int {
+        return lines.indexOfFirst { it.startsWith("a=ice-options:") }
+    }
+    
+    /**
+     * Handles an existing ice-options line.
+     */
+    private fun handleExistingIceOptions(lines: MutableList<String>, index: Int): String? {
+        val currentOptions = lines[index]
+        
+        return when {
+            currentOptions == "a=ice-options:trickle" -> {
+                Logger.d(tag = "SDP_Modify", message = "SDP already contains a=ice-options:trickle")
+                null // Return null to indicate original SDP should be used
+            }
+            else -> {
                 // Replace any ice-options line with just trickle
                 // This handles cases like "a=ice-options:trickle renomination"
-                lines[i] = "a=ice-options:trickle"
+                lines[index] = "a=ice-options:trickle"
                 Logger.d(tag = "SDP_Modify", message = "Replaced ice-options line from '$currentOptions' to 'a=ice-options:trickle'")
-                return lines.joinToString("\r\n")
+                lines.joinToString("\r\n")
             }
         }
-
-        // If no ice-options line exists, find the origin line (o=) to insert after it
-        var insertIndex = -1
-        for (i in lines.indices) {
-            if (lines[i].startsWith("o=")) {
-                // Insert after the origin line
-                insertIndex = i + 1
-                break
-            }
-        }
-
-        if (insertIndex != -1) {
+    }
+    
+    /**
+     * Adds a new ice-options line to the SDP.
+     */
+    private fun addNewIceOptions(lines: MutableList<String>): String? {
+        val insertIndex = findOriginLineInsertIndex(lines)
+        
+        return if (insertIndex != -1) {
             // Insert ice-options:trickle at session level
             lines.add(insertIndex, "a=ice-options:trickle")
             Logger.d(tag = "SDP_Modify", message = "Added a=ice-options:trickle to SDP at index $insertIndex")
-            return lines.joinToString("\r\n")
+            lines.joinToString("\r\n")
         } else {
             Logger.w(tag = "SDP_Modify", message = "Could not find origin line in SDP, returning original")
-            return sdp
+            null // Return null to indicate original SDP should be used
         }
+    }
+    
+    /**
+     * Finds the index where the ice-options line should be inserted (after origin line).
+     */
+    private fun findOriginLineInsertIndex(lines: List<String>): Int {
+        val originIndex = lines.indexOfFirst { it.startsWith("o=") }
+        return if (originIndex != -1) originIndex + 1 else -1
     }
 
     /**
@@ -264,31 +300,41 @@ internal object SdpUtils {
         
         for (line in lines) {
             when {
-                line.startsWith("m=audio") -> {
-                    inAudioSection = true
-                }
+                line.startsWith("m=audio") -> inAudioSection = true
                 line.startsWith("m=") && !line.startsWith("m=audio") -> {
-                    // If we found values in audio section, stop looking
-                    if (inAudioSection && ufrag != null && pwd != null) break
+                    if (shouldStopSearching(inAudioSection, ufrag, pwd)) break
                     inAudioSection = false
                 }
-                line.startsWith("a=ice-ufrag:") -> {
-                    val extractedUfrag = line.substringAfter("a=ice-ufrag:").trim()
-                    if (inAudioSection || ufrag == null) {
-                        ufrag = extractedUfrag
-                    }
-                }
-                line.startsWith("a=ice-pwd:") -> {
-                    val extractedPwd = line.substringAfter("a=ice-pwd:").trim()
-                    if (inAudioSection || pwd == null) {
-                        pwd = extractedPwd
-                    }
-                }
+                line.startsWith("a=ice-ufrag:") -> ufrag = extractUfrag(line, inAudioSection, ufrag)
+                line.startsWith("a=ice-pwd:") -> pwd = extractPwd(line, inAudioSection, pwd)
             }
         }
         
         Logger.d(tag = "SDP_Ice", message = "Extracted ICE parameters - ufrag: $ufrag, pwd: $pwd")
         return IceParameters(ufrag = ufrag, pwd = pwd, generation = 0)
+    }
+    
+    /**
+     * Determines if we should stop searching for ICE parameters.
+     */
+    private fun shouldStopSearching(inAudioSection: Boolean, ufrag: String?, pwd: String?): Boolean {
+        return inAudioSection && ufrag != null && pwd != null
+    }
+    
+    /**
+     * Extracts ufrag from a line if conditions are met.
+     */
+    private fun extractUfrag(line: String, inAudioSection: Boolean, currentUfrag: String?): String? {
+        val extractedUfrag = line.substringAfter("a=ice-ufrag:").trim()
+        return if (inAudioSection || currentUfrag == null) extractedUfrag else currentUfrag
+    }
+    
+    /**
+     * Extracts pwd from a line if conditions are met.
+     */
+    private fun extractPwd(line: String, inAudioSection: Boolean, currentPwd: String?): String? {
+        val extractedPwd = line.substringAfter("a=ice-pwd:").trim()
+        return if (inAudioSection || currentPwd == null) extractedPwd else currentPwd
     }
 
     /**
@@ -338,7 +384,7 @@ internal object SdpUtils {
         // Split the candidate string into parts
         val parts = candidateString.trim().split(" ")
         
-        if (parts.isEmpty() || !parts[0].startsWith("candidate:")) {
+        if (!isValidCandidateFormat(parts)) {
             Logger.w(tag = "CandidateClean", message = "Invalid candidate format: $candidateString")
             return candidateString // Return original if format is unexpected
         }
@@ -349,89 +395,122 @@ internal object SdpUtils {
         // Process standard fields in order
         while (i < parts.size) {
             val part = parts[i]
-            
-            when {
-                // Foundation (candidate:...)
-                part.startsWith("candidate:") -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // Component (1 or 2)
-                i == 1 && part.matches(Regex("\\d+")) -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // Transport (udp, tcp)
-                i == 2 && (part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)) -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // Priority (numeric)
-                i == 3 && part.matches(Regex("\\d+")) -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // IP address (IPv4 or IPv6)
-                i == 4 -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // Port (numeric)
-                i == 5 && part.matches(Regex("\\d+")) -> {
-                    cleanedParts.add(part)
-                    i++
-                }
-                // Candidate type (typ)
-                part == "typ" && i == 6 -> {
-                    cleanedParts.add(part)
-                    i++
-                    // Add the actual type (host, srflx, prflx, relay)
-                    if (i < parts.size) {
-                        cleanedParts.add(parts[i])
-                        i++
-                    }
-                }
-                // Related address (raddr)
-                part == "raddr" -> {
-                    cleanedParts.add(part)
-                    i++
-                    // Add the related address value
-                    if (i < parts.size) {
-                        cleanedParts.add(parts[i])
-                        i++
-                    }
-                }
-                // Related port (rport)
-                part == "rport" -> {
-                    cleanedParts.add(part)
-                    i++
-                    // Add the related port value
-                    if (i < parts.size) {
-                        cleanedParts.add(parts[i])
-                        i++
-                    }
-                }
-                // Skip WebRTC-specific extensions
-                part == "generation" || part == "ufrag" || part == "network-id" || part == "network-cost" -> {
-                    Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
-                    i++
-                    // Skip the value that follows
-                    if (i < parts.size && !parts[i].contains("=") && !parts[i].startsWith("candidate:")) {
-                        Logger.d(tag = "CandidateClean", message = "Skipping extension value: ${parts[i]}")
-                        i++
-                    }
-                }
-                else -> {
-                    // Skip unknown extensions
-                    Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
-                    i++
-                }
-            }
+            val (handled, nextIndex) = processCandidatePart(part, i, parts, cleanedParts)
+            i = nextIndex
         }
         
         val cleanedCandidate = cleanedParts.joinToString(" ")
         Logger.d(tag = "CandidateClean", message = "Cleaned candidate: $cleanedCandidate")
         
         return cleanedCandidate
+    }
+    
+    /**
+     * Checks if a candidate string has valid format.
+     */
+    private fun isValidCandidateFormat(parts: List<String>): Boolean {
+        return parts.isNotEmpty() && parts[0].startsWith("candidate:")
+    }
+    
+    /**
+     * Processes a candidate part and returns whether it was handled and the next index.
+     */
+    private fun processCandidatePart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when {
+            // Foundation (candidate:...)
+            part.startsWith("candidate:") -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // Component (1 or 2)
+            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // Transport (udp, tcp)
+            index == CANDIDATE_TRANSPORT_INDEX && (part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)) -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // Priority (numeric)
+            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // IP address (IPv4 or IPv6)
+            index == CANDIDATE_IP_ADDRESS_INDEX -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // Port (numeric)
+            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> {
+                cleanedParts.add(part)
+                true to (index + 1)
+            }
+            // Candidate type (typ)
+            part == "typ" && index == CANDIDATE_TYPE_INDEX -> {
+                cleanedParts.add(part)
+                // Add the actual type (host, srflx, prflx, relay)
+                if (index + 1 < parts.size) {
+                    cleanedParts.add(parts[index + 1])
+                    true to (index + 2)
+                } else {
+                    true to (index + 1)
+                }
+            }
+            // Related address (raddr)
+            part == "raddr" -> {
+                cleanedParts.add(part)
+                // Add the related address value
+                if (index + 1 < parts.size) {
+                    cleanedParts.add(parts[index + 1])
+                    true to (index + 2)
+                } else {
+                    true to (index + 1)
+                }
+            }
+            // Related port (rport)
+            part == "rport" -> {
+                cleanedParts.add(part)
+                // Add the related port value
+                if (index + 1 < parts.size) {
+                    cleanedParts.add(parts[index + 1])
+                    true to (index + 2)
+                } else {
+                    true to (index + 1)
+                }
+            }
+            // Skip WebRTC-specific extensions
+            isWebRtcExtension(part) -> {
+                Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
+                val nextIndex = skipExtensionValue(index, parts)
+                true to nextIndex
+            }
+            else -> {
+                // Skip unknown extensions
+                Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
+                true to (index + 1)
+            }
+        }
+    }
+    
+    /**
+     * Checks if a part is a WebRTC-specific extension.
+     */
+    private fun isWebRtcExtension(part: String): Boolean {
+        return part == "generation" || part == "ufrag" || part == "network-id" || part == "network-cost"
+    }
+    
+    /**
+     * Skips the value that follows a WebRTC extension.
+     */
+    private fun skipExtensionValue(index: Int, parts: List<String>): Int {
+        val nextIndex = index + 1
+        return if (nextIndex < parts.size && !parts[nextIndex].contains("=") && !parts[nextIndex].startsWith("candidate:")) {
+            Logger.d(tag = "CandidateClean", message = "Skipping extension value: ${parts[nextIndex]}")
+            nextIndex + 1
+        } else {
+            nextIndex
+        }
     }
 }

@@ -28,6 +28,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import com.telnyx.webrtc.sdk.utilities.CandidateUtils
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
@@ -2976,75 +2977,47 @@ class TelnyxClient(
         if (jsonObject.has("params")) {
             val params = jsonObject.get("params").asJsonObject
 
-            if (params.has("candidate") && params.has("sdpMid") && params.has("sdpMLineIndex")) {
-                var candidateString = params.get("candidate").asString
+            if (CandidateUtils.hasRequiredCandidateFields(params)) {
+                val candidateString = CandidateUtils.normalizeCandidateString(params.get("candidate").asString)
                 val sdpMid = params.get("sdpMid").asString
                 val sdpMLineIndex = params.get("sdpMLineIndex").asInt
 
-                // Strip "a=" prefix if present (server sends in SDP attribute format)
-                if (candidateString.startsWith("a=candidate:")) {
-                    // Only strip "a=" not "a=candidate:"
-                    candidateString = candidateString.substring(2)  // Remove "a="
-                    Logger.d(tag = "onCandidateReceived", message = "Stripped 'a=' prefix from candidate string")
-                } else if (!candidateString.startsWith("candidate:")) {
-                    // If it doesn't start with "candidate:", add it
-                    candidateString = "candidate:$candidateString"
-                    Logger.d(tag = "onCandidateReceived", message = "Added 'candidate:' prefix to candidate string")
-                }
-
-                // Try to get call ID from multiple possible locations
-                var callId: UUID? = null
-
-                // 1. Check directly in params for "callID" (new server format)
-                if (params.has("callID")) {
-                    try {
-                        callId = UUID.fromString(params.get("callID").asString)
-                        Logger.d(tag = "onCandidateReceived", message = "Found callID directly in params: $callId")
-                    } catch (e: Exception) {
-                        Logger.e(tag = "onCandidateReceived", message = "Failed to parse callID from params: ${e.message}")
-                    }
-                }
-
-                // 2. Fallback to dialogPartelnyx_rtc.inviteams for "callId" (legacy format)
-                if (callId == null && params.has("dialogParams")) {
-                    val dialogParams = params.get("dialogParams").asJsonObject
-                    if (dialogParams.has("callId")) {
-                        try {
-                            callId = UUID.fromString(dialogParams.get("callId").asString)
-                            Logger.d(tag = "onCandidateReceived", message = "Found callId in dialogParams: $callId")
-                        } catch (e: Exception) {
-                            Logger.e(tag = "onCandidateReceived", message = "Failed to parse callId from dialogParams: ${e.message}")
-                        }
-                    }
-                }
-
+                val callId = CandidateUtils.extractCallIdFromCandidate(params)
+                
                 // Process the candidate if we found a call ID
-                callId?.let { id ->
-                    val call = calls[id]
-                    call?.let {
-                        // Create pending ICE candidate and queue it instead of immediately adding
-                        // Note: We don't enhance the candidate string here because remoteIceParameters 
-                        // won't be available until after the remote description is set in onAnswerReceived
-                        val pendingCandidate = PendingIceCandidate(
-                            callId = id,
-                            sdpMid = sdpMid,
-                            sdpMLineIndex = sdpMLineIndex,
-                            candidateString = candidateString,
-                            enhancedCandidateString = candidateString // Store original for now, will enhance later
-                        )
-
-                        // Add to pending candidates map
-                        synchronized(pendingIceCandidates) {
-                            val candidates = pendingIceCandidates.getOrPut(id) { mutableListOf() }
-                            candidates.add(pendingCandidate)
-                            Logger.d(tag = "onCandidateReceived", message = "Queued ICE candidate for call $id. Total queued: ${candidates.size}")
-                        }
-                    } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $id")
+                callId?.let { id: UUID ->
+                    processAndQueueCandidate(id, sdpMid, sdpMLineIndex, candidateString)
                 } ?: Logger.w(tag = "onCandidateReceived", message = "Could not extract call ID from candidate message")
             } else {
                 Logger.w(tag = "onCandidateReceived", message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)")
             }
         }
+    }
+    
+    /**
+     * Processes and queues the ICE candidate for the specified call.
+     */
+    private fun processAndQueueCandidate(callId: UUID, sdpMid: String, sdpMLineIndex: Int, candidateString: String) {
+        val call = calls[callId]
+        call?.let {
+            // Create pending ICE candidate and queue it instead of immediately adding
+            // Note: We don't enhance the candidate string here because remoteIceParameters 
+            // won't be available until after the remote description is set in onAnswerReceived
+            val pendingCandidate = PendingIceCandidate(
+                callId = callId,
+                sdpMid = sdpMid,
+                sdpMLineIndex = sdpMLineIndex,
+                candidateString = candidateString,
+                enhancedCandidateString = candidateString // Store original for now, will enhance later
+            )
+
+            // Add to pending candidates map
+            synchronized(pendingIceCandidates) {
+                val candidates = pendingIceCandidates.getOrPut(callId) { mutableListOf() }
+                candidates.add(pendingCandidate)
+                Logger.d(tag = "onCandidateReceived", message = "Queued ICE candidate for call $callId. Total queued: ${candidates.size}")
+            }
+        } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $callId")
     }
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
