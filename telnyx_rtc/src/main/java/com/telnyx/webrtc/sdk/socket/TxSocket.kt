@@ -219,6 +219,12 @@ class TxSocket(
                                 AI_CONVERSATION.methodName -> {
                                     listener.onAiConversationReceived(jsonObject)
                                 }
+                                CANDIDATE.methodName -> {
+                                    listener.onCandidateReceived(jsonObject)
+                                }
+                                END_OF_CANDIDATES.methodName -> {
+                                    listener.onEndOfCandidatesReceived(jsonObject)
+                                }
                                 PINGPONG.methodName -> {
                                     isPing = true
                                     webSocket.send(text)
