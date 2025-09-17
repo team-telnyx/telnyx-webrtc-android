@@ -4,19 +4,19 @@
     
     <item
         android:id="@+id/action_websocket_messages"
-        android:title="Websocket Messages"
+        android:title="@string/websocket_messages"
         android:icon="@drawable/ic_message"
         app:showAsAction="never" />
         
     <item
         android:id="@+id/action_copy_fcm_token"
-        android:title="Copy FCM Token"
+        android:title="@string/copy_fcm_token"
         android:icon="@drawable/ic_copy"
         app:showAsAction="never" />
         
     <item
         android:id="@+id/action_disable_push"
-        android:title="Disable Push Notifications"
+        android:title="@string/disable_push_notifications"
         android:icon="@drawable/ic_notifications_off"
         app:showAsAction="never" />
 
