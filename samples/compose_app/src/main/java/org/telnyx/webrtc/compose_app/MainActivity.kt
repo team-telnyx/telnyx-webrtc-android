@@ -1,9 +1,11 @@
 package org.telnyx.webrtc.compose_app
 
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -67,6 +69,10 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
                 }
             }
         }
+
+        App.instance?.crashListener = {
+            viewModel.endCall(this)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -78,7 +84,12 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         super<DefaultLifecycleObserver>.onStop(owner)
         viewModel.disconnect(this)
     }
-    
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        super<DefaultLifecycleObserver>.onDestroy(owner)
+        viewModel.endCall(this)
+    }
+
     /**
      * Copies the FCM token to the clipboard
      */
