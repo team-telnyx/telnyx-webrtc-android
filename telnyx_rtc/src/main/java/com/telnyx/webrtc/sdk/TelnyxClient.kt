@@ -1443,6 +1443,36 @@ class TelnyxClient(
     }
 
     /**
+     * Sends an updateMedia modify message for ICE renegotiation
+     * @param callId the UUID of the call to renegotiate
+     * @param sdp the new local SDP for ICE restart
+     */
+    fun sendUpdateMediaMessage(callId: UUID, sdp: String) {
+        val uuid: String = UUID.randomUUID().toString()
+        
+        val callDialogParams = CallDialogParams(
+            callId = callId,
+            customHeaders = arrayListOf()
+        )
+        
+        val modifyParams = ModifyParams(
+            sessid = sessionId,
+            action = "updateMedia",
+            dialogParams = callDialogParams,
+            sdp = sdp
+        )
+        
+        val modifyMessage = SendingMessageBody(
+            id = uuid,
+            method = SocketMethod.MODIFY.methodName,
+            params = modifyParams
+        )
+        
+        Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
+        socket.send(modifyMessage)
+    }
+
+    /**
      * Performs credential login with decline_push parameter for background call decline.
      * This method sends a login message with decline_push set to true.
      *
@@ -2565,6 +2595,35 @@ class TelnyxClient(
 
         } catch (e: Exception) {
             Logger.e(message = "Error processing AI conversation message: ${e.message}")
+        }
+    }
+
+    /**
+     * Handles modify messages received from the socket (e.g., updateMedia responses)
+     * Processes ICE renegotiation responses and forwards them to the appropriate peer
+     *
+     * @param jsonObject the socket response containing modify data
+     */
+    override fun onModifyReceived(jsonObject: JsonObject) {
+        Logger.i(message = "MODIFY RECEIVED :: $jsonObject")
+
+        try {
+            val updateMediaResponse = Gson().fromJson(jsonObject, UpdateMediaResponse::class.java)
+            
+            // Find the peer with the matching call ID and handle the response
+            updateMediaResponse.callId?.let { callId ->
+                val peer = peers[callId]
+                if (peer != null) {
+                    peer.handleUpdateMediaResponse(updateMediaResponse)
+                } else {
+                    Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
+                }
+            } ?: run {
+                Logger.w(message = "UpdateMedia response missing call ID")
+            }
+
+        } catch (e: Exception) {
+            Logger.e(message = "Error processing modify message: ${e.message}")
         }
     }
 

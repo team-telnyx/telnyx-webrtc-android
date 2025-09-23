@@ -119,4 +119,11 @@ interface TxSocketListener {
      * @see [TxSocket]
      */
     fun onAiConversationReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when a modify message is received (e.g., updateMedia for ICE renegotiation)
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onModifyReceived(jsonObject: JsonObject)
 }

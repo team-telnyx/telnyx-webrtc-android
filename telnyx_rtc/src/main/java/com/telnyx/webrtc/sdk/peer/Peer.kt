@@ -154,6 +154,9 @@ internal class Peer(
 
             if (newState == PeerConnection.IceConnectionState.CONNECTED || newState == PeerConnection.IceConnectionState.COMPLETED) {
                 logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
+            } else if (newState == PeerConnection.IceConnectionState.FAILED) {
+                Logger.w(tag = "Observer", message = "ICE Connection Failed - Starting renegotiation")
+                startIceRenegotiation()
             }
         }
 
@@ -550,6 +553,76 @@ internal class Peer(
         negotiationTimer?.purge()
         negotiationTimer = null
          Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
+    }
+
+    /**
+     * Starts ICE renegotiation when ICE connection fails
+     * Creates a new offer with ICE restart enabled
+     */
+    private fun startIceRenegotiation() {
+        Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
+        
+        val iceRestartConstraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
+        }
+        
+        peerConnection?.createOffer(object : SdpObserver {
+            override fun onCreateSuccess(sessionDescription: SessionDescription?) {
+                sessionDescription?.let { sdp ->
+                    Logger.d(tag = "ICE_RENEGOTIATION", message = "ICE restart offer created successfully")
+                    peerConnection?.setLocalDescription(object : SdpObserver {
+                        override fun onSetSuccess() {
+                            Logger.d(tag = "ICE_RENEGOTIATION", message = "Local description set for ICE restart")
+                            sendUpdateMediaMessage(sdp.description)
+                        }
+                        
+                        override fun onSetFailure(error: String?) {
+                            Logger.e(tag = "ICE_RENEGOTIATION", message = "Failed to set local description for ICE restart: $error")
+                        }
+                        
+                        override fun onCreateSuccess(p0: SessionDescription?) {}
+                        override fun onCreateFailure(p0: String?) {}
+                    }, sdp)
+                }
+            }
+            
+            override fun onCreateFailure(error: String?) {
+                Logger.e(tag = "ICE_RENEGOTIATION", message = "Failed to create ICE restart offer: $error")
+            }
+            
+            override fun onSetSuccess() {}
+            override fun onSetFailure(p0: String?) {}
+        }, iceRestartConstraints)
+    }
+    
+    /**
+     * Sends the updateMedia modify message with the new SDP for ICE renegotiation
+     */
+    private fun sendUpdateMediaMessage(sdp: String) {
+        Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+        client.sendUpdateMediaMessage(callId, sdp)
+    }
+    
+    /**
+     * Handles the updateMedia response containing the new remote SDP
+     * This completes the ICE renegotiation process
+     */
+    fun handleUpdateMediaResponse(remoteSdp: String) {
+        Logger.d(tag = "ICE_RENEGOTIATION", message = "Handling updateMedia response with remote SDP")
+        
+        val remoteSessionDescription = SessionDescription(SessionDescription.Type.ANSWER, remoteSdp)
+        peerConnection?.setRemoteDescription(object : SdpObserver {
+            override fun onSetSuccess() {
+                Logger.d(tag = "ICE_RENEGOTIATION", message = "ICE renegotiation completed successfully")
+            }
+            
+            override fun onSetFailure(error: String?) {
+                Logger.e(tag = "ICE_RENEGOTIATION", message = "Failed to set remote description for ICE renegotiation: $error")
+            }
+            
+            override fun onCreateSuccess(p0: SessionDescription?) {}
+            override fun onCreateFailure(p0: String?) {}
+        }, remoteSessionDescription)
     }
 
     /**

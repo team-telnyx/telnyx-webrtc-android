@@ -205,6 +205,10 @@ class TxSocket(
                                     listener.onByeReceived(jsonObject)
                                 }
 
+                                MODIFY.methodName -> {
+                                    listener.onModifyReceived(jsonObject)
+                                }
+
                                 INVITE.methodName -> {
                                     listener.onOfferReceived(jsonObject)
                                 }
