@@ -692,8 +692,18 @@ internal class Peer(
                 )
             }
 
-            override fun onSetSuccess() {}
-            override fun onSetFailure(p0: String?) {}
+            override fun onSetSuccess() {
+                Logger.i(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onSetSuccess called in createOffer"
+                )
+            }
+            override fun onSetFailure(p0: String?) {
+                Logger.e(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onSetFailure called in createOffer: $p0"
+                )
+            }
         }, iceRestartConstraints)
     }
 
