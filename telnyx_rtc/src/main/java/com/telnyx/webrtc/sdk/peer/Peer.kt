@@ -115,6 +115,7 @@ internal class Peer(
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
+    private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
 
     private fun logAudioTrackAndTransceiverState(contextTag: String) {
         if (peerConnection == null) {
@@ -166,15 +167,11 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
             peerConnectionObserver?.onIceConnectionChange(newState)
 
-            if (newState == PeerConnection.IceConnectionState.CONNECTED || newState == PeerConnection.IceConnectionState.COMPLETED) {
-                logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
-            } else if (newState == PeerConnection.IceConnectionState.FAILED) {
-                Logger.w(
-                    tag = "Observer",
-                    message = "ICE Connection Failed - Starting renegotiation"
-                )
-                startIceRenegotiation()
-            }
+            // Handle ICE connection state transitions
+            handleIceConnectionStateTransition(previousIceConnectionState, newState)
+            
+            // Update previous state
+            previousIceConnectionState = newState
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
@@ -713,6 +710,95 @@ internal class Peer(
     private fun sendUpdateMediaMessage(sdp: String) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
         client.sendUpdateMediaMessage(callId, sdp)
+    }
+
+    /**
+     * Handles ICE connection state transitions for automatic recovery
+     * 
+     * @param previousState Previous ICE connection state
+     * @param newState New ICE connection state
+     */
+    private fun handleIceConnectionStateTransition(
+        previousState: PeerConnection.IceConnectionState?,
+        newState: PeerConnection.IceConnectionState?
+    ) {
+        if (previousState == null || newState == null) {
+            Logger.d(tag = "IceStateTransition", message = "ICE state transition: null -> $newState")
+            return
+        }
+        
+        Logger.d(tag = "IceStateTransition", message = "ICE state transition: $previousState -> $newState")
+        
+        // Case 1: disconnected -> failed: Attempt ICE restart/renegotiation
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED && 
+            newState == PeerConnection.IceConnectionState.FAILED) {
+            Logger.w(
+                tag = "IceStateTransition",
+                message = "ICE connection failed after disconnect - attempting ICE restart"
+            )
+            
+            // Trigger ICE restart to recover from failed state with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    startIceRenegotiation()
+                }
+            }, 500) // 0.5 second delay
+        }
+        
+        // Case 2: connected -> disconnected: Reset audio buffers
+        if (previousState == PeerConnection.IceConnectionState.CONNECTED && 
+            newState == PeerConnection.IceConnectionState.DISCONNECTED) {
+            Logger.w(
+                tag = "IceStateTransition",
+                message = "ICE connection disconnected - resetting audio buffers"
+            )
+            
+            // Reset audio device module to clear accumulated buffers with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    resetAudioDeviceModule()
+                }
+            }, 200) // 0.2 second delay
+        }
+        
+        // Case 3: disconnected -> connected: Reset audio buffers
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED && 
+            newState == PeerConnection.IceConnectionState.CONNECTED) {
+            Logger.i(
+                tag = "IceStateTransition",
+                message = "ICE connection restored - resetting audio buffers"
+            )
+            
+            // Reset audio device module to clear accumulated buffers with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    resetAudioDeviceModule()
+                }
+            }, 200) // 0.2 second delay
+        }
+        
+        // Handle connected/completed states for logging
+        if (newState == PeerConnection.IceConnectionState.CONNECTED || 
+            newState == PeerConnection.IceConnectionState.COMPLETED) {
+            logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
+        }
+    }
+
+    /**
+     * Resets the audio device module to clear accumulated buffers
+     * Similar to iOS implementation
+     */
+    private fun resetAudioDeviceModule() {
+        Logger.d(tag = "AudioReset", message = "Resetting audio device module")
+        
+        // Stop and restart local audio capture to clear buffers
+        localAudioTrack?.setEnabled(false)
+        Timer().schedule(object : TimerTask() {
+            override fun run() {
+                localAudioTrack?.setEnabled(true)
+                Logger.d(tag = "AudioReset", message = "Audio device module reset completed")
+            }
+        }, 100) // Brief delay before re-enabling
     }
 
     /**
