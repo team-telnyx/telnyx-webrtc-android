@@ -53,7 +53,8 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
 
-    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> = ConcurrentHashMap<UUID, WebRTCReporter>()
+    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
+        ConcurrentHashMap<UUID, WebRTCReporter>()
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -678,7 +679,7 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         // Start the reconnection timer to track timeout
         startReconnectionTimer()
-        
+
         // Emit reconnecting status
         emitConnectionStatus(ConnectionStatus.RECONNECTING)
 
@@ -749,7 +750,7 @@ class TelnyxClient(
 
         // Initialize both SharedFlow and LiveData with initial state
         emitSocketResponse(SocketResponse.initialised())
-        
+
         // Initialize connection status as disconnected
         emitConnectionStatus(ConnectionStatus.DISCONNECTED)
 
@@ -1449,25 +1450,25 @@ class TelnyxClient(
      */
     fun sendUpdateMediaMessage(callId: UUID, sdp: String) {
         val uuid: String = UUID.randomUUID().toString()
-        
+
         val callDialogParams = CallDialogParams(
             callId = callId,
             customHeaders = arrayListOf()
         )
-        
+
         val modifyParams = ModifyParams(
-            sessid = sessionId,
+            sessid = sessid,
             action = "updateMedia",
             dialogParams = callDialogParams,
             sdp = sdp
         )
-        
+
         val modifyMessage = SendingMessageBody(
             id = uuid,
             method = SocketMethod.MODIFY.methodName,
             params = modifyParams
         )
-        
+
         Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
         socket.send(modifyMessage)
     }
@@ -2609,17 +2610,17 @@ class TelnyxClient(
 
         try {
             val updateMediaResponse = Gson().fromJson(jsonObject, UpdateMediaResponse::class.java)
-            
+
             // Find the peer with the matching call ID and handle the response
-            updateMediaResponse.callId?.let { callId ->
-                val peer = peers[callId]
+            updateMediaResponse.callId.let { callId ->
+                // find the call with this call ID, and take the peer from it
+                val call = calls[callId]
+                val peer = call?.peerConnection
                 if (peer != null) {
-                    peer.handleUpdateMediaResponse(updateMediaResponse)
+                    peer.handleUpdateMediaResponse(updateMediaResponse.sdp)
                 } else {
                     Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
                 }
-            } ?: run {
-                Logger.w(message = "UpdateMedia response missing call ID")
             }
 
         } catch (e: Exception) {
@@ -2725,7 +2726,7 @@ class TelnyxClient(
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
         val supportedCodecs = mutableListOf<AudioCodec>()
-        
+
         try {
             val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
             for (codecInfo in codecList.codecInfos) {
@@ -2736,9 +2737,9 @@ class TelnyxClient(
                 for (type in codecInfo.supportedTypes) {
                     if (type.startsWith("audio/")) {
                         Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
-                        
+
                         val audioCodec = mapTypeToAudioCodec(type)
-                        
+
                         // Avoid duplicates
                         if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
                             supportedCodecs.add(audioCodec)
@@ -2749,13 +2750,13 @@ class TelnyxClient(
         } catch (e: Exception) {
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
         }
-        
+
         return supportedCodecs
     }
 
     /**
      * Maps a codec type string to an AudioCodec object with appropriate settings.
-     * 
+     *
      * @param type The codec type string (e.g., "audio/opus")
      * @return AudioCodec object configured for the given type
      */
@@ -2769,20 +2770,29 @@ class TelnyxClient(
                     sdpFmtpLine = "minptime=10;useinbandfec=1"
                 )
             }
-            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
+
+            type.contains("pcma", ignoreCase = true) || type.contains(
+                "g711a",
+                ignoreCase = true
+            ) -> {
                 AudioCodec(
                     channels = 1,
                     clockRate = 8000,
                     mimeType = "audio/PCMA"
                 )
             }
-            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
+
+            type.contains("pcmu", ignoreCase = true) || type.contains(
+                "g711u",
+                ignoreCase = true
+            ) -> {
                 AudioCodec(
                     channels = 1,
                     clockRate = 8000,
                     mimeType = "audio/PCMU"
                 )
             }
+
             type.contains("g722", ignoreCase = true) -> {
                 AudioCodec(
                     channels = 1,
@@ -2790,6 +2800,7 @@ class TelnyxClient(
                     mimeType = "audio/G722"
                 )
             }
+
             type.contains("g729", ignoreCase = true) -> {
                 AudioCodec(
                     channels = 1,
@@ -2797,6 +2808,7 @@ class TelnyxClient(
                     mimeType = "audio/G729"
                 )
             }
+
             else -> {
                 AudioCodec(
                     channels = 1,
