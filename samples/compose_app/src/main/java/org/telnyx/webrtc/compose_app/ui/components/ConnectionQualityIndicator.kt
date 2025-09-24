@@ -4,8 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import org.telnyx.webrtc.compose_app.R
+import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
 /**
  * A composable that displays the current connection quality as a visual indicator.
@@ -49,16 +51,12 @@ fun ConnectionQualityIndicator(
         label = "Connection Quality Color"
     )
     
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -69,7 +67,7 @@ fun ConnectionQualityIndicator(
                     .clip(CircleShape)
                     .background(indicatorColor)
             )
-            
+
             // Quality text
             Text(
                 text = when (quality) {
@@ -84,7 +82,7 @@ fun ConnectionQualityIndicator(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            
+
             // Show details if requested
             if (showDetails && connectionMetrics != null) {
                 HorizontalDivider(
@@ -102,7 +100,7 @@ fun ConnectionQualityIndicator(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
-                
+
                 // Jitter
                 connectionMetrics.jitterMs?.let { jitter ->
                     Text(
@@ -161,72 +159,77 @@ fun ConnectionMetricsDetail(
     connectionMetrics: SocketConnectionMetrics?,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(2.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.connection_quality),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface
+        if (connectionMetrics != null) {
+            // Quality indicator
+            ConnectionQualityIndicator(
+                connectionMetrics = connectionMetrics,
+                showDetails = false
             )
-            
-            if (connectionMetrics != null) {
-                // Quality indicator
-                ConnectionQualityIndicator(
-                    connectionMetrics = connectionMetrics,
-                    showDetails = false
-                )
 
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    thickness = DividerDefaults.Thickness, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                )
+            // Detailed metrics using MetricRow to match CallQualityDisplay style
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_interval),
+                value = connectionMetrics.intervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available)
+            )
 
-                // Detailed metrics
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_interval), value = connectionMetrics.intervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_average_interval), value = connectionMetrics.averageIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_jitter), value = connectionMetrics.jitterMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_min_interval), value = connectionMetrics.minIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_max_interval), value = connectionMetrics.maxIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available))
-                
-                // Success rate
-                val successRate = connectionMetrics.getSuccessRate()
-                ConnectionMetricRow(
-                    label = stringResource(R.string.connection_metrics_success_rate),
-                    value = stringResource(R.string.connection_metrics_percent, successRate),
-                    valueColor = when {
-                        successRate >= 99 -> Color(0xFF4CAF50)
-                        successRate >= 95 -> Color(0xFF8BC34A)
-                        successRate >= 90 -> Color(0xFFFFC107)
-                        else -> Color(0xFFF44336)
-                    }
-                )
-                
-                // Ping statistics
-                ConnectionMetricRow(label = stringResource(R.string.connection_metrics_total_pings), value = connectionMetrics.totalPings.toString())
-                if (connectionMetrics.missedPings > 0) {
-                    ConnectionMetricRow(
-                        label = stringResource(R.string.connection_metrics_missed_pings),
-                        value = connectionMetrics.missedPings.toString(),
-                        valueColor = Color(0xFFF44336)
-                    )
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.no_connection_metrics),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_average_interval),
+                value = connectionMetrics.averageIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available)
+            )
+
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_jitter),
+                value = connectionMetrics.jitterMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available)
+            )
+
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_min_interval),
+                value = connectionMetrics.minIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available)
+            )
+
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_max_interval),
+                value = connectionMetrics.maxIntervalMs?.let { stringResource(R.string.connection_metrics_ms, it) } ?: stringResource(R.string.connection_metrics_not_available)
+            )
+
+            // Success rate with color coding
+            val successRate = connectionMetrics.getSuccessRate()
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_success_rate),
+                value = stringResource(R.string.connection_metrics_percent, successRate)
+            )
+
+            // Ping statistics section header
+            RegularText(
+                text = stringResource(R.string.connection_metrics_ping_stats),
+                size = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            MetricRow(
+                label = stringResource(R.string.connection_metrics_total_pings),
+                value = connectionMetrics.totalPings.toString()
+            )
+
+            if (connectionMetrics.missedPings > 0) {
+                MetricRow(
+                    label = stringResource(R.string.connection_metrics_missed_pings),
+                    value = connectionMetrics.missedPings.toString()
                 )
             }
+        } else {
+            RegularText(
+                text = stringResource(R.string.no_connection_metrics),
+                size = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
         }
     }
 }

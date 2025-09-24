@@ -132,6 +132,7 @@ fun HomeScreen(
     var showCodecSelectionDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
+    var showConnectionMetrics by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -484,7 +485,8 @@ fun HomeScreen(
                 state = (sessionState !is TelnyxSessionState.ClientDisconnected),
                 telnyxViewModel = telnyxViewModel,
                 showWsMessagesBottomSheet = showWsMessagesBottomSheet,
-                connectionMetrics = connectionMetrics
+                connectionMetrics = connectionMetrics,
+                onShowConnectionMetrics = { showConnectionMetrics = true }
             )
 
             if (sessionState !is TelnyxSessionState.ClientDisconnected) {
@@ -829,6 +831,60 @@ fun HomeScreen(
             ).show()
         }
     )
+
+    // Connection Metrics Bottom Sheet
+    if (showConnectionMetrics) {
+        val configuration = LocalConfiguration.current
+        val screenHeight = configuration.screenHeightDp.dp
+
+        ModalBottomSheet(
+            modifier = Modifier.height(screenHeight * 0.8f),
+            onDismissRequest = {
+                showConnectionMetrics = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(Dimens.mediumSpacing)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = stringResource(R.string.connection_quality),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showConnectionMetrics = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+
+                // Connection metrics detail
+                ConnectionMetricsDetail(
+                    connectionMetrics = connectionMetrics,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
 
 
@@ -984,12 +1040,12 @@ fun ConnectionState(
     state: Boolean,
     telnyxViewModel: TelnyxViewModel = viewModel(),
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
-    connectionMetrics: SocketConnectionMetrics? = null
+    connectionMetrics: SocketConnectionMetrics? = null,
+    onShowConnectionMetrics: () -> Unit = {}
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
     val sheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
-    var showConnectionDetailsDialog by remember { mutableStateOf(false) }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
@@ -1011,9 +1067,10 @@ fun ConnectionState(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
             
+
             // Show info icon for connection details
             IconButton(
-                onClick = { showConnectionDetailsDialog = true },
+                onClick = { onShowConnectionMetrics() },
                 modifier = Modifier.size(20.dp)
             ) {
                 Icon(
@@ -1026,60 +1083,6 @@ fun ConnectionState(
         }
     }
     
-    // Connection details dialog
-    if (showConnectionDetailsDialog) {
-        AlertDialog(
-            onDismissRequest = { showConnectionDetailsDialog = false },
-            title = { 
-                Text(
-                    text = stringResource(R.string.connection_details),
-                    fontWeight = FontWeight.Bold
-                ) 
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Connection status
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .background(
-                                    color = if (state) MainGreen else Color.Red,
-                                    shape = CircleShape
-                                )
-                        )
-                        Text(
-                            text = if (state) stringResource(R.string.connected) else stringResource(R.string.disconnected),
-                            fontSize = 14.sp
-                        )
-                    }
-                    
-                    // Connection quality indicator and metrics
-                    if (connectionMetrics != null) {
-                        ConnectionMetricsDetail(
-                            connectionMetrics = connectionMetrics
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.no_connection_metrics),
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showConnectionDetailsDialog = false }) {
-                    Text(stringResource(R.string.close))
-                }
-            }
-        )
-    }
 
     // Websocket messages bottom sheet
     if (showWsMessagesBottomSheet.value) {

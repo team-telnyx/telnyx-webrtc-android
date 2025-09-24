@@ -201,6 +201,7 @@
     <string name="connection_metrics_min_interval">Min Interval</string>
     <string name="connection_metrics_max_interval">Max Interval</string>
     <string name="connection_metrics_success_rate">Success Rate</string>
+    <string name="connection_metrics_ping_stats">Ping Statistics</string>
     <string name="connection_metrics_total_pings">Total Pings</string>
     <string name="connection_metrics_missed_pings">Missed Pings</string>
     <string name="connection_metrics_not_available">N/A</string>
