@@ -54,6 +54,11 @@ internal class Peer(
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
+        
+        // ICE renegotiation delay constants
+        private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
+        private const val AUDIO_BUFFER_RESET_DELAY_MS = 200L // 0.2 second delay for audio buffer reset
+        private const val AUDIO_RE_ENABLE_DELAY_MS = 100L // 0.1 second delay before re-enabling audio
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -797,7 +802,7 @@ internal class Peer(
                 override fun run() {
                     startIceRenegotiation()
                 }
-            }, 500) // 0.5 second delay
+            }, ICE_RESTART_DELAY_MS)
         }
 
         // Case 2: connected -> disconnected: Reset audio buffers
@@ -814,7 +819,7 @@ internal class Peer(
                 override fun run() {
                     resetAudioDeviceModule()
                 }
-            }, 200) // 0.2 second delay
+            }, AUDIO_BUFFER_RESET_DELAY_MS)
         }
 
         // Case 3: disconnected -> connected: Reset audio buffers
@@ -831,7 +836,7 @@ internal class Peer(
                 override fun run() {
                     resetAudioDeviceModule()
                 }
-            }, 200) // 0.2 second delay
+            }, AUDIO_BUFFER_RESET_DELAY_MS)
         }
 
         // Handle connected/completed states for logging
@@ -856,7 +861,7 @@ internal class Peer(
                 localAudioTrack?.setEnabled(true)
                 Logger.d(tag = "AudioReset", message = "Audio device module reset completed")
             }
-        }, 100) // Brief delay before re-enabling
+        }, AUDIO_RE_ENABLE_DELAY_MS)
     }
 
     /**
