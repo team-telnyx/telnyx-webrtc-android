@@ -2609,7 +2609,9 @@ class TelnyxClient(
         Logger.i(message = "MODIFY RECEIVED :: $jsonObject")
 
         try {
-            val updateMediaResponse = Gson().fromJson(jsonObject, UpdateMediaResponse::class.java)
+            // The updateMedia response is nested inside the "result" object
+            val resultObject = jsonObject.getAsJsonObject("result")
+            val updateMediaResponse = Gson().fromJson(resultObject, UpdateMediaResponse::class.java)
 
             // Find the peer with the matching call ID and handle the response
             updateMediaResponse.callId.let { callId ->
@@ -2625,6 +2627,7 @@ class TelnyxClient(
 
         } catch (e: Exception) {
             Logger.e(message = "Error processing modify message: ${e.message}")
+            Logger.e(message = "JSON structure: ${jsonObject.toString()}")
         }
     }
 

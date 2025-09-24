@@ -169,7 +169,7 @@ internal class Peer(
 
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
-            
+
             // Update previous state
             previousIceConnectionState = newState
         }
@@ -198,11 +198,24 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
-                if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+
+                val currentCallState = client.calls[callId]?.getCallState()?.value
+
+                // Allow ICE candidates when:
+                // 1. Call is NOT active (for initial invites/answers)
+                // 2. Call is in RENEGOTIATING state (for ICE restart)
+                if (currentCallState != CallState.ACTIVE ||
+                    currentCallState == CallState.RENEGOTIATING
+                ) {
                     peerConnection?.addIceCandidate(it)
                     Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                     onIceCandidateAdd?.invoke(it.serverUrl)
                     lastCandidateTime = System.currentTimeMillis()
+                } else {
+                    Logger.d(
+                        tag = "Observer",
+                        message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
+                    )
                 }
             }
             peerConnectionObserver?.onIceCandidate(candidate)
@@ -638,6 +651,9 @@ internal class Peer(
     private fun startIceRenegotiation() {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
 
+        // Set call state to RENEGOTIATING to allow ICE candidate processing
+        client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
+
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
         }
@@ -655,7 +671,26 @@ internal class Peer(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Local description set for ICE restart"
                             )
-                            sendUpdateMediaMessage(sdp.description)
+
+                            // Start negotiation timer to wait for ICE candidates before sending updateMedia
+                            // This is the same mechanism used for invite/accept flow
+                            setOnNegotiationComplete {
+                                Logger.d(
+                                    tag = "ICE_RENEGOTIATION",
+                                    message = "ICE negotiation complete for renegotiation, sending updateMedia message"
+                                )
+                                // Get the current local description which should now include candidates
+                                val currentSdp = peerConnection?.localDescription?.description
+                                if (currentSdp != null) {
+                                    sendUpdateMediaMessage(currentSdp)
+                                } else {
+                                    Logger.e(
+                                        tag = "ICE_RENEGOTIATION",
+                                        message = "Failed to get local description after negotiation"
+                                    )
+                                    client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                }
+                            }
                         }
 
                         override fun onSetFailure(error: String?) {
@@ -663,6 +698,8 @@ internal class Peer(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Failed to set local description for ICE restart: $error"
                             )
+                            // Reset call state back to ACTIVE on failure
+                            client.calls[callId]?.updateCallState(CallState.ACTIVE)
                         }
 
                         override fun onCreateSuccess(p0: SessionDescription?) {
@@ -677,6 +714,8 @@ internal class Peer(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateFailure called in setLocalDescription: $p0"
                             )
+                            // Reset call state back to ACTIVE on failure
+                            client.calls[callId]?.updateCallState(CallState.ACTIVE)
                         }
                     }, sdp)
                 }
@@ -687,6 +726,8 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to create ICE restart offer: $error"
                 )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
             }
 
             override fun onSetSuccess() {
@@ -695,11 +736,14 @@ internal class Peer(
                     message = "onSetSuccess called in createOffer"
                 )
             }
+
             override fun onSetFailure(p0: String?) {
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetFailure called in createOffer: $p0"
                 )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
             }
         }, iceRestartConstraints)
     }
@@ -709,12 +753,16 @@ internal class Peer(
      */
     private fun sendUpdateMediaMessage(sdp: String) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+
+        // Reset call state back to ACTIVE after sending the updateMedia message
+        client.calls[callId]?.updateCallState(CallState.ACTIVE)
+
         client.sendUpdateMediaMessage(callId, sdp)
     }
 
     /**
      * Handles ICE connection state transitions for automatic recovery
-     * 
+     *
      * @param previousState Previous ICE connection state
      * @param newState New ICE connection state
      */
@@ -723,20 +771,27 @@ internal class Peer(
         newState: PeerConnection.IceConnectionState?
     ) {
         if (previousState == null || newState == null) {
-            Logger.d(tag = "IceStateTransition", message = "ICE state transition: null -> $newState")
+            Logger.d(
+                tag = "IceStateTransition",
+                message = "ICE state transition: null -> $newState"
+            )
             return
         }
-        
-        Logger.d(tag = "IceStateTransition", message = "ICE state transition: $previousState -> $newState")
-        
+
+        Logger.d(
+            tag = "IceStateTransition",
+            message = "ICE state transition: $previousState -> $newState"
+        )
+
         // Case 1: disconnected -> failed: Attempt ICE restart/renegotiation
-        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED && 
-            newState == PeerConnection.IceConnectionState.FAILED) {
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
+            newState == PeerConnection.IceConnectionState.FAILED
+        ) {
             Logger.w(
                 tag = "IceStateTransition",
                 message = "ICE connection failed after disconnect - attempting ICE restart"
             )
-            
+
             // Trigger ICE restart to recover from failed state with delay
             Timer().schedule(object : TimerTask() {
                 override fun run() {
@@ -744,15 +799,16 @@ internal class Peer(
                 }
             }, 500) // 0.5 second delay
         }
-        
+
         // Case 2: connected -> disconnected: Reset audio buffers
-        if (previousState == PeerConnection.IceConnectionState.CONNECTED && 
-            newState == PeerConnection.IceConnectionState.DISCONNECTED) {
+        if (previousState == PeerConnection.IceConnectionState.CONNECTED &&
+            newState == PeerConnection.IceConnectionState.DISCONNECTED
+        ) {
             Logger.w(
                 tag = "IceStateTransition",
                 message = "ICE connection disconnected - resetting audio buffers"
             )
-            
+
             // Reset audio device module to clear accumulated buffers with delay
             Timer().schedule(object : TimerTask() {
                 override fun run() {
@@ -760,15 +816,16 @@ internal class Peer(
                 }
             }, 200) // 0.2 second delay
         }
-        
+
         // Case 3: disconnected -> connected: Reset audio buffers
-        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED && 
-            newState == PeerConnection.IceConnectionState.CONNECTED) {
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
+            newState == PeerConnection.IceConnectionState.CONNECTED
+        ) {
             Logger.i(
                 tag = "IceStateTransition",
                 message = "ICE connection restored - resetting audio buffers"
             )
-            
+
             // Reset audio device module to clear accumulated buffers with delay
             Timer().schedule(object : TimerTask() {
                 override fun run() {
@@ -776,10 +833,11 @@ internal class Peer(
                 }
             }, 200) // 0.2 second delay
         }
-        
+
         // Handle connected/completed states for logging
-        if (newState == PeerConnection.IceConnectionState.CONNECTED || 
-            newState == PeerConnection.IceConnectionState.COMPLETED) {
+        if (newState == PeerConnection.IceConnectionState.CONNECTED ||
+            newState == PeerConnection.IceConnectionState.COMPLETED
+        ) {
             logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
         }
     }
@@ -790,7 +848,7 @@ internal class Peer(
      */
     private fun resetAudioDeviceModule() {
         Logger.d(tag = "AudioReset", message = "Resetting audio device module")
-        
+
         // Stop and restart local audio capture to clear buffers
         localAudioTrack?.setEnabled(false)
         Timer().schedule(object : TimerTask() {
@@ -818,6 +876,8 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "ICE renegotiation completed successfully"
                 )
+                // Ensure call state is reset to ACTIVE on successful completion
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
             }
 
             override fun onSetFailure(error: String?) {
@@ -825,6 +885,8 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to set remote description for ICE renegotiation: $error"
                 )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -839,6 +901,8 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateFailure called in setRemoteDescription: $p0"
                 )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
             }
         }, remoteSessionDescription)
     }
@@ -852,6 +916,15 @@ internal class Peer(
         if (peerConnection != null) {
             disconnect()
         }
+    }
+
+    /**
+     * Forces ICE renegotiation for testing purposes.
+     * This method directly calls startIceRenegotiation() to test the renegotiation logic.
+     */
+    fun forceIceRenegotiationForTesting() {
+        Logger.w(tag = "IceRenegotiationTest", message = "Forcing ICE renegotiation for testing")
+        startIceRenegotiation()
     }
 
     /**

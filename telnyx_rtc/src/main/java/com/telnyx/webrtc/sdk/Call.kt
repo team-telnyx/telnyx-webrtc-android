@@ -519,4 +519,22 @@ data class Call(
         iceCandidateList.clear()
         Logger.d(message =  "Call [${this.callId}] ICE candidate timer reset.")
     }
+
+    /**
+     * Forces ICE renegotiation for testing purposes.
+     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
+     * 
+     * @return true if the renegotiation was successfully triggered, false otherwise
+     */
+    fun forceIceRenegotiationForTesting(): Boolean {
+        Logger.w(tag = "Call:IceRenegotiationTest", message = "Forcing ICE renegotiation for testing in Call [${this.callId}]")
+        
+        return peerConnection?.let { peer ->
+            peer.forceIceRenegotiationForTesting()
+            true
+        } ?: run {
+            Logger.e(tag = "Call:IceRenegotiationTest", message = "Cannot force ICE renegotiation - peerConnection is null in Call [${this.callId}]")
+            false
+        }
+    }
 }
