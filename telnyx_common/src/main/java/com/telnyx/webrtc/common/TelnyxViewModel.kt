@@ -180,6 +180,13 @@ class TelnyxViewModel : ViewModel() {
         get() = TelnyxCommon.getInstance().currentCall
 
     /**
+     * The caller name of the current call, if any.
+     * Returns null if there is no active call.
+     */
+    val currentCallCallerName : String?
+        get() = TelnyxCommon.getInstance().currentCall?.inviteResponse?.callerIdName
+
+    /**
      * State flow for the current user profile.
      * Observe this flow to react to profile changes.
      */
@@ -239,6 +246,12 @@ class TelnyxViewModel : ViewModel() {
     val connectionMetrics: StateFlow<SocketConnectionMetrics?>
         get() = TelnyxCommon.getInstance().connectionMetrics
 
+    /**
+     * Shared flow for connection status from TelnyxClient.
+     * Observe this flow to display connection state in the UI.
+     */
+    val connectionStatus: SharedFlow<com.telnyx.webrtc.sdk.model.ConnectionStatus>?
+        get() = TelnyxCommon.getInstance().telnyxClient?.connectionStatusFlow
 
     /**
      * Job for collecting audio levels.

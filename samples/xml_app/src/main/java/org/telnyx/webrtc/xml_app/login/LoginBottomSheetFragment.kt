@@ -91,6 +91,12 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
                 forceRelayCandidate = forceRelayCandidate
             )
             telnyxViewModel.addProfile(this@LoginBottomSheetFragment.requireContext(), newProfile)
+            lifecycleScope.launch {
+                telnyxViewModel.profileList.collectLatest { profiles ->
+                    adapter.submitList(profiles) // Submit the updated list to the adapter
+                    adapter.setSelectedProfile(newProfile)
+                }
+            }
             resetFields()
             toggleCredentialLayout(false)
         }

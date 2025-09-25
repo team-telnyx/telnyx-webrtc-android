@@ -82,6 +82,7 @@ import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -143,6 +144,8 @@ fun HomeScreen(
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
     val connectionMetrics by telnyxViewModel.connectionMetrics.collectAsState()
+    val connectionStatus by telnyxViewModel.connectionStatus?.collectAsState(initial = ConnectionStatus.DISCONNECTED)
+        ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
 
     val missingSessionIdLabel = stringResource(R.string.dash)
     var sessionId by remember { mutableStateOf(missingSessionIdLabel) }
@@ -224,8 +227,8 @@ fun HomeScreen(
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onLongPress = {
-                                        // Only show environment bottom sheet when not logged in
-                                        if (sessionState is TelnyxSessionState.ClientDisconnected) {
+                                        // Only show environment bottom sheet when not connected
+                                        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
                                             showEnvironmentBottomSheet = true
                                         }
                                     }
@@ -251,7 +254,7 @@ fun HomeScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
-                            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+                            if (connectionStatus != ConnectionStatus.DISCONNECTED) {
                                 // Logged in user options
                                 // Websocket Messages option
                                 DropdownMenuItem(
@@ -459,7 +462,7 @@ fun HomeScreen(
         bottomBar = {
             if (callState is CallState.DONE || callState is CallState.ERROR)
                 BottomBar(
-                    state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                    state = (connectionStatus != ConnectionStatus.DISCONNECTED),
                     telnyxViewModel,
                     currentConfig
                 )
@@ -476,20 +479,20 @@ fun HomeScreen(
         ) {
 
             MediumTextBold(
-                text = if (sessionState !is TelnyxSessionState.ClientDisconnected) stringResource(
+                text = if (connectionStatus == ConnectionStatus.CLIENT_READY) stringResource(
                     id = R.string.home_info
                 ) else stringResource(id = R.string.login_info)
             )
 
             ConnectionState(
-                state = (sessionState !is TelnyxSessionState.ClientDisconnected),
+                connectionStatus = connectionStatus,
                 telnyxViewModel = telnyxViewModel,
                 showWsMessagesBottomSheet = showWsMessagesBottomSheet,
                 connectionMetrics = connectionMetrics,
                 onShowConnectionMetrics = { showConnectionMetrics = true }
             )
 
-            if (sessionState !is TelnyxSessionState.ClientDisconnected) {
+            if (connectionStatus == ConnectionStatus.CLIENT_READY) {
                 CurrentCallState(state = uiState)
             }
 
@@ -649,6 +652,7 @@ fun HomeScreen(
                                             telnyxViewModel.addProfile(context, profile)
                                             editableUserProfile = null
                                         }
+                                        selectedUserProfile = profile
                                         isAddProfile = !isAddProfile
                                     },
                                     onDismiss = {
@@ -1037,7 +1041,7 @@ fun SessionItem(sessionId: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionState(
-    state: Boolean,
+    connectionStatus: ConnectionStatus,
     telnyxViewModel: TelnyxViewModel = viewModel(),
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
     connectionMetrics: SocketConnectionMetrics? = null,
@@ -1059,12 +1063,22 @@ fun ConnectionState(
                 modifier = Modifier
                     .size(Dimens.size12dp)
                     .background(
-                        color = if (state) MainGreen else Color.Red,
+                        color = when (connectionStatus) {
+                            ConnectionStatus.CONNECTED -> MainGreen
+                            ConnectionStatus.CLIENT_READY -> MainGreen
+                            ConnectionStatus.RECONNECTING -> RingingIconColor
+                            ConnectionStatus.DISCONNECTED -> Color.Red
+                        },
                         shape = Dimens.shape100Percent
                     )
             )
             RegularText(
-                text = stringResource(if (state) R.string.connected else R.string.disconnected)
+                text = when (connectionStatus) {
+                    ConnectionStatus.CONNECTED -> stringResource(R.string.connected)
+                    ConnectionStatus.CLIENT_READY -> stringResource(R.string.client_ready)
+                    ConnectionStatus.RECONNECTING -> stringResource(R.string.call_state_reconnecting)
+                    ConnectionStatus.DISCONNECTED -> stringResource(R.string.disconnected)
+                }
             )
             
             if (state) {

@@ -89,6 +89,60 @@ The way you authenticate with the Telnyx WebRTC SDK can affect push notification
    - Make sure your device is properly registered with Firebase
    - Check that the FCM token is being refreshed when needed
 
+## Testing VoIP Push Notifications
+
+To help troubleshoot push notification issues, we provide a command-line tool that can send test VoIP push notifications directly to your Android device.
+
+### Push Notification Testing Tool
+
+The Telnyx VoIP Push Notification Tester is a Node.js tool located in the `push-notification-tool/` directory of the WebRTC Android SDK repository. This tool allows you to:
+
+- Send test VoIP push notifications using Firebase Cloud Messaging HTTP v1 API
+- Verify that your device can receive push notifications
+- Test different caller information and payload data
+- Work with any Firebase project (not limited to Telnyx projects)
+
+### Using the Testing Tool
+
+1. **Navigate to the tool directory:**
+   ```bash
+   cd push-notification-tool
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Run the tool:**
+   ```bash
+   npm start
+   ```
+
+4. **Configure the tool with:**
+   - Your device's FCM token
+   - Firebase Project ID (your Firebase project)
+   - Firebase Service Account JSON credentials
+   - Caller name and phone number for testing
+
+The tool will guide you through an interactive setup process and save your configuration for future use.
+
+### What This Tests
+
+This tool tests the push notification delivery path independently of the Telnyx WebRTC SDK. If notifications work with this tool but not through normal calls, the issue is likely in one of the following areas:
+
+- SIP Connection configuration in Telnyx Portal
+- Push credential assignment
+- FCM token registration during SDK login
+- Application's FirebaseMessagingService implementation
+
+If notifications don't work with this tool, the issue is likely:
+
+- Incorrect Firebase configuration
+- Invalid FCM token
+- Network connectivity issues
+- Device-specific notification settings
+
 ## Still Having Issues?
 
 If you've gone through all the troubleshooting steps and are still experiencing problems:
