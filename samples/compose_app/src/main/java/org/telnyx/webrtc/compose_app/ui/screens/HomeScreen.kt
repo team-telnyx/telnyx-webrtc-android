@@ -387,6 +387,27 @@ fun HomeScreen(
                                         )
                                     }
                                 )
+
+                                // Force ICE Renegotiation option (for testing)
+                                DropdownMenuItem(
+                                    text = { Text("Force ICE Renegotiation (Test)") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val success = telnyxViewModel.forceIceRenegotiationForTesting()
+                                        val message = if (success) {
+                                            "ICE renegotiation triggered successfully"
+                                        } else {
+                                            "Failed to trigger ICE renegotiation - no active call"
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_handshake),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
                             } else {
                                 // Non-logged user options - only
 

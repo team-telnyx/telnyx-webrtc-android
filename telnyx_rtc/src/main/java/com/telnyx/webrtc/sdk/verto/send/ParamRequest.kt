@@ -103,7 +103,8 @@ data class UserVariables(
 data class ModifyParams(
     val sessid: String,
     val action: String,
-    val dialogParams: CallDialogParams
+    val dialogParams: CallDialogParams,
+    val sdp: String? = null
 ) : ParamRequest()
 
 data class InfoParams(
