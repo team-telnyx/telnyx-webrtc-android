@@ -18,9 +18,9 @@ package com.telnyx.webrtc.sdk.model
 enum class SocketConnectionQuality {
     DISCONNECTED, // Not connected to socket
     CALCULATING,  // Initial connection, insufficient data
-    EXCELLENT,    // ~30s ±2s interval, <1s jitter
-    GOOD,         // ~30s ±5s interval, <2s jitter
-    FAIR,         // ~30s ±10s interval, <5s jitter
+    EXCELLENT,    // ~30s ±100ms interval, <100ms jitter
+    GOOD,         // ~30s ±200ms interval, <200ms jitter
+    FAIR,         // ~30s ±300ms interval, <300ms jitter
     POOR          // Significant deviation from 30s or high jitter
 }
 
@@ -83,9 +83,9 @@ data class SocketConnectionMetrics(
                 // Have interval but no jitter (first few pings) - assess based on interval only
                 averageInterval != null && jitter == null -> {
                     when {
-                        averageInterval in 28000..32000 -> SocketConnectionQuality.EXCELLENT  // ±2s from 30s
-                        averageInterval in 25000..35000 -> SocketConnectionQuality.GOOD       // ±5s from 30s
-                        averageInterval in 20000..40000 -> SocketConnectionQuality.FAIR       // ±10s from 30s
+                        averageInterval in 29900..30100 -> SocketConnectionQuality.EXCELLENT  // ±100ms from 30s
+                        averageInterval in 29800..30200 -> SocketConnectionQuality.GOOD       // ±200ms from 30s
+                        averageInterval in 29700..30300 -> SocketConnectionQuality.FAIR       // ±300ms from 30s
                         else -> SocketConnectionQuality.POOR
                     }
                 }
@@ -93,8 +93,8 @@ data class SocketConnectionMetrics(
                 // Have jitter but no interval (edge case) - assess based on jitter only
                 averageInterval == null && jitter != null -> {
                     when {
-                        jitter < 1000 -> SocketConnectionQuality.GOOD    // Low jitter is generally good
-                        jitter < 2000 -> SocketConnectionQuality.FAIR    // Moderate jitter
+                        jitter < 100 -> SocketConnectionQuality.GOOD    // Low jitter is generally good
+                        jitter < 200 -> SocketConnectionQuality.FAIR    // Moderate jitter
                         else -> SocketConnectionQuality.POOR             // High jitter
                     }
                 }
@@ -104,9 +104,9 @@ data class SocketConnectionMetrics(
                     val safeJitter = jitter!!
                     val safeInterval = averageInterval!!
                     when {
-                        safeJitter < 1000 && safeInterval in 28000..32000 -> SocketConnectionQuality.EXCELLENT  // ~30s ±2s, low jitter
-                        safeJitter < 2000 && safeInterval in 25000..35000 -> SocketConnectionQuality.GOOD        // ~30s ±5s, moderate jitter
-                        safeJitter < 5000 && safeInterval in 20000..40000 -> SocketConnectionQuality.FAIR        // ~30s ±10s, high jitter
+                        safeJitter < 100 && safeInterval in 29900..30100 -> SocketConnectionQuality.EXCELLENT  // ~30s ±100ms, low jitter
+                        safeJitter < 200 && safeInterval in 29800..30200 -> SocketConnectionQuality.GOOD        // ~30s ±200ms, moderate jitter
+                        safeJitter < 300 && safeInterval in 29700..30300 -> SocketConnectionQuality.FAIR        // ~30s ±300ms, high jitter
                         else -> SocketConnectionQuality.POOR
                     }
                 }
