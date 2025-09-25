@@ -1067,18 +1067,19 @@ fun ConnectionState(
                 text = stringResource(if (state) R.string.connected else R.string.disconnected)
             )
             
-
-            // Show info icon for connection details
-            IconButton(
-                onClick = { onShowConnectionMetrics() },
-                modifier = Modifier.size(20.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_more_vert),
-                    contentDescription = stringResource(R.string.connection_details),
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
+            if (state) {
+                // Show info icon for connection details
+                IconButton(
+                    onClick = { onShowConnectionMetrics() },
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_more_vert),
+                        contentDescription = stringResource(R.string.connection_details),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
     }

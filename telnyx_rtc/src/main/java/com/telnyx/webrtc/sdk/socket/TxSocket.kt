@@ -197,6 +197,7 @@ class TxSocket(
                             )
                             when (jsonObject.get("method").asString) {
                                 CLIENT_READY.methodName -> {
+                                    cleanPingIntervals()
                                     listener.onClientReady(jsonObject)
                                 }
 
@@ -373,14 +374,7 @@ class TxSocket(
         isLoggedIn = false
         ongoingCall = false
         
-        // Reset connection metrics tracking
-        connectionStartTime = null
-        lastPingTimestamp = null
-        pingTimestamps.clear()
-        pingIntervals.clear()
-        missedPingCount = 0
-        expectedPingTimer?.cancel()
-        expectedPingTimer = null
+        cleanPingIntervals()
         
         if (this::webSocket.isInitialized) {
             webSocket.cancel()
@@ -475,6 +469,17 @@ class TxSocket(
             timestamp = System.currentTimeMillis(),
             lastPingTimestamp = lastPingTimestamp
         )
+    }
+
+    private fun cleanPingIntervals() {
+        // Reset connection metrics tracking
+        connectionStartTime = null
+        lastPingTimestamp = null
+        pingTimestamps.clear()
+        pingIntervals.clear()
+        missedPingCount = 0
+        expectedPingTimer?.cancel()
+        expectedPingTimer = null
     }
 
     companion object {

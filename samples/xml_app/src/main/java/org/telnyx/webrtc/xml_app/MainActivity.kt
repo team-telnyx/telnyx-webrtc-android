@@ -320,6 +320,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         // Start collecting websocket messages
                         telnyxViewModel.collectWebsocketMessages()
+
+                        binding.connectionDetailsButton.visibility = View.VISIBLE
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -342,6 +344,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         // Show menu button for region selection when disconnected
                         binding.menuButton.visibility = View.VISIBLE
+
+                        binding.connectionDetailsButton.visibility = View.INVISIBLE
                     }
                 }
             }
