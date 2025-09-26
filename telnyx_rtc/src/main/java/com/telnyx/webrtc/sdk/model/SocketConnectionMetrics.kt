@@ -57,17 +57,31 @@ data class SocketConnectionMetrics(
     fun getSuccessRate(): Float {
         val expectedPings = totalPings + missedPings
         return if (expectedPings > 0) {
-            (totalPings.toFloat() / expectedPings) * 100f
+            (totalPings.toFloat() / expectedPings) * PERCENTAGE_MULTIPLIER
         } else {
-            100f
+            FULL_SUCCESS_RATE
         }
     }
-    
-    companion object Companion {
+
+    companion object {
+        // Connection quality thresholds (milliseconds)
+        private const val EXPECTED_PING_INTERVAL_MS = 30000L // 30 seconds
+        private const val EXCELLENT_TOLERANCE_MS = 100L      // ±100ms
+        private const val GOOD_TOLERANCE_MS = 200L           // ±200ms
+        private const val FAIR_TOLERANCE_MS = 300L           // ±300ms
+
+        // Jitter thresholds (milliseconds)
+        private const val LOW_JITTER_THRESHOLD_MS = 100L
+        private const val MODERATE_JITTER_THRESHOLD_MS = 200L
+        private const val HIGH_JITTER_THRESHOLD_MS = 300L
+
+        // Success rate calculation constants
+        private const val PERCENTAGE_MULTIPLIER = 100f
+        private const val FULL_SUCCESS_RATE = 100f
         /**
          * Calculates connection quality based on available interval and jitter metrics.
          * Handles cases where we don't have enough data yet during initial connection.
-         * 
+         *
          * @param averageInterval Average time between pings (null if not enough data)
          * @param jitter Variation in ping intervals (null if not enough data)
          * @return Calculated ConnectionQuality based on available data
@@ -77,40 +91,61 @@ data class SocketConnectionMetrics(
             jitter: Long?
         ): SocketConnectionQuality {
             return when {
-                // Both null - not enough data yet
                 averageInterval == null && jitter == null -> SocketConnectionQuality.CALCULATING
-                
-                // Have interval but no jitter (first few pings) - assess based on interval only
-                averageInterval != null && jitter == null -> {
-                    when {
-                        averageInterval in 29900..30100 -> SocketConnectionQuality.EXCELLENT  // ±100ms from 30s
-                        averageInterval in 29800..30200 -> SocketConnectionQuality.GOOD       // ±200ms from 30s
-                        averageInterval in 29700..30300 -> SocketConnectionQuality.FAIR       // ±300ms from 30s
-                        else -> SocketConnectionQuality.POOR
-                    }
-                }
-                
-                // Have jitter but no interval (edge case) - assess based on jitter only
-                averageInterval == null && jitter != null -> {
-                    when {
-                        jitter < 100 -> SocketConnectionQuality.GOOD    // Low jitter is generally good
-                        jitter < 200 -> SocketConnectionQuality.FAIR    // Moderate jitter
-                        else -> SocketConnectionQuality.POOR             // High jitter
-                    }
-                }
-                
-                // Have both metrics - full assessment
-                else -> {
-                    val safeJitter = jitter!!
-                    val safeInterval = averageInterval!!
-                    when {
-                        safeJitter < 100 && safeInterval in 29900..30100 -> SocketConnectionQuality.EXCELLENT  // ~30s ±100ms, low jitter
-                        safeJitter < 200 && safeInterval in 29800..30200 -> SocketConnectionQuality.GOOD        // ~30s ±200ms, moderate jitter
-                        safeJitter < 300 && safeInterval in 29700..30300 -> SocketConnectionQuality.FAIR        // ~30s ±300ms, high jitter
-                        else -> SocketConnectionQuality.POOR
-                    }
-                }
+                averageInterval != null && jitter == null -> assessByIntervalOnly(averageInterval)
+                averageInterval == null && jitter != null -> assessByJitterOnly(jitter)
+                else -> assessByBothMetrics(averageInterval!!, jitter!!)
             }
+        }
+
+        /**
+         * Assesses connection quality based on interval metrics only.
+         */
+        private fun assessByIntervalOnly(averageInterval: Long): SocketConnectionQuality {
+            val excellentRange = createIntervalRange(EXCELLENT_TOLERANCE_MS)
+            val goodRange = createIntervalRange(GOOD_TOLERANCE_MS)
+            val fairRange = createIntervalRange(FAIR_TOLERANCE_MS)
+
+            return when {
+                averageInterval in excellentRange -> SocketConnectionQuality.EXCELLENT
+                averageInterval in goodRange -> SocketConnectionQuality.GOOD
+                averageInterval in fairRange -> SocketConnectionQuality.FAIR
+                else -> SocketConnectionQuality.POOR
+            }
+        }
+
+        /**
+         * Assesses connection quality based on jitter metrics only.
+         */
+        private fun assessByJitterOnly(jitter: Long): SocketConnectionQuality {
+            return when {
+                jitter < LOW_JITTER_THRESHOLD_MS -> SocketConnectionQuality.GOOD
+                jitter < MODERATE_JITTER_THRESHOLD_MS -> SocketConnectionQuality.FAIR
+                else -> SocketConnectionQuality.POOR
+            }
+        }
+
+        /**
+         * Assesses connection quality using both interval and jitter metrics.
+         */
+        private fun assessByBothMetrics(averageInterval: Long, jitter: Long): SocketConnectionQuality {
+            val excellentRange = createIntervalRange(EXCELLENT_TOLERANCE_MS)
+            val goodRange = createIntervalRange(GOOD_TOLERANCE_MS)
+            val fairRange = createIntervalRange(FAIR_TOLERANCE_MS)
+
+            return when {
+                jitter < LOW_JITTER_THRESHOLD_MS && averageInterval in excellentRange -> SocketConnectionQuality.EXCELLENT
+                jitter < MODERATE_JITTER_THRESHOLD_MS && averageInterval in goodRange -> SocketConnectionQuality.GOOD
+                jitter < HIGH_JITTER_THRESHOLD_MS && averageInterval in fairRange -> SocketConnectionQuality.FAIR
+                else -> SocketConnectionQuality.POOR
+            }
+        }
+
+        /**
+         * Creates an interval range based on the expected ping interval and tolerance.
+         */
+        private fun createIntervalRange(toleranceMs: Long): LongRange {
+            return (EXPECTED_PING_INTERVAL_MS - toleranceMs)..(EXPECTED_PING_INTERVAL_MS + toleranceMs)
         }
     }
 }

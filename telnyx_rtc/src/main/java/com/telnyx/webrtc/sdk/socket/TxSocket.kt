@@ -53,13 +53,10 @@ class TxSocket(
     // Connection metrics tracking
     private val pingTimestamps = mutableListOf<Long>()
     private val pingIntervals = mutableListOf<Long>()
-    private val maxPingHistorySize = 30 // Keep last 30 ping intervals
     private var lastPingTimestamp: Long? = null
     private var connectionStartTime: Long? = null
     private var expectedPingTimer: Timer? = null
     private var missedPingCount = 0
-    private val expectedPingIntervalMs = 30000L // Expected interval between pings (30 seconds)
-    private val pingToleranceMs = 500L // Tolerance for ping timing (500ms leeway)
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -396,7 +393,7 @@ class TxSocket(
             pingIntervals.add(interval)
             
             // Keep only recent intervals
-            while (pingIntervals.size > maxPingHistorySize) {
+            while (pingIntervals.size > MAX_PING_HISTORY_SIZE_VALUE) {
                 pingIntervals.removeAt(0)
             }
         }
@@ -404,7 +401,7 @@ class TxSocket(
         // Track timestamp
         lastPingTimestamp = currentTime
         pingTimestamps.add(currentTime)
-        while (pingTimestamps.size > maxPingHistorySize) {
+        while (pingTimestamps.size > MAX_PING_HISTORY_SIZE_VALUE) {
             pingTimestamps.removeAt(0)
         }
         
@@ -422,9 +419,9 @@ class TxSocket(
             timerTask {
                 // If this fires, we missed an expected ping (with tolerance)
                 missedPingCount++
-                Logger.w(message = "Expected ping not received within ${expectedPingIntervalMs + pingToleranceMs}ms")
+                Logger.w(message = "Expected ping not received within ${EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE}ms")
             },
-            expectedPingIntervalMs + pingToleranceMs
+            EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE
         )
     }
     
@@ -484,5 +481,10 @@ class TxSocket(
 
     companion object {
         const val STATE_ATTACHED = "ATTACHED"
+
+        // Ping tracking constants
+        private const val MAX_PING_HISTORY_SIZE_VALUE = 30
+        private const val EXPECTED_PING_INTERVAL_MS_VALUE = 30000L
+        private const val PING_TOLERANCE_MS_VALUE = 500L
     }
 }
