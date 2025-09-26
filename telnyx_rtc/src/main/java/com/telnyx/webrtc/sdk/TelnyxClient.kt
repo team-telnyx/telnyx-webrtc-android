@@ -84,7 +84,6 @@ class TelnyxClient(
         UNASSIGNED
     }
 
-    
 
     /**
      * Companion object containing constant values used throughout the client.
@@ -225,7 +224,8 @@ class TelnyxClient(
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
 
     // Keeps track of pending ICE candidates that arrive before remote description is set
-    private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> = mutableMapOf()
+    private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> =
+        mutableMapOf()
 
     // Transcript management for AI conversations
     private val _transcript = mutableListOf<TranscriptItem>()
@@ -727,12 +727,15 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
-        
+
         // Clean up any pending ICE candidates for this call
         synchronized(pendingIceCandidates) {
             val removedCandidates = pendingIceCandidates.remove(callId)
             removedCandidates?.let {
-                Logger.d(tag = "removeFromCalls", message = "Cleaned up ${it.size} pending ICE candidates for ended call $callId")
+                Logger.d(
+                    tag = "removeFromCalls",
+                    message = "Cleaned up ${it.size} pending ICE candidates for ended call $callId"
+                )
             }
         }
     }
@@ -764,7 +767,7 @@ class TelnyxClient(
             )
             reconnecting = true
 
-            Handler(Looper.getMainLooper()).postDelayed( {
+            Handler(Looper.getMainLooper()).postDelayed({
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
@@ -913,6 +916,14 @@ class TelnyxClient(
      */
     fun getUseTrickleIce(): Boolean {
         return useTrickleIce
+    }
+
+    /**
+     * Set the flag to indicate whether to use trickle ICE
+     * @param enabled The new value for useTrickleIce
+     */
+    internal fun setUseTrickleIce(enabled: Boolean) {
+        this.useTrickleIce = enabled
     }
 
     /**
@@ -2356,8 +2367,11 @@ class TelnyxClient(
         synchronized(pendingIceCandidates) {
             val candidates = pendingIceCandidates.remove(callId)
             candidates?.let { queuedCandidates ->
-                Logger.d(tag = "processQueuedIceCandidates", message = "Processing ${queuedCandidates.size} queued ICE candidates for call $callId")
-                
+                Logger.d(
+                    tag = "processQueuedIceCandidates",
+                    message = "Processing ${queuedCandidates.size} queued ICE candidates for call $callId"
+                )
+
                 val call = calls[callId]
                 call?.let {
                     queuedCandidates.forEach { pendingCandidate ->
@@ -2379,11 +2393,23 @@ class TelnyxClient(
                             finalCandidateString
                         )
                         it.peerConnection?.addIceCandidate(iceCandidate)
-                        Logger.d(tag = "processQueuedIceCandidates", message = "Added queued ICE candidate for call $callId: ${pendingCandidate.candidateString}")
+                        Logger.d(
+                            tag = "processQueuedIceCandidates",
+                            message = "Added queued ICE candidate for call $callId: ${pendingCandidate.candidateString}"
+                        )
                     }
-                    Logger.d(tag = "processQueuedIceCandidates", message = "Successfully processed all queued ICE candidates for call $callId")
-                } ?: Logger.w(tag = "processQueuedIceCandidates", message = "No call found for ID: $callId while processing queued candidates")
-            } ?: Logger.d(tag = "processQueuedIceCandidates", message = "No queued ICE candidates to process for call $callId")
+                    Logger.d(
+                        tag = "processQueuedIceCandidates",
+                        message = "Successfully processed all queued ICE candidates for call $callId"
+                    )
+                } ?: Logger.w(
+                    tag = "processQueuedIceCandidates",
+                    message = "No call found for ID: $callId while processing queued candidates"
+                )
+            } ?: Logger.d(
+                tag = "processQueuedIceCandidates",
+                message = "No queued ICE candidates to process for call $callId"
+            )
         }
     }
 
@@ -3040,26 +3066,38 @@ class TelnyxClient(
             val params = jsonObject.get("params").asJsonObject
 
             if (CandidateUtils.hasRequiredCandidateFields(params)) {
-                val candidateString = CandidateUtils.normalizeCandidateString(params.get("candidate").asString)
+                val candidateString =
+                    CandidateUtils.normalizeCandidateString(params.get("candidate").asString)
                 val sdpMid = params.get("sdpMid").asString
                 val sdpMLineIndex = params.get("sdpMLineIndex").asInt
 
                 val callId = CandidateUtils.extractCallIdFromCandidate(params)
-                
+
                 // Process the candidate if we found a call ID
                 callId?.let { id: UUID ->
                     processAndQueueCandidate(id, sdpMid, sdpMLineIndex, candidateString)
-                } ?: Logger.w(tag = "onCandidateReceived", message = "Could not extract call ID from candidate message")
+                } ?: Logger.w(
+                    tag = "onCandidateReceived",
+                    message = "Could not extract call ID from candidate message"
+                )
             } else {
-                Logger.w(tag = "onCandidateReceived", message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)")
+                Logger.w(
+                    tag = "onCandidateReceived",
+                    message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)"
+                )
             }
         }
     }
-    
+
     /**
      * Processes and queues the ICE candidate for the specified call.
      */
-    private fun processAndQueueCandidate(callId: UUID, sdpMid: String, sdpMLineIndex: Int, candidateString: String) {
+    private fun processAndQueueCandidate(
+        callId: UUID,
+        sdpMid: String,
+        sdpMLineIndex: Int,
+        candidateString: String
+    ) {
         val call = calls[callId]
         call?.let {
             // Create pending ICE candidate and queue it instead of immediately adding
@@ -3077,7 +3115,10 @@ class TelnyxClient(
             synchronized(pendingIceCandidates) {
                 val candidates = pendingIceCandidates.getOrPut(callId) { mutableListOf() }
                 candidates.add(pendingCandidate)
-                Logger.d(tag = "onCandidateReceived", message = "Queued ICE candidate for call $callId. Total queued: ${candidates.size}")
+                Logger.d(
+                    tag = "onCandidateReceived",
+                    message = "Queued ICE candidate for call $callId. Total queued: ${candidates.size}"
+                )
             }
         } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $callId")
     }

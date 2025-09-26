@@ -250,7 +250,7 @@ internal class Peer(
                     }
                 } else {
                     // Traditional ICE: Only process if call is not ACTIVE or RENEGOTIATING yet
-                    val currentCallState = client.calls[callId]?.getCallState()?.value
+                    val currentCallState = client.calls[callId]?.callStateFlow?.value
 
                     // Allow ICE candidates when:
                     // 1. Call is NOT active (for initial invites/answers)
@@ -772,6 +772,9 @@ internal class Peer(
 
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
+
+        // turn off IceTrickle, as it is not required for renegotiation:
+        client.setUseTrickleIce(false)
 
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
