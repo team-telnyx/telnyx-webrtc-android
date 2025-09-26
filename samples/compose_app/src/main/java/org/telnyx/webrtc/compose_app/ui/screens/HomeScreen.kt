@@ -1081,7 +1081,7 @@ fun ConnectionState(
                 }
             )
             
-            if (state) {
+            if (connectionStatus != ConnectionStatus.DISCONNECTED) {
                 // Show info icon for connection details
                 IconButton(
                     onClick = { onShowConnectionMetrics() },
