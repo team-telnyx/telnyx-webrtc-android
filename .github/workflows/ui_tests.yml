@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
       inputs:
         branch:
@@ -18,7 +19,8 @@ jobs:
   ui-tests:
     name: Run UI Tests on Firebase Test Lab
     runs-on: ubuntu-latest
-    
+    # Skip UI tests for draft PRs to reduce Firebase test quota usage
+    if: github.event.pull_request.draft != true
     steps:
       - uses: actions/checkout@v3
 
