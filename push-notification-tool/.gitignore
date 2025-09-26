@@ -1,0 +1,14 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Configuration files (contains sensitive keys)
+last-config.json
+
+# Runtime files
+*.log
+.DS_Store
+.env
+.env.local
