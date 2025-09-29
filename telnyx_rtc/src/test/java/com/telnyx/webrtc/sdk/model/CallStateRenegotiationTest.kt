@@ -3,7 +3,8 @@ package com.telnyx.webrtc.sdk.model
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
-import org.junit.Test
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -13,6 +14,7 @@ import kotlin.test.assertNotNull
  * Unit tests for CallState.RENEGOTIATING functionality.
  * Tests the new RENEGOTIATING state added for ICE renegotiation support.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class CallStateRenegotiationTest : BaseTest() {
 
@@ -74,12 +76,6 @@ class CallStateRenegotiationTest : BaseTest() {
             CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)
         )
 
-        // Act
-        val stateValues = allStates.map { it.value }
-
-        // Assert - all state values should be unique (except DONE, DROPPED, RECONNECTING which can have different instances)
-        val uniqueValues = stateValues.toSet()
-        
         // We expect at least the object states to be unique
         val objectStates = listOf(
             CallState.NEW.value,

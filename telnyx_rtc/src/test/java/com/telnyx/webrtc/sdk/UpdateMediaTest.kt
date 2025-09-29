@@ -1,7 +1,6 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
-import android.media.AudioManager
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -17,9 +16,9 @@ import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
-import org.junit.Before
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.junit.jupiter.api.BeforeEach
 import org.junit.Rule
-import org.junit.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.rules.TestRule
 import java.util.*
@@ -31,6 +30,7 @@ import kotlin.test.assertNotNull
  * Tests cover sending updateMedia messages and processing updateMedia responses
  * for ICE renegotiation functionality.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class UpdateMediaTest : BaseTest() {
 
@@ -46,9 +46,6 @@ class UpdateMediaTest : BaseTest() {
     @RelaxedMockK
     private lateinit var mockPeer: Peer
 
-    @RelaxedMockK
-    private lateinit var mockAudioManager: AudioManager
-
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
 
@@ -56,7 +53,7 @@ class UpdateMediaTest : BaseTest() {
     private val testCallId = UUID.randomUUID()
     private val testSessid = "test-session-id"
 
-    @Before
+    @BeforeEach
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
@@ -82,7 +79,7 @@ class UpdateMediaTest : BaseTest() {
         every { mockPeer.handleUpdateMediaResponse(any()) } just Runs
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test sendUpdateMediaMessage creates correct modify message`() {
         // Arrange
         val testSdp = "v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\n..."
@@ -105,7 +102,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(testCallId, params.dialogParams.callId)
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test sendUpdateMediaMessage with empty SDP`() {
         // Arrange
         val emptySdp = ""
@@ -122,7 +119,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(emptySdp, params.sdp)
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test sendUpdateMediaMessage with complex SDP containing ICE candidates`() {
         // Arrange
         val complexSdp = """
@@ -157,7 +154,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(complexSdp, params.sdp)
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived processes updateMedia response successfully`() {
         // Arrange
         val testRemoteSdp = "v=0\r\no=- 987654321 2 IN IP4 10.0.0.1\r\n..."
@@ -178,7 +175,7 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer.handleUpdateMediaResponse(testRemoteSdp) }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived handles missing call gracefully`() {
         // Arrange
         val nonExistentCallId = UUID.randomUUID()
@@ -199,7 +196,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived handles missing peer gracefully`() {
         // Arrange
         every { mockCall.peerConnection } returns null
@@ -221,7 +218,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived handles malformed JSON gracefully`() {
         // Arrange
         val malformedJson = JsonObject().apply {
@@ -235,7 +232,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived handles missing result object gracefully`() {
         // Arrange
         val jsonWithoutResult = JsonObject().apply {
@@ -250,7 +247,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test onModifyReceived processes multiple updateMedia responses`() {
         // Arrange
         val testCallId2 = UUID.randomUUID()
@@ -280,7 +277,7 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer2.handleUpdateMediaResponse("sdp2") }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test updateMedia response with different action types`() {
         // Arrange - test with non-updateMedia action
         val otherActionResponse = JsonObject().apply {
@@ -299,7 +296,7 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer.handleUpdateMediaResponse("test-sdp") }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test sendUpdateMediaMessage generates unique message IDs`() {
         // Arrange
         val testSdp = "test-sdp"
@@ -318,7 +315,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(3, messageIds.toSet().size) // All IDs should be unique
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     fun `test updateMedia response parsing with special characters in SDP`() {
         // Arrange
         val sdpWithSpecialChars = "v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\ns=Test \"Session\" with 'quotes'\r\n"

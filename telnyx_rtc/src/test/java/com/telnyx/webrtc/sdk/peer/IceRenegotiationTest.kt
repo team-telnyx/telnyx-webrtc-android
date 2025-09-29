@@ -1,12 +1,10 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
-import android.media.AudioManager
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
-import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
@@ -17,9 +15,10 @@ import com.telnyx.webrtc.lib.SessionDescription
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
-import org.junit.Before
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.junit.jupiter.api.BeforeEach
 import org.junit.Rule
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.rules.TestRule
 import java.util.*
@@ -31,6 +30,7 @@ import kotlin.test.assertNotNull
  * Tests cover ICE state transitions, renegotiation process, error handling,
  * and call state management during ICE restart scenarios.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class IceRenegotiationTest : BaseTest() {
 
@@ -41,16 +41,10 @@ class IceRenegotiationTest : BaseTest() {
     private lateinit var mockTelnyxClient: TelnyxClient
 
     @RelaxedMockK
-    private lateinit var mockTxSocket: TxSocket
-
-    @RelaxedMockK
     private lateinit var mockCall: Call
 
     @RelaxedMockK
     private lateinit var mockPeerConnection: PeerConnection
-
-    @RelaxedMockK
-    private lateinit var mockAudioManager: AudioManager
 
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
@@ -58,7 +52,7 @@ class IceRenegotiationTest : BaseTest() {
     private lateinit var peer: Peer
     private val testCallId = UUID.randomUUID()
 
-    @Before
+    @BeforeEach
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
@@ -96,7 +90,6 @@ class IceRenegotiationTest : BaseTest() {
     @Test
     fun `test ICE state transition from DISCONNECTED to FAILED triggers renegotiation`() {
         // Arrange
-        val previousState = PeerConnection.IceConnectionState.DISCONNECTED
         val newState = PeerConnection.IceConnectionState.FAILED
 
         // Mock the private method call
@@ -116,7 +109,6 @@ class IceRenegotiationTest : BaseTest() {
     @Test
     fun `test startIceRenegotiation sets call state to RENEGOTIATING`() {
         // Arrange
-        val mockSdpObserver = mockk<SdpObserver>(relaxed = true)
         val mockSessionDescription = mockk<SessionDescription> {
             every { description } returns "test-sdp"
             every { type } returns SessionDescription.Type.OFFER
