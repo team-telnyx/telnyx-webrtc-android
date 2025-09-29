@@ -62,19 +62,6 @@ class CallStateRenegotiationTest : BaseTest() {
 
     @Test
     fun `test all call states have unique values`() {
-        // Arrange
-        val allStates = listOf(
-            CallState.NEW,
-            CallState.CONNECTING,
-            CallState.RINGING,
-            CallState.ACTIVE,
-            CallState.RENEGOTIATING,
-            CallState.HELD,
-            CallState.DONE(),
-            CallState.ERROR,
-            CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST),
-            CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)
-        )
 
         // We expect at least the object states to be unique
         val objectStates = listOf(
