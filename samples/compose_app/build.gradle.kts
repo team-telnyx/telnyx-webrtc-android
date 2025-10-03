@@ -5,19 +5,19 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("plugin.serialization") version "1.7.10"
 }
 
 android {
     namespace = "org.telnyx.webrtc.compose_app"
-    compileSdk = 35
+    compileSdk = 33
 
     buildFeatures.buildConfig  = true
 
     defaultConfig {
         applicationId = "org.telnyx.webrtc.compose_app"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 33
         versionCode = 16
         versionName = "16"
 
@@ -58,7 +58,7 @@ android {
         jvmTarget = "11"
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.13" // Use the latest version compatible with your Kotlin version
+        kotlinCompilerExtensionVersion = "1.3.0" // Compatible with Kotlin 1.7.10
     }
     buildFeatures {
         compose = true
@@ -67,38 +67,39 @@ android {
 
 dependencies {
 
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.activity:activity-compose:1.10.0")
-    implementation(platform("androidx.compose:compose-bom:2024.04.01"))
+    implementation("androidx.core:core-ktx:1.9.0")
+    implementation("androidx.appcompat:appcompat:1.5.1")
+    implementation("com.google.android.material:material:1.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.5.1")
+    implementation("androidx.activity:activity-compose:1.6.1")
+    implementation(platform("androidx.compose:compose-bom:2022.12.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.compose.material:material:1.3.1") // For ModalBottomSheetLayout
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.5.1")
     implementation(project(":telnyx_common"))
     implementation("com.jakewharton.timber:timber:4.5.1")
-    implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
-    implementation("com.google.code.gson:gson:2.12.0")
+    implementation("com.google.firebase:firebase-messaging-ktx:23.1.0")
+    implementation("com.google.code.gson:gson:2.9.1")
 
-    implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
-    androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
+    implementation("androidx.compose.runtime:runtime-livedata:1.3.2")
+    androidTestImplementation("androidx.navigation:navigation-testing:2.5.3")
 
     //permissions
     implementation("com.karumi:dexter:6.2.2")
 
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.04.01"))
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2022.12.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    val nav_version = "2.8.7"
+    val nav_version = "2.5.3"
     implementation("androidx.navigation:navigation-compose:$nav_version")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     
     // Reorderable list for codec selection
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")

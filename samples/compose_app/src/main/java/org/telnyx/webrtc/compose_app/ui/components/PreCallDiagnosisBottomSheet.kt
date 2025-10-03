@@ -2,11 +2,16 @@ package org.telnyx.webrtc.compose_app.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,52 +30,58 @@ import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
+    ExperimentalAnimationApi::class
+)
 @Composable
 fun PreCallDiagnosisBottomSheet(
     preCallDiagnosisState: TelnyxPrecallDiagnosisState?,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val sheetState = rememberModalBottomSheetState(
+        initialValue = ModalBottomSheetValue.Expanded,
+        skipHalfExpanded = true
+    )
     val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxSize(),
-        onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(Dimens.mediumSpacing)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+    LaunchedEffect(sheetState.currentValue) {
+        if (sheetState.currentValue == ModalBottomSheetValue.Hidden) {
+            onDismiss()
+        }
+    }
+
+    ModalBottomSheetLayout(
+        sheetState = sheetState,
+        sheetBackgroundColor = Color.White,
+        sheetContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimens.mediumSpacing)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
-                RegularText(text = stringResource(R.string.precall_diagnosis_report_title),
-                    size = Dimens.textSize16sp,
-                    fontWeight = FontWeight.SemiBold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    RegularText(text = stringResource(R.string.precall_diagnosis_report_title),
+                        size = Dimens.textSize16sp,
+                        fontWeight = FontWeight.SemiBold)
 
-                Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                IconButton(onClick = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onDismiss()
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
                         }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc)
+                        )
                     }
-                }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = stringResource(id = R.string.close_button_dessc)
-                    )
                 }
-            }
 
             var preCallDiagnosisResult by remember { mutableStateOf<PreCallDiagnosis?>(null) }
 
@@ -208,7 +219,10 @@ fun PreCallDiagnosisBottomSheet(
                     }
                 }
             }
+            }
         }
+    ) {
+        // Empty main content - bottom sheet is the focus
     }
 }
 

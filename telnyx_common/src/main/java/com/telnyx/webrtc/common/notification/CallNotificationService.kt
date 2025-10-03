@@ -185,16 +185,21 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             // The screen is unlocked. Build a call style notification with a full-screen intent.
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_contact_phone)
+                .setContentTitle("Incoming Call")
+                .setContentText(txPushMetaData.callerName)
                 .setOngoing(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setStyle(
-                    NotificationCompat.CallStyle.forIncomingCall(
-                        caller,
-                        rejectPendingIntent,
-                        answerPendingIntent
-                    )
-                )
+                // CallStyle requires androidx.core 1.10+ (compileSdk 34+), commented out for Kotlin 1.7.10 compatibility
+                // .setStyle(
+                //     NotificationCompat.CallStyle.forIncomingCall(
+                //         caller,
+                //         rejectPendingIntent,
+                //         answerPendingIntent
+                //     )
+                // )
+                .addAction(R.drawable.ic_call_end_white, "Reject", rejectPendingIntent)
+                .addAction(R.drawable.ic_call_white, "Answer", answerPendingIntent)
                 .setFullScreenIntent(fullScreenPendingIntent, true)
                 .build()
         }
@@ -260,16 +265,20 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
         // Build notification
         return NotificationCompat.Builder(context, CHANNEL_ONGOING_ID)
             .setSmallIcon(R.drawable.ic_stat_contact_phone)
+            .setContentTitle("Ongoing Call")
+            .setContentText(txPushMetaData.callerName)
             .setFullScreenIntent(fullScreenPendingIntent, false)
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setStyle(
-                NotificationCompat.CallStyle.forOngoingCall(
-                    caller,
-                    endCallPendingIntent
-                )
-            )
+            // CallStyle requires androidx.core 1.10+ (compileSdk 34+), commented out for Kotlin 1.7.10 compatibility
+            // .setStyle(
+            //     NotificationCompat.CallStyle.forOngoingCall(
+            //         caller,
+            //         endCallPendingIntent
+            //     )
+            // )
+            .addAction(R.drawable.ic_call_end_white, "End Call", endCallPendingIntent)
             .build()
     }
 

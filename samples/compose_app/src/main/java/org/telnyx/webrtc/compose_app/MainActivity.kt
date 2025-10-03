@@ -9,9 +9,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     // State for showing websocket messages bottom sheet
     val showWsMessagesBottomSheet: MutableState<Boolean> = mutableStateOf(false)
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super<ComponentActivity>.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
@@ -52,7 +53,6 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             handleCallNotification(intent)
         }
 
-        enableEdgeToEdge()
         setContent {
             TelnyxAndroidWebRTCSDKTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -135,9 +135,6 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         // Conditionally add permissions based on the API level.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT >= 34) { // Only available on Android 14 and above.
-            permissions.add(android.Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
         }
 
         // Now use Dexter to check the permissions.

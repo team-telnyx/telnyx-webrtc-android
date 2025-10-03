@@ -6,8 +6,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,18 +32,27 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
 @Composable
 fun AssistantTranscriptBottomSheet(
     telnyxViewModel: TelnyxViewModel,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val sheetState = rememberModalBottomSheetState(
+        initialValue = ModalBottomSheetValue.Expanded,
+        skipHalfExpanded = true
+    )
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var messageText by remember { mutableStateOf("") }
     val transcriptItems by telnyxViewModel.transcriptMessages?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<TranscriptItem>()) }
     val listState = rememberLazyListState()
+
+    LaunchedEffect(sheetState.currentValue) {
+        if (sheetState.currentValue == ModalBottomSheetValue.Hidden) {
+            onDismiss()
+        }
+    }
 
     val sendMessage = {
         if (messageText.isNotBlank()) {
@@ -49,7 +61,7 @@ fun AssistantTranscriptBottomSheet(
                 message = messageText.trim()
             )
             messageText = ""
-            
+
             // Scroll to bottom after message is sent
             scope.launch {
                 kotlinx.coroutines.delay(100)
@@ -60,42 +72,36 @@ fun AssistantTranscriptBottomSheet(
         }
     }
 
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxSize(),
-        onDismissRequest = {
-            onDismiss.invoke()
-        },
-        containerColor = Color.White,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+    ModalBottomSheetLayout(
+        sheetState = sheetState,
+        sheetBackgroundColor = Color.White,
+        sheetContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
-                MediumTextBold(
-                    text = stringResource(R.string.assistant_transcript),
-                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
-                )
-                IconButton(onClick = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onDismiss.invoke()
-                        }
-                    }
-                }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.close_button_dessc),
-                        modifier = Modifier.size(Dimens.size16dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = stringResource(R.string.assistant_transcript),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                     )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
                 }
-            }
 
             // Transcript list
             LazyColumn(
@@ -128,8 +134,7 @@ fun AssistantTranscriptBottomSheet(
                         imeAction = ImeAction.Send
                     ),
                     keyboardActions = KeyboardActions(
-                        onSend = { sendMessage() },
-                        onDone = { sendMessage() }
+                        onSend = { sendMessage() }
                     ),
                     maxLines = 3
                 )
@@ -141,14 +146,17 @@ fun AssistantTranscriptBottomSheet(
                     enabled = messageText.isNotBlank()
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        imageVector = Icons.Default.Send,
                         contentDescription = stringResource(R.string.assistant_send)
                     )
                 }
             }
         }
+        }
+    ) {
+        // Empty main content - bottom sheet is the focus
     }
-    
+
     // Auto-scroll to bottom when new items are added
     LaunchedEffect(transcriptItems.size) {
         if (transcriptItems.isNotEmpty()) {

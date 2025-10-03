@@ -5,6 +5,7 @@ import android.media.ToneGenerator
 import android.media.ToneGenerator.*
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,11 +36,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,6 +99,7 @@ import org.telnyx.webrtc.compose_app.ui.screens.CallHistoryBottomSheet
 
 private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun CallScreen(telnyxViewModel: TelnyxViewModel) {
     val context = LocalContext.current
@@ -157,7 +160,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
         var isPhoneNumber by remember { mutableStateOf(false) }
 
         // Add the toggle button at the top - only show when not using Assistant Login
-        AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
+        AnimatedContent(targetState = callUIState) { callState ->
             if (callState == CallUIState.IDLE && !telnyxViewModel.isAnonymouslyConnected) {
                 DestinationTypeSwitcher(isPhoneNumber) {
                     isPhoneNumber = it
@@ -165,7 +168,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
         }
 
-        AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
+        AnimatedContent(targetState = callUIState) { callState ->
             if (callState != CallUIState.INCOMING && !telnyxViewModel.isAnonymouslyConnected) {
                 OutlinedEdiText(
                     text = destinationNumber,
@@ -187,7 +190,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             contentAlignment = Alignment.Center
         ) {
 
-            AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
+            AnimatedContent(targetState = callUIState)  { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
                         Column(
@@ -392,7 +395,7 @@ fun CallMetricsState(metrics: CallQualityMetrics, onClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
 @Composable
 fun CallQualityMetricsBottomSheet(
     metrics: CallQualityMetrics,
@@ -400,54 +403,56 @@ fun CallQualityMetricsBottomSheet(
     outboundLevels: List<Float>,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val sheetState = rememberModalBottomSheetState(
+        initialValue = ModalBottomSheetValue.Expanded,
+        skipHalfExpanded = true
+    )
     val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxSize(),
-        onDismissRequest = {
+    LaunchedEffect(sheetState.currentValue) {
+        if (sheetState.currentValue == ModalBottomSheetValue.Hidden) {
             onDismiss.invoke()
-        },
-        containerColor = Color.White,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                MediumTextBold(
-                    text = stringResource(id = R.string.call_quality_metrics_title),
-                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
-                )
-                IconButton(onClick = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onDismiss.invoke()
-                        }
-                    }
-                }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = stringResource(id = R.string.close_button_dessc),
-                        modifier = Modifier.size(Dimens.size16dp)
-                    )
-                }
-            }
-
-            // Display detailed call quality metrics
-            CallQualityDisplay(
-                metrics = metrics,
-                inboundLevels = inboundLevels,
-                outboundLevels = outboundLevels
-            )
         }
     }
+
+    ModalBottomSheetLayout(
+        sheetState = sheetState,
+        sheetBackgroundColor = Color.White,
+        sheetContent = {
+            Column(
+                modifier = Modifier.padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = stringResource(id = R.string.call_quality_metrics_title),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
+                }
+
+                // Display detailed call quality metrics
+                CallQualityDisplay(
+                    metrics = metrics,
+                    inboundLevels = inboundLevels,
+                    outboundLevels = outboundLevels
+                )
+            }
+        }
+    ) {}
 }
 
 @Composable
@@ -513,76 +518,78 @@ fun HomeButton(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
 @Composable
 fun DialpadSection(onKeyPress: (String) -> Unit, onDismiss: () -> Unit) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val sheetState = rememberModalBottomSheetState(
+        initialValue = ModalBottomSheetValue.Expanded,
+        skipHalfExpanded = true
+    )
     val scope = rememberCoroutineScope()
 
     var selectedNumbers by remember { mutableStateOf("") }
 
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-        onDismissRequest = {
+    LaunchedEffect(sheetState.currentValue) {
+        if (sheetState.currentValue == ModalBottomSheetValue.Hidden) {
             onDismiss.invoke()
-        },
-        containerColor = Color.White,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing),
-            verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
-        ) {
+        }
+    }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                MediumTextBold(
-                    text = stringResource(id = R.string.dtmf_dialpad),
-                    modifier = Modifier.fillMaxWidth(fraction = 0.9f)
-                )
-                IconButton(onClick = {
-                    scope.launch {
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onDismiss.invoke()
-                        }
-                    }
-                }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = stringResource(id = R.string.close_button_dessc)
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+    ModalBottomSheetLayout(
+        sheetState = sheetState,
+        sheetBackgroundColor = Color.White,
+        sheetContent = {
+            Column(
+                modifier = Modifier.padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
 
-                OutlinedEdiText(
-                    text = selectedNumbers,
-                    hint = stringResource(R.string.dtmf_dialpad),
-                    modifier = Modifier.fillMaxWidth(),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    selectedNumbers = it
+                    MediumTextBold(
+                        text = stringResource(id = R.string.dtmf_dialpad),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc)
+                        )
+                    }
                 }
-            }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                NumericKeyboard() { key ->
-                    selectedNumbers += key
-                    onKeyPress(key)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    OutlinedEdiText(
+                        text = selectedNumbers,
+                        hint = stringResource(R.string.dtmf_dialpad),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        selectedNumbers = it
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NumericKeyboard() { key ->
+                        selectedNumbers += key
+                        onKeyPress(key)
+                    }
                 }
             }
         }
-    }
+    ) {}
 }
 
 @Composable
@@ -691,6 +698,7 @@ private enum class CallUIState {
     ACTIVE
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun CallScreenPreview() {

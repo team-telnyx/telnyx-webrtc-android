@@ -11,7 +11,6 @@ import android.view.MotionEvent
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -71,7 +70,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             handleCallNotification(intent)
         }
 
-        enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -548,9 +546,6 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Conditionally add permissions based on the API level.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT >= 34) { // Only available on Android 14 and above.
-            permissions.add(android.Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
         }
 
         // Now use Dexter to check the permissions.

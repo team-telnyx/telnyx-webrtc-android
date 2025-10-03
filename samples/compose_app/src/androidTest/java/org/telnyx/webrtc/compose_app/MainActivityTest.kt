@@ -5,7 +5,6 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
@@ -64,7 +63,12 @@ class MainActivityTest {
         composeTestRule.onNodeWithText(context.getString(R.string.connect)).performClick()
 
         composeTestRule.waitUntil(15000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).isDisplayed()
+            try {
+                composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
         }
 
         composeTestRule.onNodeWithTag("callInput").assertIsDisplayed()
@@ -78,7 +82,12 @@ class MainActivityTest {
         composeTestRule.waitForIdle()
 
         composeTestRule.waitUntil(40000) {
-            composeTestRule.onNodeWithTag("callActiveView").isDisplayed()
+            try {
+                composeTestRule.onNodeWithTag("callActiveView").assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
         }
 
         composeTestRule.onNodeWithTag("mute").performScrollTo().performClick()
@@ -123,7 +132,12 @@ class MainActivityTest {
 
         composeTestRule.waitForIdle()
         composeTestRule.waitUntil(40000) {
-            composeTestRule.onNodeWithTag("profileList").isDisplayed()
+            try {
+                composeTestRule.onNodeWithTag("profileList").assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
         }
 
         composeTestRule.onNodeWithTag("profileList").onChildAt(0).performClick()
@@ -131,9 +145,9 @@ class MainActivityTest {
     }
 
     private fun createTestNavGraph(navController: NavHostController): NavGraph {
-        return navController.createGraph(startDestination = LoginScreenNav) {
-            composable<LoginScreenNav> { }
-            composable<CallScreenNav> { }
+        return navController.createGraph(startDestination = LoginScreenNav.toString()) {
+            composable(LoginScreenNav.toString()) { }
+            composable(CallScreenNav.toString()) { }
         }.apply {
             id = View.generateViewId()
         }

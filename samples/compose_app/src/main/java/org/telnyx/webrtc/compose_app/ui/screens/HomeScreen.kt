@@ -35,10 +35,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -50,7 +48,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,13 +72,11 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
-import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.telnyx.webrtc.compose_app.BuildConfig
 import org.telnyx.webrtc.compose_app.R
@@ -102,7 +97,7 @@ import timber.log.Timber
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
-import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
+import org.telnyx.webrtc.compose_app.ui.theme.background_color
 
 @Serializable
 object LoginScreenNav
@@ -119,8 +114,6 @@ fun HomeScreen(
     onCopyFcmToken: () -> Unit = {},
     onDisablePushNotifications: () -> Unit = {}
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
-    val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
@@ -489,8 +482,8 @@ fun HomeScreen(
 
             SessionItem(sessionId = sessionId)
 
-            NavHost(navController = navController, startDestination = LoginScreenNav) {
-                composable<LoginScreenNav> {
+            NavHost(navController = navController, startDestination = LoginScreenNav.toString()) {
+                composable(LoginScreenNav.toString()) {
                     ProfileSwitcher(
                         profileName = currentConfig?.callerIdName
                             ?: stringResource(R.string.missing_profile)
@@ -498,7 +491,7 @@ fun HomeScreen(
                         showLoginBottomSheet = true
                     }
                 }
-                composable<CallScreenNav> {
+                composable(CallScreenNav.toString()) {
                     CallScreen(telnyxViewModel)
                 }
             }
@@ -521,137 +514,124 @@ fun HomeScreen(
                 telnyxViewModel.makePreCallDiagnosis(context, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
             }
         }
+    }
 
-        if (showLoginBottomSheet) {
-            ModalBottomSheet(
-                modifier = Modifier.fillMaxSize(),
-                onDismissRequest = {
-                    showLoginBottomSheet = false
-                },
-                containerColor = Color.White,
-                sheetState = sheetState
+    // Login bottom sheet - placed outside Scaffold to overlay everything
+    if (showLoginBottomSheet) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(background_color)
+                .clickable(enabled = false) {} // Consume touch events to prevent clicks from passing through
+        ) {
+            var isAddProfile by remember { mutableStateOf(false) }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(Dimens.mediumSpacing),
+                verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
-                var isAddProfile by remember { mutableStateOf(false) }
 
-                Column(
-                    modifier = Modifier.padding(Dimens.mediumSpacing),
-                    verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        MediumTextBold(
-                            text = stringResource(id = R.string.existing_profiles),
-                            modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    MediumTextBold(
+                        text = stringResource(id = R.string.existing_profiles),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        selectedUserProfile = telnyxViewModel.currentProfile.value
+                        showLoginBottomSheet = false
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
                         )
-                        IconButton(onClick = {
-                            scope.launch {
-                                sheetState.hide()
-                                selectedUserProfile = telnyxViewModel.currentProfile.value
-                            }.invokeOnCompletion {
-                                if (!sheetState.isVisible) {
-                                    showLoginBottomSheet = false
-                                }
-                            }
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_close),
-                                contentDescription = stringResource(id = R.string.close_button_dessc),
-                                modifier = Modifier.size(Dimens.size16dp)
-                            )
-                        }
                     }
+                }
 
-                    RoundSmallButton(
-                        modifier = Modifier.height(Dimens.size32dp),
-                        text = stringResource(id = R.string.add_new_profile),
-                        textSize = 12.sp,
-                        backgroundColor = secondary_background_color,
-                        icon = painterResource(R.drawable.ic_add),
-                        iconContentDescription = stringResource(R.string.add_new_profile)
-                    ) {
-                        editableUserProfile = null
-                        isAddProfile = !isAddProfile
-                    }
+                RoundSmallButton(
+                    modifier = Modifier.height(Dimens.size32dp),
+                    text = stringResource(id = R.string.add_new_profile),
+                    textSize = 12.sp,
+                    backgroundColor = secondary_background_color,
+                    icon = painterResource(R.drawable.ic_add),
+                    iconContentDescription = stringResource(R.string.add_new_profile)
+                ) {
+                    editableUserProfile = null
+                    isAddProfile = !isAddProfile
+                }
 
-                    RegularText(stringResource(R.string.production_label))
+                RegularText(stringResource(R.string.production_label))
 
-                    val credentialConfigList by telnyxViewModel.profileList.collectAsState()
+                val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
-                    Box {
+                Box {
 
-                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.largeSpacing)) {
-                            if (credentialConfigList.isNotEmpty()) {
-                                ProfileListView(
-                                    credentialConfigList,
-                                    selectedUserProfile,
-                                    onItemSelected = { profile ->
-                                        selectedUserProfile = profile
-                                    },
-                                    onEdit = { profile ->
-                                        Timber.d("Edit Profile: $profile")
-                                        editableUserProfile = profile
-                                        isAddProfile = true
-                                    },
-                                    onDelete = { profile ->
-                                        telnyxViewModel.deleteProfile(context, profile)
-                                    })
-
-                            }
-
-                            PosNegButton(
-                                positiveText = stringResource(id = R.string.confirm),
-                                negativeText = stringResource(id = R.string.Cancel),
-                                onPositiveClick = {
-                                    scope.launch {
-                                        sheetState.hide()
-                                        selectedUserProfile?.let {
-                                            telnyxViewModel.setCurrentConfig(context, it)
-                                        }
-                                    }.invokeOnCompletion {
-                                        showLoginBottomSheet = false
-                                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.largeSpacing)) {
+                        if (credentialConfigList.isNotEmpty()) {
+                            ProfileListView(
+                                credentialConfigList,
+                                selectedUserProfile,
+                                onItemSelected = { profile ->
+                                    selectedUserProfile = profile
                                 },
-                                onNegativeClick = {
-                                    scope.launch {
-                                        sheetState.hide()
-                                        selectedUserProfile = telnyxViewModel.currentProfile.value
-                                    }.invokeOnCompletion {
-                                        showLoginBottomSheet = false
-                                    }
+                                onEdit = { profile ->
+                                    Timber.d("Edit Profile: $profile")
+                                    editableUserProfile = profile
+                                    isAddProfile = true
+                                },
+                                onDelete = { profile ->
+                                    telnyxViewModel.deleteProfile(context, profile)
                                 })
+
                         }
 
-                        Column {
-                            AnimatedVisibility(
-                                visible = isAddProfile,
-                                enter = slideInVertically(
-                                    initialOffsetY = { fullHeight -> fullHeight }
-                                ),
-                                exit = slideOutVertically(
-                                    targetOffsetY = { fullHeight -> fullHeight },
-                                    animationSpec = tween(durationMillis = 150)
-                                ),
-                                label = "Animated Add Profile"
-                            ) {
-                                CredentialTokenView(
-                                    editableUserProfile,
-                                    onSave = { profile ->
-                                        profile.apply {
-                                            telnyxViewModel.addProfile(context, profile)
-                                            editableUserProfile = null
-                                        }
-                                        selectedUserProfile = profile
-                                        isAddProfile = !isAddProfile
-                                    },
-                                    onDismiss = {
+                        PosNegButton(
+                            positiveText = stringResource(id = R.string.confirm),
+                            negativeText = stringResource(id = R.string.Cancel),
+                            onPositiveClick = {
+                                selectedUserProfile?.let {
+                                    telnyxViewModel.setCurrentConfig(context, it)
+                                }
+                                showLoginBottomSheet = false
+                            },
+                            onNegativeClick = {
+                                selectedUserProfile = telnyxViewModel.currentProfile.value
+                                showLoginBottomSheet = false
+                            })
+                    }
+
+                    Column {
+                        AnimatedVisibility(
+                            visible = isAddProfile,
+                            enter = slideInVertically(
+                                initialOffsetY = { fullHeight -> fullHeight }
+                            ),
+                            exit = slideOutVertically(
+                                targetOffsetY = { fullHeight -> fullHeight },
+                                animationSpec = tween(durationMillis = 150)
+                            ),
+                            label = "Animated Add Profile"
+                        ) {
+                            CredentialTokenView(
+                                editableUserProfile,
+                                onSave = { profile ->
+                                    profile.apply {
+                                        telnyxViewModel.addProfile(context, profile)
                                         editableUserProfile = null
-                                        isAddProfile = !isAddProfile
                                     }
-                                )
-                            }
+                                    selectedUserProfile = profile
+                                    isAddProfile = !isAddProfile
+                                },
+                                onDismiss = {
+                                    editableUserProfile = null
+                                    isAddProfile = !isAddProfile
+                                }
+                            )
                         }
                     }
                 }
@@ -669,8 +649,7 @@ fun HomeScreen(
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
-                color = telnyxGreen,
-                trackColor = Color.White
+                color = telnyxGreen
             )
         }
     }
@@ -678,12 +657,12 @@ fun HomeScreen(
     LaunchedEffect(uiState) {
         when (uiState) {
             is TelnyxSocketEvent.OnClientReady -> {
-                navController.navigate(CallScreenNav)
+                navController.navigate(CallScreenNav.toString())
             }
 
             is TelnyxSocketEvent.InitState -> {
-                navController.navigate(LoginScreenNav) {
-                    popUpTo(CallScreenNav) { inclusive = true }
+                navController.navigate(LoginScreenNav.toString()) {
+                    popUpTo(CallScreenNav.toString()) { inclusive = true }
                 }
             }
 
@@ -691,17 +670,18 @@ fun HomeScreen(
         }
     }
 
+    // Environment bottom sheet - placed outside Scaffold to overlay everything
     if (showEnvironmentBottomSheet) {
-        ModalBottomSheet(
-            modifier = Modifier.fillMaxSize(),
-            onDismissRequest = {
-                showEnvironmentBottomSheet = false
-            },
-            containerColor = Color.White,
-            sheetState = sheetState
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .clickable(enabled = false) {} // Consume touch events to prevent clicks from passing through
         ) {
             Column(
-                modifier = Modifier.padding(Dimens.mediumSpacing),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimens.mediumSpacing),
                 verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
             ) {
                 Row(
@@ -713,13 +693,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                     )
                     IconButton(onClick = {
-                        scope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
-                                showEnvironmentBottomSheet = false
-                            }
-                        }
+                        showEnvironmentBottomSheet = false
                     }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_close),
@@ -975,7 +949,6 @@ fun SessionItem(sessionId: String) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionState(
     connectionStatus: ConnectionStatus,
@@ -983,8 +956,6 @@ fun ConnectionState(
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
-    val sheetState = rememberModalBottomSheetState(true)
-    val scope = rememberCoroutineScope()
 
     Column(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp)
@@ -1018,23 +989,22 @@ fun ConnectionState(
         }
     }
 
-    // Websocket messages bottom sheet
+    // Websocket messages bottom sheet - placed outside Scaffold to overlay everything
     if (showWsMessagesBottomSheet.value) {
         val configuration = LocalConfiguration.current
         val screenHeight = configuration.screenHeightDp.dp
 
-        ModalBottomSheet(
-            modifier = Modifier.height(screenHeight * 0.8f),
-            onDismissRequest = {
-                showWsMessagesBottomSheet.value = false
-            },
-            containerColor = Color.White,
-            sheetState = sheetState
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .clickable(enabled = false) {} // Consume touch events to prevent clicks from passing through
         ) {
             Column(
                 modifier = Modifier
-                    .padding(Dimens.mediumSpacing)
                     .fillMaxWidth()
+                    .height(screenHeight * 0.8f)
+                    .padding(Dimens.mediumSpacing)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1045,13 +1015,7 @@ fun ConnectionState(
                         modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                     )
                     IconButton(onClick = {
-                        scope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
-                                showWsMessagesBottomSheet.value = false
-                            }
-                        }
+                        showWsMessagesBottomSheet.value = false
                     }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_close),
@@ -1265,6 +1229,7 @@ fun BottomBar(
 
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun HomeScreenPreview() {

@@ -48,7 +48,7 @@ fun CodecSelectionDialog(
         mutableStateOf(selectedCodecs.toList()) 
     }
     
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf(stringResource(R.string.codec_available_tab), stringResource(R.string.codec_selected_tab))
     
     // Create unique keys for codecs by combining mimeType and clockRate

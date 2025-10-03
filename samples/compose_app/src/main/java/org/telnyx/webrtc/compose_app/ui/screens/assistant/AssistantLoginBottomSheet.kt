@@ -3,6 +3,9 @@ package org.telnyx.webrtc.compose_app.ui.screens.assistant
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ModalBottomSheetLayout
+import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.telnyx.webrtc.common.TelnyxViewModel
 import org.telnyx.webrtc.compose_app.R
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
 @Composable
 fun AssistantLoginBottomSheet(
     telnyxViewModel: TelnyxViewModel,
@@ -25,17 +28,28 @@ fun AssistantLoginBottomSheet(
     val context = LocalContext.current
     var targetId by remember { mutableStateOf("") }
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+    val sheetState = rememberModalBottomSheetState(
+        initialValue = ModalBottomSheetValue.Expanded,
+        skipHalfExpanded = true
+    )
+    val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    LaunchedEffect(sheetState.currentValue) {
+        if (sheetState.currentValue == ModalBottomSheetValue.Hidden) {
+            onDismiss()
+        }
+    }
+
+    ModalBottomSheetLayout(
+        sheetState = sheetState,
+        sheetBackgroundColor = Color.White,
+        sheetContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Text(
                 text = stringResource(R.string.assistant_login),
                 style = MaterialTheme.typography.headlineSmall,
@@ -113,5 +127,8 @@ fun AssistantLoginBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+    ) {
+        // Empty main content - bottom sheet is the focus
     }
 }

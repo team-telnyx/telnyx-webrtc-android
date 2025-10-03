@@ -70,11 +70,11 @@ publishing {
 }
 
 android {
-    compileSdk 35
+    compileSdk 33
 
     defaultConfig {
         minSdkVersion 23
-        targetSdkVersion 34
+        targetSdkVersion 33
 
         multiDexEnabled true
 
@@ -176,7 +176,7 @@ dependencies {
     implementation deps.appcompat
     implementation deps.material
 
-    implementation "com.telnyx.webrtc.lib:library:1.0.1"
+    implementation "com.telnyx.webrtc.lib:library:0.0.9"
 
     implementation deps.gson
 
@@ -229,7 +229,7 @@ dependencies {
 
     testImplementation "org.slf4j:slf4j-nop:1.7.36"
 
-    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.10'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.7.10'
 
     // Testing - Instrumentation
     androidTestImplementation 'junit:junit:4.13.2'

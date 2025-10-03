@@ -30,6 +30,7 @@ rootProject.name = "Telnyx Android WebRTC SDK"
 
 include(":telnyx_rtc")
 include(":telnyx_common")
-include(":samples:connection_service_app")
+// connection_service_app excluded - deprecated and incompatible with Kotlin 1.7.10
+// include(":samples:connection_service_app")
 include(":samples:xml_app")
 include(":samples:compose_app")

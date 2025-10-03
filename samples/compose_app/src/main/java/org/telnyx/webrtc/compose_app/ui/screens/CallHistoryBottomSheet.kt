@@ -1,5 +1,6 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,34 +24,44 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import com.telnyx.webrtc.common.TelnyxViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallHistoryBottomSheet(
     telnyxViewModel: TelnyxViewModel,
     onDismiss: (String?) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
     val callHistoryList by telnyxViewModel.callHistoryList.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
-        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-        onDismissRequest = {
-            onDismiss.invoke(null)
-        },
-        containerColor = Color.White,
-        sheetState = sheetState
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .clickable(enabled = false) {} // Consume touch events to prevent clicks from passing through
     ) {
         Column(
-            modifier = Modifier.padding(Dimens.mediumSpacing),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.mediumSpacing),
             verticalArrangement = Arrangement.spacedBy(Dimens.mediumSpacing)
         ) {
-            Text(
-                text = stringResource(R.string.call_history_title),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = Dimens.spacing8dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.call_history_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = {
+                    onDismiss(null)
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = stringResource(id = R.string.close_button_dessc)
+                    )
+                }
+            }
 
             if (callHistoryList.isEmpty()) {
                 Text(

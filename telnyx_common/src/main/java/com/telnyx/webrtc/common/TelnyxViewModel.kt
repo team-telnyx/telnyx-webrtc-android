@@ -65,26 +65,26 @@ import kotlin.coroutines.suspendCoroutine
 
 
 sealed class TelnyxSocketEvent {
-    data object OnClientReady : TelnyxSocketEvent()
+    object OnClientReady : TelnyxSocketEvent()
     data class OnIncomingCall(val message: InviteResponse) : TelnyxSocketEvent()
     data class OnCallAnswered(val callId: UUID) : TelnyxSocketEvent()
     data class OnCallEnded(val message: ByeResponse?) : TelnyxSocketEvent()
     data class OnRinging(val message: RingingResponse) : TelnyxSocketEvent()
-    data object OnMedia : TelnyxSocketEvent()
-    data object InitState : TelnyxSocketEvent()
+    object OnMedia : TelnyxSocketEvent()
+    object InitState : TelnyxSocketEvent()
     data class OnCallDropped(val reason: CallNetworkChangeReason) : TelnyxSocketEvent()
     data class OnCallReconnecting(val reason: CallNetworkChangeReason) : TelnyxSocketEvent()
 }
 
 sealed class TelnyxSessionState {
     data class ClientLoggedIn(val message: LoginResponse) : TelnyxSessionState()
-    data object ClientDisconnected : TelnyxSessionState()
+    object ClientDisconnected : TelnyxSessionState()
 }
 
 sealed class TelnyxPrecallDiagnosisState {
-    data object PrecallDiagnosisStarted : TelnyxPrecallDiagnosisState()
+    object PrecallDiagnosisStarted : TelnyxPrecallDiagnosisState()
     data class PrecallDiagnosisCompleted(val data: PreCallDiagnosis) : TelnyxPrecallDiagnosisState()
-    data object PrecallDiagnosisFailed : TelnyxPrecallDiagnosisState()
+    object PrecallDiagnosisFailed : TelnyxPrecallDiagnosisState()
 }
 
 /**
