@@ -14,7 +14,6 @@ import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
-import io.ktor.client.features.websocket.*
 import io.mockk.MockKAnnotations
 import io.mockk.Runs
 import io.mockk.every
@@ -22,8 +21,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.just
 import io.mockk.spyk
 import io.mockk.mockkObject
-import android.net.NetworkRequest
-import android.net.NetworkCapabilities
+import io.mockk.verify
 import android.net.ConnectivityManager
 import org.junit.Before
 import org.junit.Rule
@@ -31,9 +29,6 @@ import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.rules.TestRule
-import org.mockito.ArgumentMatchers
-import org.mockito.Mockito
-import org.mockito.Spy
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -50,13 +45,10 @@ class CallTest : BaseTest() {
     @MockK
     lateinit var mockConnectivityManager: ConnectivityManager
 
-    @Spy
     lateinit var client: TelnyxClient
 
-    @Spy
     lateinit var socket: TxSocket
 
-    @Spy
     lateinit var call: Call
 
     @MockK
@@ -145,14 +137,14 @@ class CallTest : BaseTest() {
 
     @Test
     fun `test new call is added to calls map - then assert that remove`() {
-        socket = Mockito.spy(
+        socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
 
-        val newCall = Mockito.spy(Call(mockContext, client, socket, "123", audioManager))
+        val newCall = spyk(Call(mockContext, client, socket, "123", audioManager))
         newCall.callId = UUID.randomUUID()
         client.addToCalls(newCall)
         assert(client.calls.containsValue(newCall))
@@ -163,38 +155,40 @@ class CallTest : BaseTest() {
 
     @Test
     fun `test dtmf pressed during call with value 2`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(
+        client = spyk(TelnyxClient(mockContext))
+        val testSocket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
+        client.socket = testSocket
 
-        client.socket.connect(client)
+        testSocket.connect(client)
         Thread.sleep(3000)
 
 
-        call = Mockito.spy(
-            Call(mockContext, client, client.socket, "123", audioManager)
+        call = spyk(
+            Call(mockContext, client, testSocket, "123", audioManager)
         )
         call.dtmf(UUID.randomUUID(), "2")
         Thread.sleep(1000)
-        Mockito.verify(client.socket, Mockito.times(1))
-            .send(ArgumentMatchers.any(SendingMessageBody::class.java))
+        verify(atLeast = 1) {
+            testSocket.send(any<SendingMessageBody>())
+        }
     }
 
     @Test
     fun `test new acceptCall from call where no SDP is contained`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(
+        client = spyk(TelnyxClient(mockContext))
+        client.socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
 
-        call = Mockito.spy(
+        call = spyk(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
         call.callId = UUID.randomUUID()
@@ -205,15 +199,15 @@ class CallTest : BaseTest() {
 
     @Test
     fun `Test call state returns callStateLiveData`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(
+        client = spyk(TelnyxClient(mockContext))
+        client.socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
 
-        call = Mockito.spy(
+        call = spyk(
             Call(mockContext, client, client.socket, "123", audioManager)
         )
         assertEquals(call.callStateFlow.value, CallState.CONNECTING)
@@ -223,8 +217,8 @@ class CallTest : BaseTest() {
     @Test
     fun `NOOP onClientReady test`() {
         assertDoesNotThrow {
-            client = Mockito.spy(TelnyxClient(mockContext))
-            client.socket = Mockito.spy(
+            client = spyk(TelnyxClient(mockContext))
+            client.socket = spyk(
                 TxSocket(
                     host_address = "rtc.telnyx.com",
                     port = 14938,
@@ -235,7 +229,7 @@ class CallTest : BaseTest() {
             // Sleep to give time to connect
             Thread.sleep(3000)
 
-            call = Mockito.spy(
+            call = spyk(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
             call.client.onClientReady(JsonObject())
@@ -245,15 +239,15 @@ class CallTest : BaseTest() {
     @Test
     fun `NOOP onGatewayStateReceived test`() {
         assertDoesNotThrow {
-            client = Mockito.spy(TelnyxClient(mockContext))
-            client.socket = Mockito.spy(
+            client = spyk(TelnyxClient(mockContext))
+            client.socket = spyk(
                 TxSocket(
                     host_address = "rtc.telnyx.com",
                     port = 14938,
                 )
             )
 
-            call = Mockito.spy(
+            call = spyk(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
             call.client.onGatewayStateReceived("", "")
@@ -263,15 +257,15 @@ class CallTest : BaseTest() {
     @Test
     fun `NOOP onConnectionEstablished test`() {
         assertDoesNotThrow {
-            client = Mockito.spy(TelnyxClient(mockContext))
-            client.socket = Mockito.spy(
+            client = spyk(TelnyxClient(mockContext))
+            client.socket = spyk(
                 TxSocket(
                     host_address = "rtc.telnyx.com",
                     port = 14938,
                 )
             )
 
-            call = Mockito.spy(
+            call = spyk(
                 Call(mockContext, client, client.socket, "123", audioManager)
             )
             call.client.onConnectionEstablished()
@@ -281,8 +275,8 @@ class CallTest : BaseTest() {
     @Test
     fun `NOOP onErrorReceived test`() {
         assertDoesNotThrow {
-            client = Mockito.spy(TelnyxClient(mockContext))
-            client.socket = Mockito.spy(
+            client = spyk(TelnyxClient(mockContext))
+            client.socket = spyk(
                 TxSocket(
                     host_address = "rtc.telnyx.com",
                     port = 14938,
