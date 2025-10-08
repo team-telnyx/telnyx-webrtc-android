@@ -40,8 +40,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
+import org.conscrypt.Conscrypt
+import java.security.Provider
+import java.security.Security
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.SSLContext
 import kotlin.concurrent.timerTask
 
 /**
@@ -758,6 +762,13 @@ class TelnyxClient(
             port = Config.TELNYX_PORT
         )
         registerNetworkCallback()
+
+        val conscrypt: Provider = Conscrypt.newProvider()
+        Security.insertProviderAt(conscrypt, 1)
+
+        val tm = Conscrypt.getDefaultX509TrustManager()
+        val sslContext = SSLContext.getInstance("TLS", conscrypt)
+        sslContext.init(null, arrayOf(tm), null)
     }
 
     private var rawRingtone: Any? = null
