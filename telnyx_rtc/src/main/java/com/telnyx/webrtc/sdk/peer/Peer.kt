@@ -13,6 +13,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel
@@ -28,6 +29,7 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -550,6 +552,54 @@ internal class Peer(
         negotiationTimer?.purge()
         negotiationTimer = null
          Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
+    }
+
+    /**
+     * Applies audio codec preferences to the peer connection's audio transceiver.
+     * This method must be called before creating an offer or answer to ensure the
+     * preferred codecs are negotiated in the correct order.
+     *
+     * @param preferredCodecs List of preferred audio codecs in order of preference
+     */
+    fun applyAudioCodecPreferences(preferredCodecs: List<AudioCodec>?) {
+        if (preferredCodecs.isNullOrEmpty()) {
+            Logger.d(tag = "CodecPreferences", message = "No codec preferences provided, using defaults")
+            return
+        }
+
+        try {
+            // Find the audio transceiver
+            val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
+            if (audioTransceiver == null) {
+                Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
+                return
+            }
+
+            // Build reordered codec list using CodecUtils
+            val reorderedCodecs = CodecUtils.buildReorderedCodecList(audioTransceiver, preferredCodecs)
+            if (reorderedCodecs != null) {
+                audioTransceiver.setCodecPreferences(reorderedCodecs)
+                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${reorderedCodecs.map { it.mimeType }}")
+            }
+        } catch (e: Exception) {
+            Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
+        }
+    }
+
+    /**
+     * Gets the list of audio codecs that are currently available from the WebRTC peer connection.
+     * This reflects the actual codecs that can be used for negotiation.
+     *
+     * @return List of AudioCodec objects representing available codecs, or empty list if unavailable
+     */
+    fun getAvailableAudioCodecs(): List<AudioCodec> {
+        val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
+            ?: run {
+                Logger.w(tag = "CodecQuery", message = "No audio transceiver found")
+                return emptyList()
+            }
+
+        return CodecUtils.getAvailableAudioCodecs(audioTransceiver)
     }
 
     /**

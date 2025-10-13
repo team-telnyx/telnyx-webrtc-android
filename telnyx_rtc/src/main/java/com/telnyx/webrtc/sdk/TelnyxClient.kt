@@ -351,6 +351,12 @@ class TelnyxClient(
             setSpeakerMode(speakerState)
             client.callOngoing()
 
+            // Apply codec preferences before creating answer
+            peerConnection?.applyAudioCodecPreferences(preferredCodecs)
+
+            // Create the answer SDP now that codec preferences have been applied
+            peerConnection?.answer(AppSdpObserver())
+
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
@@ -515,6 +521,9 @@ class TelnyxClient(
             }
 
             peerConnection?.startLocalAudioCapture()
+
+            // Apply codec preferences before creating the offer
+            peerConnection?.applyAudioCodecPreferences(preferredCodecs)
 
             startOutgoingCallInternal(
                 callerName = callerName,
@@ -2299,7 +2308,8 @@ class TelnyxClient(
                     )
                 )
 
-                peerConnection?.answer(AppSdpObserver())
+                // Note: We do NOT create the answer here anymore
+                // The answer will be created in acceptCall() after codec preferences are applied
 
                 val inviteResponse = InviteResponse(
                     callId,
@@ -2481,6 +2491,10 @@ class TelnyxClient(
                 )
             )
 
+            // Note: Codec preferences not applied during reconnection
+            // Using default codec order during call recovery
+            // Future enhancement: Store codec preferences in Call object for reuse during reconnection
+
             peerConnection?.answer(AppSdpObserver())
 
             val iceCandidateTimer = Timer()
@@ -2658,15 +2672,55 @@ class TelnyxClient(
     }
 
     /**
-     * Returns a list of supported audio codecs available on the device.
-     * This method queries the device's MediaCodecList to find all available audio encoders
-     * and returns them in a format compatible with the preferred_codecs parameter.
+     * Returns a list of audio codecs supported by the device hardware.
      *
-     * @return List of [AudioCodec] objects representing the supported audio codecs
+     * **Important**: This method queries the device's MediaCodecList to find available audio
+     * encoders and provides a best-effort approximation of codecs that can be used with WebRTC.
+     * The actual codecs supported by WebRTC at runtime may differ slightly from this list due to
+     * WebRTC's internal codec filtering and negotiation logic.
+     *
+     * **Common codecs** like Opus, PCMU, PCMA, and G722 are typically supported and will work
+     * reliably across most devices.
+     *
+     * **Usage**:
+     * - Call this method **before** initiating a call to get an estimated list of supported codecs
+     * - Use the returned list to construct your preferred codec order
+     * - Pass your preferences to [newInvite] or [acceptCall] via the `preferredCodecs` parameter
+     *
+     * **For runtime codec queries**: If you need to query the exact codecs negotiated during an
+     * active call, use [Call.getAvailableAudioCodecs] instead, which returns the actual WebRTC
+     * codecs from the peer connection.
+     *
+     * @return List of [AudioCodec] objects representing device-supported audio codecs
+     *
+     * @see Call.getAvailableAudioCodecs for runtime codec queries during active calls
+     * @see newInvite
+     * @see acceptCall
+     *
+     * @sample
+     * ```kotlin
+     * // Query supported codecs before making a call
+     * val supportedCodecs = telnyxClient.getSupportedAudioCodecs()
+     * println("Device supports: ${supportedCodecs.map { it.mimeType }}")
+     *
+     * // Prefer Opus, then PCMU as fallback
+     * val preferredCodecs = supportedCodecs.filter {
+     *     it.mimeType == "audio/opus" || it.mimeType == "audio/PCMU"
+     * }
+     *
+     * // Use in call
+     * telnyxClient.newInvite(
+     *     callerName = "John",
+     *     callerNumber = "+1234567890",
+     *     destinationNumber = "sip:destination",
+     *     clientState = "state",
+     *     preferredCodecs = preferredCodecs
+     * )
+     * ```
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
         val supportedCodecs = mutableListOf<AudioCodec>()
-        
+
         try {
             val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
             for (codecInfo in codecList.codecInfos) {
@@ -2677,9 +2731,9 @@ class TelnyxClient(
                 for (type in codecInfo.supportedTypes) {
                     if (type.startsWith("audio/")) {
                         Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
-                        
+
                         val audioCodec = mapTypeToAudioCodec(type)
-                        
+
                         // Avoid duplicates
                         if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
                             supportedCodecs.add(audioCodec)
@@ -2690,13 +2744,13 @@ class TelnyxClient(
         } catch (e: Exception) {
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
         }
-        
+
         return supportedCodecs
     }
 
     /**
      * Maps a codec type string to an AudioCodec object with appropriate settings.
-     * 
+     *
      * @param type The codec type string (e.g., "audio/opus")
      * @return AudioCodec object configured for the given type
      */
