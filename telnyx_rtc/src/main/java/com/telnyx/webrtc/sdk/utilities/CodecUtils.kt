@@ -13,126 +13,6 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 internal object CodecUtils {
 
     /**
-     * Builds a reordered codec list based on user preferences.
-     *
-     * This method retrieves the actual negotiated codecs from the audio transceiver's receiver
-     * parameters and reorders them according to the provided preferences. Codecs matching the
-     * preferences are placed first in the order specified, followed by remaining codecs.
-     *
-     * @param audioTransceiver The audio RtpTransceiver to query for available codecs
-     * @param preferredCodecs List of preferred audio codecs in desired priority order
-     * @return List of reordered codec capabilities, or null if unable to build the list
-     */
-    @Suppress("ReturnCount") // Multiple validation checks require early returns
-    fun buildReorderedCodecList(
-        audioTransceiver: RtpTransceiver,
-        preferredCodecs: List<AudioCodec>
-    ): List<RtpCapabilities.CodecCapability>? {
-        // Get the actual codecs from the receiver's parameters
-        val receiverParameters = try {
-            audioTransceiver.receiver.parameters
-        } catch (e: Exception) {
-            Logger.e(tag = "CodecPreferences", message = "Error getting receiver parameters: ${e.message}")
-            return null
-        }
-
-        val availableCodecs = receiverParameters.codecs
-        if (availableCodecs.isEmpty()) {
-            Logger.w(tag = "CodecPreferences", message = "No codecs available from receiver parameters")
-            return null
-        }
-
-        Logger.d(tag = "CodecPreferences", message = "Available codecs from receiver: ${availableCodecs.map { "${it.name}/${it.clockRate}" }}")
-        Logger.d(tag = "CodecPreferences", message = "Preferred codecs: ${preferredCodecs.map { it.mimeType }}")
-
-        // Convert RtpParameters.Codec to RtpCapabilities.CodecCapability and reorder based on preferences
-        val reorderedCapabilities = mutableListOf<RtpCapabilities.CodecCapability>()
-        val usedCodecs = mutableSetOf<RtpParameters.Codec>()
-
-        // First, add codecs that match user preferences in the specified order
-        for (preferredCodec in preferredCodecs) {
-            val matchingCodec = findMatchingRtpCodec(preferredCodec, availableCodecs, usedCodecs)
-            if (matchingCodec != null) {
-                val capability = convertRtpCodecToCapability(matchingCodec)
-                if (capability != null) {
-                    reorderedCapabilities.add(capability)
-                    usedCodecs.add(matchingCodec)
-                    Logger.d(tag = "CodecPreferences", message = "Added preferred codec: ${matchingCodec.name}/${matchingCodec.clockRate}")
-                }
-            } else {
-                Logger.w(tag = "CodecPreferences", message = "Preferred codec ${preferredCodec.mimeType} not found in available codecs")
-            }
-        }
-
-        // Then add remaining codecs that weren't in preferences
-        for (codec in availableCodecs) {
-            if (codec !in usedCodecs) {
-                val capability = convertRtpCodecToCapability(codec)
-                if (capability != null) {
-                    reorderedCapabilities.add(capability)
-                    Logger.d(tag = "CodecPreferences", message = "Added remaining codec: ${codec.name}/${codec.clockRate}")
-                }
-            }
-        }
-
-        if (reorderedCapabilities.isEmpty()) {
-            Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, will use WebRTC defaults")
-            return null
-        }
-
-        Logger.d(tag = "CodecPreferences", message = "Final codec order: ${reorderedCapabilities.map { it.mimeType }}")
-        return reorderedCapabilities
-    }
-
-    /**
-     * Finds a matching RtpParameters.Codec from available codecs based on the preferred codec.
-     * Matches on codec name (MIME type), clock rate, and optionally channel count.
-     *
-     * @param preferredCodec The preferred audio codec to match
-     * @param availableCodecs List of available RTP codecs from the receiver
-     * @param usedCodecs Set of codecs already matched to avoid duplicates
-     * @return The matching RtpParameters.Codec, or null if no match found
-     */
-    fun findMatchingRtpCodec(
-        preferredCodec: AudioCodec,
-        availableCodecs: List<RtpParameters.Codec>,
-        usedCodecs: Set<RtpParameters.Codec>
-    ): RtpParameters.Codec? {
-        // Extract codec name from MIME type (e.g., "audio/opus" -> "opus")
-        val preferredName = preferredCodec.mimeType.substringAfter("/").lowercase()
-
-        return availableCodecs.firstOrNull { codec ->
-            codec !in usedCodecs &&
-            codec.name.lowercase() == preferredName &&
-            codec.clockRate == preferredCodec.clockRate &&
-            (codec.numChannels == null || codec.numChannels == preferredCodec.channels)
-        }
-    }
-
-    /**
-     * Converts an RtpParameters.Codec to an RtpCapabilities.CodecCapability.
-     * Assumes audio codecs since we're working with audio transceivers.
-     *
-     * @param rtpCodec The RTP codec to convert
-     * @return The converted codec capability, or null if conversion fails
-     */
-    fun convertRtpCodecToCapability(rtpCodec: RtpParameters.Codec): RtpCapabilities.CodecCapability? {
-        return try {
-            val capability = RtpCapabilities.CodecCapability()
-            // Construct full MIME type for audio (e.g., "audio/opus")
-            // We assume audio since we're working with the audio transceiver
-            capability.mimeType = "audio/${rtpCodec.name}"
-            capability.clockRate = rtpCodec.clockRate ?: 0
-            capability.numChannels = rtpCodec.numChannels ?: 1
-            capability.parameters = rtpCodec.parameters ?: emptyMap()
-            capability
-        } catch (e: Exception) {
-            Logger.e(tag = "CodecPreferences", message = "Error converting RtpCodec to Capability: ${e.message}")
-            null
-        }
-    }
-
-    /**
      * Gets the list of audio codecs that are currently available from the WebRTC audio transceiver.
      * This reflects the actual codecs that can be used for negotiation.
      *
@@ -171,5 +51,91 @@ internal object CodecUtils {
         return transceivers?.find {
             it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
         }
+    }
+
+    /**
+     * Directly converts AudioCodec list to RtpCapabilities.CodecCapability list.
+     * This bypasses the need to query receiver parameters, allowing codec preferences
+     * to be set before SDP negotiation.
+     *
+     * This method creates CodecCapability instances directly from the user's preferred
+     * codec list, which can then be passed to RtpTransceiver.setCodecPreferences() to
+     * influence codec negotiation order.
+     *
+     * @param preferredCodecs List of preferred audio codecs in desired priority order
+     * @return List of CodecCapability objects ready for setCodecPreferences()
+     */
+    fun convertAudioCodecsToCapabilities(
+        preferredCodecs: List<AudioCodec>
+    ): List<RtpCapabilities.CodecCapability> {
+        return preferredCodecs.mapNotNull { audioCodec ->
+            try {
+                RtpCapabilities.CodecCapability().apply {
+                    // Extract codec name from mimeType (e.g., "audio/opus" -> "opus")
+                    name = audioCodec.mimeType.substringAfter("/")
+                    mimeType = audioCodec.mimeType
+                    kind = MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
+                    clockRate = audioCodec.clockRate
+                    numChannels = audioCodec.channels
+                    parameters = emptyMap() // Can be extended if needed for format-specific params
+                    preferredPayloadType = 0 // WebRTC will assign appropriate payload type
+                }
+            } catch (e: Exception) {
+                Logger.e(tag = "CodecPreferences", message = "Error converting ${audioCodec.mimeType}: ${e.message}")
+                null
+            }
+        }
+    }
+
+    /**
+     * Parses audio codecs from an SDP string by extracting rtpmap lines.
+     * Example rtpmap line: a=rtpmap:111 opus/48000/2
+     *
+     * @param sdp The SDP string to parse
+     * @return List of AudioCodec objects parsed from the SDP
+     */
+    fun parseAudioCodecsFromSdp(sdp: String): List<AudioCodec> {
+        val codecs = mutableListOf<AudioCodec>()
+        val lines = sdp.split("\r\n", "\n")
+        var inAudioSection = false
+
+        for (line in lines) {
+            // Check if we're in the audio media section
+            if (line.startsWith("m=audio")) {
+                inAudioSection = true
+                continue
+            } else if (line.startsWith("m=")) {
+                // Entered a different media section
+                inAudioSection = false
+                continue
+            }
+
+            // Only parse rtpmap lines within the audio section
+            if (inAudioSection && line.startsWith("a=rtpmap:")) {
+                try {
+                    // Format: a=rtpmap:<payload_type> <codec_name>/<clock_rate>[/<channels>]
+                    val parts = line.substring(9).split(" ", limit = 2)
+                    if (parts.size == 2) {
+                        val codecInfo = parts[1].split("/")
+                        val codecName = codecInfo.getOrNull(0) ?: continue
+                        val clockRate = codecInfo.getOrNull(1)?.toIntOrNull() ?: continue
+                        val channels = codecInfo.getOrNull(2)?.toIntOrNull() ?: 1
+
+                        codecs.add(
+                            AudioCodec(
+                                mimeType = "audio/$codecName",
+                                clockRate = clockRate,
+                                channels = channels,
+                                sdpFmtpLine = null
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Logger.w(message = "Failed to parse rtpmap line: $line - ${e.message}")
+                }
+            }
+        }
+
+        return codecs
     }
 }

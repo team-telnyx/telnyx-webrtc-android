@@ -434,6 +434,44 @@ internal class Peer(
     fun createOfferForSdp(sdpObserver: SdpObserver) = peerConnection?.call(sdpObserver)
 
     /**
+     * Creates an offer and extracts available audio codecs from the SDP.
+     * This is the simplest way to query available codecs without needing full negotiation.
+     * Used only for querying available codecs before making actual calls.
+     *
+     * @return SDP string containing codec information, or null if offer creation failed
+     */
+    fun createOfferForCodecQuery(): String? {
+        startLocalAudioCapture()
+
+        var offerSdp: String? = null
+        val offerLatch = java.util.concurrent.CountDownLatch(1)
+
+        // Create offer - we only need the SDP, don't need to set it
+        peerConnection?.createOffer(
+            object : SdpObserver {
+                override fun onSetFailure(p0: String?) {
+                    offerLatch.countDown()
+                }
+                override fun onSetSuccess() {}
+                override fun onCreateSuccess(desc: SessionDescription?) {
+                    offerSdp = desc?.description
+                    offerLatch.countDown()
+                }
+                override fun onCreateFailure(p0: String?) {
+                    Logger.e(tag = "CodecQuery", message = "Failed to create offer: $p0")
+                    offerLatch.countDown()
+                }
+            },
+            mediaConstraints
+        )
+
+        // Wait for offer to complete
+        offerLatch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+
+        return offerSdp
+    }
+
+    /**
      * Answers an invitation by setting a local SDP
      * @param sdpObserver, the provided [SdpObserver] that listens for SDP set events
      * @see [answer]
@@ -575,12 +613,16 @@ internal class Peer(
                 return
             }
 
-            // Build reordered codec list using CodecUtils
-            val reorderedCodecs = CodecUtils.buildReorderedCodecList(audioTransceiver, preferredCodecs)
-            if (reorderedCodecs != null) {
-                audioTransceiver.setCodecPreferences(reorderedCodecs)
-                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${reorderedCodecs.map { it.mimeType }}")
+            // Convert AudioCodec list directly to CodecCapability list
+            val codecCapabilities = CodecUtils.convertAudioCodecsToCapabilities(preferredCodecs)
+            if (codecCapabilities.isEmpty()) {
+                Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
+                return
             }
+
+            // Apply codec preferences to transceiver
+            audioTransceiver.setCodecPreferences(codecCapabilities)
+            Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
         } catch (e: Exception) {
             Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
         }

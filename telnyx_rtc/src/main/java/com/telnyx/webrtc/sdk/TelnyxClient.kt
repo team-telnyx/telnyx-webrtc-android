@@ -6,7 +6,7 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaCodecList
+import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -2672,26 +2672,25 @@ class TelnyxClient(
     }
 
     /**
-     * Returns a list of audio codecs supported by the device hardware.
+     * Returns a list of audio codecs supported by WebRTC for this device.
      *
-     * **Important**: This method queries the device's MediaCodecList to find available audio
-     * encoders and provides a best-effort approximation of codecs that can be used with WebRTC.
-     * The actual codecs supported by WebRTC at runtime may differ slightly from this list due to
-     * WebRTC's internal codec filtering and negotiation logic.
+     * This method creates a temporary WebRTC peer connection to query the
+     * actual audio codecs supported by the WebRTC library. The temporary peer connection is
+     * properly disposed of after querying. This ensures the returned codec list matches exactly
+     * what WebRTC will use during actual calls.
      *
-     * **Common codecs** like Opus, PCMU, PCMA, and G722 are typically supported and will work
-     * reliably across most devices.
+     * **Common codecs** returned include: Opus, PCMU, PCMA, G722, RED, CN, and telephone-event.
      *
      * **Usage**:
-     * - Call this method **before** initiating a call to get an estimated list of supported codecs
+     * - Call this method **before** initiating a call to get the list of supported WebRTC codecs
      * - Use the returned list to construct your preferred codec order
      * - Pass your preferences to [newInvite] or [acceptCall] via the `preferredCodecs` parameter
      *
      * **For runtime codec queries**: If you need to query the exact codecs negotiated during an
-     * active call, use [Call.getAvailableAudioCodecs] instead, which returns the actual WebRTC
-     * codecs from the peer connection.
+     * active call, use [Call.getAvailableAudioCodecs] instead, which queries the active peer
+     * connection without creating a temporary one.
      *
-     * @return List of [AudioCodec] objects representing device-supported audio codecs
+     * @return List of [AudioCodec] objects representing WebRTC-supported audio codecs
      *
      * @see Call.getAvailableAudioCodecs for runtime codec queries during active calls
      * @see newInvite
@@ -2701,7 +2700,7 @@ class TelnyxClient(
      * ```kotlin
      * // Query supported codecs before making a call
      * val supportedCodecs = telnyxClient.getSupportedAudioCodecs()
-     * println("Device supports: ${supportedCodecs.map { it.mimeType }}")
+     * println("WebRTC supports: ${supportedCodecs.map { it.mimeType }}")
      *
      * // Prefer Opus, then PCMU as fallback
      * val preferredCodecs = supportedCodecs.filter {
@@ -2719,86 +2718,41 @@ class TelnyxClient(
      * ```
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
-        val supportedCodecs = mutableListOf<AudioCodec>()
-
+        var tempPeer: Peer? = null
         try {
-            val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
-            for (codecInfo in codecList.codecInfos) {
-                if (!codecInfo.isEncoder) {
-                    continue
-                }
+            Logger.d(message = "Creating temporary peer connection to query WebRTC audio codecs")
 
-                for (type in codecInfo.supportedTypes) {
-                    if (type.startsWith("audio/")) {
-                        Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
+            // Create a temporary peer connection with minimal configuration
+            tempPeer = Peer(
+                context = context,
+                client = this,
+                providedTurn = providedTurn ?: Config.DEFAULT_TURN,
+                providedStun = providedStun ?: Config.DEFAULT_STUN,
+                callId = UUID.randomUUID(), // Temporary UUID
+                prefetchIceCandidate = false,
+                forceRelayCandidate = false,
+                onIceCandidateAdd = null // No callback needed for codec query
+            )
 
-                        val audioCodec = mapTypeToAudioCodec(type)
-
-                        // Avoid duplicates
-                        if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
-                            supportedCodecs.add(audioCodec)
-                        }
-                    }
-                }
+            // Create an offer to get SDP with codec information
+            val sdp = tempPeer.createOfferForCodecQuery()
+            if (sdp == null) {
+                Logger.e(message = "Failed to create offer for codec query")
+                return emptyList()
             }
+
+            // Parse codecs from SDP
+            val codecs = CodecUtils.parseAudioCodecsFromSdp(sdp)
+            Logger.d(message = "Retrieved ${codecs.size} audio codecs from SDP: ${codecs.map { it.mimeType }}")
+
+            return codecs
         } catch (e: Exception) {
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
-        }
-
-        return supportedCodecs
-    }
-
-    /**
-     * Maps a codec type string to an AudioCodec object with appropriate settings.
-     *
-     * @param type The codec type string (e.g., "audio/opus")
-     * @return AudioCodec object configured for the given type
-     */
-    private fun mapTypeToAudioCodec(type: String): AudioCodec {
-        return when {
-            type.contains("opus", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 2,
-                    clockRate = 48000,
-                    mimeType = "audio/opus",
-                    sdpFmtpLine = "minptime=10;useinbandfec=1"
-                )
-            }
-            type.contains("pcma", ignoreCase = true) || type.contains("g711a", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/PCMA"
-                )
-            }
-            type.contains("pcmu", ignoreCase = true) || type.contains("g711u", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/PCMU"
-                )
-            }
-            type.contains("g722", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 16000,
-                    mimeType = "audio/G722"
-                )
-            }
-            type.contains("g729", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/G729"
-                )
-            }
-            else -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = type
-                )
-            }
+            return emptyList()
+        } finally {
+            // Always clean up the temporary peer connection
+            tempPeer?.release()
+            Logger.d(message = "Temporary peer connection disposed")
         }
     }
 
