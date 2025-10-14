@@ -452,7 +452,9 @@ internal class Peer(
                 override fun onSetFailure(p0: String?) {
                     offerLatch.countDown()
                 }
-                override fun onSetSuccess() {}
+                override fun onSetSuccess() {
+                    Logger.i(tag = "CodecQuery", message = "Temp Offer SDP set successfully")
+                }
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     offerSdp = desc?.description
                     offerLatch.countDown()
@@ -607,8 +609,7 @@ internal class Peer(
 
         try {
             // Find the audio transceiver
-            val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
-            if (audioTransceiver == null) {
+            val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers) ?: run {
                 Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
                 return
             }
@@ -617,12 +618,11 @@ internal class Peer(
             val codecCapabilities = CodecUtils.convertAudioCodecsToCapabilities(preferredCodecs)
             if (codecCapabilities.isEmpty()) {
                 Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
-                return
+            } else {
+                // Apply codec preferences to transceiver
+                audioTransceiver.setCodecPreferences(codecCapabilities)
+                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
             }
-
-            // Apply codec preferences to transceiver
-            audioTransceiver.setCodecPreferences(codecCapabilities)
-            Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
         } catch (e: Exception) {
             Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
         }

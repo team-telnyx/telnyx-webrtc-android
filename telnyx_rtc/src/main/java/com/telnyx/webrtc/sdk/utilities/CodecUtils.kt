@@ -12,6 +12,9 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
  */
 internal object CodecUtils {
 
+    private const val RTPMAP_PREFIX_LENGTH = 9 // Length of "a=rtpmap:" prefix
+    private const val DEFAULT_AUDIO_CHANNELS = 1
+
     /**
      * Gets the list of audio codecs that are currently available from the WebRTC audio transceiver.
      * This reflects the actual codecs that can be used for negotiation.
@@ -95,47 +98,60 @@ internal object CodecUtils {
      * @return List of AudioCodec objects parsed from the SDP
      */
     fun parseAudioCodecsFromSdp(sdp: String): List<AudioCodec> {
-        val codecs = mutableListOf<AudioCodec>()
         val lines = sdp.split("\r\n", "\n")
+        val audioSectionLines = extractAudioSectionLines(lines)
+        return audioSectionLines.mapNotNull { line ->
+            parseRtpmapLine(line)
+        }
+    }
+
+    /**
+     * Extracts lines from the audio media section of SDP.
+     *
+     * @param lines All lines from the SDP
+     * @return List of rtpmap lines from the audio section
+     */
+    private fun extractAudioSectionLines(lines: List<String>): List<String> {
+        val audioLines = mutableListOf<String>()
         var inAudioSection = false
 
-        for (line in lines) {
-            // Check if we're in the audio media section
-            if (line.startsWith("m=audio")) {
-                inAudioSection = true
-                continue
-            } else if (line.startsWith("m=")) {
-                // Entered a different media section
-                inAudioSection = false
-                continue
-            }
-
-            // Only parse rtpmap lines within the audio section
-            if (inAudioSection && line.startsWith("a=rtpmap:")) {
-                try {
-                    // Format: a=rtpmap:<payload_type> <codec_name>/<clock_rate>[/<channels>]
-                    val parts = line.substring(9).split(" ", limit = 2)
-                    if (parts.size == 2) {
-                        val codecInfo = parts[1].split("/")
-                        val codecName = codecInfo.getOrNull(0) ?: continue
-                        val clockRate = codecInfo.getOrNull(1)?.toIntOrNull() ?: continue
-                        val channels = codecInfo.getOrNull(2)?.toIntOrNull() ?: 1
-
-                        codecs.add(
-                            AudioCodec(
-                                mimeType = "audio/$codecName",
-                                clockRate = clockRate,
-                                channels = channels,
-                                sdpFmtpLine = null
-                            )
-                        )
-                    }
-                } catch (e: Exception) {
-                    Logger.w(message = "Failed to parse rtpmap line: $line - ${e.message}")
-                }
+        lines.forEach { line ->
+            when {
+                line.startsWith("m=audio") -> inAudioSection = true
+                line.startsWith("m=") -> inAudioSection = false
+                inAudioSection && line.startsWith("a=rtpmap:") -> audioLines.add(line)
             }
         }
 
-        return codecs
+        return audioLines
+    }
+
+    /**
+     * Parses a single rtpmap line into an AudioCodec object.
+     * Format: a=rtpmap:<payload_type> <codec_name>/<clock_rate>[/<channels>]
+     *
+     * @param line The rtpmap line to parse
+     * @return AudioCodec if parsing succeeds, null otherwise
+     */
+    private fun parseRtpmapLine(line: String): AudioCodec? {
+        return try {
+            val parts = line.substring(RTPMAP_PREFIX_LENGTH).split(" ", limit = 2)
+            if (parts.size != 2) return null
+
+            val codecInfo = parts[1].split("/")
+            val codecName = codecInfo.getOrNull(0) ?: return null
+            val clockRate = codecInfo.getOrNull(1)?.toIntOrNull() ?: return null
+            val channels = codecInfo.getOrNull(2)?.toIntOrNull() ?: DEFAULT_AUDIO_CHANNELS
+
+            AudioCodec(
+                mimeType = "audio/$codecName",
+                clockRate = clockRate,
+                channels = channels,
+                sdpFmtpLine = null
+            )
+        } catch (e: Exception) {
+            Logger.w(message = "Failed to parse rtpmap line: $line - ${e.message}")
+            null
+        }
     }
 }
