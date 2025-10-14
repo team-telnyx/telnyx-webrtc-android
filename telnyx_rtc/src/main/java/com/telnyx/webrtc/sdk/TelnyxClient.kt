@@ -53,7 +53,8 @@ class TelnyxClient(
     var context: Context,
 ) : TxSocketListener {
 
-    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> = ConcurrentHashMap<UUID, WebRTCReporter>()
+    internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
+        ConcurrentHashMap<UUID, WebRTCReporter>()
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -353,9 +354,9 @@ class TelnyxClient(
 
             // Apply codec preferences before creating answer
             peerConnection?.applyAudioCodecPreferences(preferredCodecs)
-
             // Create the answer SDP now that codec preferences have been applied
             peerConnection?.answer(AppSdpObserver())
+
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -687,7 +688,7 @@ class TelnyxClient(
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         // Start the reconnection timer to track timeout
         startReconnectionTimer()
-        
+
         // Emit reconnecting status
         emitConnectionStatus(ConnectionStatus.RECONNECTING)
 
@@ -758,7 +759,7 @@ class TelnyxClient(
 
         // Initialize both SharedFlow and LiveData with initial state
         emitSocketResponse(SocketResponse.initialised())
-        
+
         // Initialize connection status as disconnected
         emitConnectionStatus(ConnectionStatus.DISCONNECTED)
 
@@ -2308,9 +2309,6 @@ class TelnyxClient(
                     )
                 )
 
-                // Note: We do NOT create the answer here anymore
-                // The answer will be created in acceptCall() after codec preferences are applied
-
                 val inviteResponse = InviteResponse(
                     callId,
                     remoteSdp,
@@ -2493,8 +2491,6 @@ class TelnyxClient(
 
             // Note: Codec preferences not applied during reconnection
             // Using default codec order during call recovery
-            // Future enhancement: Store codec preferences in Call object for reuse during reconnection
-
             peerConnection?.answer(AppSdpObserver())
 
             val iceCandidateTimer = Timer()
