@@ -136,19 +136,22 @@ internal object CodecUtils {
     private fun parseRtpmapLine(line: String): AudioCodec? {
         return try {
             val parts = line.substring(RTPMAP_PREFIX_LENGTH).split(" ", limit = 2)
-            if (parts.size != 2) return null
+            val codecInfo = parts.getOrNull(1)?.split("/") ?: return null
 
-            val codecInfo = parts[1].split("/")
-            val codecName = codecInfo.getOrNull(0) ?: return null
-            val clockRate = codecInfo.getOrNull(1)?.toIntOrNull() ?: return null
+            val codecName = codecInfo.getOrNull(0)
+            val clockRate = codecInfo.getOrNull(1)?.toIntOrNull()
             val channels = codecInfo.getOrNull(2)?.toIntOrNull() ?: DEFAULT_AUDIO_CHANNELS
 
-            AudioCodec(
-                mimeType = "audio/$codecName",
-                clockRate = clockRate,
-                channels = channels,
-                sdpFmtpLine = null
-            )
+            if (codecName != null && clockRate != null) {
+                AudioCodec(
+                    mimeType = "audio/$codecName",
+                    clockRate = clockRate,
+                    channels = channels,
+                    sdpFmtpLine = null
+                )
+            } else {
+                null
+            }
         } catch (e: Exception) {
             Logger.w(message = "Failed to parse rtpmap line: $line - ${e.message}")
             null
