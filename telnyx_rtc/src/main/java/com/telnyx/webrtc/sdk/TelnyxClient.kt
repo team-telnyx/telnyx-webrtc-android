@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
@@ -2716,7 +2717,7 @@ class TelnyxClient(
     fun getSupportedAudioCodecs(): List<AudioCodec> {
         var tempPeer: Peer? = null
         try {
-            Logger.d(message = "Creating temporary peer connection to query WebRTC audio codecs")
+            Logger.d(message = "Querying WebRTC audio codecs via RtpSenderCapabilities")
 
             // Create a temporary peer connection with minimal configuration
             tempPeer = Peer(
@@ -2730,16 +2731,13 @@ class TelnyxClient(
                 onIceCandidateAdd = null // No callback needed for codec query
             )
 
-            // Create an offer to get SDP with codec information
-            val sdp = tempPeer.createOfferForCodecQuery()
-            if (sdp == null) {
-                Logger.e(message = "Failed to create offer for codec query")
-                return emptyList()
-            }
+            // Get capabilities directly from peer connection factory
+            val capabilities = tempPeer.getSupportedSenderAudioCodecs()
+            Logger.d(message = "Retrieved ${capabilities.size} codec capabilities from WebRTC")
 
-            // Parse codecs from SDP
-            val codecs = CodecUtils.parseAudioCodecsFromSdp(sdp)
-            Logger.d(message = "Retrieved ${codecs.size} audio codecs from SDP: ${codecs.map { it.mimeType }}")
+            // Convert capabilities to AudioCodec list
+            val codecs = CodecUtils.convertCapabilitiesToAudioCodecs(capabilities)
+            Logger.d(message = "Converted to ${codecs.size} AudioCodec objects: ${codecs.map { it.mimeType }}")
 
             return codecs
         } catch (e: Exception) {

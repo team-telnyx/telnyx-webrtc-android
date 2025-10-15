@@ -12,7 +12,6 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
  */
 internal object CodecUtils {
 
-    private const val RTPMAP_PREFIX_LENGTH = 9 // Length of "a=rtpmap:" prefix
     private const val DEFAULT_AUDIO_CHANNELS = 1
 
     /**
@@ -57,6 +56,32 @@ internal object CodecUtils {
     }
 
     /**
+     * Converts RtpCapabilities.CodecCapability list to AudioCodec list.
+     * Used to convert the capabilities returned from peerConnectionFactory.getRtpSenderCapabilities()
+     * into the SDK's AudioCodec model.
+     *
+     * @param capabilities List of codec capabilities from WebRTC
+     * @return List of AudioCodec objects
+     */
+    fun convertCapabilitiesToAudioCodecs(
+        capabilities: List<RtpCapabilities.CodecCapability>
+    ): List<AudioCodec> {
+        return capabilities.mapNotNull { capability ->
+            try {
+                AudioCodec(
+                    channels = capability.numChannels ?: DEFAULT_AUDIO_CHANNELS,
+                    clockRate = capability.clockRate ?: 0,
+                    mimeType = capability.mimeType ?: "audio/${capability.name}",
+                    sdpFmtpLine = null
+                )
+            } catch (e: Exception) {
+                Logger.e(tag = "CodecQuery", message = "Error converting capability ${capability.name}: ${e.message}")
+                null
+            }
+        }
+    }
+
+    /**
      * Directly converts AudioCodec list to RtpCapabilities.CodecCapability list.
      * This bypasses the need to query receiver parameters, allowing codec preferences
      * to be set before SDP negotiation.
@@ -87,74 +112,6 @@ internal object CodecUtils {
                 Logger.e(tag = "CodecPreferences", message = "Error converting ${audioCodec.mimeType}: ${e.message}")
                 null
             }
-        }
-    }
-
-    /**
-     * Parses audio codecs from an SDP string by extracting rtpmap lines.
-     * Example rtpmap line: a=rtpmap:111 opus/48000/2
-     *
-     * @param sdp The SDP string to parse
-     * @return List of AudioCodec objects parsed from the SDP
-     */
-    fun parseAudioCodecsFromSdp(sdp: String): List<AudioCodec> {
-        val lines = sdp.split("\r\n", "\n")
-        val audioSectionLines = extractAudioSectionLines(lines)
-        return audioSectionLines.mapNotNull { line ->
-            parseRtpmapLine(line)
-        }
-    }
-
-    /**
-     * Extracts lines from the audio media section of SDP.
-     *
-     * @param lines All lines from the SDP
-     * @return List of rtpmap lines from the audio section
-     */
-    private fun extractAudioSectionLines(lines: List<String>): List<String> {
-        val audioLines = mutableListOf<String>()
-        var inAudioSection = false
-
-        lines.forEach { line ->
-            when {
-                line.startsWith("m=audio") -> inAudioSection = true
-                line.startsWith("m=") -> inAudioSection = false
-                inAudioSection && line.startsWith("a=rtpmap:") -> audioLines.add(line)
-            }
-        }
-
-        return audioLines
-    }
-
-    /**
-     * Parses a single rtpmap line into an AudioCodec object.
-     * Format: a=rtpmap:<payload_type> <codec_name>/<clock_rate>[/<channels>]
-     *
-     * @param line The rtpmap line to parse
-     * @return AudioCodec if parsing succeeds, null otherwise
-     */
-    private fun parseRtpmapLine(line: String): AudioCodec? {
-        return try {
-            val parts = line.substring(RTPMAP_PREFIX_LENGTH).split(" ", limit = 2)
-            val codecInfo = parts.getOrNull(1)?.split("/") ?: return null
-
-            val codecName = codecInfo.getOrNull(0)
-            val clockRate = codecInfo.getOrNull(1)?.toIntOrNull()
-            val channels = codecInfo.getOrNull(2)?.toIntOrNull() ?: DEFAULT_AUDIO_CHANNELS
-
-            if (codecName != null && clockRate != null) {
-                AudioCodec(
-                    mimeType = "audio/$codecName",
-                    clockRate = clockRate,
-                    channels = channels,
-                    sdpFmtpLine = null
-                )
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Logger.w(message = "Failed to parse rtpmap line: $line - ${e.message}")
-            null
         }
     }
 }
