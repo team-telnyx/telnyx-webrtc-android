@@ -57,6 +57,90 @@ internal class Peer(
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
+
+        /**
+         * Shared PeerConnectionFactory used for codec queries and peer connections.
+         * Lazily initialized on first access and shared across all Peer instances.
+         * This is thread-safe and follows WebRTC best practices.
+         */
+        private val sharedPeerConnectionFactory: PeerConnectionFactory by lazy {
+            buildSharedPeerConnectionFactory()
+        }
+
+        /**
+         * Ensures PeerConnectionFactory is initialized with the application context.
+         * This should be called before any WebRTC operations.
+         * Safe to call multiple times - initialization only happens once.
+         *
+         * @param context Application context
+         */
+        private fun initPeerConnectionFactory(context: Context) {
+            val options = PeerConnectionFactory.InitializationOptions.builder(context)
+                .setEnableInternalTracer(true)
+                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(options)
+        }
+
+        /**
+         * Builds the shared PeerConnectionFactory with standard configuration.
+         * This factory is used for both codec queries and actual peer connections.
+         *
+         * @return Configured PeerConnectionFactory instance
+         */
+        private fun buildSharedPeerConnectionFactory(): PeerConnectionFactory {
+            val rootEglBase = EglBase.create()
+            return PeerConnectionFactory
+                .builder()
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+                .setVideoEncoderFactory(
+                    DefaultVideoEncoderFactory(
+                        rootEglBase.eglBaseContext,
+                        true,
+                        true
+                    )
+                )
+                .setOptions(
+                    PeerConnectionFactory.Options().apply {
+                        disableEncryption = false
+                        disableNetworkMonitor = true
+                    }
+                )
+                .createPeerConnectionFactory()
+        }
+
+        /**
+         * Gets the list of audio codecs supported by WebRTC without creating a Peer instance.
+         * This is an efficient way to query available codecs before making calls.
+         *
+         * @param context Application context
+         * @return List of AudioCodec objects representing supported codecs
+         */
+        fun getSupportedAudioCodecs(context: Context): List<AudioCodec> {
+            return try {
+                // Ensure WebRTC is initialized
+                initPeerConnectionFactory(context)
+
+                // Query capabilities from shared factory
+                val capabilities = sharedPeerConnectionFactory.getRtpSenderCapabilities(
+                    MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
+                )
+
+                Logger.d(
+                    tag = "Peer.Companion",
+                    message = "Retrieved ${capabilities.codecs.size} codec capabilities from shared factory"
+                )
+
+                // Convert to AudioCodec list
+                CodecUtils.convertCapabilitiesToAudioCodecs(capabilities.codecs)
+            } catch (e: Exception) {
+                Logger.e(
+                    tag = "Peer.Companion",
+                    message = "Error retrieving supported audio codecs: ${e.message}"
+                )
+                emptyList()
+            }
+        }
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -113,12 +197,24 @@ internal class Peer(
         return if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
     }
 
-    private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    /**
+     * Use the shared PeerConnectionFactory for this Peer instance.
+     * This improves efficiency by reusing the factory across all peers.
+     */
+    private val peerConnectionFactory: PeerConnectionFactory
+        get() = sharedPeerConnectionFactory
+
     internal var peerConnection: PeerConnection? = null
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
 
+    /**
+     * Gets the supported audio codec capabilities from the shared factory.
+     * This method is kept for backward compatibility with existing code.
+     *
+     * @return List of codec capabilities
+     */
     internal fun getSupportedSenderAudioCodecs(): List<RtpCapabilities.CodecCapability> {
         val capabilities = peerConnectionFactory.getRtpSenderCapabilities(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO)
         return capabilities.codecs
@@ -220,43 +316,6 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Renegotiation Needed")
             peerConnectionObserver?.onRenegotiationNeeded()
         }
-    }
-
-    /**
-     * Initiates our peer connection factory with the specified options
-     * @param context the context
-     */
-    private fun initPeerConnectionFactory(context: Context) {
-        val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
-
-    /**
-     * creates the PeerConnectionFactory
-     * @see [PeerConnectionFactory]
-     * @return [PeerConnectionFactory]
-     */
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        return PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-            .setVideoEncoderFactory(
-                DefaultVideoEncoderFactory(
-                    rootEglBase.eglBaseContext,
-                    true,
-                    true
-                )
-            )
-            .setOptions(
-                PeerConnectionFactory.Options().apply {
-                    disableEncryption = false
-                    disableNetworkMonitor = true
-                }
-            )
-            .createPeerConnectionFactory()
     }
 
     /**
@@ -622,10 +681,12 @@ internal class Peer(
     }
 
     /**
-     * Initializes the Peer with the provided context and builds the PeerConnection
+     * Initializes the Peer with the provided context and builds the PeerConnection.
+     * Uses the shared PeerConnectionFactory from the companion object.
      */
     init {
-        initPeerConnectionFactory(context)
+        // Ensure WebRTC is initialized using companion's method
+        Companion.initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
         // Reset the flag when a new Peer is created
         firstCandidateReceived = false

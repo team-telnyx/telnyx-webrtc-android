@@ -2715,38 +2715,17 @@ class TelnyxClient(
      * ```
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
-        var tempPeer: Peer? = null
-        try {
-            Logger.d(message = "Querying WebRTC audio codecs via RtpSenderCapabilities")
+        return try {
+            Logger.d(message = "Querying WebRTC audio codecs via Peer companion object")
 
-            // Create a temporary peer connection with minimal configuration
-            tempPeer = Peer(
-                context = context,
-                client = this,
-                providedTurn = providedTurn ?: Config.DEFAULT_TURN,
-                providedStun = providedStun ?: Config.DEFAULT_STUN,
-                callId = UUID.randomUUID(), // Temporary UUID
-                prefetchIceCandidate = false,
-                forceRelayCandidate = false,
-                onIceCandidateAdd = null // No callback needed for codec query
-            )
+            // Use the efficient companion object method - no temporary Peer needed!
+            val codecs = Peer.getSupportedAudioCodecs(context)
 
-            // Get capabilities directly from peer connection factory
-            val capabilities = tempPeer.getSupportedSenderAudioCodecs()
-            Logger.d(message = "Retrieved ${capabilities.size} codec capabilities from WebRTC")
-
-            // Convert capabilities to AudioCodec list
-            val codecs = CodecUtils.convertCapabilitiesToAudioCodecs(capabilities)
-            Logger.d(message = "Converted to ${codecs.size} AudioCodec objects: ${codecs.map { it.mimeType }}")
-
-            return codecs
+            Logger.d(message = "Retrieved ${codecs.size} audio codecs: ${codecs.map { it.mimeType }}")
+            codecs
         } catch (e: Exception) {
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
-            return emptyList()
-        } finally {
-            // Always clean up the temporary peer connection
-            tempPeer?.release()
-            Logger.d(message = "Temporary peer connection disposed")
+            emptyList()
         }
     }
 
