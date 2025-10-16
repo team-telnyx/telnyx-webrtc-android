@@ -330,8 +330,7 @@ class TelnyxClient(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null
+        debug: Boolean = false
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -353,9 +352,7 @@ class TelnyxClient(
             setSpeakerMode(speakerState)
             client.callOngoing()
 
-            // Apply codec preferences before creating answer
-            peerConnection?.applyAudioCodecPreferences(preferredCodecs)
-            // Create the answer SDP now that codec preferences have been applied
+            // Create the answer SDP
             peerConnection?.answer(AppSdpObserver())
 
 
@@ -403,8 +400,7 @@ class TelnyxClient(
                                         callId = callId,
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf(),
-                                        preferredCodecs = preferredCodecs
+                                            ?: arrayListOf()
                                     )
                                 )
                             )
