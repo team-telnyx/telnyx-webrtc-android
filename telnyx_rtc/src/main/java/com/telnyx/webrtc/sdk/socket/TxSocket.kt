@@ -137,7 +137,6 @@ class TxSocket(
                         this@TxSocket.javaClass.simpleName)
                     )
                     isConnected = true
-                    connectionStartTime = System.currentTimeMillis()
                     onConnected(true)
                     listener.onConnectionEstablished()
                 }
@@ -196,6 +195,7 @@ class TxSocket(
                                 CLIENT_READY.methodName -> {
                                     cleanPingIntervals()
                                     listener.onClientReady(jsonObject)
+                                    connectionStartTime = System.currentTimeMillis()
                                 }
 
                                 ATTACH.methodName -> {
