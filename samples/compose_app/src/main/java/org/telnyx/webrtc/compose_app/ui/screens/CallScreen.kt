@@ -103,7 +103,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
 
     val uiState by telnyxViewModel.uiState.collectAsState()
     var callUIState by remember { mutableStateOf(CallUIState.IDLE) }
-    val loudSpeakerOn = telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
+    val loudSpeakerOn =
+        telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
     val isHolded = telnyxViewModel.currentCall?.getIsOnHoldStatus()?.observeAsState(initial = false)
 
@@ -125,14 +126,17 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 } else
                     CallUIState.IDLE
             }
+
             is TelnyxSocketEvent.OnIncomingCall -> {
                 CallUIState.INCOMING
             }
+
             is TelnyxSocketEvent.OnCallAnswered,
             is TelnyxSocketEvent.OnCallDropped,
             is TelnyxSocketEvent.OnCallReconnecting -> {
                 CallUIState.ACTIVE
             }
+
             is TelnyxSocketEvent.OnCallEnded -> {
                 destinationNumber = ""
                 showAssistantTranscriptBottomSheet = false
@@ -142,9 +146,11 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                 else
                     CallUIState.IDLE
             }
+
             is TelnyxSocketEvent.OnRinging -> {
                 CallUIState.ACTIVE
             }
+
             else -> {
                 CallUIState.IDLE
             }
@@ -169,8 +175,12 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             if (callState != CallUIState.INCOMING && !telnyxViewModel.isAnonymouslyConnected) {
                 OutlinedEdiText(
                     text = destinationNumber,
-                    hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(R.string.sip_address_hint),
-                    modifier = Modifier.fillMaxWidth().testTag("callInput"),
+                    hint = if (isPhoneNumber) stringResource(R.string.phone_number_hint) else stringResource(
+                        R.string.sip_address_hint
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("callInput"),
                     imeAction = ImeAction.Done,
                     keyboardType = if (isPhoneNumber) androidx.compose.ui.text.input.KeyboardType.Phone else androidx.compose.ui.text.input.KeyboardType.Text,
                     enabled = callUIState != CallUIState.ACTIVE
@@ -180,14 +190,14 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
         }
 
-        Box (
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = Dimens.spacing24dp),
             contentAlignment = Alignment.Center
         ) {
 
-            AnimatedContent(targetState = callUIState, label = "Animated call area")  { callState ->
+            AnimatedContent(targetState = callUIState, label = "Animated call area") { callState ->
                 when (callState) {
                     CallUIState.IDLE -> {
                         Column(
@@ -211,13 +221,23 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     horizontalArrangement = Arrangement.spacedBy(Dimens.spacing16dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    HomeIconButton(Modifier.testTag("call"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
+                                    HomeIconButton(
+                                        Modifier.testTag("call"),
+                                        icon = R.drawable.baseline_call_24,
+                                        backGroundColor = telnyxGreen,
+                                        contentColor = Color.Black
+                                    ) {
                                         if (destinationNumber.isNotEmpty())
-                                            telnyxViewModel.sendInvite(context, destinationNumber, true)
+                                            telnyxViewModel.sendInvite(
+                                                context,
+                                                destinationNumber,
+                                                true,
+                                                trickleIce = telnyxViewModel.useTrickleIce
+                                            )
                                     }
                                 }
                             }
-                            
+
                             RoundSmallButton(
                                 text = stringResource(R.string.call_history_title),
                                 textSize = 14.sp,
@@ -227,40 +247,68 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                             }
                         }
                     }
-                    CallUIState.ACTIVE ->  {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally,
+
+                    CallUIState.ACTIVE -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                            modifier = Modifier.testTag("callActiveView")) {
-                            
+                            modifier = Modifier.testTag("callActiveView")
+                        ) {
+
                             // Call quality summary (only shown when metrics are available)
                             callQualityMetrics?.let {
                                 CallMetricsState(it) { showCallQualityMetrics = true }
                             }
-                            
+
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("mute"), icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(
+                                    Modifier.testTag("mute"),
+                                    icon = if (isMuted?.value == true) R.drawable.mute_off_24 else R.drawable.mute_24,
+                                    backGroundColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = Color.Black
+                                ) {
                                     telnyxViewModel.currentCall?.onMuteUnmutePressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("loudSpeaker"), icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(
+                                    Modifier.testTag("loudSpeaker"),
+                                    icon = if (loudSpeakerOn?.value == true) R.drawable.speaker_24 else R.drawable.speaker_off_24,
+                                    backGroundColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = Color.Black
+                                ) {
                                     telnyxViewModel.currentCall?.onLoudSpeakerPressed()
                                 }
 
-                                HomeIconButton(Modifier.testTag("hold"), icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                HomeIconButton(
+                                    Modifier.testTag("hold"),
+                                    icon = if (isHolded?.value == true) R.drawable.play_24 else R.drawable.pause_24,
+                                    backGroundColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = Color.Black
+                                ) {
                                     telnyxViewModel.holdUnholdCurrentCall(context)
                                 }
 
                                 if (telnyxViewModel.isAnonymouslyConnected) {
                                     // Assistant mode - show message button to open transcript
-                                    HomeIconButton(Modifier.testTag("assistantTranscript"), icon = R.drawable.ic_message, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                    HomeIconButton(
+                                        Modifier.testTag("assistantTranscript"),
+                                        icon = R.drawable.ic_message,
+                                        backGroundColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = Color.Black
+                                    ) {
                                         showAssistantTranscriptBottomSheet = true
                                     }
                                 } else {
                                     // Regular mode - show dialpad button
-                                    HomeIconButton(Modifier.testTag("dialpad"), icon = R.drawable.dialpad_24, backGroundColor = MaterialTheme.colorScheme.secondary, contentColor = Color.Black) {
+                                    HomeIconButton(
+                                        Modifier.testTag("dialpad"),
+                                        icon = R.drawable.dialpad_24,
+                                        backGroundColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = Color.Black
+                                    ) {
                                         showDialpadSection = true
                                     }
                                 }
@@ -269,27 +317,51 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                HomeIconButton(Modifier.testTag("endCall"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.White, stringResource(R.string.end)) {
+                                HomeIconButton(
+                                    Modifier.testTag("endCall"),
+                                    icon = R.drawable.baseline_call_end_24,
+                                    backGroundColor = callRed,
+                                    contentColor = Color.White,
+                                    stringResource(R.string.end)
+                                ) {
                                     telnyxViewModel.endCall(context)
                                 }
                             }
                         }
 
                     }
-                    CallUIState.INCOMING ->  {
+
+                    CallUIState.INCOMING -> {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(Dimens.extraLargeSpacing),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HomeIconButton(Modifier.testTag("callReject"), icon = R.drawable.baseline_call_end_24, backGroundColor = callRed, contentColor = Color.Black) {
-                                val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
+                            HomeIconButton(
+                                Modifier.testTag("callReject"),
+                                icon = R.drawable.baseline_call_end_24,
+                                backGroundColor = callRed,
+                                contentColor = Color.Black
+                            ) {
+                                val inviteResponse =
+                                    (uiState as TelnyxSocketEvent.OnIncomingCall).message
                                 Timber.i("Reject call UI ${inviteResponse.callId}")
                                 telnyxViewModel.rejectCall(context, inviteResponse.callId)
                             }
-                            HomeIconButton(Modifier.testTag("callAnswer"), icon = R.drawable.baseline_call_24, backGroundColor = telnyxGreen, contentColor = Color.Black) {
-                                val inviteResponse = (uiState as TelnyxSocketEvent.OnIncomingCall).message
+                            HomeIconButton(
+                                Modifier.testTag("callAnswer"),
+                                icon = R.drawable.baseline_call_24,
+                                backGroundColor = telnyxGreen,
+                                contentColor = Color.Black
+                            ) {
+                                val inviteResponse =
+                                    (uiState as TelnyxSocketEvent.OnIncomingCall).message
                                 destinationNumber = inviteResponse.callerIdName
-                                telnyxViewModel.answerCall(context, inviteResponse.callId, inviteResponse.callerIdNumber, true)
+                                telnyxViewModel.answerCall(
+                                    context,
+                                    inviteResponse.callId,
+                                    inviteResponse.callerIdNumber,
+                                    true
+                                )
                             }
                         }
 
@@ -306,7 +378,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             showDialpadSection = false
         }
     }
-    
+
     if (showCallQualityMetrics && callQualityMetrics != null) {
         CallQualityMetricsBottomSheet(
             metrics = callQualityMetrics!!,
@@ -339,9 +411,10 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
 
 @Composable
 fun CallMetricsState(metrics: CallQualityMetrics, onClick: () -> Unit) {
-    Column(modifier = Modifier
-        .fillMaxWidth()
-        .padding(bottom = Dimens.spacing24dp),
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = Dimens.spacing24dp),
         verticalArrangement = Arrangement.spacedBy(Dimens.spacing4dp),
         horizontalAlignment = Alignment.Start
     ) {
@@ -349,7 +422,7 @@ fun CallMetricsState(metrics: CallQualityMetrics, onClick: () -> Unit) {
         RegularText(text = stringResource(id = R.string.call_metrics_label))
 
         // Quality indicator row with button
-        Box (contentAlignment = Alignment.Center) {
+        Box(contentAlignment = Alignment.Center) {
             // Quality indicator with colored dot
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -462,12 +535,18 @@ fun HomeIconButton(
 
     IconButton(
         modifier = modifier.size(Dimens.size60dp),
-        colors = IconButtonDefaults.iconButtonColors(containerColor = backGroundColor, contentColor = contentColor ?: Color.Black),
-        onClick = onClick) {
-        Image(painter = painterResource(icon),
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = backGroundColor,
+            contentColor = contentColor ?: Color.Black
+        ),
+        onClick = onClick
+    ) {
+        Image(
+            painter = painterResource(icon),
             contentDescription = contentDescription,
             modifier = Modifier.padding(Dimens.smallSpacing),
-            colorFilter = ColorFilter.tint(contentColor ?: Color.Black))
+            colorFilter = ColorFilter.tint(contentColor ?: Color.Black)
+        )
     }
 }
 
@@ -491,7 +570,10 @@ fun HomeButton(
             contentColor = contentColor
         ),
         shape = RoundedCornerShape(Dimens.buttonRoundedCorner),
-        contentPadding = PaddingValues(horizontal = Dimens.smallSpacing, vertical = Dimens.extraSmallSpacing)
+        contentPadding = PaddingValues(
+            horizontal = Dimens.smallSpacing,
+            vertical = Dimens.extraSmallSpacing
+        )
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
@@ -522,7 +604,9 @@ fun DialpadSection(onKeyPress: (String) -> Unit, onDismiss: () -> Unit) {
     var selectedNumbers by remember { mutableStateOf("") }
 
     ModalBottomSheet(
-        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
         onDismissRequest = {
             onDismiss.invoke()
         },
@@ -594,8 +678,10 @@ fun NumericKeyboard(onKeyPress: (String) -> Unit) {
         listOf("*", "0", "#")
     )
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         buttons.forEach { row ->
             Row {
                 row.forEach { key ->
@@ -626,30 +712,39 @@ private fun onNumberClicked(number: Int) {
         0 -> {
             toneGenerator.startTone(TONE_DTMF_0, 500)
         }
+
         1 -> {
             toneGenerator.startTone(TONE_DTMF_1, 500)
         }
+
         2 -> {
             toneGenerator.startTone(TONE_DTMF_2, 500)
         }
+
         3 -> {
             toneGenerator.startTone(TONE_DTMF_3, 500)
         }
+
         4 -> {
             toneGenerator.startTone(TONE_DTMF_4, 500)
         }
+
         5 -> {
             toneGenerator.startTone(TONE_DTMF_5, 500)
         }
+
         6 -> {
             toneGenerator.startTone(TONE_DTMF_6, 500)
         }
+
         7 -> {
             toneGenerator.startTone(TONE_DTMF_7, 500)
         }
+
         8 -> {
             toneGenerator.startTone(TONE_DTMF_8, 500)
         }
+
         9 -> {
             toneGenerator.startTone(TONE_DTMF_9, 500)
         }
@@ -665,9 +760,11 @@ fun DestinationTypeSwitcher(isPhoneNumber: Boolean, onCheckedChange: (Boolean) -
             .fillMaxWidth()
             .wrapContentHeight()
             .clip(RoundedCornerShape(Dimens.size4dp))
-            .border(Dimens.borderStroke1dp,
+            .border(
+                Dimens.borderStroke1dp,
                 Color.Black,
-                RoundedCornerShape(Dimens.size4dp)),
+                RoundedCornerShape(Dimens.size4dp)
+            ),
         horizontalArrangement = Arrangement.Center
     ) {
         ToggleButton(

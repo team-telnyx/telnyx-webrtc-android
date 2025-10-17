@@ -20,7 +20,7 @@ fun Profile.toCredentialConfig(fcmToken: String, isDebug: Boolean = false): Cred
         ringBackTone = R.raw.ringback_tone,
         autoReconnect = true,
         region = this.region,
-        forceRelayCandidate = this.forceRelayCandidate
+        forceRelayCandidate = this.forceRelayCandidate,
     )
 }
 
@@ -37,6 +37,6 @@ fun Profile.toTokenConfig(fcmToken: String, isDebug: Boolean = false): TokenConf
         ringBackTone = R.raw.ringback_tone,
         autoReconnect = true,
         region = this.region,
-        forceRelayCandidate = this.forceRelayCandidate
+        forceRelayCandidate = this.forceRelayCandidate,
     )
 }

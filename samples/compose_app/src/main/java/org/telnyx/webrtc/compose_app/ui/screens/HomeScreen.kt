@@ -339,6 +339,40 @@ fun HomeScreen(
                                     }
                                 )
 
+                                // Trickle ICE option
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (telnyxViewModel.useTrickleIce) {
+                                                stringResource(R.string.disable_trickle_ice)
+                                            } else {
+                                                stringResource(R.string.enable_trickle_ice)
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newState = !telnyxViewModel.useTrickleIce
+                                        telnyxViewModel.toggleTrickleIce(newState)
+                                        val message = if (newState) {
+                                            context.getString(R.string.enable_trickle_ice)
+                                        } else {
+                                            context.getString(R.string.disable_trickle_ice)
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            message,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
                                 // Preferred Codecs option
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.preferred_codecs)) },
@@ -349,6 +383,27 @@ fun HomeScreen(
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Settings,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Force ICE Renegotiation option (for testing)
+                                DropdownMenuItem(
+                                    text = { Text("Force ICE Renegotiation (Test)") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val success = telnyxViewModel.forceIceRenegotiationForTesting()
+                                        val message = if (success) {
+                                            "ICE renegotiation triggered successfully"
+                                        } else {
+                                            "Failed to trigger ICE renegotiation - no active call"
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_handshake),
                                             contentDescription = null
                                         )
                                     }

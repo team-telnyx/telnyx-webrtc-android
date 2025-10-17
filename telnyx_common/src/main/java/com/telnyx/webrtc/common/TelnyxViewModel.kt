@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import com.telnyx.webrtc.common.TelnyxSocketEvent.*
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateAnonymously
@@ -303,6 +304,25 @@ class TelnyxViewModel : ViewModel() {
         set(value) {
             TelnyxCommon.getInstance().telnyxClient?.setPrefetchIceCandidates(value)
         }
+
+    /**
+     * Flag indicating whether trickle ICE should be enabled for new calls.
+     * This preference will be used when making or accepting calls.
+     */
+    var useTrickleIce: Boolean = false
+        private set
+
+    /**
+     * Toggles the trickle ICE setting for new calls.
+     * This method provides a centralized way to control the trickle ICE preference
+     * that will be used when making or accepting calls.
+     *
+     * @param enabled True to enable trickle ICE, false to disable it.
+     */
+    fun toggleTrickleIce(enabled: Boolean) {
+        useTrickleIce = enabled
+        Timber.d("Trickle ICE toggled: $enabled")
+    }
 
     /**
      * Changes the server configuration environment.
@@ -735,7 +755,9 @@ class TelnyxViewModel : ViewModel() {
                     testNumber,
                     "",
                     mapOf(Pair("X-test", "123456")),
-                    true
+                    true,
+                    null,
+                    useTrickleIce
                 ).callStateFlow.collect {
                     handlePrecallDiagnosisCallState(it)
                 }
@@ -889,26 +911,26 @@ class TelnyxViewModel : ViewModel() {
         when (callState) {
             is CallState.ACTIVE -> {
                 _uiState.value =
-                    TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
+                    OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
             }
 
             is CallState.DROPPED -> {
-                _uiState.value = TelnyxSocketEvent.OnCallDropped(callState.callNetworkChangeReason)
+                _uiState.value = OnCallDropped(callState.callNetworkChangeReason)
             }
 
             is CallState.RECONNECTING -> {
-                _uiState.value = TelnyxSocketEvent.OnCallReconnecting(callState.callNetworkChangeReason)
+                _uiState.value = OnCallReconnecting(callState.callNetworkChangeReason)
             }
 
             is CallState.DONE -> {
-                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+                _uiState.value = OnCallEnded(null)
             }
 
             is CallState.ERROR -> {
-                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+                _uiState.value = OnCallEnded(null)
             }
 
-            CallState.NEW, CallState.CONNECTING, CallState.RINGING, CallState.HELD -> {
+            CallState.NEW, CallState.CONNECTING, CallState.RINGING, CallState.HELD, CallState.RENEGOTIATING -> {
                 Timber.d("Call state updated to: %s", callState.javaClass.simpleName)
             }
         }
@@ -945,9 +967,11 @@ class TelnyxViewModel : ViewModel() {
         viewContext: Context,
         destinationNumber: String,
         debug: Boolean,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        trickleIce: Boolean = false
     ) {
 
+        toggleTrickleIce(trickleIce)
         callStateJob?.cancel()
         callStateJob = null
 
@@ -962,6 +986,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
+                    trickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -1002,6 +1027,7 @@ class TelnyxViewModel : ViewModel() {
                 mapOf(Pair("X-test", "123456")),
                 debug,
                 preferredCodecs,
+                useTrickleIce,
                 onCallHistoryAdd = { number ->
                     addCallToHistory(CallType.OUTBOUND, number)
                 }
@@ -1104,6 +1130,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredAudioCodecs,
+                    useTrickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }
@@ -1325,6 +1352,20 @@ class TelnyxViewModel : ViewModel() {
                 null
             }
 
+        }
+    }
+
+    /**
+     * Forces ICE renegotiation for testing purposes.
+     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
+     * 
+     * @return true if the renegotiation was successfully triggered, false otherwise
+     */
+    fun forceIceRenegotiationForTesting(): Boolean {
+        Timber.d("Force ICE renegotiation called from ViewModel")
+        return currentCall?.forceIceRenegotiationForTesting() ?: run {
+            Timber.w("Cannot force ICE renegotiation - no active call")
+            false
         }
     }
 

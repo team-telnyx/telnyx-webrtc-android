@@ -126,3 +126,19 @@ data class AiConversationResponse(
     @SerializedName("params")
     val aiConversationParams: AiConversationParams? = null
 ) : ReceivedResult()
+
+/**
+ * A response to an updateMedia modify request containing the new remote SDP for ICE renegotiation
+ *
+ * @param action the action type, should be "updateMedia"
+ * @param callId the unique UUID of the call being renegotiated
+ * @param sdp the new remote Session Description Protocol for ICE restart
+ */
+data class UpdateMediaResponse(
+    @SerializedName("action")
+    val action: String,
+    @SerializedName("callID")
+    val callId: UUID,
+    @SerializedName("sdp")
+    val sdp: String
+) : ReceivedResult()
