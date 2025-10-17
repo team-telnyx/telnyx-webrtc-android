@@ -28,7 +28,7 @@ import org.telnyx.webrtc.compose_app.R
  * Dialog for selecting and reordering preferred audio codecs.
  *
  * @param isVisible Whether the dialog is visible
- * @param availableCodecs List of all available audio codecs
+ * @param availableCodecs List of all available audio codecs (null means loading)
  * @param selectedCodecs Currently selected codecs in order of preference
  * @param onDismiss Callback when dialog is dismissed
  * @param onConfirm Callback when user confirms selection with new codec list
@@ -37,12 +37,14 @@ import org.telnyx.webrtc.compose_app.R
 @Composable
 fun CodecSelectionDialog(
     isVisible: Boolean,
-    availableCodecs: List<AudioCodec>,
+    availableCodecs: List<AudioCodec>?,
     selectedCodecs: List<AudioCodec>,
     onDismiss: () -> Unit,
     onConfirm: (List<AudioCodec>) -> Unit
 ) {
     if (!isVisible) return
+
+    val isLoading = availableCodecs == null
 
     var currentSelection by remember(selectedCodecs) { 
         mutableStateOf(selectedCodecs.toList()) 
@@ -123,32 +125,55 @@ fun CodecSelectionDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(bottom = 12.dp)
                                 )
-                                
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                                        .padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = availableCodecs,
-                                        key = { _, codec -> codecKey(codec) }
-                                    ) { _, codec ->
-                                        val isSelected = currentSelection.contains(codec)
-                                        
-                                        CodecItem(
-                                            codec = codec,
-                                            isSelected = isSelected,
-                                            onClick = {
-                                                currentSelection = if (isSelected) {
-                                                    currentSelection.filter { it != codec }
-                                                } else {
-                                                    currentSelection + codec
+
+                                if (isLoading) {
+                                    // Show loading indicator
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            CircularProgressIndicator()
+                                            Text(
+                                                text = stringResource(R.string.loading_codecs),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        itemsIndexed(
+                                            items = availableCodecs ?: emptyList(),
+                                            key = { _, codec -> codecKey(codec) }
+                                        ) { _, codec ->
+                                            val isSelected = currentSelection.contains(codec)
+
+                                            CodecItem(
+                                                codec = codec,
+                                                isSelected = isSelected,
+                                                onClick = {
+                                                    currentSelection = if (isSelected) {
+                                                        currentSelection.filter { it != codec }
+                                                    } else {
+                                                        currentSelection + codec
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }

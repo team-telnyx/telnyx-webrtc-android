@@ -1103,7 +1103,6 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
-                    preferredAudioCodecs,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }
