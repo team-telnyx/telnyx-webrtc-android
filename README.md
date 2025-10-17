@@ -8,7 +8,6 @@ Enable Telnyx real-time communication services on Android
 
 - [Project structure](#project-structure)
 - [Project Setup](#project-setup)
-- [Using Jetpack Compose?](#using-jetpack-compose)
 - [SIP Credentials](#sip-credentials)
 - [Usage](#usage)
   - [Telnyx Client](#telnyx-client)
@@ -60,9 +59,6 @@ Enable Telnyx real-time communication services on Android
                <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif">
             </p>
             
-
- ## Using Jetpack Compose?
- Have a look at our Jetpack Compose reference application [here](https://github.com/team-telnyx/Telnyx-Android-Jetpack-Compose-WebRTC-Sample)
 
 ## SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
