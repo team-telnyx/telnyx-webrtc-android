@@ -121,6 +121,17 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/loginInfo" />
 
+                    <ImageButton
+                        android:id="@+id/connectionDetailsButton"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/connection_details"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_more_vert"
+                        app:tint="@android:color/darker_gray" />
+
                 </LinearLayout>
 
                 <TextView

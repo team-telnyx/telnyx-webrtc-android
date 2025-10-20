@@ -195,4 +195,29 @@
     <string name="remove_codec">Remove codec</string>
     <string name="loading_codecs">Loading available codecs…</string>
     <string name="fcm_token_label">FCM Token</string>
+    
+    <!-- Connection Quality -->
+    <string name="connection_details">Connection Details</string>
+    <string name="connection_quality">Connection Quality</string>
+    <string name="connection_quality_disconnected">Disconnected</string>
+    <string name="connection_quality_calculating">Calculating…</string>
+    <string name="connection_quality_excellent">EXCELLENT</string>
+    <string name="connection_quality_good">GOOD</string>
+    <string name="connection_quality_fair">FAIR</string>
+    <string name="connection_quality_poor">POOR</string>
+    <string name="connection_metrics_interval">Ping Interval</string>
+    <string name="connection_metrics_average_interval">Average Interval</string>
+    <string name="connection_metrics_jitter">Jitter</string>
+    <string name="connection_metrics_min_interval">Min Interval</string>
+    <string name="connection_metrics_max_interval">Max Interval</string>
+    <string name="connection_metrics_success_rate">Success Rate</string>
+    <string name="connection_metrics_ping_stats">Ping Statistics</string>
+    <string name="connection_metrics_total_pings">Total Pings</string>
+    <string name="connection_metrics_missed_pings">Missed Pings</string>
+    <string name="connection_metrics_not_available">N/A</string>
+    <string name="connection_metrics_ms">%1$dms</string>
+    <string name="connection_metrics_seconds">%1$ds</string>
+    <string name="connection_metrics_percent">%.1f%%</string>
+    <string name="no_connection_metrics">No connection metrics available</string>
+    <string name="close">Close</string>
 </resources>

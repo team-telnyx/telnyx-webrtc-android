@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -79,6 +81,7 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -93,6 +96,8 @@ import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
+import org.telnyx.webrtc.compose_app.ui.components.ConnectionQualityIndicator
+import org.telnyx.webrtc.compose_app.ui.components.ConnectionMetricsDetail
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
@@ -128,6 +133,7 @@ fun HomeScreen(
     var showCodecSelectionDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
+    var showConnectionMetrics by remember { mutableStateOf(false) }
     val currentConfig by telnyxViewModel.currentProfile.collectAsState()
     var editableUserProfile by remember { mutableStateOf<Profile?>(null) }
     var selectedUserProfile by remember { mutableStateOf<Profile?>(null) }
@@ -137,6 +143,7 @@ fun HomeScreen(
         ?: remember { mutableStateOf(CallState.DONE()) }
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
+    val connectionMetrics by telnyxViewModel.connectionMetrics.collectAsState()
     val connectionStatus by telnyxViewModel.connectionStatus?.collectAsState(initial = ConnectionStatus.DISCONNECTED)
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
 
@@ -478,7 +485,9 @@ fun HomeScreen(
             ConnectionState(
                 connectionStatus = connectionStatus,
                 telnyxViewModel = telnyxViewModel,
-                showWsMessagesBottomSheet = showWsMessagesBottomSheet
+                showWsMessagesBottomSheet = showWsMessagesBottomSheet,
+                connectionMetrics = connectionMetrics,
+                onShowConnectionMetrics = { showConnectionMetrics = true }
             )
 
             if (connectionStatus == ConnectionStatus.CLIENT_READY) {
@@ -833,6 +842,60 @@ fun HomeScreen(
             ).show()
         }
     )
+
+    // Connection Metrics Bottom Sheet
+    if (showConnectionMetrics) {
+        val configuration = LocalConfiguration.current
+        val screenHeight = configuration.screenHeightDp.dp
+
+        ModalBottomSheet(
+            modifier = Modifier.height(screenHeight * 0.8f),
+            onDismissRequest = {
+                showConnectionMetrics = false
+            },
+            containerColor = Color.White,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(Dimens.mediumSpacing)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    MediumTextBold(
+                        text = stringResource(R.string.connection_quality),
+                        modifier = Modifier.fillMaxWidth(fraction = 0.9f)
+                    )
+                    IconButton(onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showConnectionMetrics = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_close),
+                            contentDescription = stringResource(id = R.string.close_button_dessc),
+                            modifier = Modifier.size(Dimens.size16dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacing8dp))
+
+                // Connection metrics detail
+                ConnectionMetricsDetail(
+                    connectionMetrics = connectionMetrics,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
 
 
@@ -987,7 +1050,9 @@ fun SessionItem(sessionId: String) {
 fun ConnectionState(
     connectionStatus: ConnectionStatus,
     telnyxViewModel: TelnyxViewModel = viewModel(),
-    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
+    showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) },
+    connectionMetrics: SocketConnectionMetrics? = null,
+    onShowConnectionMetrics: () -> Unit = {}
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
     val sheetState = rememberModalBottomSheetState(true)
@@ -1022,8 +1087,24 @@ fun ConnectionState(
                     ConnectionStatus.DISCONNECTED -> stringResource(R.string.disconnected)
                 }
             )
+            
+            if (connectionStatus != ConnectionStatus.DISCONNECTED) {
+                // Show info icon for connection details
+                IconButton(
+                    onClick = { onShowConnectionMetrics() },
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_more_vert),
+                        contentDescription = stringResource(R.string.connection_details),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
         }
     }
+    
 
     // Websocket messages bottom sheet
     if (showWsMessagesBottomSheet.value) {

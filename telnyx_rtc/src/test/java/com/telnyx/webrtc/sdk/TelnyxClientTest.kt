@@ -49,7 +49,7 @@ import kotlin.test.assertEquals
 class TelnyxClientTest : BaseTest() {
 
     @MockK
-    private var mockContext: Context = Mockito.mock(Context::class.java)
+    private lateinit var mockContext: Context
 
     @MockK
     lateinit var connectivityHelper: ConnectivityHelper
