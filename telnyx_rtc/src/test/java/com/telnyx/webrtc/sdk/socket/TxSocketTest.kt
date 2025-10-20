@@ -24,8 +24,6 @@ import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.*
-import org.mockito.Spy
 import kotlin.test.assertEquals
 
 class TxSocketTest : BaseTest() {
@@ -61,13 +59,11 @@ class TxSocketTest : BaseTest() {
     @MockK
     lateinit var audioManager: AudioManager
 
-    @Spy
     private lateinit var client: TelnyxClient
 
     @MockK
-    private var mockContext: Context = mock(Context::class.java)
+    private lateinit var mockContext: Context
 
-    @Spy
     private lateinit var socket: TxSocket
 
     @Before
@@ -117,68 +113,69 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `connect with valid host and port`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(
+        socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
 
-        client = spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
 
         socket.connect(client)
 
         // Sleep to give time to connect
         Thread.sleep(6000)
-        verify(client, times(1)).onConnectionEstablished()
+        verify(exactly = 1) { client.onConnectionEstablished() }
         client.pingPong()
         Thread.sleep(30000)
-        verify(client, times(2)).pingPong()
+        verify(atLeast = 2) { client.pingPong(any()) }
         socket.isPing shouldBe true
     }
 
     @Test
     fun `disconnect from socket`() {
         BuildConfig.IS_TESTING.set(true)
-        client = spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
 
-        client.socket = spy(
+        val testSocket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client.socket.connect(client)
+        client.socket = testSocket
+        testSocket.connect(client)
         // Sleep to give time to connect
         Thread.sleep(1000)
 
         client.onDisconnect()
         Thread.sleep(1000)
-        verify(client.socket, atLeastOnce()).destroy()
+        verify(atLeast = 1) { testSocket.destroy() }
     }
 
     @Test
     fun `connect with empty host or port - still connects with default`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(
+        socket = spyk(
             TxSocket(
                 host_address = "",
                 port = 0,
             )
         )
 
-        client = spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
         socket.connect(client)
 
         // Sleep to give time to connect
         Thread.sleep(6000)
-        verify(client, times(1)).onConnectionEstablished()
+        verify(exactly = 1) { client.onConnectionEstablished() }
     }
 
     @Test
     fun `set call to ongoing`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(
+        socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
@@ -191,7 +188,7 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `set call to not ongoing`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(
+        socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
@@ -204,13 +201,13 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `ensure connect changes isConnected appropriately`() {
         BuildConfig.IS_TESTING.set(true)
-        socket = spy(
+        socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
             )
         )
-        client = spy(TelnyxClient(mockContext))
+        client = spyk(TelnyxClient(mockContext))
         socket.connect(client)
         Thread.sleep(6000)
         assertEquals(socket.isConnected, true)
@@ -219,8 +216,8 @@ class TxSocketTest : BaseTest() {
     @Test
     fun `make sure isConnected is false before connect is called`() {
         BuildConfig.IS_TESTING.set(true)
-        client = spy(TelnyxClient(mockContext))
-        client.socket = spy(
+        client = spyk(TelnyxClient(mockContext))
+        client.socket = spyk(
             TxSocket(
                 host_address = "rtc.telnyx.com",
                 port = 14938,
