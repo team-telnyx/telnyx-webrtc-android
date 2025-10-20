@@ -210,4 +210,6 @@
     <string name="connection_metrics_percent">%.1f%%</string>
     <string name="no_connection_metrics">No connection metrics available</string>
     <string name="close">Close</string>
+
+    <string name="loading_codecs">Loading available codecs…</string>
 </resources>

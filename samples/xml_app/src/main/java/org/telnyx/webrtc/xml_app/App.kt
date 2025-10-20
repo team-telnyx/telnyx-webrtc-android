@@ -1,8 +1,6 @@
-package org.telnyx.webrtc.compose_app
+package org.telnyx.webrtc.xml_app
 
 import android.app.Application
-import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
-import timber.log.Timber
 
 class App : Application() {
 
@@ -14,10 +12,6 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
-        if (BuildConfig.DEBUG){
-            Timber.plant(Timber.DebugTree())
-        }
 
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
 

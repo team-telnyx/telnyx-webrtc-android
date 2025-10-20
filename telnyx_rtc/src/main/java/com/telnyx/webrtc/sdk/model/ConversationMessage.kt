@@ -69,8 +69,8 @@ data class WidgetSettings(
  * Data class representing audio visualizer configuration
  */
 data class AudioVisualizerConfig(
-    @SerializedName("enabled")
-    val enabled: Boolean? = null,
-    @SerializedName("type")
-    val type: String? = null
+    @SerializedName("color")
+    val color: String? = null,
+    @SerializedName("preset")
+    val preset: String? = null
 )

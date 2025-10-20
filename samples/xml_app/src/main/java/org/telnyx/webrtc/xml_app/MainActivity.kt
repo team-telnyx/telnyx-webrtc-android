@@ -98,6 +98,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         setupUI()
         setupGestureDetector()
         bindEvents()
+
+        App.instance?.crashListener = {
+            telnyxViewModel.endCall(this)
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -112,6 +116,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     override fun onStop(owner: LifecycleOwner) {
         super<DefaultLifecycleObserver>.onStop(owner)
         telnyxViewModel.disconnect(this)
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        super<DefaultLifecycleObserver>.onDestroy(owner)
+        telnyxViewModel.endCall(this)
     }
 
     private fun setupUI() {

@@ -158,10 +158,8 @@ fun HomeScreen(
 
     var isDebugModeOn by remember { mutableStateOf(telnyxViewModel.debugMode) }
 
-    // Available audio codecs fetched from the SDK
-    val availableCodecs = remember {
-        telnyxViewModel.getSupportedAudioCodecs(context)
-    }
+    // Available audio codecs - fetched lazily when dialog opens
+    var availableCodecs by remember { mutableStateOf<List<AudioCodec>?>(null) }
 
     LaunchedEffect(sessionState) {
         sessionId = when (sessionState) {
@@ -816,13 +814,22 @@ fun HomeScreen(
             showAssistantLoginBottomSheet = false
         }
     }
-    
+
+    // Fetch codecs lazily when dialog opens
+    LaunchedEffect(showCodecSelectionDialog) {
+        if (showCodecSelectionDialog && availableCodecs == null) {
+            availableCodecs = telnyxViewModel.getSupportedAudioCodecs(context)
+        }
+    }
+
     // Codec Selection Dialog
     CodecSelectionDialog(
         isVisible = showCodecSelectionDialog,
         availableCodecs = availableCodecs,
         selectedCodecs = telnyxViewModel.getPreferredAudioCodecs() ?: emptyList(),
-        onDismiss = { showCodecSelectionDialog = false },
+        onDismiss = {
+            showCodecSelectionDialog = false
+        },
         onConfirm = { selectedCodecs ->
             telnyxViewModel.setPreferredAudioCodecs(selectedCodecs)
             showCodecSelectionDialog = false

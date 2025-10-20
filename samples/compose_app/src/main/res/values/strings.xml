@@ -193,6 +193,7 @@
     <string name="codec_format">%1$d Hz, %2$d ch</string>
     <string name="drag_to_reorder">Drag to reorder</string>
     <string name="remove_codec">Remove codec</string>
+    <string name="loading_codecs">Loading available codecs…</string>
     <string name="fcm_token_label">FCM Token</string>
     
     <!-- Connection Quality -->
