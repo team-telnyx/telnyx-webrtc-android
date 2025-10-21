@@ -1,3 +1,13 @@
+## [3.2.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.2.0) (2025-10-22)
+
+### Enhancement
+- Connection State Exposure with DISCONNECTED, CONNECTED, RECONNECTING, CLIENT_READY states
+- Expose Socket Connection Quality
+- ICE Candidates Renegotiation
+
+### Bug Fixing
+- Preferred Audio Codec Implementation
+
 ## [3.1.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.1.0) (2025-08-27)
 
 ### Enhancement
