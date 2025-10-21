@@ -158,18 +158,21 @@ class TxSocket(
 
                     when {
                         jsonObject.has("result") -> {
-                            if (jsonObject.get("result").asJsonObject.has("params")) {
-                                val result = jsonObject.get("result").asJsonObject
+                            val result = jsonObject.get("result").asJsonObject
+                            
+                            // Check if this is a modify response (updateMedia result)
+                            if (result.has("action") && result.get("action").asString == "updateMedia") {
+                                listener.onModifyReceived(jsonObject)
+                            } else if (result.has("params")) {
                                 val sessionId = result.asJsonObject.get("sessid").asString
-                                params = result.get("params").asJsonObject
+                                val params = result.get("params").asJsonObject
                                 if (params.asJsonObject.has("state")) {
                                     val gatewayState = params.get("state").asString
                                     if (gatewayState != STATE_ATTACHED) {
                                         listener.onGatewayStateReceived(gatewayState, sessionId)
                                     }
                                 }
-                            } else if (jsonObject.get("result").asJsonObject.has("message")) {
-                                val result = jsonObject.get("result").asJsonObject
+                            } else if (result.has("message")) {
                                 val message = result.get("message").asString
                                 if (message == "logged in" && isLoggedIn) {
                                     listener.onClientReady(jsonObject)
@@ -216,6 +219,10 @@ class TxSocket(
 
                                 BYE.methodName -> {
                                     listener.onByeReceived(jsonObject)
+                                }
+
+                                MODIFY.methodName -> {
+                                    listener.onModifyReceived(jsonObject)
                                 }
 
                                 INVITE.methodName -> {
