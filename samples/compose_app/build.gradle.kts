@@ -22,7 +22,6 @@ android {
         versionName = "19"
 
 
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val properties = Properties()

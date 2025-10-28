@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.sdk.verto.send.CandidateParams
 import com.telnyx.webrtc.sdk.verto.send.EndOfCandidatesParams
 import com.telnyx.webrtc.sdk.verto.send.CandidateDialogParams
+import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel
@@ -34,6 +35,8 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
+import com.telnyx.webrtc.lib.RtpCapabilities
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -66,10 +69,96 @@ internal class Peer(
 
         // ICE renegotiation delay constants
         private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
+
         private const val AUDIO_BUFFER_RESET_DELAY_MS =
             200L // 0.2 second delay for audio buffer reset
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
+
+
+        /**
+         * Shared PeerConnectionFactory used for codec queries and peer connections.
+         * Lazily initialized on first access and shared across all Peer instances.
+         * This is thread-safe and follows WebRTC best practices.
+         */
+        private val sharedPeerConnectionFactory: PeerConnectionFactory by lazy {
+            buildSharedPeerConnectionFactory()
+        }
+
+        /**
+         * Ensures PeerConnectionFactory is initialized with the application context.
+         * This should be called before any WebRTC operations.
+         * Safe to call multiple times - initialization only happens once.
+         *
+         * @param context Application context
+         */
+        private fun initPeerConnectionFactory(context: Context) {
+            val options = PeerConnectionFactory.InitializationOptions.builder(context)
+                .setEnableInternalTracer(true)
+                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(options)
+        }
+
+        /**
+         * Builds the shared PeerConnectionFactory with standard configuration.
+         * This factory is used for both codec queries and actual peer connections.
+         *
+         * @return Configured PeerConnectionFactory instance
+         */
+        private fun buildSharedPeerConnectionFactory(): PeerConnectionFactory {
+            val rootEglBase = EglBase.create()
+            return PeerConnectionFactory
+                .builder()
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+                .setVideoEncoderFactory(
+                    DefaultVideoEncoderFactory(
+                        rootEglBase.eglBaseContext,
+                        true,
+                        true
+                    )
+                )
+                .setOptions(
+                    PeerConnectionFactory.Options().apply {
+                        disableEncryption = false
+                        disableNetworkMonitor = true
+                    }
+                )
+                .createPeerConnectionFactory()
+        }
+
+        /**
+         * Gets the list of audio codecs supported by WebRTC without creating a Peer instance.
+         * This is an efficient way to query available codecs before making calls.
+         *
+         * @param context Application context
+         * @return List of AudioCodec objects representing supported codecs
+         */
+        fun getSupportedAudioCodecs(context: Context): List<AudioCodec> {
+            return try {
+                // Ensure WebRTC is initialized
+                initPeerConnectionFactory(context)
+
+                // Query capabilities from shared factory
+                val capabilities = sharedPeerConnectionFactory.getRtpSenderCapabilities(
+                    MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
+                )
+
+                Logger.d(
+                    tag = "Peer.Companion",
+                    message = "Retrieved ${capabilities.codecs.size} codec capabilities from shared factory"
+                )
+
+                // Convert to AudioCodec list
+                CodecUtils.convertCapabilitiesToAudioCodecs(capabilities.codecs)
+            } catch (e: Exception) {
+                Logger.e(
+                    tag = "Peer.Companion",
+                    message = "Error retrieving supported audio codecs: ${e.message}"
+                )
+                emptyList()
+            }
+        }
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -134,12 +223,29 @@ internal class Peer(
         return if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
     }
 
-    private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    /**
+     * Use the shared PeerConnectionFactory for this Peer instance.
+     * This improves efficiency by reusing the factory across all peers.
+     */
+    private val peerConnectionFactory: PeerConnectionFactory
+        get() = sharedPeerConnectionFactory
+
     internal var peerConnection: PeerConnection? = null
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
+
+    /**
+     * Gets the supported audio codec capabilities from the shared factory.
+     * This method is kept for backward compatibility with existing code.
+     *
+     * @return List of codec capabilities
+     */
+    internal fun getSupportedSenderAudioCodecs(): List<RtpCapabilities.CodecCapability> {
+        val capabilities = peerConnectionFactory.getRtpSenderCapabilities(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO)
+        return capabilities.codecs
+    }
 
     private fun logAudioTrackAndTransceiverState(contextTag: String) {
         if (peerConnection == null) {
@@ -268,11 +374,8 @@ internal class Peer(
                             message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
                         )
                     }
-
-                    onIceCandidateAdd?.invoke(it.serverUrl)
-                    lastCandidateTime = System.currentTimeMillis()
+                    peerConnectionObserver?.onIceCandidate(candidate)
                 }
-                peerConnectionObserver?.onIceCandidate(candidate)
             }
         }
 
@@ -300,43 +403,6 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Renegotiation Needed")
             peerConnectionObserver?.onRenegotiationNeeded()
         }
-    }
-
-    /**
-     * Initiates our peer connection factory with the specified options
-     * @param context the context
-     */
-    private fun initPeerConnectionFactory(context: Context) {
-        val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
-
-    /**
-     * creates the PeerConnectionFactory
-     * @see [PeerConnectionFactory]
-     * @return [PeerConnectionFactory]
-     */
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        return PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-            .setVideoEncoderFactory(
-                DefaultVideoEncoderFactory(
-                    rootEglBase.eglBaseContext,
-                    true,
-                    true
-                )
-            )
-            .setOptions(
-                PeerConnectionFactory.Options().apply {
-                    disableEncryption = false
-                    disableNetworkMonitor = true
-                }
-            )
-            .createPeerConnectionFactory()
     }
 
     /**
@@ -1128,6 +1194,56 @@ internal class Peer(
     }
 
     /**
+     * Applies audio codec preferences to the peer connection's audio transceiver.
+     * This method must be called before creating an offer or answer to ensure the
+     * preferred codecs are negotiated in the correct order.
+     *
+     * @param preferredCodecs List of preferred audio codecs in order of preference
+     */
+    fun applyAudioCodecPreferences(preferredCodecs: List<AudioCodec>?) {
+        if (preferredCodecs.isNullOrEmpty()) {
+            Logger.d(tag = "CodecPreferences", message = "No codec preferences provided, using defaults")
+            return
+        }
+
+        try {
+            // Find the audio transceiver
+            val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers) ?: run {
+                Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
+                return
+            }
+
+            // Convert AudioCodec list directly to CodecCapability list
+            val codecCapabilities = CodecUtils.convertAudioCodecsToCapabilities(preferredCodecs)
+            if (codecCapabilities.isEmpty()) {
+                Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
+            } else {
+                // Apply codec preferences to transceiver
+                audioTransceiver.setCodecPreferences(codecCapabilities)
+                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
+            }
+        } catch (e: Exception) {
+            Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
+        }
+    }
+
+    /**
+     * Gets the list of audio codecs that are currently available from the WebRTC peer connection.
+     * This reflects the actual codecs that can be used for negotiation.
+     *
+     * @return List of AudioCodec objects representing available codecs, or empty list if unavailable
+     */
+    fun getAvailableAudioCodecs(): List<AudioCodec> {
+        val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
+            ?: run {
+                Logger.w(tag = "CodecQuery", message = "No audio transceiver found")
+                return emptyList()
+            }
+
+        return CodecUtils.getAvailableAudioCodecs(audioTransceiver)
+    }
+
+    /**
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
@@ -1153,9 +1269,11 @@ internal class Peer(
     }
 
     /**
-     * Initializes the Peer with the provided context and builds the PeerConnection
+     * Initializes the Peer with the provided context and builds the PeerConnection.
+     * Uses the shared PeerConnectionFactory from the companion object.
      */
     init {
+        // Ensure WebRTC is initialized using companion's method
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
         // Reset flags when a new Peer is created

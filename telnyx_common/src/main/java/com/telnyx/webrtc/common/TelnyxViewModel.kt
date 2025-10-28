@@ -53,6 +53,8 @@ import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.model.TranscriptItem
 import com.telnyx.webrtc.sdk.verto.receive.AiConversationResponse
@@ -237,6 +239,13 @@ class TelnyxViewModel : ViewModel() {
      */
     val transcriptMessages: SharedFlow<List<TranscriptItem>>?
         get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
+    
+    /**
+     * State flow for socket connection metrics.
+     * Observe this flow to display connection quality information in the UI.
+     */
+    val connectionMetrics: StateFlow<SocketConnectionMetrics?>
+        get() = TelnyxCommon.getInstance().connectionMetrics
 
     /**
      * Shared flow for connection status from TelnyxClient.
@@ -1129,7 +1138,6 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
-                    preferredAudioCodecs,
                     useTrickleIce,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)

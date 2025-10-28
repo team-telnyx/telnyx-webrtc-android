@@ -6,7 +6,7 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaCodecList
+import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
@@ -246,6 +247,24 @@ class TelnyxClient(
      */
     val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> =
         _transcriptUpdateFlow.asSharedFlow()
+    
+    // SharedFlow for connection metrics updates
+    private val _socketConnectionMetricsFlow = MutableSharedFlow<SocketConnectionMetrics>(
+        replay = 1,
+        extraBufferCapacity = 64
+    )
+    
+    /**
+     * Returns the connection metrics updates in the form of SharedFlow (recommended)
+     * Contains connection quality information including latency, jitter, and overall quality score
+     * Note: This flow emits updates whenever new connection metrics are calculated, the first calculation will only occur after the first ping-pong round trip - 30 seconds after connection
+     * @see [SocketConnectionMetrics]
+     * @see [SocketConnectionQuality]
+     */
+    val socketConnectionMetricsFlow: SharedFlow<SocketConnectionMetrics> = _socketConnectionMetricsFlow.asSharedFlow()
+    
+    // Store the latest connection metrics
+    private var currentSocketConnectionMetrics: SocketConnectionMetrics? = null
 
     /**
      * Returns the current transcript as an immutable list
@@ -330,7 +349,6 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
-     * @param preferredCodecs Optional list of preferred audio codecs for the call
      * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @return The [Call] instance representing the accepted call
      */
@@ -339,7 +357,6 @@ class TelnyxClient(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null,
         useTrickleIce: Boolean = false
     ): Call {
         val callDebug = debug
@@ -396,7 +413,6 @@ class TelnyxClient(
                                 callId = callId,
                                 destinationNumber = destinationNumber,
                                 customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
-                                preferredCodecs = preferredCodecs
                             ),
                             trickle = true
                         )
@@ -497,7 +513,6 @@ class TelnyxClient(
                                             destinationNumber = destinationNumber,
                                             customHeaders = customHeaders?.toCustomHeaders()
                                                 ?: arrayListOf(),
-                                            preferredCodecs = preferredCodecs
                                         ),
                                         trickle = if (useTrickleIce) true else null
                                     )
@@ -624,6 +639,9 @@ class TelnyxClient(
             }
 
             peerConnection?.startLocalAudioCapture()
+
+            // Apply codec preferences before creating the offer
+            peerConnection?.applyAudioCodecPreferences(preferredCodecs)
 
             startOutgoingCallInternal(
                 callerName = callerName,
@@ -1333,6 +1351,22 @@ class TelnyxClient(
      */
     fun getActiveCalls(): Map<UUID, Call> {
         return calls.toMap()
+    }
+    
+    /**
+     * Returns the current connection quality based on the latest metrics
+     * @return Current [SocketConnectionQuality], or DISCONNECTED if no metrics available
+     */
+    fun getCurrentConnectionQuality(): SocketConnectionQuality {
+        return currentSocketConnectionMetrics?.quality ?: SocketConnectionQuality.DISCONNECTED
+    }
+    
+    /**
+     * Returns the latest connection metrics
+     * @return Current [SocketConnectionMetrics], or null if no metrics available yet
+     */
+    fun getConnectionMetrics(): SocketConnectionMetrics? {
+        return currentSocketConnectionMetrics
     }
 
     /**
@@ -2171,6 +2205,12 @@ class TelnyxClient(
             )
         )
         emitSocketResponse(SocketResponse.established())
+        
+        // Emit initial connection metrics with CALCULATING state
+        val initialMetrics = SocketConnectionMetrics(quality = SocketConnectionQuality.CALCULATING)
+        _socketConnectionMetricsFlow.tryEmit(initialMetrics)
+        currentSocketConnectionMetrics = initialMetrics
+
         emitConnectionStatus(ConnectionStatus.CONNECTED)
     }
 
@@ -2566,8 +2606,6 @@ class TelnyxClient(
                     )
                 )
 
-                peerConnection?.answer(AppSdpObserver())
-
                 val inviteResponse = InviteResponse(
                     callId,
                     remoteSdp,
@@ -2749,6 +2787,8 @@ class TelnyxClient(
                 )
             )
 
+            // Note: Codec preferences not applied during reconnection
+            // Using default codec order during call recovery
             peerConnection?.answer(AppSdpObserver())
 
             val iceCandidateTimer = Timer()
@@ -2772,13 +2812,22 @@ class TelnyxClient(
         call?.setCallRecovering()
     }
 
-    override fun pingPong() {
+    override fun pingPong(socketConnectionMetrics: SocketConnectionMetrics?) {
         Logger.d(
             message = Logger.formatMessage(
-                "[%s] :: pingPong ",
-                this@TelnyxClient.javaClass.simpleName
+                "[%s] :: pingPong - Quality: %s, Interval: %sms, Jitter: %sms",
+                this@TelnyxClient.javaClass.simpleName,
+                socketConnectionMetrics?.quality,
+                socketConnectionMetrics?.averageIntervalMs,
+                socketConnectionMetrics?.jitterMs
             )
         )
+        
+        // Store and emit the connection metrics
+        socketConnectionMetrics?.let { metrics ->
+            currentSocketConnectionMetrics = metrics
+            _socketConnectionMetricsFlow.tryEmit(metrics)
+        }
     }
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
@@ -2798,6 +2847,10 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
+        
+        // Clear connection metrics on disconnect
+        currentSocketConnectionMetrics = null
+        
         socket.destroy()
     }
 
@@ -2958,104 +3011,63 @@ class TelnyxClient(
     }
 
     /**
-     * Returns a list of supported audio codecs available on the device.
-     * This method queries the device's MediaCodecList to find all available audio encoders
-     * and returns them in a format compatible with the preferred_codecs parameter.
+     * Returns a list of audio codecs supported by WebRTC for this device.
      *
-     * @return List of [AudioCodec] objects representing the supported audio codecs
+     * This method creates a temporary WebRTC peer connection to query the
+     * actual audio codecs supported by the WebRTC library. The temporary peer connection is
+     * properly disposed of after querying. This ensures the returned codec list matches exactly
+     * what WebRTC will use during actual calls.
+     *
+     * **Common codecs** returned include: Opus, PCMU, PCMA, G722, RED, CN, and telephone-event.
+     *
+     * **Usage**:
+     * - Call this method **before** initiating a call to get the list of supported WebRTC codecs
+     * - Use the returned list to construct your preferred codec order
+     * - Pass your preferences to [newInvite] or [acceptCall] via the `preferredCodecs` parameter
+     *
+     * **For runtime codec queries**: If you need to query the exact codecs negotiated during an
+     * active call, use [Call.getAvailableAudioCodecs] instead, which queries the active peer
+     * connection without creating a temporary one.
+     *
+     * @return List of [AudioCodec] objects representing WebRTC-supported audio codecs
+     *
+     * @see Call.getAvailableAudioCodecs for runtime codec queries during active calls
+     * @see newInvite
+     * @see acceptCall
+     *
+     * @sample
+     * ```kotlin
+     * // Query supported codecs before making a call
+     * val supportedCodecs = telnyxClient.getSupportedAudioCodecs()
+     * println("WebRTC supports: ${supportedCodecs.map { it.mimeType }}")
+     *
+     * // Prefer Opus, then PCMU as fallback
+     * val preferredCodecs = supportedCodecs.filter {
+     *     it.mimeType == "audio/opus" || it.mimeType == "audio/PCMU"
+     * }
+     *
+     * // Use in call
+     * telnyxClient.newInvite(
+     *     callerName = "John",
+     *     callerNumber = "+1234567890",
+     *     destinationNumber = "sip:destination",
+     *     clientState = "state",
+     *     preferredCodecs = preferredCodecs
+     * )
+     * ```
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
-        val supportedCodecs = mutableListOf<AudioCodec>()
+        return try {
+            Logger.d(message = "Querying WebRTC audio codecs via Peer companion object")
 
-        try {
-            val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
-            for (codecInfo in codecList.codecInfos) {
-                if (!codecInfo.isEncoder) {
-                    continue
-                }
+            // Use the efficient companion object method - no temporary Peer needed!
+            val codecs = Peer.getSupportedAudioCodecs(context)
 
-                for (type in codecInfo.supportedTypes) {
-                    if (type.startsWith("audio/")) {
-                        Logger.d(message = "Supported audio codec: ${codecInfo.name}, type: $type")
-
-                        val audioCodec = mapTypeToAudioCodec(type)
-
-                        // Avoid duplicates
-                        if (!supportedCodecs.any { it.mimeType == audioCodec.mimeType }) {
-                            supportedCodecs.add(audioCodec)
-                        }
-                    }
-                }
-            }
+            Logger.d(message = "Retrieved ${codecs.size} audio codecs: ${codecs.map { it.mimeType }}")
+            codecs
         } catch (e: Exception) {
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
-        }
-
-        return supportedCodecs
-    }
-
-    /**
-     * Maps a codec type string to an AudioCodec object with appropriate settings.
-     *
-     * @param type The codec type string (e.g., "audio/opus")
-     * @return AudioCodec object configured for the given type
-     */
-    private fun mapTypeToAudioCodec(type: String): AudioCodec {
-        return when {
-            type.contains("opus", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 2,
-                    clockRate = 48000,
-                    mimeType = "audio/opus",
-                    sdpFmtpLine = "minptime=10;useinbandfec=1"
-                )
-            }
-
-            type.contains("pcma", ignoreCase = true) || type.contains(
-                "g711a",
-                ignoreCase = true
-            ) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/PCMA"
-                )
-            }
-
-            type.contains("pcmu", ignoreCase = true) || type.contains(
-                "g711u",
-                ignoreCase = true
-            ) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/PCMU"
-                )
-            }
-
-            type.contains("g722", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 16000,
-                    mimeType = "audio/G722"
-                )
-            }
-
-            type.contains("g729", ignoreCase = true) -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = "audio/G729"
-                )
-            }
-
-            else -> {
-                AudioCodec(
-                    channels = 1,
-                    clockRate = 8000,
-                    mimeType = type
-                )
-            }
+            emptyList()
         }
     }
 

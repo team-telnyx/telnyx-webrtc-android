@@ -172,7 +172,6 @@ class AnswerIncomingPushCall(private val context: Context) {
                         inviteResponse.callerIdNumber,
                         customHeaders,
                         debug,
-                        null, // No need to pass preferred codecs when answering push call
                         useTrickleIce,
                         onCallQualityChange
                     )

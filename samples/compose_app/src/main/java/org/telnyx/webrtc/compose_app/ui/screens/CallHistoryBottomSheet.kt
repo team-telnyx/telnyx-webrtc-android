@@ -33,7 +33,7 @@ fun CallHistoryBottomSheet(
     val sheetState = rememberModalBottomSheetState(true)
     val callHistoryList by telnyxViewModel.callHistoryList.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
+    rememberCoroutineScope()
 
     ModalBottomSheet(
         modifier = Modifier

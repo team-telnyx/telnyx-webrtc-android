@@ -8,6 +8,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.model.SocketMethod.*
@@ -18,6 +19,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import com.telnyx.webrtc.sdk.utilities.Logger
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.timerTask
+import kotlin.math.sqrt
 
 
 /**
@@ -46,6 +49,14 @@ class TxSocket(
 
     private lateinit var client: OkHttpClient
     private lateinit var webSocket: WebSocket
+    
+    // Connection metrics tracking
+    private val pingTimestamps = mutableListOf<Long>()
+    private val pingIntervals = mutableListOf<Long>()
+    private var lastPingTimestamp: Long? = null
+    private var connectionStartTime: Long? = null
+    private var expectedPingTimer: Timer? = null
+    private var missedPingCount = 0
     /**
      * Connects to the socket with the provided Host Address and Port which were used to create an instance of TxSocket
      * @param listener the [TelnyxClient] used to create an instance of TxSocket that contains our
@@ -185,7 +196,9 @@ class TxSocket(
                             )
                             when (jsonObject.get("method").asString) {
                                 CLIENT_READY.methodName -> {
+                                    cleanPingIntervals()
                                     listener.onClientReady(jsonObject)
+                                    connectionStartTime = System.currentTimeMillis()
                                 }
 
                                 ATTACH.methodName -> {
@@ -235,7 +248,9 @@ class TxSocket(
                                 PINGPONG.methodName -> {
                                     isPing = true
                                     webSocket.send(text)
-                                    listener.pingPong()
+                                    handlePingReceived()
+                                    val metrics = calculateConnectionMetrics()
+                                    listener.pingPong(metrics)
                                 }
                             }
                         }
@@ -368,6 +383,9 @@ class TxSocket(
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
+        
+        cleanPingIntervals()
+        
         if (this::webSocket.isInitialized) {
             webSocket.cancel()
             // socket.close(1000, "Websocket connection was asked to close")
@@ -375,7 +393,111 @@ class TxSocket(
         job.cancel("Socket was destroyed, cancelling attached job")
     }
 
+    /**
+     * Handles a received ping from the server and tracks timing information
+     */
+    private fun handlePingReceived() {
+        val currentTime = System.currentTimeMillis()
+        
+        // Calculate interval from last ping or connection start time
+        val referenceTime = lastPingTimestamp ?: connectionStartTime
+        referenceTime?.let { refTime ->
+            val interval = currentTime - refTime
+            pingIntervals.add(interval)
+            
+            // Keep only recent intervals
+            while (pingIntervals.size > MAX_PING_HISTORY_SIZE_VALUE) {
+                pingIntervals.removeAt(0)
+            }
+        }
+        
+        // Track timestamp
+        lastPingTimestamp = currentTime
+        pingTimestamps.add(currentTime)
+        while (pingTimestamps.size > MAX_PING_HISTORY_SIZE_VALUE) {
+            pingTimestamps.removeAt(0)
+        }
+        
+        // Reset missed ping counter and restart timer
+        resetExpectedPingTimer()
+    }
+    
+    /**
+     * Resets the timer that tracks expected pings
+     */
+    private fun resetExpectedPingTimer() {
+        expectedPingTimer?.cancel()
+        expectedPingTimer = Timer()
+        expectedPingTimer?.schedule(
+            timerTask {
+                // If this fires, we missed an expected ping (with tolerance)
+                missedPingCount++
+                Logger.w(message = "Expected ping not received within ${EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE}ms")
+            },
+            EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE
+        )
+    }
+    
+    /**
+     * Calculates current connection metrics based on ping history.
+     * Returns CALCULATING quality when insufficient data is available,
+     * then progressively provides better assessment as more pings are received.
+     */
+    private fun calculateConnectionMetrics(): SocketConnectionMetrics {
+        if (pingIntervals.isEmpty()) {
+            return SocketConnectionMetrics()
+        }
+        
+        val currentInterval = pingIntervals.lastOrNull()
+        val averageInterval = pingIntervals.average().toLong()
+        val minInterval = pingIntervals.minOrNull()
+        val maxInterval = pingIntervals.maxOrNull()
+        
+        // Calculate jitter (standard deviation)
+        val jitter = if (pingIntervals.size > 1) {
+            val variance = pingIntervals.map { interval ->
+                val diff = interval - averageInterval
+                diff * diff
+            }.average()
+            sqrt(variance).toLong()
+        } else {
+            null
+        }
+        
+        // Calculate quality based on metrics
+        val quality = SocketConnectionMetrics.calculateQuality(averageInterval, jitter)
+        
+        return SocketConnectionMetrics(
+            intervalMs = currentInterval,
+            averageIntervalMs = averageInterval,
+            minIntervalMs = minInterval,
+            maxIntervalMs = maxInterval,
+            jitterMs = jitter,
+            missedPings = missedPingCount,
+            totalPings = pingTimestamps.size,
+            quality = quality,
+            timestamp = System.currentTimeMillis(),
+            lastPingTimestamp = lastPingTimestamp
+        )
+    }
+
+    private fun cleanPingIntervals() {
+        // Reset connection metrics tracking
+        connectionStartTime = null
+        lastPingTimestamp = null
+        pingTimestamps.clear()
+        pingIntervals.clear()
+        missedPingCount = 0
+        expectedPingTimer?.cancel()
+        expectedPingTimer = null
+    }
+
     companion object {
         const val STATE_ATTACHED = "ATTACHED"
+
+        // Ping tracking constants
+        private const val MAX_PING_HISTORY_SIZE_VALUE = 30
+        private const val EXPECTED_PING_INTERVAL_MS_VALUE = 30000L
+        private const val PING_TOLERANCE_MS_VALUE = 500L
     }
 }

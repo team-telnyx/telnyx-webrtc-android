@@ -6,6 +6,8 @@ package com.telnyx.webrtc.sdk.socket
 
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+
 
 /**
  * TxSocket interface containing the methods that the socket connection will fire
@@ -105,8 +107,9 @@ interface TxSocketListener {
 
     /**
      * Fires when a ping message is received from the server, requiring a pong response
+     * @param socketConnectionMetrics Current connection quality metrics calculated from ping history
      */
-    fun pingPong()
+    fun pingPong(socketConnectionMetrics: SocketConnectionMetrics? = null)
 
     /**
      * Fires when the socket has disconnected
@@ -121,7 +124,6 @@ interface TxSocketListener {
     fun onAiConversationReceived(jsonObject: JsonObject)
 
     /**
-    <<<<<<< HEAD
      * Fires when an ICE candidate is received via trickle ICE
      * @param jsonObject, the socket response in a jsonObject format
      * @see [TxSocket]
