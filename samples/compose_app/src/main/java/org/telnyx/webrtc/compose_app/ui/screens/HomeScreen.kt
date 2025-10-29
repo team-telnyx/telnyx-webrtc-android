@@ -42,6 +42,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -119,7 +120,13 @@ fun HomeScreen(
     onCopyFcmToken: () -> Unit = {},
     onDisablePushNotifications: () -> Unit = {}
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val loginSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { false }
+    )
+    val environmentSheetState = rememberModalBottomSheetState(true, confirmValueChange = { newValue ->
+        newValue != SheetValue.Hidden
+    })
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
@@ -196,6 +203,7 @@ fun HomeScreen(
 
     Scaffold(
         modifier = Modifier
+            .testTag("homeScreenRoot")
             .padding(start = Dimens.mediumSpacing, end = Dimens.mediumSpacing),
         topBar = {
             Column {
@@ -526,10 +534,14 @@ fun HomeScreen(
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
-                    showLoginBottomSheet = false
+                    // Intentionally empty - prevents dismissal
                 },
+                dragHandle = null,
                 containerColor = Color.White,
-                sheetState = sheetState
+                sheetState = loginSheetState,
+                properties = androidx.compose.material3.ModalBottomSheetDefaults.properties(
+                    shouldDismissOnBackPress = false
+                )
             ) {
                 var isAddProfile by remember { mutableStateOf(false) }
 
@@ -546,7 +558,7 @@ fun HomeScreen(
                             text = stringResource(id = R.string.existing_profiles),
                             modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                         )
-                        IconButton(onClick = {
+                        /*IconButton(onClick = {
                             scope.launch {
                                 sheetState.hide()
                                 selectedUserProfile = telnyxViewModel.currentProfile.value
@@ -561,11 +573,13 @@ fun HomeScreen(
                                 contentDescription = stringResource(id = R.string.close_button_dessc),
                                 modifier = Modifier.size(Dimens.size16dp)
                             )
-                        }
+                        }*/
                     }
 
                     RoundSmallButton(
-                        modifier = Modifier.height(Dimens.size32dp),
+                        modifier = Modifier
+                            .height(Dimens.size32dp)
+                            .testTag("addNewProfileButton"),
                         text = stringResource(id = R.string.add_new_profile),
                         textSize = 12.sp,
                         backgroundColor = secondary_background_color,
@@ -606,7 +620,7 @@ fun HomeScreen(
                                 negativeText = stringResource(id = R.string.Cancel),
                                 onPositiveClick = {
                                     scope.launch {
-                                        sheetState.hide()
+                                        loginSheetState.hide()
                                         selectedUserProfile?.let {
                                             telnyxViewModel.setCurrentConfig(context, it)
                                         }
@@ -616,7 +630,7 @@ fun HomeScreen(
                                 },
                                 onNegativeClick = {
                                     scope.launch {
-                                        sheetState.hide()
+                                        loginSheetState.hide()
                                         selectedUserProfile = telnyxViewModel.currentProfile.value
                                     }.invokeOnCompletion {
                                         showLoginBottomSheet = false
@@ -698,7 +712,7 @@ fun HomeScreen(
                 showEnvironmentBottomSheet = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = environmentSheetState
         ) {
             Column(
                 modifier = Modifier.padding(Dimens.mediumSpacing),
@@ -714,9 +728,9 @@ fun HomeScreen(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            environmentSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!environmentSheetState.isVisible) {
                                 showEnvironmentBottomSheet = false
                             }
                         }
@@ -869,6 +883,8 @@ fun ProfileListView(
 fun PosNegButton(
     positiveText: String,
     negativeText: String,
+    positiveTestTag: String = "positiveButton",
+    negativeTestTag: String = "negativeButton",
     contentAlignment: Alignment = Alignment.BottomEnd,
     onPositiveClick: () -> Unit = {},
     onNegativeClick: () -> Unit = {}
@@ -882,7 +898,7 @@ fun PosNegButton(
             RoundedOutlinedButton(
                 modifier = Modifier
                     .height(Dimens.size32dp)
-                    .testTag("negativeButton"),
+                    .testTag(negativeTestTag),
                 text = negativeText,
                 contentColor = MaterialTheme.colorScheme.primary,
                 backgroundColor = Color.White
@@ -892,7 +908,7 @@ fun PosNegButton(
             RoundedOutlinedButton(
                 modifier = Modifier
                     .height(Dimens.size32dp)
-                    .testTag("positiveButton"),
+                    .testTag(positiveTestTag),
                 text = positiveText
             ) {
                 onPositiveClick()
@@ -954,8 +970,12 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacing12dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RegularText(text = profileName)
+            RegularText(
+                text = profileName,
+                modifier = Modifier.testTag("profileName")
+            )
             RoundSmallButton(
+                modifier = Modifier.testTag("switchProfileButton"),
                 text = stringResource(R.string.switch_profile),
                 textSize = 14.sp,
                 backgroundColor = MaterialTheme.colorScheme.background
@@ -1213,6 +1233,7 @@ fun BottomBar(
             text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("connectDisconnectButton")
         ) {
             if (state) {
                 telnyxViewModel.disconnect(context)
