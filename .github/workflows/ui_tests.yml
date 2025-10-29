@@ -80,16 +80,25 @@ jobs:
           echo "compose_status=success" >> $GITHUB_OUTPUT
 
       # Reactive Circus fallback mechanism - runs only when both Firebase tests fail
+      - name: Enable KVM group perms (Reactive Circus)
+        if: always() && steps.xml_tests.outcome == 'failure' && steps.compose_tests.outcome == 'failure'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run XML App Tests with Reactive Circus (Fallback)
         id: xml_fallback_tests
         if: always() && steps.xml_tests.outcome == 'failure' && steps.compose_tests.outcome == 'failure'
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 34
+          target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             echo "Running XML app instrumentation tests as fallback..."
             ./gradlew :samples:xml_app:connectedDebugAndroidTest --stacktrace
@@ -106,10 +115,12 @@ jobs:
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
+          api-level: 34
+          target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             echo "Running Compose app instrumentation tests as fallback..."
             ./gradlew :samples:compose_app:connectedDebugAndroidTest --stacktrace
