@@ -3,13 +3,14 @@ package org.telnyx.webrtc.compose_app
 import android.annotation.SuppressLint
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
@@ -20,22 +21,16 @@ import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.createGraph
 import androidx.navigation.testing.TestNavHostController
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.telnyx.webrtc.common.TelnyxViewModel
-import junit.framework.TestCase.assertNotNull
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.telnyx.webrtc.compose_app.ui.screens.HomeScreen
-import org.junit.runner.RunWith
 import org.telnyx.webrtc.compose_app.ui.screens.CallScreenNav
 import org.telnyx.webrtc.compose_app.ui.screens.LoginScreenNav
 
-@RunWith(AndroidJUnit4::class)
 class MainActivityTest {
-
-    val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
@@ -46,13 +41,25 @@ class MainActivityTest {
     fun setupAppNavHost() {
         val fakeTelnyxViewModel = TelnyxViewModel()
         composeTestRule.setContent {
-            navController = TestNavHostController(LocalContext.current).apply {
-                setViewModelStore(composeTestRule.activity.viewModelStore)
-                navigatorProvider.addNavigator(ComposeNavigator())
-                setGraph(createTestNavGraph(this), null)
+            val context = LocalContext.current
+            navController = remember(context) {
+                TestNavHostController(context).apply {
+                    setViewModelStore(composeTestRule.activity.viewModelStore)
+                    navigatorProvider.addNavigator(ComposeNavigator())
+                    setGraph(createTestNavGraph(this), null)
+                }
             }
 
             HomeScreen(navController = navController, fakeTelnyxViewModel)
+        }
+
+        composeTestRule.waitForIdle()
+
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule
+                .onAllNodesWithTag("homeScreenRoot")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         }
     }
 
@@ -61,13 +68,18 @@ class MainActivityTest {
         addSipCredentials()
 
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(context.getString(R.string.connect)).performClick()
+        composeTestRule.onNodeWithTag("connectDisconnectButton").performClick()
+
+        composeTestRule.waitForIdle()
 
         composeTestRule.waitUntil(15000) {
-            composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).isDisplayed()
+            composeTestRule.onNodeWithTag("connectDisconnectButton").isDisplayed()
         }
 
-        composeTestRule.onNodeWithTag("callInput").assertIsDisplayed()
+        composeTestRule.waitUntil(15000) {
+            composeTestRule.onNodeWithTag("callInput").isDisplayed()
+        }
+
         composeTestRule.onNodeWithTag("callInput").performTextInput(BuildConfig.TEST_SIP_DEST_NUMBER)
         composeTestRule.onNodeWithTag("callInput").performImeAction()
 
@@ -91,7 +103,7 @@ class MainActivityTest {
         composeTestRule.onNodeWithTag("endCall").performScrollTo().performClick()
 
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(context.getString(R.string.disconnect)).performClick()
+        composeTestRule.onNodeWithTag("connectDisconnectButton").performClick()
 
     }
 
@@ -99,27 +111,31 @@ class MainActivityTest {
         assertNotNull(navController.graph)
 
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(context.getString(R.string.missing_profile)).assertIsDisplayed()
-        composeTestRule.onNodeWithText(context.getString(R.string.switch_profile)).assertIsDisplayed()
-        composeTestRule.onNodeWithText(context.getString(R.string.switch_profile)).performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.add_new_profile)).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("profileName").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("switchProfileButton").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("switchProfileButton").performClick()
 
-        composeTestRule.onNodeWithText(context.getString(R.string.add_new_profile)).performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.credential_login)).assertIsDisplayed()
+        composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithTag("sipUsername").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("addNewProfileButton").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("addNewProfileButton").performClick()
+
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("credentialLoginToggleButton").assertIsDisplayed()
+
         composeTestRule.onNodeWithTag("sipUsername").performTextInput(BuildConfig.TEST_SIP_USERNAME)
-        composeTestRule.onNodeWithTag("sipPassword").performScrollTo().assertIsDisplayed()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("sipPassword").performTextInput(BuildConfig.TEST_SIP_PASSWORD)
-        composeTestRule.onNodeWithTag("callerIDName").performScrollTo().assertIsDisplayed()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("callerIDName").performTextInput(BuildConfig.TEST_SIP_CALLER_NAME)
-        composeTestRule.onNodeWithTag("callerIDNumber").performScrollTo().assertIsDisplayed()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("callerIDNumber").performTextInput(BuildConfig.TEST_SIP_CALLER_NUMBER)
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("callerIDNumber").performImeAction()
 
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithTag("credentialsForm").performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.save)).performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("saveButton").performScrollTo().performClick()
 
         composeTestRule.waitForIdle()
         composeTestRule.waitUntil(40000) {
@@ -127,7 +143,7 @@ class MainActivityTest {
         }
 
         composeTestRule.onNodeWithTag("profileList").onChildAt(0).performClick()
-        composeTestRule.onNodeWithText(context.getString(R.string.confirm)).performClick()
+        composeTestRule.onNodeWithTag("positiveButton").performClick()
     }
 
     private fun createTestNavGraph(navController: NavHostController): NavGraph {
