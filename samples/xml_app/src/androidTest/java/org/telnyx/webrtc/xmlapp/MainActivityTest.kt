@@ -27,133 +27,22 @@ class MainActivityTest {
     @get:Rule
     val activityRule = ActivityScenarioRule(MainActivity::class.java)
 
-    @get:Rule
+    //uncomment this line in case of device with missing permissions
+    /*@get:Rule
     val grantPermissionRule: GrantPermissionRule = GrantPermissionRule.grant(
         android.Manifest.permission.POST_NOTIFICATIONS,
         android.Manifest.permission.RECORD_AUDIO
-    )
+    )*/
 
     @Test
-    fun addSIPCredentialsAndConnectTest() {
-        onView(withId(R.id.usernameTextField))
-            .check(doesNotExist())
-
-        onView(withId(R.id.switchProfile))
-            .perform(click())
-
-        val switchIdlingResource = ElapsedTimeIdlingResource(5000)
-        IdlingRegistry.getInstance().register(switchIdlingResource)
-
-        onView(withId(R.id.addNewProfile))
-            .check(matches(isDisplayed()))
-            .perform(click())
-
-        IdlingRegistry.getInstance().unregister(switchIdlingResource)
-
-        onView(withId(R.id.usernameTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_USERNAME), closeSoftKeyboard())
-
-        onView(withId(R.id.passwordTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD), closeSoftKeyboard())
-
-        onView(withId(R.id.callerIdNameTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME), closeSoftKeyboard())
-
-        onView(withId(R.id.callerIdNumberTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NUMBER), closeSoftKeyboard())
-
-        onView(withId(R.id.confirmButton))
-            .check(matches(isDisplayed()))
-            .perform(scrollTo(), click())
-
-        // Wait for profile to be saved and RecyclerView to be populated
-        val profileSaveIdlingResource = ElapsedTimeIdlingResource(3000)
-        IdlingRegistry.getInstance().register(profileSaveIdlingResource)
-
-        onView(withId(R.id.allProfiles))
-            .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
-            
-        IdlingRegistry.getInstance().unregister(profileSaveIdlingResource)
-
-        onView(withId(R.id.profileConfirmButton))
-            .check(matches(isDisplayed()))
-            .perform(click())
+    fun connectAndMakeCallTest() {
+        addSipCredentials()
 
         onView(withId(R.id.bottomButton))
             .check(matches(isDisplayed()))
             .perform(click())
 
         // Wait 10 seconds between clicking connect and checking disconnect visibility
-        val connectIdlingResource = ElapsedTimeIdlingResource(10000)
-        IdlingRegistry.getInstance().register(connectIdlingResource)
-
-        onView(withId(R.id.bottomButton))
-            .check(matches(isDisplayed()))
-            .perform(click())
-            
-        IdlingRegistry.getInstance().unregister(connectIdlingResource)
-
-    }
-
-    @Test
-    fun makeCallTest() {
-
-        onView(withId(R.id.switchProfile))
-            .perform(click())
-
-        val switchIdlingResource = ElapsedTimeIdlingResource(2000)
-        IdlingRegistry.getInstance().register(switchIdlingResource)
-
-        // Check if profiles exist, if not create one
-        onView(withId(R.id.addNewProfile))
-            .check(matches(isDisplayed()))
-            .perform(click())
-
-        IdlingRegistry.getInstance().unregister(switchIdlingResource)
-
-        // Create a profile for the test
-        onView(withId(R.id.usernameTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_USERNAME), closeSoftKeyboard())
-
-        onView(withId(R.id.passwordTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD), closeSoftKeyboard())
-
-        onView(withId(R.id.callerIdNameTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME), closeSoftKeyboard())
-
-        onView(withId(R.id.callerIdNumberTextField))
-            .check(matches(isDisplayed()))
-            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NUMBER), closeSoftKeyboard())
-
-        onView(withId(R.id.confirmButton))
-            .check(matches(isDisplayed()))
-            .perform(scrollTo(), click())
-
-        // Wait for profile to be saved and RecyclerView to be populated
-        val profileSaveIdlingResource = ElapsedTimeIdlingResource(3000)
-        IdlingRegistry.getInstance().register(profileSaveIdlingResource)
-
-        onView(withId(R.id.allProfiles))
-            .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
-            
-        IdlingRegistry.getInstance().unregister(profileSaveIdlingResource)
-
-        onView(withId(R.id.profileConfirmButton))
-            .check(matches(isDisplayed()))
-            .perform(click())
-
-        onView(withId(R.id.bottomButton))
-            .check(matches(isDisplayed()))
-            .perform(click())
-
-        // Wait 10 seconds between clicking connect and checking callInput visibility
         val connectIdlingResource = ElapsedTimeIdlingResource(10000)
         IdlingRegistry.getInstance().register(connectIdlingResource)
 
@@ -211,4 +100,56 @@ class MainActivityTest {
             .perform(click())
 
     }
+
+    private fun addSipCredentials() {
+        onView(withId(R.id.usernameTextField))
+            .check(doesNotExist())
+
+        onView(withId(R.id.switchProfile))
+            .perform(click())
+
+        val switchIdlingResource = ElapsedTimeIdlingResource(5000)
+        IdlingRegistry.getInstance().register(switchIdlingResource)
+
+        onView(withId(R.id.addNewProfile))
+            .check(matches(isDisplayed()))
+            .perform(click())
+
+        IdlingRegistry.getInstance().unregister(switchIdlingResource)
+
+        onView(withId(R.id.usernameTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_USERNAME), closeSoftKeyboard())
+
+        onView(withId(R.id.passwordTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_PASSWORD), closeSoftKeyboard())
+
+        onView(withId(R.id.callerIdNameTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NAME), closeSoftKeyboard())
+
+        onView(withId(R.id.callerIdNumberTextField))
+            .check(matches(isDisplayed()))
+            .perform(typeText(BuildConfig.TEST_SIP_CALLER_NUMBER), closeSoftKeyboard())
+
+        onView(withId(R.id.confirmButton))
+            .check(matches(isDisplayed()))
+            .perform(scrollTo(), click())
+
+        // Wait for profile to be saved and RecyclerView to be populated
+        val profileSaveIdlingResource = ElapsedTimeIdlingResource(3000)
+        IdlingRegistry.getInstance().register(profileSaveIdlingResource)
+
+        onView(withId(R.id.allProfiles))
+            .perform(RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
+
+        IdlingRegistry.getInstance().unregister(profileSaveIdlingResource)
+
+        onView(withId(R.id.profileConfirmButton))
+            .check(matches(isDisplayed()))
+            .perform(click())
+
+    }
+
 }
