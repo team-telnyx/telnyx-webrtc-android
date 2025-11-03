@@ -1003,7 +1003,7 @@ fun ConnectionState(
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
-    val sheetState = rememberModalBottomSheetState(true)
+    val messageSheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
 
     Column(
@@ -1049,7 +1049,7 @@ fun ConnectionState(
                 showWsMessagesBottomSheet.value = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = messageSheetState
         ) {
             Column(
                 modifier = Modifier
@@ -1066,9 +1066,9 @@ fun ConnectionState(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            messageSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!messageSheetState.isVisible) {
                                 showWsMessagesBottomSheet.value = false
                             }
                         }
