@@ -546,13 +546,19 @@ Here is an example of how to start the call:
 ```kotlin
 // After a successful anonymousLogin...
 
-telnyxClient.call.newInvite(
+telnyxClient.newInvite(
     callerName = "Your Name",
     callerNumber = "Your Number",
     destinationNumber = "", // Destination is ignored, can be an empty string
-    clientState = "Your custom state"
+    clientState = "Your custom state",
+    customHeaders = mapOf(
+        "X-Session-Context" to "support_request",
+        "X-User-Tier" to "premium"),
 )
 ```
+
+Note that you can also provide `customHeaders` in the `newInvite` method. These headers need to start with the `X-` prefix and will be mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables) in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`). Hyphens in header names are converted to underscores in variable names.
+
 
 The call will be automatically answered by the AI Assistant. From this point on, the call flow is handled in the same way as any other answered call, allowing you to use standard call control methods like `endCall`, `mute`, etc.
 
