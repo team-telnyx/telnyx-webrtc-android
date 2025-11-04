@@ -34,9 +34,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      - name: Clean Build
-        run: ./gradlew clean
-
       - name: Create local.properties
         run: |
           echo "TEST_SIP_USERNAME=${{ secrets.TEST_SIP_USERNAME }}" >> local.properties
@@ -44,6 +41,9 @@ jobs:
           echo "TEST_SIP_CALLER_NAME=${{ secrets.TEST_SIP_CALLER_NAME }}" >> local.properties
           echo "TEST_SIP_CALLER_NUMBER=${{ secrets.TEST_SIP_CALLER_NUMBER }}" >> local.properties
           echo "TEST_SIP_DEST_NUMBER=${{ secrets.TEST_SIP_DEST_NUMBER }}" >> local.properties
+
+      - name: Clean Build
+        run: ./gradlew clean
 
       - name: Build Debug APK and Test APK
         run: |
