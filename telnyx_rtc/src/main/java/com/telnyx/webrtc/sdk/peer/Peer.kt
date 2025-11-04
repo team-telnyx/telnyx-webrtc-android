@@ -13,6 +13,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.DataChannel
@@ -28,6 +29,8 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
+import com.telnyx.webrtc.lib.RtpCapabilities
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import kotlin.concurrent.timerTask
@@ -54,6 +57,95 @@ internal class Peer(
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
+
+        // ICE renegotiation delay constants
+        private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
+        private const val AUDIO_BUFFER_RESET_DELAY_MS = 200L // 0.2 second delay for audio buffer reset
+        private const val AUDIO_RE_ENABLE_DELAY_MS = 100L // 0.1 second delay before re-enabling audio
+
+        /**
+         * Shared PeerConnectionFactory used for codec queries and peer connections.
+         * Lazily initialized on first access and shared across all Peer instances.
+         * This is thread-safe and follows WebRTC best practices.
+         */
+        private val sharedPeerConnectionFactory: PeerConnectionFactory by lazy {
+            buildSharedPeerConnectionFactory()
+        }
+
+        /**
+         * Ensures PeerConnectionFactory is initialized with the application context.
+         * This should be called before any WebRTC operations.
+         * Safe to call multiple times - initialization only happens once.
+         *
+         * @param context Application context
+         */
+        private fun initPeerConnectionFactory(context: Context) {
+            val options = PeerConnectionFactory.InitializationOptions.builder(context)
+                .setEnableInternalTracer(true)
+                .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(options)
+        }
+
+        /**
+         * Builds the shared PeerConnectionFactory with standard configuration.
+         * This factory is used for both codec queries and actual peer connections.
+         *
+         * @return Configured PeerConnectionFactory instance
+         */
+        private fun buildSharedPeerConnectionFactory(): PeerConnectionFactory {
+            val rootEglBase = EglBase.create()
+            return PeerConnectionFactory
+                .builder()
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
+                .setVideoEncoderFactory(
+                    DefaultVideoEncoderFactory(
+                        rootEglBase.eglBaseContext,
+                        true,
+                        true
+                    )
+                )
+                .setOptions(
+                    PeerConnectionFactory.Options().apply {
+                        disableEncryption = false
+                        disableNetworkMonitor = true
+                    }
+                )
+                .createPeerConnectionFactory()
+        }
+
+        /**
+         * Gets the list of audio codecs supported by WebRTC without creating a Peer instance.
+         * This is an efficient way to query available codecs before making calls.
+         *
+         * @param context Application context
+         * @return List of AudioCodec objects representing supported codecs
+         */
+        fun getSupportedAudioCodecs(context: Context): List<AudioCodec> {
+            return try {
+                // Ensure WebRTC is initialized
+                initPeerConnectionFactory(context)
+
+                // Query capabilities from shared factory
+                val capabilities = sharedPeerConnectionFactory.getRtpSenderCapabilities(
+                    MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
+                )
+
+                Logger.d(
+                    tag = "Peer.Companion",
+                    message = "Retrieved ${capabilities.codecs.size} codec capabilities from shared factory"
+                )
+
+                // Convert to AudioCodec list
+                CodecUtils.convertCapabilitiesToAudioCodecs(capabilities.codecs)
+            } catch (e: Exception) {
+                Logger.e(
+                    tag = "Peer.Companion",
+                    message = "Error retrieving supported audio codecs: ${e.message}"
+                )
+                emptyList()
+            }
+        }
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -110,11 +202,29 @@ internal class Peer(
         return if (prefetchIceCandidate) ENABLE_PREFETCH_CANDIDATES else DISABLE_PREFETCH_CANDIDATES
     }
 
-    private val peerConnectionFactory by lazy { buildPeerConnectionFactory() }
+    /**
+     * Use the shared PeerConnectionFactory for this Peer instance.
+     * This improves efficiency by reusing the factory across all peers.
+     */
+    private val peerConnectionFactory: PeerConnectionFactory
+        get() = sharedPeerConnectionFactory
+
     internal var peerConnection: PeerConnection? = null
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
+    private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
+
+    /**
+     * Gets the supported audio codec capabilities from the shared factory.
+     * This method is kept for backward compatibility with existing code.
+     *
+     * @return List of codec capabilities
+     */
+    internal fun getSupportedSenderAudioCodecs(): List<RtpCapabilities.CodecCapability> {
+        val capabilities = peerConnectionFactory.getRtpSenderCapabilities(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO)
+        return capabilities.codecs
+    }
 
     private fun logAudioTrackAndTransceiverState(contextTag: String) {
         if (peerConnection == null) {
@@ -123,7 +233,10 @@ internal class Peer(
         }
         Logger.d(tag = "Peer:AudioState", message = "$contextTag - Checking audio state...")
         val localTrackId = localAudioTrack?.id()
-        Logger.d(tag = "Peer:AudioState", message = "$contextTag - LocalAudioTrack ID: $localTrackId, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}")
+        Logger.d(
+            tag = "Peer:AudioState",
+            message = "$contextTag - LocalAudioTrack ID: $localTrackId, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}"
+        )
 
         val audioTransceiver = peerConnection?.transceivers?.find {
             it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO
@@ -133,11 +246,22 @@ internal class Peer(
             Logger.w(tag = "Peer:AudioState", message = "$contextTag - No audio transceiver found.")
         } else {
             val senderTrackId = audioTransceiver.sender.track()?.id()
-            Logger.d(tag = "Peer:AudioState", message = "$contextTag - Audio Transceiver Found: Mid: ${audioTransceiver.mid}, Direction: ${audioTransceiver.direction}, CurrentDirection: ${audioTransceiver.currentDirection}, Sender Track ID: $senderTrackId, Receiver Track ID: ${audioTransceiver.receiver.track()?.id()}, Stopped: ${audioTransceiver.isStopped}")
+            Logger.d(
+                tag = "Peer:AudioState",
+                message = "$contextTag - Audio Transceiver Found: Mid: ${audioTransceiver.mid}, Direction: ${audioTransceiver.direction}, CurrentDirection: ${audioTransceiver.currentDirection}, Sender Track ID: $senderTrackId, Receiver Track ID: ${
+                    audioTransceiver.receiver.track()?.id()
+                }, Stopped: ${audioTransceiver.isStopped}"
+            )
             if (senderTrackId != null && localTrackId != null && senderTrackId != localTrackId) {
-                 Logger.w(tag = "Peer:AudioState", message = "$contextTag - Audio transceiver sender track ID [$senderTrackId] does NOT match localAudioTrack ID [$localTrackId]")
+                Logger.w(
+                    tag = "Peer:AudioState",
+                    message = "$contextTag - Audio transceiver sender track ID [$senderTrackId] does NOT match localAudioTrack ID [$localTrackId]"
+                )
             } else if (senderTrackId == null && localTrackId != null) {
-                 Logger.w(tag = "Peer:AudioState", message = "$contextTag - Audio transceiver sender track is null, but localAudioTrack ID is [$localTrackId]")
+                Logger.w(
+                    tag = "Peer:AudioState",
+                    message = "$contextTag - Audio transceiver sender track is null, but localAudioTrack ID is [$localTrackId]"
+                )
             }
         }
     }
@@ -152,9 +276,11 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
             peerConnectionObserver?.onIceConnectionChange(newState)
 
-            if (newState == PeerConnection.IceConnectionState.CONNECTED || newState == PeerConnection.IceConnectionState.COMPLETED) {
-                logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
-            }
+            // Handle ICE connection state transitions
+            handleIceConnectionStateTransition(previousIceConnectionState, newState)
+
+            // Update previous state
+            previousIceConnectionState = newState
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
@@ -172,17 +298,33 @@ internal class Peer(
             if (!firstCandidateReceived) {
                 firstCandidateReceived = true
                 firstCandidateDeferred.complete(Unit)
-                 Logger.d(tag = "Observer", message = "First ICE candidate processed, completing deferred.")
+                Logger.d(
+                    tag = "Observer",
+                    message = "First ICE candidate processed, completing deferred."
+                )
             }
 
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
-                if (client.calls[callId]?.getCallState()?.value != CallState.ACTIVE) {
+
+                val currentCallState = client.calls[callId]?.getCallState()?.value
+
+                // Allow ICE candidates when:
+                // 1. Call is NOT active (for initial invites/answers)
+                // 2. Call is in RENEGOTIATING state (for ICE restart)
+                if (currentCallState != CallState.ACTIVE ||
+                    currentCallState == CallState.RENEGOTIATING
+                ) {
                     peerConnection?.addIceCandidate(it)
                     Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                     onIceCandidateAdd?.invoke(it.serverUrl)
                     lastCandidateTime = System.currentTimeMillis()
+                } else {
+                    Logger.d(
+                        tag = "Observer",
+                        message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
+                    )
                 }
             }
             peerConnectionObserver?.onIceCandidate(candidate)
@@ -215,43 +357,6 @@ internal class Peer(
     }
 
     /**
-     * Initiates our peer connection factory with the specified options
-     * @param context the context
-     */
-    private fun initPeerConnectionFactory(context: Context) {
-        val options = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
-            .setFieldTrials("WebRTC-H264HighProfile/Enabled/")
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(options)
-    }
-
-    /**
-     * creates the PeerConnectionFactory
-     * @see [PeerConnectionFactory]
-     * @return [PeerConnectionFactory]
-     */
-    private fun buildPeerConnectionFactory(): PeerConnectionFactory {
-        return PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(rootEglBase.eglBaseContext))
-            .setVideoEncoderFactory(
-                DefaultVideoEncoderFactory(
-                    rootEglBase.eglBaseContext,
-                    true,
-                    true
-                )
-            )
-            .setOptions(
-                PeerConnectionFactory.Options().apply {
-                    disableEncryption = false
-                    disableNetworkMonitor = true
-                }
-            )
-            .createPeerConnectionFactory()
-    }
-
-    /**
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
      * @see [getIceServers]
      */
@@ -261,7 +366,7 @@ internal class Peer(
             bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             iceCandidatePoolSize = getIceCandidatePool()
-            
+
             // Control local network access for ICE candidate gathering
             if (forceRelayCandidate) {
                 iceTransportsType = PeerConnection.IceTransportsType.RELAY
@@ -292,7 +397,10 @@ internal class Peer(
 
         localAudioTrack?.setEnabled(true)
         localAudioTrack?.setVolume(1.0)
-        Logger.d(tag = "Peer:Audio", message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}")
+        Logger.d(
+            tag = "Peer:Audio",
+            message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}"
+        )
 
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localStream.addTrack(localAudioTrack)
@@ -307,7 +415,10 @@ internal class Peer(
      */
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         if (localAudioTrack == null) {
-            Logger.w(tag = "Call", message = "Local audio track not initialized before creating offer.")
+            Logger.w(
+                tag = "Call",
+                message = "Local audio track not initialized before creating offer."
+            )
         }
         createOffer(
             object : SdpObserver by sdpObserver {
@@ -315,11 +426,14 @@ internal class Peer(
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(tag="Call", message = "setLocalDescription onSetFailure $p0")
+                                Logger.e(
+                                    tag = "Call",
+                                    message = "setLocalDescription onSetFailure $p0"
+                                )
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Call", message = "setLocalDescription onSetSuccess")
+                                Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -355,27 +469,47 @@ internal class Peer(
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
         Logger.d(tag = "Answer", message = "Preparing to create answer...")
 
-        Logger.d(tag = "Answer", message = "Adjusting transceiver directions before createAnswer...")
+        Logger.d(
+            tag = "Answer",
+            message = "Adjusting transceiver directions before createAnswer..."
+        )
         this.transceivers.forEach { transceiver ->
             when (transceiver.mediaType) {
                 MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO -> {
                     if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.SEND_RECV) {
-                         Logger.w(tag = "Answer", message = "Audio transceiver direction was ${transceiver.direction}. Setting to SEND_RECV.")
-                         transceiver.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
+                        Logger.w(
+                            tag = "Answer",
+                            message = "Audio transceiver direction was ${transceiver.direction}. Setting to SEND_RECV."
+                        )
+                        transceiver.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
                     } else {
-                         Logger.d(tag = "Answer", message = "Audio transceiver direction already SEND_RECV.")
+                        Logger.d(
+                            tag = "Answer",
+                            message = "Audio transceiver direction already SEND_RECV."
+                        )
                     }
                 }
+
                 MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
                     if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.INACTIVE) {
                         transceiver.direction = RtpTransceiver.RtpTransceiverDirection.INACTIVE
-                        Logger.d(tag = "Answer", message = "Setting video transceiver [Mid: ${transceiver.mid}] direction to INACTIVE")
+                        Logger.d(
+                            tag = "Answer",
+                            message = "Setting video transceiver [Mid: ${transceiver.mid}] direction to INACTIVE"
+                        )
                     } else {
-                        Logger.d(tag = "Answer", message = "Video transceiver [Mid: ${transceiver.mid}] direction already INACTIVE.")
+                        Logger.d(
+                            tag = "Answer",
+                            message = "Video transceiver [Mid: ${transceiver.mid}] direction already INACTIVE."
+                        )
                     }
                 }
+
                 else -> {
-                     Logger.d(tag = "Answer", message = "Ignoring transceiver with unknown media type: ${transceiver.mediaType}")
+                    Logger.d(
+                        tag = "Answer",
+                        message = "Ignoring transceiver with unknown media type: ${transceiver.mediaType}"
+                    )
                 }
             }
         }
@@ -389,16 +523,25 @@ internal class Peer(
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(tag="Answer", message = "setLocalDescription onSetFailure $p0")
+                                Logger.e(
+                                    tag = "Answer",
+                                    message = "setLocalDescription onSetFailure $p0"
+                                )
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag="Answer", message = "setLocalDescription onSetSuccess")
+                                Logger.d(
+                                    tag = "Answer",
+                                    message = "setLocalDescription onSetSuccess"
+                                )
                                 logAllTransceiverStates("After setLocalDescription success")
                             }
 
-                            override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
-                            override fun onCreateFailure(p0: String?) { /* No-op */ }
+                            override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */
+                            }
+
+                            override fun onCreateFailure(p0: String?) { /* No-op */
+                            }
                         },
                         desc
                     )
@@ -416,12 +559,17 @@ internal class Peer(
     }
 
     private fun logAllTransceiverStates(contextTag: String) {
-         if (peerConnection == null) return
-         Logger.d(tag = "TransceiverState", message = "--- Transceiver States [$contextTag] ---")
-         peerConnection?.transceivers?.forEachIndexed { index, t ->
-              Logger.d(tag = "TransceiverState", message = "[$contextTag] Transceiver[$index]: Mid=${t.mid}, MediaType=${t.mediaType}, Direction=${t.direction}, CurrentDirection=${t.currentDirection}, Stopped=${t.isStopped}, SenderTrack=${t.sender.track()?.id()}, ReceiverTrack=${t.receiver.track()?.id()}")
-         }
-         Logger.d(tag = "TransceiverState", message = "--- End Transceiver States [$contextTag] ---")
+        if (peerConnection == null) return
+        Logger.d(tag = "TransceiverState", message = "--- Transceiver States [$contextTag] ---")
+        peerConnection?.transceivers?.forEachIndexed { index, t ->
+            Logger.d(
+                tag = "TransceiverState",
+                message = "[$contextTag] Transceiver[$index]: Mid=${t.mid}, MediaType=${t.mediaType}, Direction=${t.direction}, CurrentDirection=${t.currentDirection}, Stopped=${t.isStopped}, SenderTrack=${
+                    t.sender.track()?.id()
+                }, ReceiverTrack=${t.receiver.track()?.id()}"
+            )
+        }
+        Logger.d(tag = "TransceiverState", message = "--- End Transceiver States [$contextTag] ---")
     }
 
     /**
@@ -444,23 +592,36 @@ internal class Peer(
      * @see [SessionDescription]
      */
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
-        Logger.d(tag = "SDP", message = "[Remote Offer/Answer SDP Received]:\n${sessionDescription.description}")
+        Logger.d(
+            tag = "SDP",
+            message = "[Remote Offer/Answer SDP Received]:\n${sessionDescription.description}"
+        )
         peerConnection?.setRemoteDescription(
             object : SdpObserver {
                 override fun onSetFailure(p0: String?) {
                     client.onRemoteSessionErrorReceived(p0)
-                    Logger.e(tag="RemoteSessionReceived", message = "Set Remote Description Failed: $p0")
+                    Logger.e(
+                        tag = "RemoteSessionReceived",
+                        message = "Set Remote Description Failed: $p0"
+                    )
                 }
 
                 override fun onSetSuccess() {
-                    Logger.d(tag="RemoteSessionReceived", message = "Set Remote Description Success")
+                    Logger.d(
+                        tag = "RemoteSessionReceived",
+                        message = "Set Remote Description Success"
+                    )
                     logAllTransceiverStates("After setRemoteDescription success")
                 }
 
-                override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */ }
+                override fun onCreateSuccess(p0: SessionDescription?) { /* No-op */
+                }
 
                 override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag="RemoteSessionReceived", message = "Set Remote Description reported onCreateFailure: $p0")
+                    Logger.e(
+                        tag = "RemoteSessionReceived",
+                        message = "Set Remote Description reported onCreateFailure: $p0"
+                    )
                     client.onRemoteSessionErrorReceived(p0)
                 }
             },
@@ -501,7 +662,7 @@ internal class Peer(
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
-        }catch (e: IllegalStateException){
+        } catch (e: IllegalStateException) {
             Logger.e(message = "Error during peer connection disconnect: $e")
         }
     }
@@ -533,7 +694,10 @@ internal class Peer(
                 )
 
                 if (timeSinceLastCandidate >= NEGOTIATION_TIMEOUT) {
-                    Logger.d(tag = "NegotiationTimer", message = "Negotiation timeout reached - Invoking onNegotiationComplete")
+                    Logger.d(
+                        tag = "NegotiationTimer",
+                        message = "Negotiation timeout reached - Invoking onNegotiationComplete"
+                    )
                     stopNegotiationTimer()
                     onNegotiationComplete?.invoke()
                 }
@@ -549,14 +713,327 @@ internal class Peer(
         negotiationTimer?.cancel()
         negotiationTimer?.purge()
         negotiationTimer = null
-         Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
+        Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
+    }
+
+    /**
+     * Starts ICE renegotiation when ICE connection fails
+     * Creates a new offer with ICE restart enabled
+     */
+    private fun startIceRenegotiation() {
+        Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
+
+        // Set call state to RENEGOTIATING to allow ICE candidate processing
+        client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
+
+        val iceRestartConstraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
+        }
+
+        peerConnection?.createOffer(object : SdpObserver {
+            override fun onCreateSuccess(sessionDescription: SessionDescription?) {
+                sessionDescription?.let { sdp ->
+                    Logger.d(
+                        tag = "ICE_RENEGOTIATION",
+                        message = "ICE restart offer created successfully"
+                    )
+                    peerConnection?.setLocalDescription(object : SdpObserver {
+                        override fun onSetSuccess() {
+                            Logger.d(
+                                tag = "ICE_RENEGOTIATION",
+                                message = "Local description set for ICE restart"
+                            )
+
+                            // Start negotiation timer to wait for ICE candidates before sending updateMedia
+                            // This is the same mechanism used for invite/accept flow
+                            setOnNegotiationComplete {
+                                Logger.d(
+                                    tag = "ICE_RENEGOTIATION",
+                                    message = "ICE negotiation complete for renegotiation, sending updateMedia message"
+                                )
+                                // Get the current local description which should now include candidates
+                                val currentSdp = peerConnection?.localDescription?.description
+                                if (currentSdp != null) {
+                                    sendUpdateMediaMessage(currentSdp)
+                                } else {
+                                    Logger.e(
+                                        tag = "ICE_RENEGOTIATION",
+                                        message = "Failed to get local description after negotiation"
+                                    )
+                                    client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                }
+                            }
+                        }
+
+                        override fun onSetFailure(error: String?) {
+                            Logger.e(
+                                tag = "ICE_RENEGOTIATION",
+                                message = "Failed to set local description for ICE restart: $error"
+                            )
+                            // Reset call state back to ACTIVE on failure
+                            client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                        }
+
+                        override fun onCreateSuccess(p0: SessionDescription?) {
+                            Logger.i(
+                                tag = "ICE_RENEGOTIATION",
+                                message = "onCreateSuccess called in setLocalDescription"
+                            )
+                        }
+
+                        override fun onCreateFailure(p0: String?) {
+                            Logger.e(
+                                tag = "ICE_RENEGOTIATION",
+                                message = "onCreateFailure called in setLocalDescription: $p0"
+                            )
+                            // Reset call state back to ACTIVE on failure
+                            client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                        }
+                    }, sdp)
+                }
+            }
+
+            override fun onCreateFailure(error: String?) {
+                Logger.e(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "Failed to create ICE restart offer: $error"
+                )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
+            }
+
+            override fun onSetSuccess() {
+                Logger.i(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onSetSuccess called in createOffer"
+                )
+            }
+
+            override fun onSetFailure(p0: String?) {
+                Logger.e(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onSetFailure called in createOffer: $p0"
+                )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
+            }
+        }, iceRestartConstraints)
+    }
+
+    /**
+     * Sends the updateMedia modify message with the new SDP for ICE renegotiation
+     */
+    private fun sendUpdateMediaMessage(sdp: String) {
+        Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+
+        // Reset call state back to ACTIVE after sending the updateMedia message
+        client.calls[callId]?.updateCallState(CallState.ACTIVE)
+
+        client.sendUpdateMediaMessage(callId, sdp)
+    }
+
+    /**
+     * Handles ICE connection state transitions for automatic recovery
+     *
+     * @param previousState Previous ICE connection state
+     * @param newState New ICE connection state
+     */
+    private fun handleIceConnectionStateTransition(
+        previousState: PeerConnection.IceConnectionState?,
+        newState: PeerConnection.IceConnectionState?
+    ) {
+        if (previousState == null || newState == null) {
+            Logger.d(
+                tag = "IceStateTransition",
+                message = "ICE state transition: null -> $newState"
+            )
+            return
+        }
+
+        Logger.d(
+            tag = "IceStateTransition",
+            message = "ICE state transition: $previousState -> $newState"
+        )
+
+        // Case 1: disconnected -> failed: Attempt ICE restart/renegotiation
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
+            newState == PeerConnection.IceConnectionState.FAILED
+        ) {
+            Logger.w(
+                tag = "IceStateTransition",
+                message = "ICE connection failed after disconnect - attempting ICE restart"
+            )
+
+            // Trigger ICE restart to recover from failed state with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    startIceRenegotiation()
+                }
+            }, ICE_RESTART_DELAY_MS)
+        }
+
+        // Case 2: connected -> disconnected: Reset audio buffers
+        if (previousState == PeerConnection.IceConnectionState.CONNECTED &&
+            newState == PeerConnection.IceConnectionState.DISCONNECTED
+        ) {
+            Logger.w(
+                tag = "IceStateTransition",
+                message = "ICE connection disconnected - resetting audio buffers"
+            )
+
+            // Reset audio device module to clear accumulated buffers with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    resetAudioDeviceModule()
+                }
+            }, AUDIO_BUFFER_RESET_DELAY_MS)
+        }
+
+        // Case 3: disconnected -> connected: Reset audio buffers
+        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
+            newState == PeerConnection.IceConnectionState.CONNECTED
+        ) {
+            Logger.i(
+                tag = "IceStateTransition",
+                message = "ICE connection restored - resetting audio buffers"
+            )
+
+            // Reset audio device module to clear accumulated buffers with delay
+            Timer().schedule(object : TimerTask() {
+                override fun run() {
+                    resetAudioDeviceModule()
+                }
+            }, AUDIO_BUFFER_RESET_DELAY_MS)
+        }
+
+        // Handle connected/completed states for logging
+        if (newState == PeerConnection.IceConnectionState.CONNECTED ||
+            newState == PeerConnection.IceConnectionState.COMPLETED
+        ) {
+            logAudioTrackAndTransceiverState("onIceConnectionChange ($newState)")
+        }
+    }
+
+    /**
+     * Resets the audio device module to clear accumulated buffers
+     * Similar to iOS implementation
+     */
+    private fun resetAudioDeviceModule() {
+        Logger.d(tag = "AudioReset", message = "Resetting audio device module")
+
+        // Stop and restart local audio capture to clear buffers
+        localAudioTrack?.setEnabled(false)
+        Timer().schedule(object : TimerTask() {
+            override fun run() {
+                localAudioTrack?.setEnabled(true)
+                Logger.d(tag = "AudioReset", message = "Audio device module reset completed")
+            }
+        }, AUDIO_RE_ENABLE_DELAY_MS)
+    }
+
+    /**
+     * Handles the updateMedia response containing the new remote SDP
+     * This completes the ICE renegotiation process
+     */
+    fun handleUpdateMediaResponse(remoteSdp: String) {
+        Logger.d(
+            tag = "ICE_RENEGOTIATION",
+            message = "Handling updateMedia response with remote SDP"
+        )
+
+        val remoteSessionDescription = SessionDescription(SessionDescription.Type.ANSWER, remoteSdp)
+        peerConnection?.setRemoteDescription(object : SdpObserver {
+            override fun onSetSuccess() {
+                Logger.d(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "ICE renegotiation completed successfully"
+                )
+                // Ensure call state is reset to ACTIVE on successful completion
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
+            }
+
+            override fun onSetFailure(error: String?) {
+                Logger.e(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "Failed to set remote description for ICE renegotiation: $error"
+                )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
+            }
+
+            override fun onCreateSuccess(p0: SessionDescription?) {
+                Logger.i(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onCreateSuccess called in setRemoteDescription"
+                )
+            }
+
+            override fun onCreateFailure(p0: String?) {
+                Logger.e(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "onCreateFailure called in setRemoteDescription: $p0"
+                )
+                // Reset call state back to ACTIVE on failure
+                client.calls[callId]?.updateCallState(CallState.ACTIVE)
+            }
+        }, remoteSessionDescription)
+    }
+
+    /**
+     * Applies audio codec preferences to the peer connection's audio transceiver.
+     * This method must be called before creating an offer or answer to ensure the
+     * preferred codecs are negotiated in the correct order.
+     *
+     * @param preferredCodecs List of preferred audio codecs in order of preference
+     */
+    fun applyAudioCodecPreferences(preferredCodecs: List<AudioCodec>?) {
+        if (preferredCodecs.isNullOrEmpty()) {
+            Logger.d(tag = "CodecPreferences", message = "No codec preferences provided, using defaults")
+            return
+        }
+
+        try {
+            // Find the audio transceiver
+            val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers) ?: run {
+                Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
+                return
+            }
+
+            // Convert AudioCodec list directly to CodecCapability list
+            val codecCapabilities = CodecUtils.convertAudioCodecsToCapabilities(preferredCodecs)
+            if (codecCapabilities.isEmpty()) {
+                Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
+            } else {
+                // Apply codec preferences to transceiver
+                audioTransceiver.setCodecPreferences(codecCapabilities)
+                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
+            }
+        } catch (e: Exception) {
+            Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
+        }
+    }
+
+    /**
+     * Gets the list of audio codecs that are currently available from the WebRTC peer connection.
+     * This reflects the actual codecs that can be used for negotiation.
+     *
+     * @return List of AudioCodec objects representing available codecs, or empty list if unavailable
+     */
+    fun getAvailableAudioCodecs(): List<AudioCodec> {
+        val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
+            ?: run {
+                Logger.w(tag = "CodecQuery", message = "No audio transceiver found")
+                return emptyList()
+            }
+
+        return CodecUtils.getAvailableAudioCodecs(audioTransceiver)
     }
 
     /**
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
-        Logger.d(message="Releasing Peer resources...")
+        Logger.d(message = "Releasing Peer resources...")
         stopNegotiationTimer()
         if (peerConnection != null) {
             disconnect()
@@ -564,10 +1041,21 @@ internal class Peer(
     }
 
     /**
-     * Initializes the Peer with the provided context and builds the PeerConnection
+     * Forces ICE renegotiation for testing purposes.
+     * This method directly calls startIceRenegotiation() to test the renegotiation logic.
+     */
+    fun forceIceRenegotiationForTesting() {
+        Logger.w(tag = "IceRenegotiationTest", message = "Forcing ICE renegotiation for testing")
+        startIceRenegotiation()
+    }
+
+    /**
+     * Initializes the Peer with the provided context and builds the PeerConnection.
+     * Uses the shared PeerConnectionFactory from the companion object.
      */
     init {
-        initPeerConnectionFactory(context)
+        // Ensure WebRTC is initialized using companion's method
+        Companion.initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
         // Reset the flag when a new Peer is created
         firstCandidateReceived = false

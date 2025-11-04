@@ -38,8 +38,11 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
@@ -47,6 +50,7 @@ import androidx.appcompat.app.AlertDialog
 import org.telnyx.webrtc.xml_app.home.PreCallDiagnosisBottomSheetFragment
 import org.telnyx.webrtc.xml_app.assistant.AssistantLoginDialogFragment
 import org.telnyx.webrtc.xml_app.home.CodecSelectionDialogFragment
+import org.telnyx.webrtc.xml_app.home.ConnectionDetailsBottomSheetFragment
 import android.view.ViewGroup
 
 class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
     private val telnyxViewModel: TelnyxViewModel by viewModels()
     private var lastShownErrorMessage: String? = null
+    private var currentConnectionMetrics: SocketConnectionMetrics? = null
     private var currentConnectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,6 +132,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Set up overflow menu
         binding.menuButton.setOnClickListener {
             showOverflowMenu()
+        }
+        
+        // Set up connection details button
+        binding.connectionDetailsButton.setOnClickListener {
+            showConnectionDetailsDialog()
         }
     }
 
@@ -321,6 +331,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         // Start collecting websocket messages
                         telnyxViewModel.collectWebsocketMessages()
+
+                        binding.connectionDetailsButton.visibility = View.VISIBLE
                     }
 
                     is TelnyxSessionState.ClientDisconnected -> {
@@ -343,6 +355,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
                         // Show menu button for region selection when disconnected
                         binding.menuButton.visibility = View.VISIBLE
+
+                        binding.connectionDetailsButton.visibility = View.INVISIBLE
                     }
                 }
             }
@@ -391,6 +405,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             telnyxViewModel.wsMessages.collect { messages ->
                 // Update the adapter if the bottom sheet is showing
                 websocketMessagesAdapter.updateMessages(messages)
+            }
+        }
+        
+        // Listen for connection metrics
+        lifecycleScope.launch {
+            telnyxViewModel.connectionMetrics.collect { metrics ->
+                currentConnectionMetrics = metrics
             }
         }
     }
@@ -632,6 +653,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()
+    }
+    
+    /**
+     * Shows the connection details bottom sheet
+     */
+    private fun showConnectionDetailsDialog() {
+        val connectionDetailsBottomSheet = ConnectionDetailsBottomSheetFragment()
+        connectionDetailsBottomSheet.show(supportFragmentManager, ConnectionDetailsBottomSheetFragment.TAG)
     }
 
     private fun refreshVersionInfoText() {

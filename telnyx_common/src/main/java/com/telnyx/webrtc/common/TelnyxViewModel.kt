@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import com.telnyx.webrtc.common.TelnyxSocketEvent.*
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateBySIPCredentials
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateByToken
 import com.telnyx.webrtc.common.domain.authentication.AuthenticateAnonymously
@@ -52,6 +53,8 @@ import com.telnyx.webrtc.common.model.PreCallDiagnosis
 import com.telnyx.webrtc.sdk.CredentialConfig
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.AudioCodec
+import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
+import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.model.TranscriptItem
 import com.telnyx.webrtc.sdk.verto.receive.AiConversationResponse
@@ -236,6 +239,13 @@ class TelnyxViewModel : ViewModel() {
      */
     val transcriptMessages: SharedFlow<List<TranscriptItem>>?
         get() = TelnyxCommon.getInstance().telnyxClient?.transcriptUpdateFlow
+    
+    /**
+     * State flow for socket connection metrics.
+     * Observe this flow to display connection quality information in the UI.
+     */
+    val connectionMetrics: StateFlow<SocketConnectionMetrics?>
+        get() = TelnyxCommon.getInstance().connectionMetrics
 
     /**
      * Shared flow for connection status from TelnyxClient.
@@ -889,26 +899,26 @@ class TelnyxViewModel : ViewModel() {
         when (callState) {
             is CallState.ACTIVE -> {
                 _uiState.value =
-                    TelnyxSocketEvent.OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
+                    OnCallAnswered(currentCall?.callId ?: UUID.randomUUID())
             }
 
             is CallState.DROPPED -> {
-                _uiState.value = TelnyxSocketEvent.OnCallDropped(callState.callNetworkChangeReason)
+                _uiState.value = OnCallDropped(callState.callNetworkChangeReason)
             }
 
             is CallState.RECONNECTING -> {
-                _uiState.value = TelnyxSocketEvent.OnCallReconnecting(callState.callNetworkChangeReason)
+                _uiState.value = OnCallReconnecting(callState.callNetworkChangeReason)
             }
 
             is CallState.DONE -> {
-                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+                _uiState.value = OnCallEnded(null)
             }
 
             is CallState.ERROR -> {
-                _uiState.value = TelnyxSocketEvent.OnCallEnded(null)
+                _uiState.value = OnCallEnded(null)
             }
 
-            CallState.NEW, CallState.CONNECTING, CallState.RINGING, CallState.HELD -> {
+            CallState.NEW, CallState.CONNECTING, CallState.RINGING, CallState.HELD, CallState.RENEGOTIATING -> {
                 Timber.d("Call state updated to: %s", callState.javaClass.simpleName)
             }
         }
@@ -1103,7 +1113,6 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
-                    preferredAudioCodecs,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }
@@ -1325,6 +1334,20 @@ class TelnyxViewModel : ViewModel() {
                 null
             }
 
+        }
+    }
+
+    /**
+     * Forces ICE renegotiation for testing purposes.
+     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
+     * 
+     * @return true if the renegotiation was successfully triggered, false otherwise
+     */
+    fun forceIceRenegotiationForTesting(): Boolean {
+        Timber.d("Force ICE renegotiation called from ViewModel")
+        return currentCall?.forceIceRenegotiationForTesting() ?: run {
+            Timber.w("Cannot force ICE renegotiation - no active call")
+            false
         }
     }
 

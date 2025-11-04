@@ -8,7 +8,6 @@ Enable Telnyx real-time communication services on Android
 
 - [Project structure](#project-structure)
 - [Project Setup](#project-setup)
-- [Using Jetpack Compose?](#using-jetpack-compose)
 - [SIP Credentials](#sip-credentials)
 - [Usage](#usage)
   - [Telnyx Client](#telnyx-client)
@@ -60,9 +59,6 @@ Enable Telnyx real-time communication services on Android
                <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif">
             </p>
             
-
- ## Using Jetpack Compose?
- Have a look at our Jetpack Compose reference application [here](https://github.com/team-telnyx/Telnyx-Android-Jetpack-Compose-WebRTC-Sample)
 
 ## SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
@@ -550,13 +546,19 @@ Here is an example of how to start the call:
 ```kotlin
 // After a successful anonymousLogin...
 
-telnyxClient.call.newInvite(
+telnyxClient.newInvite(
     callerName = "Your Name",
     callerNumber = "Your Number",
     destinationNumber = "", // Destination is ignored, can be an empty string
-    clientState = "Your custom state"
+    clientState = "Your custom state",
+    customHeaders = mapOf(
+        "X-Session-Context" to "support_request",
+        "X-User-Tier" to "premium"),
 )
 ```
+
+Note that you can also provide `customHeaders` in the `newInvite` method. These headers need to start with the `X-` prefix and will be mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables) in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`). Hyphens in header names are converted to underscores in variable names.
+
 
 The call will be automatically answered by the AI Assistant. From this point on, the call flow is handled in the same way as any other answered call, allowing you to use standard call control methods like `endCall`, `mute`, etc.
 

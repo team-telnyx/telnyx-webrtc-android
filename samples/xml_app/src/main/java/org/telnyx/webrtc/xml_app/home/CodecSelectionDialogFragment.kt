@@ -12,6 +12,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,6 +22,9 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.sdk.model.AudioCodec
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.telnyx.webrtc.xmlapp.R
 
 class CodecSelectionDialogFragment(
@@ -28,27 +32,45 @@ class CodecSelectionDialogFragment(
 ) : DialogFragment() {
 
     private val selectedCodecs = mutableListOf<AudioCodec>()
-    private lateinit var availableCodecs: List<AudioCodec>
+    private var availableCodecs: List<AudioCodec>? = null
     private var availableCodecsFragment: AvailableCodecsFragment? = null
     private var selectedCodecsFragment: SelectedCodecsFragment? = null
+    private lateinit var loadingLayout: View
+    private lateinit var viewPager: ViewPager2
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val view = layoutInflater.inflate(R.layout.dialog_codec_selection_tabbed, null)
-        
-        // Fetch available codecs from SDK
-        availableCodecs = telnyxViewModel.getSupportedAudioCodecs(requireContext())
-        
+
+        loadingLayout = view.findViewById(R.id.loadingLayout)
+        viewPager = view.findViewById(R.id.viewPager)
+
+        // Show loading indicator
+        loadingLayout.visibility = View.VISIBLE
+        viewPager.visibility = View.GONE
+
         // Initialize selected codecs with current preferences
         selectedCodecs.clear()
         telnyxViewModel.getPreferredAudioCodecs()?.let { preferred ->
             selectedCodecs.addAll(preferred)
         }
-        
-        // Setup ViewPager and TabLayout
-        setupViewPagerAndTabs(view)
-        
-        // Setup buttons
+
+        // Setup buttons first (they don't depend on codecs)
         setupButtons(view)
+
+        // Fetch available codecs from SDK asynchronously
+        lifecycleScope.launch {
+            val codecs = withContext(Dispatchers.IO) {
+                telnyxViewModel.getSupportedAudioCodecs(requireContext())
+            }
+            availableCodecs = codecs
+
+            // Hide loading and show content
+            loadingLayout.visibility = View.GONE
+            viewPager.visibility = View.VISIBLE
+
+            // Setup ViewPager and TabLayout after codecs are loaded
+            setupViewPagerAndTabs(view)
+        }
         
         val dialog = AlertDialog.Builder(requireContext())
             .setView(view)
@@ -128,7 +150,7 @@ class CodecSelectionDialogFragment(
                 0 -> {
                     availableCodecsFragment = AvailableCodecsFragment()
                     availableCodecsFragment!!.initialize(
-                        availableCodecs = availableCodecs,
+                        availableCodecs = availableCodecs ?: emptyList(),
                         selectedCodecs = selectedCodecs,
                         onCodecToggled = { codec, isSelected ->
                             if (isSelected) {

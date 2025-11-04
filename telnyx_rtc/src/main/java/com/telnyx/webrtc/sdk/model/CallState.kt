@@ -43,6 +43,8 @@ sealed class CallState {
     object RINGING : CallState()
     /** The call is active and the two clients are fully connected. */
     object ACTIVE : CallState()
+    /** The call is being renegotiated (ICE restart or media update). */
+    object RENEGOTIATING : CallState()
     /** The user has put the call on hold. */
     object HELD : CallState()
     /** The call is finished - either party has ended the call. */

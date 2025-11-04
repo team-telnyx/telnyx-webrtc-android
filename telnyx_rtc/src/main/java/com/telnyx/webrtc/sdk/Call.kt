@@ -122,6 +122,11 @@ data class Call(
      * @param destinationNumber, the number or SIP name that will receive the invitation
      * @param clientState, the provided client state.
      * @param customHeaders, optional custom SIP headers to include with the call
+     * 
+     *   Note that if you are calling a Telnyx AI Assistant,  Headers with the `X-` prefix
+     *   will be mapped to dynamic variables in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`).
+     *   Note: Hyphens in header names are converted to underscores in variable names.
+     *
      * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
@@ -353,6 +358,43 @@ data class Call(
     }
 
     /**
+     * Returns the actual audio codecs available from the WebRTC peer connection during this call.
+     *
+     * This method queries the actual codecs negotiated by WebRTC at runtime, providing accurate
+     * information about which codecs are available for the current call. Unlike
+     * [TelnyxClient.getSupportedAudioCodecs], which queries device hardware capabilities, this
+     * method returns the exact codecs that WebRTC has negotiated and can use.
+     *
+     * **Important**: This method requires an active peer connection. It will return an empty list
+     * if called before the peer connection is established (e.g., before the call is connected).
+     *
+     * **When to use this method**:
+     * - During an active call to query the actual negotiated codecs
+     * - To verify which codec preferences were successfully applied
+     * - To debug codec negotiation issues
+     *
+     * **When to use [TelnyxClient.getSupportedAudioCodecs] instead**:
+     * - Before initiating a call to estimate device capabilities
+     * - To determine which codecs to pass as preferences
+     *
+     * @return List of [AudioCodec] objects representing the actual WebRTC-negotiated codecs,
+     *         or empty list if no peer connection exists
+     *
+     * @see TelnyxClient.getSupportedAudioCodecs for pre-call device capability queries
+     *
+     * @sample
+     * ```kotlin
+     * // During an active call, check which codecs are being used
+     * val call = telnyxClient.getActiveCalls().values.first()
+     * val actualCodecs = call.getAvailableAudioCodecs()
+     * println("WebRTC negotiated codecs: ${actualCodecs.map { it.mimeType }}")
+     * ```
+     */
+    fun getAvailableAudioCodecs(): List<AudioCodec> {
+        return peerConnection?.getAvailableAudioCodecs() ?: emptyList()
+    }
+
+    /**
      * Resets all call options, primarily hold, mute and loudspeaker state, as well as the earlySDP boolean value.
      * @return [LiveData]
      */
@@ -518,5 +560,23 @@ data class Call(
         iceCandidateTimer = null
         iceCandidateList.clear()
         Logger.d(message =  "Call [${this.callId}] ICE candidate timer reset.")
+    }
+
+    /**
+     * Forces ICE renegotiation for testing purposes.
+     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
+     * 
+     * @return true if the renegotiation was successfully triggered, false otherwise
+     */
+    fun forceIceRenegotiationForTesting(): Boolean {
+        Logger.w(tag = "Call:IceRenegotiationTest", message = "Forcing ICE renegotiation for testing in Call [${this.callId}]")
+        
+        return peerConnection?.let { peer ->
+            peer.forceIceRenegotiationForTesting()
+            true
+        } ?: run {
+            Logger.e(tag = "Call:IceRenegotiationTest", message = "Cannot force ICE renegotiation - peerConnection is null in Call [${this.callId}]")
+            false
+        }
     }
 }
