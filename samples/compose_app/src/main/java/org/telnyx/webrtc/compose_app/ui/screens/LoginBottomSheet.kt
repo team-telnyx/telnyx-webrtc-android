@@ -158,6 +158,8 @@ fun CredentialTokenView(
             PosNegButton(
                 positiveText = stringResource(id = R.string.save),
                 negativeText = stringResource(id = R.string.Cancel),
+                positiveTestTag = "saveButton",
+                negativeTestTag = "cancelButton",
                 contentAlignment = Alignment.BottomStart,
                 onPositiveClick = {
                     if (!isTokenState) {
@@ -216,7 +218,7 @@ fun CredentialTokenSwitcher(isTokenState: Boolean, onCheckedChange: (Boolean) ->
         horizontalArrangement = Arrangement.Center
     ) {
         ToggleButton(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag("credentialLoginToggleButton"),
             text = stringResource(id = R.string.credential_login),
             isSelected = !isTokenState,
             onClick = { onCheckedChange(false) }

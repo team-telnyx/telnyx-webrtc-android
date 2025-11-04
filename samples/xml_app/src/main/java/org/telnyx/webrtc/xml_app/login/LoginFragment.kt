@@ -21,7 +21,6 @@ class LoginFragment : Fragment() {
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var loginBottomSheetFragment: LoginBottomSheetFragment
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
 
 
@@ -36,7 +35,6 @@ class LoginFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        loginBottomSheetFragment = LoginBottomSheetFragment()
         setupViews()
         setupListeners()
     }
@@ -71,8 +69,8 @@ private fun setupListeners() {
     binding.apply {
         // Switch profile button click
         switchProfile.setOnClickListener {
-            if (!loginBottomSheetFragment.isAdded) {
-                loginBottomSheetFragment.show(
+            if (requireActivity().supportFragmentManager.findFragmentByTag("loginBottomSheetFragment") == null) {
+                LoginBottomSheetFragment().show(
                     requireActivity().supportFragmentManager,
                     "loginBottomSheetFragment"
                 )

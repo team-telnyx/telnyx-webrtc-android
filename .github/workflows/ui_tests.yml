@@ -42,6 +42,9 @@ jobs:
           echo "TEST_SIP_CALLER_NUMBER=${{ secrets.TEST_SIP_CALLER_NUMBER }}" >> local.properties
           echo "TEST_SIP_DEST_NUMBER=${{ secrets.TEST_SIP_DEST_NUMBER }}" >> local.properties
 
+      - name: Clean Build
+        run: ./gradlew clean
+
       - name: Build Debug APK and Test APK
         run: |
           ./gradlew :samples:xml_app:assembleDebug samples:xml_app:assembleDebugAndroidTest

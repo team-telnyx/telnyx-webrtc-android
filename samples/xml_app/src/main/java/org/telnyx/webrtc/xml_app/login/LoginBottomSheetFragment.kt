@@ -50,14 +50,23 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
+
+        // Block back button and outside touch dismissal
+        isCancelable = false
+
         val dialog = dialog as? BottomSheetDialog
         dialog?.let {
+            // Block outside touch dismissal
+            it.setCanceledOnTouchOutside(false)
+
             val bottomSheet =
                 it.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
 
             bottomSheet?.let { sheet ->
                 val behavior = BottomSheetBehavior.from(sheet)
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED // Fullscreen
+                behavior.isDraggable = false // Block swipe down gesture
+                behavior.isHideable = false // Prevent hiding
                 sheet.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             }
         }
