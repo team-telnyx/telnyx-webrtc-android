@@ -76,6 +76,7 @@ import com.telnyx.webrtc.common.TelnyxSessionState
 import com.telnyx.webrtc.common.TelnyxSocketEvent
 import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.model.Profile
+import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
@@ -102,6 +103,7 @@ import timber.log.Timber
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
+import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -1001,7 +1003,7 @@ fun ConnectionState(
     showWsMessagesBottomSheet: MutableState<Boolean> = remember { mutableStateOf(false) }
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
-    val messagesSheetState = rememberModalBottomSheetState(true)
+    val messageSheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
 
     Column(
@@ -1047,7 +1049,7 @@ fun ConnectionState(
                 showWsMessagesBottomSheet.value = false
             },
             containerColor = Color.White,
-            sheetState = messagesSheetState
+            sheetState = messageSheetState
         ) {
             Column(
                 modifier = Modifier
@@ -1064,9 +1066,9 @@ fun ConnectionState(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            messagesSheetState.hide()
+                            messageSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!messagesSheetState.isVisible) {
+                            if (!messageSheetState.isVisible) {
                                 showWsMessagesBottomSheet.value = false
                             }
                         }
