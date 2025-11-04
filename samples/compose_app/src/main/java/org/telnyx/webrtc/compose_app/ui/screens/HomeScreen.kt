@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,7 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -97,7 +95,6 @@ import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
-import org.telnyx.webrtc.compose_app.ui.components.ConnectionQualityIndicator
 import org.telnyx.webrtc.compose_app.ui.components.ConnectionMetricsDetail
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
@@ -108,7 +105,6 @@ import timber.log.Timber
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
-import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -151,6 +147,7 @@ fun HomeScreen(
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
     val connectionMetrics by telnyxViewModel.connectionMetrics.collectAsState()
+    val connectionMetricSheetState = rememberModalBottomSheetState(true)
     val connectionStatus by telnyxViewModel.connectionStatus?.collectAsState(initial = ConnectionStatus.DISCONNECTED)
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
 
@@ -452,7 +449,7 @@ fun HomeScreen(
                             expanded = showRegionMenu,
                             onDismissRequest = { showRegionMenu = false }
                         ) {
-                            Region.values().forEach { region ->
+                            Region.entries.forEach { region ->
                                 DropdownMenuItem(
                                     text = { Text(region.displayName) },
                                     onClick = {
@@ -889,7 +886,7 @@ fun HomeScreen(
                 showConnectionMetrics = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = connectionMetricSheetState
         ) {
             Column(
                 modifier = Modifier
@@ -906,9 +903,9 @@ fun HomeScreen(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            connectionMetricSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!connectionMetricSheetState.isVisible) {
                                 showConnectionMetrics = false
                             }
                         }
