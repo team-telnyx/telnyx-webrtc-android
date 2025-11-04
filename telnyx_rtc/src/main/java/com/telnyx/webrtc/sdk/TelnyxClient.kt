@@ -474,6 +474,11 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address to call
      * @param clientState Additional state information to pass with the call
      * @param customHeaders Optional custom SIP headers to include with the call
+     *
+     *   Note that if you are calling a Telnyx AI Assistant,  Headers with the `X-` prefix
+     *   will be mapped to dynamic variables in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`).
+     *   Note: Hyphens in header names are converted to underscores in variable names.
+     *
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
      * @return A new [Call] instance representing the outgoing call
