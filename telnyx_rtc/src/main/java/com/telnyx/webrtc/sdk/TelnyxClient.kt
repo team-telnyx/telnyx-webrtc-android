@@ -1457,13 +1457,15 @@ class TelnyxClient(
     }
 
     fun sendAIAssistantMessage(
-        message: String
+        message: String,
+        imageUrl: String? = null
     ) {
         val uuid: String = UUID.randomUUID().toString()
 
         val conversationContent = ConversationContent(
             type = "input_text",
-            text = message
+            text = message,
+            imageUrl = imageUrl
         )
 
         val conversationItem = ConversationItem(

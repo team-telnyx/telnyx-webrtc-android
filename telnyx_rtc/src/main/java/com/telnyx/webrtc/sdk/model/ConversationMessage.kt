@@ -34,7 +34,9 @@ data class ConversationContent(
     @SerializedName("type")
     val type: String? = null,
     @SerializedName("text")
-    val text: String? = null
+    val text: String? = null,
+    @SerializedName("image_url")
+    val imageUrl: String? = null
 )
 
 /**
