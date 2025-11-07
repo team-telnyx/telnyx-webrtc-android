@@ -20,7 +20,8 @@ data class TranscriptItem(
     val role: String,
     val content: String,
     val timestamp: Date,
-    val isPartial: Boolean = false
+    val isPartial: Boolean = false,
+    val image: String? = null
 ) {
     companion object {
         const val ROLE_USER = "user"

@@ -2723,11 +2723,16 @@ class TelnyxClient(
             ?.mapNotNull { it.transcript ?: it.text }
             ?.joinToString(" ") ?: ""
 
-        if (content.isNotEmpty() && item.id != null) {
+        val image = item.content
+            ?.mapNotNull { it.imageUrl }
+            ?.joinToString(" ") ?: ""
+
+        if ((content.isNotEmpty() || image.isNotEmpty()) && item.id != null) {
             val transcriptItem = TranscriptItem(
                 id = item.id,
                 role = TranscriptItem.ROLE_USER,
                 content = content,
+                image = image,
                 timestamp = Date()
             )
 
