@@ -15,6 +15,17 @@
         android:textColor="@color/black"
         android:layout_marginBottom="4dp" />
 
+    <ImageView
+        android:id="@+id/ivImage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxHeight="200dp"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        android:contentDescription="@string/assistant_image_attached" />
+
     <TextView
         android:id="@+id/tvContent"
         android:layout_width="match_parent"
