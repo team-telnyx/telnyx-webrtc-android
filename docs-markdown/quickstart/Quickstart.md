@@ -1,4 +1,4 @@
-# Telnyx Android Quickstart - the `telnyx_common` module
+# Telnyx Android Quickstart - the telnyx_common module
 
 The `telnyx_common` module provides a ready-to-use implementation of the Telnyx WebRTC SDK for Android applications. This module is designed to be a drop-in solution for developers who want to quickly integrate Telnyx's voice calling capabilities into their Android applications without having to implement the low-level SDK interactions themselves.
 
