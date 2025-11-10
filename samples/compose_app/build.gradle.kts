@@ -94,7 +94,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.12.0")
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
-    testImplementation("org.testng:testng:6.9.6")
+    testImplementation("org.testng:testng:7.11.0")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
 
     //permissions
