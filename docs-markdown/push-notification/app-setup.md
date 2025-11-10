@@ -1,4 +1,4 @@
-## Push Notification App Setup
+# Push Notification App Setup
 ### Retrieving a Firebase Cloud Messaging Token
 
 If the portal setup is complete and when firebase is properly integrated into your application, you will be able to retrieve a token with a method such as this:
