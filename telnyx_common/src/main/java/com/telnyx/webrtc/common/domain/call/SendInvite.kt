@@ -26,6 +26,7 @@ class SendInvite(private val context: Context) {
      * @param customHeaders The custom headers to send the invite.
      * @param debug When true, enables real-time call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The created outgoing call.
@@ -38,13 +39,14 @@ class SendInvite(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
+        useTrickleIce: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val telnyxClient = telnyxCommon.getTelnyxClient(context)
 
-        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs)
+        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs, useTrickleIce)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {
