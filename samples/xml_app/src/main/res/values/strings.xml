@@ -185,7 +185,18 @@
     <string name="select_reorder_codecs">Select and reorder your preferred codecs. Drag to reorder by priority.</string>
     <string name="available_codecs">Available Codecs:</string>
     <string name="selected_codecs_order">Selected Codecs (in order of preference):</string>
-    
+
+    <!-- Audio Constraints -->
+    <string name="audio_constraints">Audio Constraints</string>
+    <string name="audio_constraints_title">Audio Processing Constraints</string>
+    <string name="echo_cancellation">Echo Cancellation</string>
+    <string name="echo_cancellation_description">Removes acoustic echo from speaker feedback</string>
+    <string name="noise_suppression">Noise Suppression</string>
+    <string name="noise_suppression_description">Reduces background noise for clearer voice</string>
+    <string name="auto_gain_control">Auto Gain Control</string>
+    <string name="auto_gain_control_description">Automatically adjusts microphone volume</string>
+    <string name="audio_constraints_saved">Audio constraints saved</string>
+
     <!-- Connection Quality -->
     <string name="connection_details">Connection Details</string>
     <string name="connection_quality">Connection Quality</string>

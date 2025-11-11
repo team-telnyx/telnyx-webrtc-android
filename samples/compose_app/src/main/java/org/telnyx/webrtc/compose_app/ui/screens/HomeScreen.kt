@@ -102,6 +102,7 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.components.AudioConstraintsDialog
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
@@ -134,6 +135,7 @@ fun HomeScreen(
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     var showAssistantLoginBottomSheet by remember { mutableStateOf(false) }
     var showCodecSelectionDialog by remember { mutableStateOf(false) }
+    var showAudioConstraintsDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
     var showConnectionMetrics by remember { mutableStateOf(false) }
@@ -355,6 +357,21 @@ fun HomeScreen(
                                     onClick = {
                                         showOverflowMenu = false
                                         showCodecSelectionDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Audio Constraints option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.audio_constraints)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showAudioConstraintsDialog = true
                                     },
                                     leadingIcon = {
                                         Icon(
@@ -870,6 +887,24 @@ fun HomeScreen(
                 context.getString(
                     R.string.preferred_codecs_updated,
                     selectedCodecs.joinToString(", ") { it.mimeType }),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    )
+
+    // Audio Constraints Dialog
+    AudioConstraintsDialog(
+        isVisible = showAudioConstraintsDialog,
+        currentConstraints = telnyxViewModel.getAudioConstraints(),
+        onDismiss = {
+            showAudioConstraintsDialog = false
+        },
+        onConfirm = { constraints ->
+            telnyxViewModel.setAudioConstraints(constraints)
+            showAudioConstraintsDialog = false
+            Toast.makeText(
+                context,
+                "Audio constraints updated: EC=${constraints.echoCancellation}, NS=${constraints.noiseSuppression}, AGC=${constraints.autoGainControl}",
                 Toast.LENGTH_SHORT
             ).show()
         }

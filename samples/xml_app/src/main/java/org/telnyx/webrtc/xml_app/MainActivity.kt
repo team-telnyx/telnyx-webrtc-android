@@ -47,6 +47,7 @@ import org.telnyx.webrtc.xmlapp.BuildConfig
 import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.ActivityMainBinding
 import androidx.appcompat.app.AlertDialog
+import org.telnyx.webrtc.xml_app.home.AudioConstraintsDialogFragment
 import org.telnyx.webrtc.xml_app.home.PreCallDiagnosisBottomSheetFragment
 import org.telnyx.webrtc.xml_app.assistant.AssistantLoginDialogFragment
 import org.telnyx.webrtc.xml_app.home.CodecSelectionDialogFragment
@@ -157,6 +158,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_preferred_codecs).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_audio_constraints).isVisible = isConnected
 
         // Show region selection for non-logged users
         popupMenu.menu.findItem(R.id.action_region_selection).isVisible = !isConnected
@@ -214,6 +216,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_preferred_codecs -> {
                     showCodecSelectionDialog()
+                    true
+                }
+                R.id.action_audio_constraints -> {
+                    showAudioConstraintsDialog()
                     true
                 }
                 R.id.action_region_selection -> {
@@ -567,6 +573,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     private fun showCodecSelectionDialog() {
         val dialog = CodecSelectionDialogFragment(telnyxViewModel)
         dialog.show(supportFragmentManager, "CodecSelectionDialog")
+    }
+
+    /**
+     * Shows the audio constraints dialog.
+     */
+    private fun showAudioConstraintsDialog() {
+        val dialog = AudioConstraintsDialogFragment(telnyxViewModel)
+        dialog.show(supportFragmentManager, "AudioConstraintsDialog")
     }
 
     private fun checkPermission() {
