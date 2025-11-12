@@ -374,6 +374,9 @@ class TelnyxClient(
             setSpeakerMode(speakerState)
             client.callOngoing()
 
+            // Start local audio capture with provided constraints before creating answer
+            peerConnection?.startLocalAudioCapture(audioConstraints)
+
             // Create the answer SDP
             peerConnection?.answer(AppSdpObserver())
 

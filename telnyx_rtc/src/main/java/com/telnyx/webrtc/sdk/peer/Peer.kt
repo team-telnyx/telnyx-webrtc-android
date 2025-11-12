@@ -382,34 +382,35 @@ internal class Peer(
     /**
      * Starts local audio capture to be used during call
      * Applies audio processing constraints (echo cancellation, noise suppression, auto gain control)
+     * @param constraints Optional audio constraints to override constructor constraints
      * @see [AudioSource]
      * @see [AudioTrack]
      * @see [RtpTransceiver]
      */
-    fun startLocalAudioCapture() {
+    fun startLocalAudioCapture(constraints: AudioConstraints? = null) {
         Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
 
-        // Apply audio constraints, defaulting to all enabled if null
-        val constraints = audioConstraints ?: AudioConstraints()
+        // Use provided constraints, fall back to constructor constraints, or default to all enabled
+        val effectiveConstraints = constraints ?: audioConstraints ?: AudioConstraints()
         Logger.d(
             tag = "Peer:Audio",
-            message = "Audio constraints: echoCancellation=${constraints.echoCancellation}, " +
-                    "noiseSuppression=${constraints.noiseSuppression}, " +
-                    "autoGainControl=${constraints.autoGainControl}"
+            message = "Audio constraints: echoCancellation=${effectiveConstraints.echoCancellation}, " +
+                    "noiseSuppression=${effectiveConstraints.noiseSuppression}, " +
+                    "autoGainControl=${effectiveConstraints.autoGainControl}"
         )
 
         val audioMediaConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair(
                 "googEchoCancellation",
-                constraints.echoCancellation.toString()
+                effectiveConstraints.echoCancellation.toString()
             ))
             mandatory.add(MediaConstraints.KeyValuePair(
                 "googNoiseSuppression",
-                constraints.noiseSuppression.toString()
+                effectiveConstraints.noiseSuppression.toString()
             ))
             mandatory.add(MediaConstraints.KeyValuePair(
                 "googAutoGainControl",
-                constraints.autoGainControl.toString()
+                effectiveConstraints.autoGainControl.toString()
             ))
         }
 
