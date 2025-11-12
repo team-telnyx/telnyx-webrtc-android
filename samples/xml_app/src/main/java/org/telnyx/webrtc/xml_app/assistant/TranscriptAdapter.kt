@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.telnyx.webrtc.sdk.model.TranscriptItem
@@ -19,9 +20,22 @@ class TranscriptAdapter : RecyclerView.Adapter<TranscriptAdapter.TranscriptViewH
     private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     fun updateTranscript(items: List<TranscriptItem>) {
+        val diffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = transcriptItems.size
+            override fun getNewListSize() = items.size
+
+            override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+                return transcriptItems[oldPos].id == items[newPos].id
+            }
+
+            override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean {
+                return transcriptItems[oldPos] == items[newPos]
+            }
+        })
         transcriptItems.clear()
         transcriptItems.addAll(items)
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
+        //notifyDataSetChanged()
     }
 
     fun addTranscriptItem(item: TranscriptItem) {

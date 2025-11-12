@@ -2737,7 +2737,7 @@ class TelnyxClient(
             )
 
             _transcript.add(transcriptItem)
-            _transcriptUpdateFlow.tryEmit(_transcript.toList())
+            _transcriptUpdateFlow.tryEmit(_transcript)
         }
     }
 

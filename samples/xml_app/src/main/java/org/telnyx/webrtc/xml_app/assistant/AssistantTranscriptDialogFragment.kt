@@ -9,20 +9,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
 import com.telnyx.webrtc.common.TelnyxViewModel
-import com.telnyx.webrtc.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xml_app.utils.Utils
-import org.telnyx.webrtc.xmlapp.R
 import org.telnyx.webrtc.xmlapp.databinding.DialogAssistantTranscriptBinding
-import org.telnyx.webrtc.xmlapp.databinding.FragmentLoginBottomSheetBinding
-import java.util.*
 
 class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
 
