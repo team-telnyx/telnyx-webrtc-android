@@ -39,6 +39,43 @@
         android:background="@drawable/rounded_corner_background"
         android:padding="8dp" />
 
+    <!-- Image preview container -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/imagePreviewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp">
+
+            <ImageView
+                android:id="@+id/ivImagePreview"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/assistant_image_attached" />
+
+            <ImageButton
+                android:id="@+id/btnRemoveImage"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="top|end"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:contentDescription="Remove image"
+                android:padding="4dp" />
+
+        </FrameLayout>
+
+    </androidx.cardview.widget.CardView>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

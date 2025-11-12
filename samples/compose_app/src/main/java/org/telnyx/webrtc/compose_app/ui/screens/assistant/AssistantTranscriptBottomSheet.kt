@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,15 +52,18 @@ fun AssistantTranscriptBottomSheet(
     val transcriptItems by telnyxViewModel.transcriptMessages?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<TranscriptItem>()) }
     val listState = rememberLazyListState()
     var showImagePicker by remember { mutableStateOf(false) }
+    var selectedImageBase64 by remember { mutableStateOf<String?>(null) }
 
     val sendMessage = {
-        if (messageText.isNotBlank()) {
+        if (messageText.isNotBlank() || selectedImageBase64 != null) {
             telnyxViewModel.sendAIAssistantMessage(
                 context,
-                message = messageText.trim()
+                message = messageText.trim(),
+                imageUrl = selectedImageBase64
             )
             messageText = ""
-            
+            selectedImageBase64 = null
+
             // Scroll to bottom after message is sent
             scope.launch {
                 kotlinx.coroutines.delay(100)
@@ -121,6 +125,53 @@ fun AssistantTranscriptBottomSheet(
                 }
             }
 
+            // Image preview (if selected)
+            selectedImageBase64?.let { base64Image ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        val imagePreview = remember(base64Image) { Utils.base64ToBitmap(base64Image) }
+                        imagePreview?.let {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(it)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Selected image preview",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 120.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+
+                        // Close button to remove image
+                        IconButton(
+                            onClick = { selectedImageBase64 = null },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Remove image",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
             // Message input
             Row(
                 modifier = Modifier
@@ -159,7 +210,7 @@ fun AssistantTranscriptBottomSheet(
 
                 IconButton(
                     onClick = { sendMessage() },
-                    enabled = messageText.isNotBlank()
+                    enabled = messageText.isNotBlank() || selectedImageBase64 != null
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
@@ -174,22 +225,7 @@ fun AssistantTranscriptBottomSheet(
     if (showImagePicker) {
         ImagePickerDialog(
             onImageSelected = { base64Image ->
-                base64Image?.let {
-                    // Send the image to AI assistant
-                    telnyxViewModel.sendAIAssistantMessage(
-                        context,
-                        message = "",
-                        imageUrl = it
-                    )
-
-                    // Scroll to bottom after message is sent
-                    scope.launch {
-                        kotlinx.coroutines.delay(100)
-                        if (transcriptItems.isNotEmpty()) {
-                            listState.animateScrollToItem(transcriptItems.size)
-                        }
-                    }
-                }
+                selectedImageBase64 = base64Image
                 showImagePicker = false
             },
             onDismiss = {

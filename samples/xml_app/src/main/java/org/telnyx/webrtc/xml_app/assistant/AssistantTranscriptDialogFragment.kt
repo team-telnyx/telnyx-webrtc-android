@@ -32,6 +32,7 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private lateinit var transcriptAdapter: TranscriptAdapter
+    private var selectedImageBase64: String? = null
 
     // Image picker launcher
     private val imagePickerLauncher = registerForActivityResult(
@@ -83,15 +84,15 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     
     private fun setupListeners() {
         binding.btnSend.setOnClickListener {
-            val message = binding.etMessage.text?.toString()?.trim()
-            if (!message.isNullOrEmpty()) {
-                sendMessage(message)
-                binding.etMessage.text?.clear()
-            }
+            sendMessage()
         }
 
         binding.btnAddImage.setOnClickListener {
             imagePickerLauncher.launch("image/*")
+        }
+
+        binding.btnRemoveImage.setOnClickListener {
+            clearImagePreview()
         }
 
         binding.closeButton.setOnClickListener {
@@ -99,30 +100,27 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
         }
     }
     
-    private fun sendMessage(message: String) {
-        // Add user message to transcript
-        val userTranscript = TranscriptItem(
-            id = UUID.randomUUID().toString(),
-            role = TranscriptItem.ROLE_USER,
-            content = message,
-            timestamp = Date()
-        )
-        transcriptAdapter.addTranscriptItem(userTranscript)
-        scrollToBottom()
-        
-        // Send message through TelnyxClient (this would be implemented based on the actual API)
-        // For now, we'll simulate an assistant response
-        lifecycleScope.launch {
-            // Simulate assistant response after a delay
-            kotlinx.coroutines.delay(1000)
-            val assistantResponse = TranscriptItem(
-                id = UUID.randomUUID().toString(),
-                role = TranscriptItem.ROLE_ASSISTANT,
-                content = "I received your message: \"$message\". How can I help you further?",
-                timestamp = Date()
+    private fun sendMessage() {
+        val message = binding.etMessage.text?.toString()?.trim() ?: ""
+
+        // Only send if there's a message or image
+        if (message.isNotEmpty() || selectedImageBase64 != null) {
+            // Send message and image to AI assistant
+            telnyxViewModel.sendAIAssistantMessage(
+                requireContext(),
+                message = message,
+                imageUrl = selectedImageBase64
             )
-            transcriptAdapter.addTranscriptItem(assistantResponse)
-            scrollToBottom()
+
+            // Clear the message and image
+            binding.etMessage.text?.clear()
+            clearImagePreview()
+
+            // Scroll to bottom after message is sent
+            lifecycleScope.launch {
+                kotlinx.coroutines.delay(100)
+                scrollToBottom()
+            }
         }
     }
     
@@ -146,19 +144,24 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
         val base64Image = Utils.uriToBase64(requireContext(), uri)
 
         base64Image?.let {
-            // Send the image to AI assistant
-            telnyxViewModel.sendAIAssistantMessage(
-                requireContext(),
-                message = "",
-                imageUrl = it
-            )
-
-            // Scroll to bottom after message is sent
-            lifecycleScope.launch {
-                kotlinx.coroutines.delay(100)
-                scrollToBottom()
-            }
+            selectedImageBase64 = it
+            showImagePreview(it)
         }
+    }
+
+    private fun showImagePreview(base64Image: String) {
+        // Convert base64 to bitmap and display
+        val bitmap = Utils.base64ToBitmap(base64Image)
+        bitmap?.let {
+            binding.ivImagePreview.setImageBitmap(it)
+            binding.imagePreviewContainer.visibility = View.VISIBLE
+        }
+    }
+
+    private fun clearImagePreview() {
+        selectedImageBase64 = null
+        binding.ivImagePreview.setImageBitmap(null)
+        binding.imagePreviewContainer.visibility = View.GONE
     }
 
     companion object {
