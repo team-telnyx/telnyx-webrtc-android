@@ -13,6 +13,7 @@ import java.util.Date
  * @param role role of the speaker - 'user' for user speech, 'assistant' for AI response
  * @param content the text content of the transcript item
  * @param timestamp timestamp when the transcript item was created
+ * @param images optional list of image URLs associated with the transcript item
  * @param isPartial optional flag indicating if the item is a partial response
  */
 data class TranscriptItem(
@@ -21,7 +22,7 @@ data class TranscriptItem(
     val content: String,
     val timestamp: Date,
     val isPartial: Boolean = false,
-    val image: String? = null
+    val images: List<String>? = null
 ) {
     companion object {
         const val ROLE_USER = "user"

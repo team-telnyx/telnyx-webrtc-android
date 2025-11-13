@@ -27,7 +27,7 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private lateinit var transcriptAdapter: TranscriptAdapter
-    private var selectedImageBase64: String? = null
+    private lateinit var imagePreviewAdapter: ImagePreviewAdapter
     private var photoUri: Uri? = null
 
     // Image picker launcher
@@ -80,13 +80,24 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     }
     
     private fun setupRecyclerView() {
+        // Setup transcript adapter
         transcriptAdapter = TranscriptAdapter()
         binding.rvTranscript.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = transcriptAdapter
         }
+
+        // Setup image preview adapter
+        imagePreviewAdapter = ImagePreviewAdapter { position ->
+            imagePreviewAdapter.removeImage(position)
+            updateImagePreviewVisibility()
+        }
+        binding.rvImagePreview.apply {
+            layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+            adapter = imagePreviewAdapter
+        }
     }
-    
+
     private fun setupListeners() {
         binding.btnSend.setOnClickListener {
             sendMessage()
@@ -100,30 +111,28 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
             openCamera()
         }
 
-        binding.btnRemoveImage.setOnClickListener {
-            clearImagePreview()
-        }
-
         binding.closeButton.setOnClickListener {
             dismiss()
         }
     }
-    
+
     private fun sendMessage() {
         val message = binding.etMessage.text?.toString()?.trim() ?: ""
+        val images = imagePreviewAdapter.getImages()
 
-        // Only send if there's a message or image
-        if (message.isNotEmpty() || selectedImageBase64 != null) {
-            // Send message and image to AI assistant
+        // Only send if there's a message or images
+        if (message.isNotEmpty() || images.isNotEmpty()) {
+            // Send message and images to AI assistant
             telnyxViewModel.sendAIAssistantMessage(
                 requireContext(),
                 message = message,
-                imageUrl = selectedImageBase64
+                imagesUrls = images.ifEmpty { null }
             )
 
-            // Clear the message and image
+            // Clear the message and images
             binding.etMessage.text?.clear()
-            clearImagePreview()
+            imagePreviewAdapter.clearImages()
+            updateImagePreviewVisibility()
 
             // Scroll to bottom after message is sent
             lifecycleScope.launch {
@@ -153,24 +162,17 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
         val base64Image = Utils.uriToBase64(requireContext(), uri)
 
         base64Image?.let {
-            selectedImageBase64 = it
-            showImagePreview(it)
+            imagePreviewAdapter.addImage(it)
+            updateImagePreviewVisibility()
         }
     }
 
-    private fun showImagePreview(base64Image: String) {
-        // Convert base64 to bitmap and display
-        val bitmap = Utils.base64ToBitmap(base64Image)
-        bitmap?.let {
-            binding.ivImagePreview.setImageBitmap(it)
-            binding.imagePreviewContainer.visibility = View.VISIBLE
+    private fun updateImagePreviewVisibility() {
+        binding.imagePreviewScrollView.visibility = if (imagePreviewAdapter.itemCount > 0) {
+            View.VISIBLE
+        } else {
+            View.GONE
         }
-    }
-
-    private fun clearImagePreview() {
-        selectedImageBase64 = null
-        binding.ivImagePreview.setImageBitmap(null)
-        binding.imagePreviewContainer.visibility = View.GONE
     }
 
     private fun openCamera() {

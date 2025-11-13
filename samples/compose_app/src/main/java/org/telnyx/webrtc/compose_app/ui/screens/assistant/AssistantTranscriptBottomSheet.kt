@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -55,17 +56,17 @@ fun AssistantTranscriptBottomSheet(
     val listState = rememberLazyListState()
     var showImagePicker by remember { mutableStateOf(false) }
     var showCamera by remember { mutableStateOf(false) }
-    var selectedImageBase64 by remember { mutableStateOf<String?>(null) }
+    var selectedImagesBase64 by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val sendMessage = {
-        if (messageText.isNotBlank() || selectedImageBase64 != null) {
+        if (messageText.isNotBlank() || selectedImagesBase64.isNotEmpty()) {
             telnyxViewModel.sendAIAssistantMessage(
                 context,
                 message = messageText.trim(),
-                imageUrl = selectedImageBase64
+                imagesUrls = selectedImagesBase64.ifEmpty { null }
             )
             messageText = ""
-            selectedImageBase64 = null
+            selectedImagesBase64 = emptyList()
 
             // Scroll to bottom after message is sent
             scope.launch {
@@ -128,48 +129,64 @@ fun AssistantTranscriptBottomSheet(
                 }
             }
 
-            // Image preview (if selected)
-            selectedImageBase64?.let { base64Image ->
-                Card(
+            // Images preview (if selected)
+            if (selectedImagesBase64.isNotEmpty()) {
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        val imagePreview = remember(base64Image) { Utils.base64ToBitmap(base64Image) }
-                        imagePreview?.let {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(it)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Selected image preview",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 120.dp)
-                                    .clip(RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-
-                        // Close button to remove image
-                        IconButton(
-                            onClick = { selectedImageBase64 = null },
+                    items(selectedImagesBase64.size) { index ->
+                        val base64Image = selectedImagesBase64[index]
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(32.dp)
+                                .size(100.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Remove image",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Card(
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                val imagePreview = remember(base64Image) { Utils.base64ToBitmap(base64Image) }
+                                imagePreview?.let {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(it)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Selected image preview",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                            }
+
+                            // Close button to remove image
+                            IconButton(
+                                onClick = {
+                                    selectedImagesBase64 = selectedImagesBase64.filterIndexed { i, _ -> i != index }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(24.dp)
+                                    .padding(2.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(20.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.Black.copy(alpha = 0.6f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove image",
+                                        tint = Color.White,
+                                        modifier = Modifier.padding(2.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -222,7 +239,7 @@ fun AssistantTranscriptBottomSheet(
 
                 IconButton(
                     onClick = { sendMessage() },
-                    enabled = messageText.isNotBlank() || selectedImageBase64 != null
+                    enabled = messageText.isNotBlank() || selectedImagesBase64.isNotEmpty()
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
@@ -237,7 +254,9 @@ fun AssistantTranscriptBottomSheet(
     if (showImagePicker) {
         ImagePickerDialog(
             onImageSelected = { base64Image ->
-                selectedImageBase64 = base64Image
+                base64Image?.let {
+                    selectedImagesBase64 = selectedImagesBase64 + it
+                }
                 showImagePicker = false
             },
             onDismiss = {
@@ -250,7 +269,9 @@ fun AssistantTranscriptBottomSheet(
     if (showCamera) {
         CameraDialog(
             onPhotoTaken = { base64Image ->
-                selectedImageBase64 = base64Image
+                base64Image?.let {
+                    selectedImagesBase64 = selectedImagesBase64 + it
+                }
                 showCamera = false
             },
             onDismiss = {
@@ -288,31 +309,42 @@ private fun TranscriptItemComposable(item: TranscriptItem) {
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
-
-                item.image?.let { imageUrl ->
-                    val imagePreview = remember(imageUrl) { Utils.base64ToBitmap(imageUrl) }
-                    imagePreview?.let {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(it)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Image attached",
-                            modifier = Modifier
-                                .wrapContentWidth()
-                                .heightIn(max = 90.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                }
-
                 Text(
                     text = if (isUser) stringResource(R.string.assistant_you) else stringResource(R.string.assistant_ai),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                 )
+
+                // Display images in horizontal row if present
+                item.images?.let { imagesList ->
+                    if (imagesList.isNotEmpty()) {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(imagesList.size) { index ->
+                                val imageUrl = imagesList[index]
+                                val imagePreview = remember(imageUrl) { Utils.base64ToBitmap(imageUrl) }
+                                imagePreview?.let {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(it)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Image attached",
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Text(
                     text = item.content,

@@ -1458,21 +1458,29 @@ class TelnyxClient(
 
     fun sendAIAssistantMessage(
         message: String,
-        imageUrl: String? = null
+        imagesUrls: List<String>? = null
     ) {
         val uuid: String = UUID.randomUUID().toString()
 
-        val conversationContent = ConversationContent(
+        val conversationContent = mutableListOf<ConversationContent>()
+        conversationContent.add(ConversationContent(
             type = "input_text",
-            text = message,
-            imageUrl = imageUrl
-        )
+            text = message
+        ))
+
+        imagesUrls?.forEach { imageUrl ->
+            val conversationImageURL = ConversationImageURL(imageUrl)
+            conversationContent.add(ConversationContent(
+                type = "image_url",
+                imageUrl = conversationImageURL
+            ))
+        }
 
         val conversationItem = ConversationItem(
             id = UUID.randomUUID().toString(),
             type = "message",
             role = "user",
-            content = listOf(conversationContent)
+            content = conversationContent
         )
 
         val aiConversationParams = AiConversationParams(
@@ -2719,20 +2727,22 @@ class TelnyxClient(
             return // Only handle completed user messages
         }
 
+        // Extract text content from all content items with text or transcript
         val content = item.content
             ?.mapNotNull { it.transcript ?: it.text }
             ?.joinToString(" ") ?: ""
 
-        val image = item.content
-            ?.mapNotNull { it.imageUrl }
-            ?.joinToString(" ") ?: ""
+        // Extract image URLs from all content items with imageUrl
+        val images = item.content
+            ?.mapNotNull { it.imageUrl?.url }
+            ?.takeIf { it.isNotEmpty() }
 
-        if ((content.isNotEmpty() || image.isNotEmpty()) && item.id != null) {
+        if ((content.isNotEmpty() || images?.isNotEmpty() == true) && item.id != null) {
             val transcriptItem = TranscriptItem(
                 id = item.id,
                 role = TranscriptItem.ROLE_USER,
                 content = content,
-                image = image,
+                images = images,
                 timestamp = Date()
             )
 

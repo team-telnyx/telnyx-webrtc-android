@@ -1025,10 +1025,10 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun sendAIAssistantMessage(viewContext: Context, message: String, imageUrl: String? = null) {
+    fun sendAIAssistantMessage(viewContext: Context, message: String, imagesUrls: List<String>? = null) {
         val telnyxCommon = TelnyxCommon.getInstance()
         viewModelScope.launch {
-            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message, imageUrl)
+            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message, imagesUrls)
         }
     }
 
