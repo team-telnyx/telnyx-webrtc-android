@@ -1,6 +1,9 @@
 package org.telnyx.webrtc.compose_app.ui.screens.assistant
 
+import android.content.ContentValues
+import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -25,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -52,6 +54,7 @@ fun AssistantTranscriptBottomSheet(
     val transcriptItems by telnyxViewModel.transcriptMessages?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<TranscriptItem>()) }
     val listState = rememberLazyListState()
     var showImagePicker by remember { mutableStateOf(false) }
+    var showCamera by remember { mutableStateOf(false) }
     var selectedImageBase64 by remember { mutableStateOf<String?>(null) }
 
     val sendMessage = {
@@ -188,6 +191,15 @@ fun AssistantTranscriptBottomSheet(
                     )
                 }
 
+                IconButton(
+                    onClick = { showCamera = true }
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_photo),
+                        contentDescription = "Take photo"
+                    )
+                }
+
                 Spacer(modifier = Modifier.width(8.dp))
 
                 OutlinedTextField(
@@ -230,6 +242,19 @@ fun AssistantTranscriptBottomSheet(
             },
             onDismiss = {
                 showImagePicker = false
+            }
+        )
+    }
+
+    // Show camera when triggered
+    if (showCamera) {
+        CameraDialog(
+            onPhotoTaken = { base64Image ->
+                selectedImageBase64 = base64Image
+                showCamera = false
+            },
+            onDismiss = {
+                showCamera = false
             }
         )
     }
@@ -324,6 +349,49 @@ private fun ImagePickerDialog(
 
     LaunchedEffect(Unit) {
         launcher.launch("image/*")
+    }
+}
+
+@Composable
+private fun CameraDialog(
+    onPhotoTaken: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val photoUri = remember {
+        createImageFileUri(context)
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && photoUri != null) {
+            // Convert the captured photo to base64
+            val base64Image = Utils.uriToBase64(context, photoUri)
+            onPhotoTaken(base64Image)
+        } else {
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        photoUri?.let { launcher.launch(it) } ?: onDismiss()
+    }
+}
+
+private fun createImageFileUri(context: Context): Uri? {
+    return try {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.TITLE, "new_photo_${System.currentTimeMillis()}")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        }
+        context.contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
     }
 }
 

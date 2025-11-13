@@ -91,6 +91,15 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:layout_marginEnd="8dp" />
 
+        <ImageButton
+            android:id="@+id/btnCamera"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_photo"
+            android:contentDescription="Take photo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_marginEnd="8dp" />
+
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etMessage"
             android:layout_width="0dp"

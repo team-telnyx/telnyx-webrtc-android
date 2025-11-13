@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,6 +17,7 @@ import com.telnyx.webrtc.common.TelnyxViewModel
 import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xml_app.utils.Utils
 import org.telnyx.webrtc.xmlapp.databinding.DialogAssistantTranscriptBinding
+import java.io.File
 
 class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
 
@@ -26,6 +28,7 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
 
     private lateinit var transcriptAdapter: TranscriptAdapter
     private var selectedImageBase64: String? = null
+    private var photoUri: Uri? = null
 
     // Image picker launcher
     private val imagePickerLauncher = registerForActivityResult(
@@ -33,6 +36,15 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
     ) { uri: Uri? ->
         uri?.let { selectedUri ->
             handleImageSelection(selectedUri)
+        }
+    }
+
+    // Camera launcher
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && photoUri != null) {
+            handleImageSelection(photoUri!!)
         }
     }
 
@@ -82,6 +94,10 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
 
         binding.btnAddImage.setOnClickListener {
             imagePickerLauncher.launch("image/*")
+        }
+
+        binding.btnCamera.setOnClickListener {
+            openCamera()
         }
 
         binding.btnRemoveImage.setOnClickListener {
@@ -155,6 +171,30 @@ class AssistantTranscriptDialogFragment : BottomSheetDialogFragment() {
         selectedImageBase64 = null
         binding.ivImagePreview.setImageBitmap(null)
         binding.imagePreviewContainer.visibility = View.GONE
+    }
+
+    private fun openCamera() {
+        photoUri = createImageFileUri()
+        photoUri?.let {
+            cameraLauncher.launch(it)
+        }
+    }
+
+    private fun createImageFileUri(): Uri? {
+        return try {
+            val imageFile = File(
+                requireContext().cacheDir,
+                "camera_photo_${System.currentTimeMillis()}.jpg"
+            )
+            FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                imageFile
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     companion object {
