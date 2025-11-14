@@ -17,7 +17,7 @@ object Utils {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val bytes = inputStream.readBytes()
-                Base64.encodeToString(bytes, Base64.NO_WRAP)
+                "data:image/jpeg;base64,"+Base64.encodeToString(bytes, Base64.NO_WRAP)
             }
         } catch (e: Exception) {
             e.printStackTrace()
