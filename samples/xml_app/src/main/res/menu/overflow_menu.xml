@@ -39,6 +39,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_audio_constraints"
+        android:title="@string/audio_constraints"
+        android:icon="@drawable/ic_more_vert"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_region_selection"
         android:title="Region"
         android:icon="@drawable/ic_more_vert"

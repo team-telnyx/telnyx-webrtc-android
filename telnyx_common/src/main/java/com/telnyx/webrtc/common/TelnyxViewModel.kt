@@ -46,6 +46,7 @@ import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
@@ -139,6 +140,13 @@ class TelnyxViewModel : ViewModel() {
      * These codecs will be used for both outgoing and incoming calls.
      */
     private var preferredAudioCodecs: List<AudioCodec>? = null
+
+    /**
+     * Audio processing constraints for calls.
+     * These constraints control echo cancellation, noise suppression, and auto gain control.
+     * If null, defaults will be used (all constraints enabled).
+     */
+    private var audioConstraints: AudioConstraints? = null
 
     /**
      * Server configuration for the Telnyx WebRTC SDK.
@@ -384,6 +392,25 @@ class TelnyxViewModel : ViewModel() {
      */
     fun getPreferredAudioCodecs(): List<AudioCodec>? {
         return preferredAudioCodecs
+    }
+
+    /**
+     * Sets the audio processing constraints for calls.
+     * These constraints will be used for both outgoing and incoming calls.
+     *
+     * @param constraints Audio processing constraints or null to use defaults (all enabled).
+     */
+    fun setAudioConstraints(constraints: AudioConstraints?) {
+        audioConstraints = constraints
+    }
+
+    /**
+     * Gets the currently set audio processing constraints.
+     *
+     * @return Audio processing constraints or null if defaults are used.
+     */
+    fun getAudioConstraints(): AudioConstraints? {
+        return audioConstraints
     }
 
     /**
@@ -950,12 +977,15 @@ class TelnyxViewModel : ViewModel() {
      * @param destinationNumber The phone number to call.
      * @param debug Whether to enable debug mode for call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun sendInvite(
         viewContext: Context,
         destinationNumber: String,
         debug: Boolean,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
 
         callStateJob?.cancel()
@@ -972,6 +1002,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
+                    audioConstraintsOverride ?: audioConstraints,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -992,11 +1023,14 @@ class TelnyxViewModel : ViewModel() {
      * @param viewContext The application context.
      * @param debug Whether to enable debug mode for call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun sendAiAssistantInvite(
         viewContext: Context,
         debug: Boolean,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
 
         callStateJob?.cancel()
@@ -1012,6 +1046,7 @@ class TelnyxViewModel : ViewModel() {
                 mapOf(Pair("X-test", "123456")),
                 debug,
                 preferredCodecs,
+                audioConstraintsOverride ?: audioConstraints,
                 onCallHistoryAdd = { number ->
                     addCallToHistory(CallType.OUTBOUND, number)
                 }
@@ -1084,12 +1119,15 @@ class TelnyxViewModel : ViewModel() {
      * @param callId The UUID of the call to answer.
      * @param callerIdNumber The caller ID number for the call.
      * @param debug Whether to enable debug mode for call quality metrics.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun answerCall(
         viewContext: Context,
         callId: UUID,
         callerIdNumber: String,
-        debug: Boolean
+        debug: Boolean,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
         callStateJob?.cancel()
         callStateJob = null
@@ -1113,6 +1151,7 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
+                    audioConstraintsOverride ?: audioConstraints,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }
