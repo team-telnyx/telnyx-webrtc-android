@@ -1,4 +1,4 @@
-package org.telnyx.webrtc.compose_app.utils
+package org.telnyx.webrtc.xml_app.utils
 
 import android.content.Context
 import android.graphics.Bitmap

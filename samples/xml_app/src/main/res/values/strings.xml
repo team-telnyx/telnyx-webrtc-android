@@ -167,6 +167,8 @@
     <string name="assistant_transcript_title">Assistant Transcript</string>
     <string name="assistant_message_hint">Type your message...</string>
     <string name="assistant_send_button">Send</string>
+    <string name="assistant_add_image">Add image</string>
+    <string name="assistant_image_attached">Image attached</string>
     <string name="assistant_transcript_empty">No conversation yet</string>
     <string name="assistant_error_empty_target_id">Please enter a Target ID</string>
     <string name="assistant_error_connection_failed">Failed to connect to Assistant</string>

@@ -127,4 +127,7 @@ dependencies {
     // Reorderable list for codec selection
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
 }
