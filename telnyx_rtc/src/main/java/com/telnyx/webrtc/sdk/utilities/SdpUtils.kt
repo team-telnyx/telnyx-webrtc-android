@@ -12,6 +12,14 @@ internal object SdpUtils {
     private const val PAYLOAD_START_INDEX = 3
     private const val MEDIA_LINE_PREFIX = "m=audio"
     private const val ATTRIBUTE_PREFIX = "a="
+    
+    // Constants for candidate parsing
+    private const val CANDIDATE_COMPONENT_INDEX = 1
+    private const val CANDIDATE_TRANSPORT_INDEX = 2
+    private const val CANDIDATE_PRIORITY_INDEX = 3
+    private const val CANDIDATE_IP_ADDRESS_INDEX = 4
+    private const val CANDIDATE_PORT_INDEX = 5
+    private const val CANDIDATE_TYPE_INDEX = 6
 
     /**
      * SDP Munging function to modify the generated Answer SDP to include audio codecs from the Offer SDP
@@ -177,6 +185,430 @@ internal object SdpUtils {
             matcher.group(2) // Group 2 is the encoding name
         } else {
             null
+        }
+    }
+
+    /**
+     * Adds the trickle ICE capability to an SDP if not already present.
+     * This adds "a=ice-options:trickle" at the session level after the origin (o=) line.
+     * 
+     * @param sdp The original SDP string
+     * @return The modified SDP with ice-options:trickle added
+     */
+    internal fun addTrickleIceCapability(sdp: String): String {
+        val lines = sdp.lines().toMutableList()
+        var result: String? = null
+
+        // Check if there's an existing ice-options line that needs modification
+        val existingIceOptionsIndex = findExistingIceOptionsIndex(lines)
+        if (existingIceOptionsIndex != -1) {
+            result = handleExistingIceOptions(lines, existingIceOptionsIndex)
+        }
+
+        // If no existing ice-options line was found, try to add a new one
+        if (result == null) {
+            result = addNewIceOptions(lines)
+        }
+
+        return result ?: sdp
+    }
+    
+    /**
+     * Finds the index of an existing ice-options line.
+     */
+    private fun findExistingIceOptionsIndex(lines: List<String>): Int {
+        return lines.indexOfFirst { it.startsWith("a=ice-options:") }
+    }
+    
+    /**
+     * Handles an existing ice-options line.
+     */
+    private fun handleExistingIceOptions(lines: MutableList<String>, index: Int): String? {
+        val currentOptions = lines[index]
+        
+        return when {
+            currentOptions == "a=ice-options:trickle" -> {
+                Logger.d(tag = "SDP_Modify", message = "SDP already contains a=ice-options:trickle")
+                null // Return null to indicate original SDP should be used
+            }
+            else -> {
+                // Replace any ice-options line with just trickle
+                // This handles cases like "a=ice-options:trickle renomination"
+                lines[index] = "a=ice-options:trickle"
+                Logger.d(tag = "SDP_Modify", message = "Replaced ice-options line from '$currentOptions' to 'a=ice-options:trickle'")
+                lines.joinToString("\r\n")
+            }
+        }
+    }
+    
+    /**
+     * Adds a new ice-options line to the SDP.
+     */
+    private fun addNewIceOptions(lines: MutableList<String>): String? {
+        val insertIndex = findOriginLineInsertIndex(lines)
+        
+        return if (insertIndex != -1) {
+            // Insert ice-options:trickle at session level
+            lines.add(insertIndex, "a=ice-options:trickle")
+            Logger.d(tag = "SDP_Modify", message = "Added a=ice-options:trickle to SDP at index $insertIndex")
+            lines.joinToString("\r\n")
+        } else {
+            Logger.w(tag = "SDP_Modify", message = "Could not find origin line in SDP, returning original")
+            null // Return null to indicate original SDP should be used
+        }
+    }
+    
+    /**
+     * Finds the index where the ice-options line should be inserted (after origin line).
+     */
+    private fun findOriginLineInsertIndex(lines: List<String>): Int {
+        val originIndex = lines.indexOfFirst { it.startsWith("o=") }
+        return if (originIndex != -1) originIndex + 1 else -1
+    }
+
+    /**
+     * Checks if an SDP contains trickle ICE capability.
+     * 
+     * @param sdp The SDP string to check
+     * @return true if the SDP advertises trickle ICE support
+     */
+    internal fun hasTrickleIceCapability(sdp: String): Boolean {
+        return sdp.contains("a=ice-options:trickle")
+    }
+
+    /**
+     * Data class to hold ICE parameters extracted from SDP
+     */
+    data class IceParameters(
+        val ufrag: String? = null,
+        val pwd: String? = null,
+        val generation: Int = 0
+    )
+
+    /**
+     * Extracts ICE parameters (ufrag, pwd) from an SDP string.
+     * These parameters can be used to enhance ICE candidates for consistency.
+     * 
+     * @param sdp The SDP string to parse
+     * @return IceParameters containing extracted values, or default values if not found
+     */
+    internal fun extractIceParameters(sdp: String): IceParameters {
+        val lines = sdp.lines()
+        var ufrag: String? = null
+        var pwd: String? = null
+        var inAudioSection = false
+        
+        for (line in lines) {
+            when {
+                line.startsWith("m=audio") -> inAudioSection = true
+                line.startsWith("m=") && !line.startsWith("m=audio") -> {
+                    if (shouldStopSearching(inAudioSection, ufrag, pwd)) break
+                    inAudioSection = false
+                }
+                line.startsWith("a=ice-ufrag:") -> ufrag = extractUfrag(line, inAudioSection, ufrag)
+                line.startsWith("a=ice-pwd:") -> pwd = extractPwd(line, inAudioSection, pwd)
+            }
+        }
+        
+        Logger.d(tag = "SDP_Ice", message = "Extracted ICE parameters - ufrag: $ufrag, pwd: $pwd")
+        return IceParameters(ufrag = ufrag, pwd = pwd, generation = 0)
+    }
+    
+    /**
+     * Determines if we should stop searching for ICE parameters.
+     */
+    private fun shouldStopSearching(inAudioSection: Boolean, ufrag: String?, pwd: String?): Boolean {
+        return inAudioSection && ufrag != null && pwd != null
+    }
+    
+    /**
+     * Extracts ufrag from a line if conditions are met.
+     */
+    private fun extractUfrag(line: String, inAudioSection: Boolean, currentUfrag: String?): String? {
+        val extractedUfrag = line.substringAfter("a=ice-ufrag:").trim()
+        return if (inAudioSection || currentUfrag == null) extractedUfrag else currentUfrag
+    }
+    
+    /**
+     * Extracts pwd from a line if conditions are met.
+     */
+    private fun extractPwd(line: String, inAudioSection: Boolean, currentPwd: String?): String? {
+        val extractedPwd = line.substringAfter("a=ice-pwd:").trim()
+        return if (inAudioSection || currentPwd == null) extractedPwd else currentPwd
+    }
+
+    /**
+     * Enhances an ICE candidate string with additional parameters for consistency.
+     * Adds ufrag, generation, and placeholder network parameters if not present.
+     * 
+     * @param candidateString The original candidate string
+     * @param iceParameters The ICE parameters extracted from SDP
+     * @return Enhanced candidate string with additional parameters
+     */
+    internal fun enhanceCandidateString(candidateString: String, iceParameters: IceParameters): String {
+        // Check if the candidate already has these parameters
+        if (candidateString.contains("ufrag") || candidateString.contains("generation")) {
+            Logger.d(tag = "CandidateEnhance", message = "Candidate already contains extensions, not enhancing")
+            return candidateString
+        }
+        
+        val enhancedCandidate = StringBuilder(candidateString)
+        
+        // Add generation (always 0 for trickle ICE)
+        enhancedCandidate.append(" generation ${iceParameters.generation}")
+        
+        // Add ufrag if available
+        iceParameters.ufrag?.let { ufrag ->
+            enhancedCandidate.append(" ufrag $ufrag")
+        }
+        
+        // Add placeholder network parameters for consistency with local candidates
+        enhancedCandidate.append(" network-id 1 network-cost 10")
+        
+        Logger.d(tag = "CandidateEnhance", message = "Enhanced candidate: $enhancedCandidate")
+        return enhancedCandidate.toString()
+    }
+
+    /**
+     * Cleans an ICE candidate string to remove WebRTC-specific extensions.
+     * Extracts only the RFC 5245/8838 standard fields from a WebRTC candidate string.
+     * 
+     * Standard format: candidate:<foundation> <component> <transport> <priority> <IP address> <port> <candidate-type> [rel-addr <IP>] [rel-port <port>]
+     * 
+     * @param candidateString The raw candidate string from WebRTC (e.g., from IceCandidate.sdp)
+     * @return The cleaned candidate string with only RFC-compliant fields
+     */
+    internal fun cleanCandidateString(candidateString: String): String {
+        Logger.d(tag = "CandidateClean", message = "Original candidate: $candidateString")
+
+        // Split the candidate string into parts
+        val parts = candidateString.trim().split(" ")
+        
+        if (!isValidCandidateFormat(parts)) {
+            Logger.w(tag = "CandidateClean", message = "Invalid candidate format: $candidateString")
+            return candidateString // Return original if format is unexpected
+        }
+        
+        val cleanedParts = mutableListOf<String>()
+        var i = 0
+        
+        // Process standard fields in order
+        while (i < parts.size) {
+            val part = parts[i]
+            val (handled, nextIndex) = processCandidatePart(part, i, parts, cleanedParts)
+            i = nextIndex
+        }
+        
+        val cleanedCandidate = cleanedParts.joinToString(" ")
+        Logger.d(tag = "CandidateClean", message = "Cleaned candidate: $cleanedCandidate")
+        
+        return cleanedCandidate
+    }
+    
+    /**
+     * Checks if a candidate string has valid format.
+     */
+    private fun isValidCandidateFormat(parts: List<String>): Boolean {
+        return parts.isNotEmpty() && parts[0].startsWith("candidate:")
+    }
+    
+    /**
+     * Processes a candidate part and returns whether it was handled and the next index.
+     */
+    private fun processCandidatePart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when {
+            // Handle standard candidate fields
+            isStandardCandidateField(part, index) -> handleStandardCandidateField(part, index, cleanedParts)
+            // Handle related fields (raddr, rport)
+            isRelatedField(part) -> handleRelatedField(part, index, parts, cleanedParts)
+            // Handle WebRTC extensions
+            isWebRtcExtension(part) -> handleWebRtcExtensionPart(part, index, parts)
+            // Handle unknown fields
+            else -> handleUnknownPart(part, index)
+        }
+    }
+
+    /**
+     * Checks if the part is a standard candidate field.
+     */
+    private fun isStandardCandidateField(part: String, index: Int): Boolean {
+        return when {
+            part.startsWith("candidate:") -> true
+            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> true
+            index == CANDIDATE_TRANSPORT_INDEX && isValidTransport(part) -> true
+            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> true
+            index == CANDIDATE_IP_ADDRESS_INDEX -> true
+            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> true
+            part == "typ" && index == CANDIDATE_TYPE_INDEX -> true
+            else -> false
+        }
+    }
+
+    /**
+     * Handles standard candidate fields.
+     */
+    private fun handleStandardCandidateField(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when {
+            part.startsWith("candidate:") -> handleFoundationPart(part, index, cleanedParts)
+            index == CANDIDATE_COMPONENT_INDEX && part.matches(Regex("\\d+")) -> handleComponentPart(part, index, cleanedParts)
+            index == CANDIDATE_TRANSPORT_INDEX && isValidTransport(part) -> handleTransportPart(part, index, cleanedParts)
+            index == CANDIDATE_PRIORITY_INDEX && part.matches(Regex("\\d+")) -> handlePriorityPart(part, index, cleanedParts)
+            index == CANDIDATE_IP_ADDRESS_INDEX -> handleIpAddressPart(part, index, cleanedParts)
+            index == CANDIDATE_PORT_INDEX && part.matches(Regex("\\d+")) -> handlePortPart(part, index, cleanedParts)
+            part == "typ" && index == CANDIDATE_TYPE_INDEX -> handleCandidateTypePart(part, index, emptyList(), cleanedParts)
+            else -> true to (index + 1)
+        }
+    }
+
+    /**
+     * Checks if the part is a related field (raddr or rport).
+     */
+    private fun isRelatedField(part: String): Boolean {
+        return part == "raddr" || part == "rport"
+    }
+
+    /**
+     * Handles related fields (raddr or rport).
+     */
+    private fun handleRelatedField(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        return when (part) {
+            "raddr" -> handleRelatedAddressPart(part, index, parts, cleanedParts)
+            "rport" -> handleRelatedPortPart(part, index, parts, cleanedParts)
+            else -> true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the foundation part (candidate:...).
+     */
+    private fun handleFoundationPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the component part (1 or 2).
+     */
+    private fun handleComponentPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Checks if the transport part is valid (udp or tcp).
+     */
+    private fun isValidTransport(part: String): Boolean {
+        return part.equals("udp", ignoreCase = true) || part.equals("tcp", ignoreCase = true)
+    }
+
+    /**
+     * Handles the transport part (udp, tcp).
+     */
+    private fun handleTransportPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the priority part (numeric).
+     */
+    private fun handlePriorityPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the IP address part (IPv4 or IPv6).
+     */
+    private fun handleIpAddressPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the port part (numeric).
+     */
+    private fun handlePortPart(part: String, index: Int, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        return true to (index + 1)
+    }
+
+    /**
+     * Handles the candidate type part (typ).
+     */
+    private fun handleCandidateTypePart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the actual type (host, srflx, prflx, relay)
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the related address part (raddr).
+     */
+    private fun handleRelatedAddressPart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the related address value
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles the related port part (rport).
+     */
+    private fun handleRelatedPortPart(part: String, index: Int, parts: List<String>, cleanedParts: MutableList<String>): Pair<Boolean, Int> {
+        cleanedParts.add(part)
+        // Add the related port value
+        return if (index + 1 < parts.size) {
+            cleanedParts.add(parts[index + 1])
+            true to (index + 2)
+        } else {
+            true to (index + 1)
+        }
+    }
+
+    /**
+     * Handles WebRTC-specific extensions.
+     */
+    private fun handleWebRtcExtensionPart(part: String, index: Int, parts: List<String>): Pair<Boolean, Int> {
+        Logger.d(tag = "CandidateClean", message = "Skipping WebRTC extension: $part")
+        val nextIndex = skipExtensionValue(index, parts)
+        return true to nextIndex
+    }
+
+    /**
+     * Handles unknown parts.
+     */
+    private fun handleUnknownPart(part: String, index: Int): Pair<Boolean, Int> {
+        Logger.d(tag = "CandidateClean", message = "Skipping unknown field: $part")
+        return true to (index + 1)
+    }
+    
+    /**
+     * Checks if a part is a WebRTC-specific extension.
+     */
+    private fun isWebRtcExtension(part: String): Boolean {
+        return part == "generation" || part == "ufrag" || part == "network-id" || part == "network-cost"
+    }
+    
+    /**
+     * Skips the value that follows a WebRTC extension.
+     */
+    private fun skipExtensionValue(index: Int, parts: List<String>): Int {
+        val nextIndex = index + 1
+        return if (nextIndex < parts.size && !parts[nextIndex].contains("=") && !parts[nextIndex].startsWith("candidate:")) {
+            Logger.d(tag = "CandidateClean", message = "Skipping extension value: ${parts[nextIndex]}")
+            nextIndex + 1
+        } else {
+            nextIndex
         }
     }
 }

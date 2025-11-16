@@ -28,6 +28,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import com.telnyx.webrtc.sdk.utilities.CandidateUtils
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
@@ -84,6 +85,7 @@ class TelnyxClient(
         UNASSIGNED
     }
 
+
     /**
      * Companion object containing constant values used throughout the client.
      */
@@ -107,11 +109,12 @@ class TelnyxClient(
         const val TIMEOUT_DIVISOR: Long = 1000
 
         /** SDK version*/
-        val SDK_VERSION = BuildConfig.SDK_VERSION
+        const val SDK_VERSION = BuildConfig.SDK_VERSION
     }
 
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
+    private var useTrickleIce: Boolean = false
     private var reconnecting = false
 
     // Reconnection timeout timer
@@ -220,6 +223,10 @@ class TelnyxClient(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+
+    // Keeps track of pending ICE candidates that arrive before remote description is set
+    private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> =
+        mutableMapOf()
 
     // Transcript management for AI conversations
     private val _transcript = mutableListOf<TranscriptItem>()
@@ -342,16 +349,21 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false
+        debug: Boolean = false,
+        useTrickleIce: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isSocketDebug
+        val callDebug = debug
+        val socketPortalDebug = isSocketDebug
+
+        // Set trickle ICE for this call
+        this.useTrickleIce = useTrickleIce
 
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
@@ -370,84 +382,168 @@ class TelnyxClient(
             setSpeakerMode(speakerState)
             client.callOngoing()
 
-            // Create the answer SDP
-            peerConnection?.answer(AppSdpObserver())
+            // Helper function to send answer immediately for trickle ICE
+            fun sendAnswerImmediately() {
+                val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
+                if (generatedAnswerSdp == null) {
+                    updateCallState(CallState.ERROR)
+                    Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
+                } else {
+                    // Use the SdpUtils to modify the SDP
+                    var finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
+                        originalOfferSdp,
+                        generatedAnswerSdp
+                    )
 
+                    // Add trickle ICE capability to SDP
+                    finalAnswerSdp = SdpUtils.addTrickleIceCapability(finalAnswerSdp)
+
+                    Logger.d(
+                        tag = "AcceptCall",
+                        message = "Sending answer immediately with trickle ICE for call $callId"
+                    )
+
+                    val uuid: String = UUID.randomUUID().toString()
+                    val answerBodyMessage = SendingMessageBody(
+                        uuid, SocketMethod.ANSWER.methodName,
+                        CallParams(
+                            sessid = sessionId,
+                            sdp = finalAnswerSdp,
+                            dialogParams = CallDialogParams(
+                                callId = callId,
+                                destinationNumber = destinationNumber,
+                                customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                            ),
+                            trickle = true
+                        )
+                    )
+                    socket.send(answerBodyMessage)
+
+                    // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
+                    peerConnection?.flushQueuedCandidatesAfterAnswer()
+
+                    updateCallState(CallState.ACTIVE)
+
+                    // Start stats collection if debug is enabled
+                    if (callDebug || socketPortalDebug) {
+                        if (getWebRTCReporter(callId) == null) {
+                            val webRTCReporter = WebRTCReporter(
+                                socket,
+                                callId,
+                                getTelnyxLegId()?.toString(),
+                                peerConnection!!,
+                                callDebug,
+                                socketPortalDebug
+                            )
+                            webRTCReporter.onCallQualityChange = { metrics ->
+                                onCallQualityChange?.invoke(metrics)
+                            }
+                            webRTCReporter.startStats()
+                            addWebRTCReporter(callId, webRTCReporter)
+                        }
+                    }
+
+                    Logger.d(
+                        tag = "AcceptCall",
+                        message = "Answer sent successfully with trickle ICE for call $callId"
+                    )
+                }
+            }
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
-                    peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
-                    Logger.d(
-                        tag = "AcceptCall",
-                        message = "First ICE candidate received. Setting up negotiation complete callback."
-                    )
-
-                    // Now set the callback for when ICE negotiation stabilizes (timer expires)
-                    peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
+                    if (useTrickleIce) {
+                        // For trickle ICE, send ANSWER immediately without waiting for candidates
                         Logger.d(
                             tag = "AcceptCall",
-                            message = "ICE negotiation complete. Proceeding to send answer."
+                            message = "Trickle ICE enabled. Sending answer immediately for call $callId"
                         )
-                        val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
-                        if (generatedAnswerSdp == null) {
-                            updateCallState(CallState.ERROR)
-                            Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
-                        } else {
-                            // Use the SdpUtils to modify the SDP
-                            val finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
-                                originalOfferSdp,
-                                generatedAnswerSdp
-                            )
-                            Logger.d(
-                                tag = "SDP_Modify",
-                                message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp"
-                            )
-                            Logger.d(
-                                tag = "SDP_Modify",
-                                message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp"
-                            )
 
-                            val uuid: String = UUID.randomUUID().toString()
-                            val answerBodyMessage = SendingMessageBody(
-                                uuid, SocketMethod.ANSWER.methodName,
-                                CallParams(
-                                    sessid = sessionId,
-                                    sdp = finalAnswerSdp,
-                                    dialogParams = CallDialogParams(
-                                        callId = callId,
-                                        destinationNumber = destinationNumber,
-                                        customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
-                                    )
-                                )
-                            )
-                            socket.send(answerBodyMessage)
-                            updateCallState(CallState.ACTIVE)
+                        sendAnswerImmediately()
+                    } else {
+                        // For traditional ICE, wait for candidates
+                        Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
+                        peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
+                        Logger.d(
+                            tag = "AcceptCall",
+                            message = "First ICE candidate received. Setting up negotiation complete callback."
+                        )
 
-                            // Start stats collection if debug is enabled
-                            if (callDebug || socketPortalDebug) {
-                                if (getWebRTCReporter(callId) == null) {
-                                    val webRTCReporter = WebRTCReporter(
-                                        socket,
-                                        callId,
-                                        getTelnyxLegId()?.toString(),
-                                        peerConnection!!,
-                                        callDebug,
-                                        socketPortalDebug
-                                    )
-                                    webRTCReporter.onCallQualityChange = { metrics ->
-                                        onCallQualityChange?.invoke(metrics)
-                                    }
-                                    webRTCReporter.startStats()
-                                    addWebRTCReporter(callId, webRTCReporter)
-                                }
-                            }
-
+                        // Now set the callback for when ICE negotiation stabilizes (timer expires)
+                        peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
                             Logger.d(
                                 tag = "AcceptCall",
-                                message = "Answer sent successfully for call $callId"
+                                message = "ICE negotiation complete. Proceeding to send answer."
                             )
+                            val generatedAnswerSdp =
+                                peerConnection?.getLocalDescription()?.description
+                            if (generatedAnswerSdp == null) {
+                                updateCallState(CallState.ERROR)
+                                Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
+                            } else {
+                                // Use the SdpUtils to modify the SDP
+                                var finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
+                                    originalOfferSdp,
+                                    generatedAnswerSdp
+                                )
+
+                                // Add trickle ICE capability to SDP if trickle ICE is enabled
+                                if (useTrickleIce) {
+                                    finalAnswerSdp =
+                                        SdpUtils.addTrickleIceCapability(finalAnswerSdp)
+                                }
+
+                                Logger.d(
+                                    tag = "SDP_Modify",
+                                    message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp"
+                                )
+                                Logger.d(
+                                    tag = "SDP_Modify",
+                                    message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp"
+                                )
+
+                                val uuid: String = UUID.randomUUID().toString()
+                                val answerBodyMessage = SendingMessageBody(
+                                    uuid, SocketMethod.ANSWER.methodName,
+                                    CallParams(
+                                        sessid = sessionId,
+                                        sdp = finalAnswerSdp,
+                                        dialogParams = CallDialogParams(
+                                            callId = callId,
+                                            destinationNumber = destinationNumber,
+                                            customHeaders = customHeaders?.toCustomHeaders()
+                                                ?: arrayListOf(),
+                                        ),
+                                        trickle = if (useTrickleIce) true else null
+                                    )
+                                )
+                                socket.send(answerBodyMessage)
+                                updateCallState(CallState.ACTIVE)
+
+                                // Start stats collection if debug is enabled
+                                if (callDebug || socketPortalDebug) {
+                                    if (getWebRTCReporter(callId) == null) {
+                                        val webRTCReporter = WebRTCReporter(
+                                            socket,
+                                            callId,
+                                            getTelnyxLegId()?.toString(),
+                                            peerConnection!!,
+                                            callDebug,
+                                            socketPortalDebug
+                                        )
+                                        webRTCReporter.onCallQualityChange = { metrics ->
+                                            onCallQualityChange?.invoke(metrics)
+                                        }
+                                        webRTCReporter.startStats()
+                                        addWebRTCReporter(callId, webRTCReporter)
+                                    }
+                                }
+
+                                Logger.d(
+                                    tag = "AcceptCall",
+                                    message = "Answer sent successfully for call $callId"
+                                )
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -481,6 +577,7 @@ class TelnyxClient(
      *
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
+     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -490,11 +587,15 @@ class TelnyxClient(
         clientState: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        useTrickleIce: Boolean = false
     ): Call {
-        var callDebug = debug
-        var socketPortalDebug = isSocketDebug
+        val callDebug = debug
+        val socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
+
+        // Set trickle ICE for this call
+        this.useTrickleIce = useTrickleIce
 
         val inviteCall = Call(
             context = context,
@@ -515,7 +616,8 @@ class TelnyxClient(
                 providedStun,
                 inviteCallId,
                 prefetchIceCandidates,
-                getForceRelayCandidate()
+                getForceRelayCandidate(),
+                isAnswering = false
             ) { candidate ->
                 addIceCandidateInternal(candidate)
             }.also {
@@ -648,6 +750,17 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
+
+        // Clean up any pending ICE candidates for this call
+        synchronized(pendingIceCandidates) {
+            val removedCandidates = pendingIceCandidates.remove(callId)
+            removedCandidates?.let {
+                Logger.d(
+                    tag = "removeFromCalls",
+                    message = "Cleaned up ${it.size} pending ICE candidates for ended call $callId"
+                )
+            }
+        }
     }
 
     private var socketReconnection: TxSocket? = null
@@ -677,7 +790,7 @@ class TelnyxClient(
             )
             reconnecting = true
 
-            Handler(Looper.getMainLooper()).postDelayed(Runnable {
+            Handler(Looper.getMainLooper()).postDelayed({
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
@@ -817,6 +930,23 @@ class TelnyxClient(
      */
     fun getRawRingbackTone(): Int? {
         return rawRingbackTone
+    }
+
+    /**
+     * Gets the current trickle ICE setting
+     *
+     * @return true if trickle ICE is enabled, false otherwise
+     */
+    fun getUseTrickleIce(): Boolean {
+        return useTrickleIce
+    }
+
+    /**
+     * Set the flag to indicate whether to use trickle ICE
+     * @param enabled The new value for useTrickleIce
+     */
+    internal fun setUseTrickleIce(enabled: Boolean) {
+        this.useTrickleIce = enabled
     }
 
     /**
@@ -1669,7 +1799,6 @@ class TelnyxClient(
             AudioDevice.BLUETOOTH -> {
                 if (availableTypes.contains(AudioDevice.BLUETOOTH.code)) {
                     audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-                    audioManager?.startBluetoothSco()
                     audioManager?.isBluetoothScoOn = true
                 } else {
                     Logger.d(
@@ -1684,7 +1813,6 @@ class TelnyxClient(
             AudioDevice.PHONE_EARPIECE -> {
                 // For phone ear piece
                 audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = false
             }
@@ -1692,7 +1820,6 @@ class TelnyxClient(
             AudioDevice.LOUDSPEAKER -> {
                 // For phone speaker(loudspeaker)
                 audioManager?.mode = AudioManager.MODE_NORMAL
-                audioManager?.stopBluetoothSco()
                 audioManager?.isBluetoothScoOn = false
                 audioManager?.isSpeakerphoneOn = true
             }
@@ -1710,12 +1837,12 @@ class TelnyxClient(
         // set speakerState to current audioManager settings
         speakerState = if (speakerState != UNASSIGNED) {
             if (audioManager?.isSpeakerphoneOn == true) {
-                SpeakerMode.SPEAKER
+                SPEAKER
             } else {
-                SpeakerMode.EARPIECE
+                EARPIECE
             }
         } else {
-            SpeakerMode.EARPIECE
+            EARPIECE
         }
 
         // set audioManager to ringtone settings
@@ -1726,9 +1853,9 @@ class TelnyxClient(
             stopMediaPlayer()
             try {
 
-                if (it.getRingtoneType() == RingtoneType.URI) {
+                if (it.getRingtoneType() == URI) {
                     mediaPlayer = MediaPlayer.create(context, it as Uri)
-                } else if (it.getRingtoneType() == RingtoneType.RAW) {
+                } else if (it.getRingtoneType() == RAW) {
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 mediaPlayer ?: kotlin.run {
@@ -1751,11 +1878,11 @@ class TelnyxClient(
 
     private fun setSpeakerMode(speakerMode: SpeakerMode) {
         when (speakerMode) {
-            SpeakerMode.SPEAKER -> {
+            SPEAKER -> {
                 audioManager?.isSpeakerphoneOn = true
             }
 
-            SpeakerMode.EARPIECE -> {
+            EARPIECE -> {
                 audioManager?.isSpeakerphoneOn = false
             }
 
@@ -1765,8 +1892,8 @@ class TelnyxClient(
 
     private fun Any?.getRingtoneType(): RingtoneType? {
         return when (this) {
-            is Uri -> RingtoneType.URI
-            is Int -> RingtoneType.RAW
+            is Uri -> URI
+            is Int -> RAW
             else -> null
         }
     }
@@ -2149,7 +2276,7 @@ class TelnyxClient(
                 updateCallState(CallState.DONE(terminationReason))
 
                 // Create the rich ByeResponse to be sent to the UI/ViewModel
-                val byeResponseForUi = com.telnyx.webrtc.sdk.verto.receive.ByeResponse(
+                val byeResponseForUi = ByeResponse(
                     callId = callId,
                     cause = cause,
                     causeCode = causeCode,
@@ -2198,9 +2325,36 @@ class TelnyxClient(
             when {
                 params.has("sdp") -> {
                     val stringSdp = params.get("sdp").asString
+
+                    // Check if remote party supports trickle ICE
+                    val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(stringSdp)
+                    if (remoteSupportsTrickleIce) {
+                        Logger.d(
+                            tag = "TrickleICE",
+                            message = "Remote party supports trickle ICE in ANSWER"
+                        )
+                    } else if (useTrickleIce) {
+                        Logger.w(
+                            tag = "TrickleICE",
+                            message = "Local trickle ICE enabled but remote party does not support it"
+                        )
+                    }
+
+                    // Extract ICE parameters from the answer SDP for candidate enhancement
+                    if (useTrickleIce) {
+                        remoteIceParameters = SdpUtils.extractIceParameters(stringSdp)
+                        Logger.d(
+                            tag = "TrickleICE",
+                            message = "Extracted ICE parameters: $remoteIceParameters"
+                        )
+                    }
+
                     val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
 
                     peerConnection?.onRemoteSessionReceived(sdp)
+
+                    // Process any queued ICE candidates after remote description is set
+                    processQueuedIceCandidates(UUID.fromString(callId))
 
                     updateCallState(CallState.ACTIVE)
 
@@ -2255,6 +2409,62 @@ class TelnyxClient(
         }
         answeredCall?.let {
             addToCalls(it)
+        }
+    }
+
+    /**
+     * Processes queued ICE candidates for a specific call after the remote description has been set.
+     * This ensures that ICE candidates are added to the peer connection in the correct order.
+     *
+     * @param callId The UUID of the call to process queued candidates for
+     */
+    private fun processQueuedIceCandidates(callId: UUID) {
+        synchronized(pendingIceCandidates) {
+            val candidates = pendingIceCandidates.remove(callId)
+            candidates?.let { queuedCandidates ->
+                Logger.d(
+                    tag = "processQueuedIceCandidates",
+                    message = "Processing ${queuedCandidates.size} queued ICE candidates for call $callId"
+                )
+
+                val call = calls[callId]
+                call?.let {
+                    queuedCandidates.forEach { pendingCandidate ->
+                        // Enhance candidate string with ICE parameters for consistency if trickle ICE is enabled
+                        // Now we have access to remoteIceParameters since the remote description has been set
+                        val finalCandidateString =
+                            if (useTrickleIce && it.remoteIceParameters != null) {
+                                SdpUtils.enhanceCandidateString(
+                                    pendingCandidate.candidateString,
+                                    it.remoteIceParameters!!
+                                )
+                            } else {
+                                pendingCandidate.candidateString
+                            }
+
+                        val iceCandidate = IceCandidate(
+                            pendingCandidate.sdpMid,
+                            pendingCandidate.sdpMLineIndex,
+                            finalCandidateString
+                        )
+                        it.peerConnection?.addIceCandidate(iceCandidate)
+                        Logger.d(
+                            tag = "processQueuedIceCandidates",
+                            message = "Added queued ICE candidate for call $callId: ${pendingCandidate.candidateString}"
+                        )
+                    }
+                    Logger.d(
+                        tag = "processQueuedIceCandidates",
+                        message = "Successfully processed all queued ICE candidates for call $callId"
+                    )
+                } ?: Logger.w(
+                    tag = "processQueuedIceCandidates",
+                    message = "No call found for ID: $callId while processing queued candidates"
+                )
+            } ?: Logger.d(
+                tag = "processQueuedIceCandidates",
+                message = "No queued ICE candidates to process for call $callId"
+            )
         }
     }
 
@@ -2331,6 +2541,27 @@ class TelnyxClient(
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
+
+                // Check if remote party supports trickle ICE
+                val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(remoteSdp)
+                if (remoteSupportsTrickleIce) {
+                    Logger.d(
+                        tag = "TrickleICE",
+                        message = "Remote party supports trickle ICE in OFFER"
+                    )
+                    // Only enable trickle ICE if both parties support it
+                    // Note: We should respect the user's trickle ICE setting
+                    // useTrickleIce is already set by the user in acceptCall
+                }
+
+                // Extract ICE parameters from the offer SDP for candidate enhancement
+                // This will be used later when receiving ICE candidates for this call
+                remoteIceParameters = SdpUtils.extractIceParameters(remoteSdp)
+                Logger.d(
+                    tag = "TrickleICE",
+                    message = "Extracted ICE parameters from OFFER: $remoteIceParameters"
+                )
+
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
                     Logger.d(message = "Voice SDK ID _ $voiceSdkID")
@@ -2346,8 +2577,6 @@ class TelnyxClient(
 
                 // Set global callID
                 callId = offerCallId
-                val call = this
-
 
                 //retrieve custom headers
                 val customHeaders =
@@ -2360,7 +2589,8 @@ class TelnyxClient(
                     providedStun,
                     offerCallId,
                     prefetchIceCandidates,
-                    getForceRelayCandidate()
+                    getForceRelayCandidate(),
+                    isAnswering = true
                 ) { candidate ->
                     addIceCandidateInternal(candidate)
                 }.also {
@@ -2542,7 +2772,8 @@ class TelnyxClient(
                 providedStun,
                 offerCallId,
                 prefetchIceCandidates,
-                getForceRelayCandidate()
+                getForceRelayCandidate(),
+                isAnswering = true
             ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
@@ -2860,6 +3091,74 @@ class TelnyxClient(
             Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
             emptyList()
         }
+    }
+
+    override fun onCandidateReceived(jsonObject: JsonObject) {
+        Logger.d(tag = "onCandidateReceived", message = "ICE CANDIDATE RECEIVED :: $jsonObject")
+
+        if (jsonObject.has("params")) {
+            val params = jsonObject.get("params").asJsonObject
+
+            if (CandidateUtils.hasRequiredCandidateFields(params)) {
+                val candidateString =
+                    CandidateUtils.normalizeCandidateString(params.get("candidate").asString)
+                val sdpMid = params.get("sdpMid").asString
+                val sdpMLineIndex = params.get("sdpMLineIndex").asInt
+
+                val callId = CandidateUtils.extractCallIdFromCandidate(params)
+
+                // Process the candidate if we found a call ID
+                callId?.let { id: UUID ->
+                    processAndQueueCandidate(id, sdpMid, sdpMLineIndex, candidateString)
+                } ?: Logger.w(
+                    tag = "onCandidateReceived",
+                    message = "Could not extract call ID from candidate message"
+                )
+            } else {
+                Logger.w(
+                    tag = "onCandidateReceived",
+                    message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)"
+                )
+            }
+        }
+    }
+
+    /**
+     * Processes and queues the ICE candidate for the specified call.
+     */
+    private fun processAndQueueCandidate(
+        callId: UUID,
+        sdpMid: String,
+        sdpMLineIndex: Int,
+        candidateString: String
+    ) {
+        val call = calls[callId]
+        call?.let {
+            // Create pending ICE candidate and queue it instead of immediately adding
+            // Note: We don't enhance the candidate string here because remoteIceParameters 
+            // won't be available until after the remote description is set in onAnswerReceived
+            val pendingCandidate = PendingIceCandidate(
+                callId = callId,
+                sdpMid = sdpMid,
+                sdpMLineIndex = sdpMLineIndex,
+                candidateString = candidateString,
+                enhancedCandidateString = candidateString // Store original for now, will enhance later
+            )
+
+            // Add to pending candidates map
+            synchronized(pendingIceCandidates) {
+                val candidates = pendingIceCandidates.getOrPut(callId) { mutableListOf() }
+                candidates.add(pendingCandidate)
+                Logger.d(
+                    tag = "onCandidateReceived",
+                    message = "Queued ICE candidate for call $callId. Total queued: ${candidates.size}"
+                )
+            }
+        } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $callId")
+    }
+
+    override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
+        Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
     }
 
     /**
