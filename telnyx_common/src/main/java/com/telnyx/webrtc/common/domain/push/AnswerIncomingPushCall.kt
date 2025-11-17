@@ -159,7 +159,8 @@ class AnswerIncomingPushCall(private val context: Context) {
                         inviteResponse.callerIdNumber,
                         customHeaders,
                         debug,
-                        onCallQualityChange
+                        audioConstraints = null,  // Use defaults for push calls
+                        onCallQualityChange = onCallQualityChange
                     )
                     cleanUp(answeredCall)
                     return true

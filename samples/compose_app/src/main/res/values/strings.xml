@@ -172,6 +172,9 @@
     <!-- Codec Selection -->
     <string name="preferred_codecs">Preferred Codecs</string>
     <string name="preferred_audio_codecs">Preferred Audio Codecs</string>
+
+    <!-- Audio Constraints -->
+    <string name="audio_constraints">Audio Constraints</string>
     <string name="websocket_messages">Websocket Messages</string>
     <string name="copy_fcm_token_menu">Copy FCM Token</string>
     <string name="disable_push_notifications_menu">Disable Push Notifications</string>

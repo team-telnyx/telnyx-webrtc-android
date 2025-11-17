@@ -23,6 +23,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.EARPIECE
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.SPEAKER
 import com.telnyx.webrtc.sdk.TelnyxClient.SpeakerMode.UNASSIGNED
 import com.telnyx.webrtc.sdk.model.*
+import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
@@ -342,13 +343,16 @@ class TelnyxClient(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
+     * @param audioConstraints Optional audio processing constraints for the call. Controls echo
+     * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
         callId: UUID,
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
-        debug: Boolean = false
+        debug: Boolean = false,
+        audioConstraints: AudioConstraints? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -369,6 +373,9 @@ class TelnyxClient(
             client.stopMediaPlayer()
             setSpeakerMode(speakerState)
             client.callOngoing()
+
+            // Start local audio capture with provided constraints before creating answer
+            peerConnection?.startLocalAudioCapture(audioConstraints)
 
             // Create the answer SDP
             peerConnection?.answer(AppSdpObserver())
@@ -481,6 +488,30 @@ class TelnyxClient(
      *
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
+     * @param audioConstraints Optional audio processing constraints for the call. Controls echo
+     * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
+     *
+     * ### Audio Processing Constraints
+     *
+     * Audio processing constraints can be set by passing an `audioConstraints` object to control
+     * echo cancellation, noise suppression, and automatic gain control. These settings align with
+     * the W3C MediaTrackConstraints specification.
+     *
+     * Example:
+     * ```kotlin
+     * client.newInvite(
+     *     callerName = "John Doe",
+     *     callerNumber = "+1234567890",
+     *     destinationNumber = "+0987654321",
+     *     clientState = "",
+     *     audioConstraints = AudioConstraints(
+     *         echoCancellation = true,
+     *         noiseSuppression = true,
+     *         autoGainControl = true
+     *     )
+     * )
+     * ```
+     *
      * @return A new [Call] instance representing the outgoing call
      */
     fun newInvite(
@@ -490,7 +521,8 @@ class TelnyxClient(
         clientState: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        audioConstraints: AudioConstraints? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -515,10 +547,12 @@ class TelnyxClient(
                 providedStun,
                 inviteCallId,
                 prefetchIceCandidates,
-                getForceRelayCandidate()
-            ) { candidate ->
-                addIceCandidateInternal(candidate)
-            }.also {
+                getForceRelayCandidate(),
+                onIceCandidateAdd = { candidate ->
+                    addIceCandidateInternal(candidate)
+                },
+                audioConstraints = audioConstraints
+            ).also {
 
                 // Create reporter if per-call debug is enabled or config debug is enabled
                 if (callDebug || socketPortalDebug) {
@@ -2360,10 +2394,12 @@ class TelnyxClient(
                     providedStun,
                     offerCallId,
                     prefetchIceCandidates,
-                    getForceRelayCandidate()
-                ) { candidate ->
-                    addIceCandidateInternal(candidate)
-                }.also {
+                    getForceRelayCandidate(),
+                    onIceCandidateAdd = { candidate ->
+                        addIceCandidateInternal(candidate)
+                    },
+                    audioConstraints = null // Use defaults for incoming calls
+                ).also {
                     // Check the global debug flag here for incoming calls where per-call isn't set yet
                     if (isSocketDebug) {
                         val webRTCReporter = WebRTCReporter(
@@ -2542,7 +2578,9 @@ class TelnyxClient(
                 providedStun,
                 offerCallId,
                 prefetchIceCandidates,
-                getForceRelayCandidate()
+                getForceRelayCandidate(),
+                onIceCandidateAdd = null,
+                audioConstraints = null // Use defaults for reattached calls
             ).also {
                 // Check the global debug flag here for reattach scenarios
                 if (isSocketDebug) {
