@@ -292,7 +292,10 @@ class TxSocket(
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
-                    destroy()
+                    // Only cleanup if not already disconnected (prevents double cleanup)
+                    if (isConnected) {
+                        destroy()
+                    }
                     listener.onDisconnect()
                 }
 
@@ -379,10 +382,9 @@ class TxSocket(
         ongoingCall = false
         
         cleanPingIntervals()
-        
+
         if (this::webSocket.isInitialized) {
-            webSocket.cancel()
-            // socket.close(1000, "Websocket connection was asked to close")
+            webSocket.close(1000, "Websocket connection closed")
         }
         job.cancel("Socket was destroyed, cancelling attached job")
     }
