@@ -2,7 +2,6 @@
 
 ### Enhancement
 - Support for base64 encoded images in AI assistant messages
-- Updated UI tests fallback mechanism
 - Added AudioConstraints data class on invite and answer to allow for echoCancellation, noiseSuppression and autoGainControl
 
 ### Bug Fixing
