@@ -1,3 +1,12 @@
+## [3.3.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.3.0) (2025-11-18)
+
+### Enhancement
+- Support for base64 encoded images in AI assistant messages
+- Added AudioConstraints data class on invite and answer to allow for echoCancellation, noiseSuppression and autoGainControl
+
+### Bug Fixing
+- When TxSocket is now closing by close() instead of cancel() to prevent onError callback
+
 ## [3.2.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.2.0) (2025-10-22)
 
 ### Enhancement

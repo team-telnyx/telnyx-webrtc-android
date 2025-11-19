@@ -124,7 +124,10 @@ fun HomeScreen(
 ) {
     val loginSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
-        confirmValueChange = { false }
+        confirmValueChange = { newValue ->
+            // Prevent the sheet from being hidden via swipe gesture
+            newValue != SheetValue.Hidden
+        }
     )
     val environmentSheetState = rememberModalBottomSheetState(true, confirmValueChange = { newValue ->
         newValue != SheetValue.Hidden
