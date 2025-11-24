@@ -107,8 +107,8 @@ dependencies {
 
     // JUnit 5 for Android instrumentation tests
     androidTestImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
-    androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.4.0")
-    androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.4.0")
+    androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.9.0")
+    androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.9.0")
 
     // Compose testing with JUnit 5 support
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
