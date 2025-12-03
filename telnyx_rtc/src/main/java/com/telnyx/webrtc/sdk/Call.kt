@@ -229,6 +229,16 @@ data class Call(
     }
 
     /**
+     * Sets the microphone mute state to a specific value
+     * @param muted true to mute the microphone, false to unmute
+     * @see [AudioManager]
+     */
+    fun setMuteState(muted: Boolean) {
+        muteLiveData.postValue(muted)
+        audioManager.isMicrophoneMute = muted
+    }
+
+    /**
      * Either enables or disables the [AudioManager] loudspeaker mode based on the current [loudSpeakerLiveData] value
      * @see [AudioManager]
      */
