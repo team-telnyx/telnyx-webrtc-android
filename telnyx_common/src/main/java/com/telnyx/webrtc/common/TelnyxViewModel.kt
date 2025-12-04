@@ -151,7 +151,7 @@ class TelnyxViewModel : ViewModel() {
     /**
      * Server configuration for the Telnyx WebRTC SDK.
      */
-    private var serverConfiguration = TxServerConfiguration()
+    private var serverConfiguration = TxServerConfiguration.production()
 
     /**
      * Flag indicating whether the server configuration is in development environment.
@@ -329,13 +329,11 @@ class TelnyxViewModel : ViewModel() {
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
         serverConfigurationIsDev = isDev
-        serverConfiguration = serverConfiguration.copy(
-            host = if (isDev) {
-                "rtcdev.telnyx.com"
-            } else {
-                "rtc.telnyx.com"
-            }
-        )
+        serverConfiguration = if (isDev) {
+            TxServerConfiguration.development()
+        } else {
+            TxServerConfiguration.production()
+        }
     }
 
     /**
