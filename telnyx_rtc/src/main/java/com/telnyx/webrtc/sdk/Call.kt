@@ -219,13 +219,7 @@ data class Call(
      * @see [AudioManager]
      */
     fun onMuteUnmutePressed() {
-        if (!muteLiveData.value!!) {
-            muteLiveData.postValue(true)
-            audioManager.isMicrophoneMute = true
-        } else {
-            muteLiveData.postValue(false)
-            audioManager.isMicrophoneMute = false
-        }
+        setMuteState(!muteLiveData.value!!)
     }
 
     /**
