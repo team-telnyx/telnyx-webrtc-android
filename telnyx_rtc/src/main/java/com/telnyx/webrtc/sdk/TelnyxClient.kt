@@ -345,6 +345,7 @@ class TelnyxClient(
      * @param debug When true, enables real-time call quality metrics
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
+     * @param mutedMicOnStart When true, starts the call with the microphone muted
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -352,7 +353,8 @@ class TelnyxClient(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        audioConstraints: AudioConstraints? = null
+        audioConstraints: AudioConstraints? = null,
+        mutedMicOnStart: Boolean = false
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -373,6 +375,11 @@ class TelnyxClient(
             client.stopMediaPlayer()
             setSpeakerMode(speakerState)
             client.callOngoing()
+
+            // Set microphone mute state if requested
+            if (mutedMicOnStart) {
+                setMuteState(true)
+            }
 
             // Start local audio capture with provided constraints before creating answer
             peerConnection?.startLocalAudioCapture(audioConstraints)
@@ -490,6 +497,7 @@ class TelnyxClient(
      * @param preferredCodecs Optional list of preferred audio codecs for the call
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
+     * @param mutedMicOnStart When true, starts the call with the microphone muted
      *
      * ### Audio Processing Constraints
      *
@@ -522,7 +530,8 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
-        audioConstraints: AudioConstraints? = null
+        audioConstraints: AudioConstraints? = null,
+        mutedMicOnStart: Boolean = false
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -576,6 +585,9 @@ class TelnyxClient(
             }
 
             peerConnection?.startLocalAudioCapture()
+
+            // Set microphone mute state
+            setMuteState(mutedMicOnStart)
 
             // Apply codec preferences before creating the offer
             peerConnection?.applyAudioCodecPreferences(preferredCodecs)

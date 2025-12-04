@@ -149,6 +149,12 @@ class TelnyxViewModel : ViewModel() {
     private var audioConstraints: AudioConstraints? = null
 
     /**
+     * When true, starts calls with the microphone muted.
+     * This applies to both outgoing and incoming calls.
+     */
+    private var mutedMicOnStart: Boolean = false
+
+    /**
      * Server configuration for the Telnyx WebRTC SDK.
      */
     private var serverConfiguration = TxServerConfiguration()
@@ -411,6 +417,25 @@ class TelnyxViewModel : ViewModel() {
      */
     fun getAudioConstraints(): AudioConstraints? {
         return audioConstraints
+    }
+
+    /**
+     * Sets whether the microphone should be muted when starting calls.
+     * This setting will be used for both outgoing and incoming calls.
+     *
+     * @param muted true to start calls with microphone muted, false otherwise.
+     */
+    fun setMutedMicOnStart(muted: Boolean) {
+        mutedMicOnStart = muted
+    }
+
+    /**
+     * Gets the current muted microphone on start setting.
+     *
+     * @return true if calls will start with microphone muted, false otherwise.
+     */
+    fun getMutedMicOnStart(): Boolean {
+        return mutedMicOnStart
     }
 
     /**
@@ -1003,6 +1028,7 @@ class TelnyxViewModel : ViewModel() {
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
                     audioConstraintsOverride ?: audioConstraints,
+                    mutedMicOnStart,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -1047,6 +1073,7 @@ class TelnyxViewModel : ViewModel() {
                 debug,
                 preferredCodecs,
                 audioConstraintsOverride ?: audioConstraints,
+                mutedMicOnStart,
                 onCallHistoryAdd = { number ->
                     addCallToHistory(CallType.OUTBOUND, number)
                 }
@@ -1152,6 +1179,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     audioConstraintsOverride ?: audioConstraints,
+                    mutedMicOnStart,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }

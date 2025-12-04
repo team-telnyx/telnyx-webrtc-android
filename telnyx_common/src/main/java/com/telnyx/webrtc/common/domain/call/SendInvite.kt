@@ -28,6 +28,7 @@ class SendInvite(private val context: Context) {
      * @param debug When true, enables real-time call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
      * @param audioConstraints Optional audio processing constraints for the call.
+     * @param mutedMicOnStart When true, starts the call with the microphone muted.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The created outgoing call.
@@ -41,13 +42,14 @@ class SendInvite(private val context: Context) {
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
         audioConstraints: AudioConstraints? = null,
+        mutedMicOnStart: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
         val telnyxClient = telnyxCommon.getTelnyxClient(context)
 
-        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs, audioConstraints)
+        val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs, audioConstraints, mutedMicOnStart)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

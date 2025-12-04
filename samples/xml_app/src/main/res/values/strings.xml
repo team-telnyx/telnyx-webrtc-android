@@ -190,6 +190,8 @@
 
     <!-- Audio Constraints -->
     <string name="audio_constraints">Audio Constraints</string>
+    <string name="mute_on_start_on">Mute On Start On</string>
+    <string name="mute_on_start_off">Mute On Start Off</string>
     <string name="audio_constraints_title">Audio Processing Constraints</string>
     <string name="echo_cancellation">Echo Cancellation</string>
     <string name="echo_cancellation_description">Removes acoustic echo from speaker feedback</string>
