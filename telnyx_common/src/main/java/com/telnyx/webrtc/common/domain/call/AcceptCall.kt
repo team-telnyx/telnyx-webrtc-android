@@ -25,6 +25,7 @@ class AcceptCall(private val context: Context) {
      * @param customHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
      * @param audioConstraints Optional audio processing constraints for the call.
+     * @param mutedMicOnStart When true, starts the call with the microphone muted.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
@@ -35,11 +36,12 @@ class AcceptCall(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         audioConstraints: AudioConstraints? = null,
+        mutedMicOnStart: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, audioConstraints)
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, audioConstraints, mutedMicOnStart)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

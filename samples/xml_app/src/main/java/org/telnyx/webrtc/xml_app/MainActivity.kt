@@ -163,6 +163,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_preferred_codecs).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_audio_constraints).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_mute_on_start).isVisible = isConnected
 
         // Show region selection for non-logged users
         popupMenu.menu.findItem(R.id.action_region_selection).isVisible = !isConnected
@@ -196,6 +197,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.enable_prefetch_ice_candidates)
         }
 
+        // Update mute on start menu item title based on current state
+        val muteOnStartMenuItem = popupMenu.menu.findItem(R.id.action_mute_on_start)
+        muteOnStartMenuItem.title = if (telnyxViewModel.getMutedMicOnStart()) {
+            getString(R.string.mute_on_start_on)
+        } else {
+            getString(R.string.mute_on_start_off)
+        }
+
         popupMenu.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_websocket_messages -> {
@@ -224,6 +233,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 }
                 R.id.action_audio_constraints -> {
                     showAudioConstraintsDialog()
+                    true
+                }
+                R.id.action_mute_on_start -> {
+                    toggleMuteOnStart()
                     true
                 }
                 R.id.action_region_selection -> {
@@ -307,6 +320,20 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.enable_prefetch_ice_candidates)
         } else {
             getString(R.string.disable_prefetch_ice_candidates)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Toggles the mute on start setting
+     */
+    private fun toggleMuteOnStart() {
+        val newState = !telnyxViewModel.getMutedMicOnStart()
+        telnyxViewModel.setMutedMicOnStart(newState)
+        val message = if (newState) {
+            getString(R.string.mute_on_start_on)
+        } else {
+            getString(R.string.mute_on_start_off)
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }

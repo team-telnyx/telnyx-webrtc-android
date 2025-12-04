@@ -384,6 +384,34 @@ fun HomeScreen(
                                     }
                                 )
 
+                                // Mute On Start toggle
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(
+                                                if (telnyxViewModel.getMutedMicOnStart())
+                                                    R.string.mute_on_start_on
+                                                else
+                                                    R.string.mute_on_start_off
+                                            )
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newValue = !telnyxViewModel.getMutedMicOnStart()
+                                        telnyxViewModel.setMutedMicOnStart(newValue)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(if (telnyxViewModel.getMutedMicOnStart())
+                                                R.drawable.mute_off_24
+                                            else
+                                                R.drawable.mute_24),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
                                 // Force ICE Renegotiation option (for testing)
                                 DropdownMenuItem(
                                     text = { Text("Force ICE Renegotiation (Test)") },

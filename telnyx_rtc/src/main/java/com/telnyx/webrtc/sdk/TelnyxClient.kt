@@ -586,10 +586,8 @@ class TelnyxClient(
 
             peerConnection?.startLocalAudioCapture()
 
-            // Set microphone mute state if requested
-            if (mutedMicOnStart) {
-                setMuteState(true)
-            }
+            // Set microphone mute state
+            setMuteState(mutedMicOnStart)
 
             // Apply codec preferences before creating the offer
             peerConnection?.applyAudioCodecPreferences(preferredCodecs)
