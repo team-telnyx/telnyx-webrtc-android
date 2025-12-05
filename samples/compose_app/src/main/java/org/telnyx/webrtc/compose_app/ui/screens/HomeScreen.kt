@@ -663,7 +663,12 @@ fun HomeScreen(
                         isAddProfile = !isAddProfile
                     }
 
-                    RegularText(stringResource(R.string.production_label))
+                    val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                        stringResource(R.string.development_label)
+                    } else {
+                        stringResource(R.string.production_label)
+                    }
+                    RegularText(environmentLabel)
 
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
