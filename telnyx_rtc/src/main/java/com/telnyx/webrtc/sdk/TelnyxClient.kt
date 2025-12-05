@@ -346,6 +346,7 @@ class TelnyxClient(
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
+     * @param answeredDeviceToken Optional device token to include when answering a push notification call
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -354,7 +355,8 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         audioConstraints: AudioConstraints? = null,
-        mutedMicOnStart: Boolean = false
+        mutedMicOnStart: Boolean = false,
+        answeredDeviceToken: String? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -432,7 +434,8 @@ class TelnyxClient(
                                         callId = callId,
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
+                                            ?: arrayListOf(),
+                                        answeredDeviceToken = answeredDeviceToken
                                     )
                                 )
                             )
