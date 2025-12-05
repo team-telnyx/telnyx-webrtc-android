@@ -1175,7 +1175,7 @@ fun ConnectionState(
                     .size(Dimens.size12dp)
                     .background(
                         color = when (connectionStatus) {
-                            ConnectionStatus.CONNECTED -> MainGreen
+                            ConnectionStatus.CONNECTED -> RingingIconColor
                             ConnectionStatus.CLIENT_READY -> MainGreen
                             ConnectionStatus.RECONNECTING -> RingingIconColor
                             ConnectionStatus.DISCONNECTED -> Color.Red
