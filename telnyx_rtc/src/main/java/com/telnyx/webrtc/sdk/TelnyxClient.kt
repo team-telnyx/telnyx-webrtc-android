@@ -6,7 +6,6 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Uri
@@ -39,7 +38,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import com.telnyx.webrtc.lib.IceCandidate
-import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
@@ -1907,6 +1905,8 @@ class TelnyxClient(
                     )
                 )
             )
+
+            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
         }
     }
 
