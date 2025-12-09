@@ -182,6 +182,12 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(connectionStatus) {
+        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
+            lastShownErrorMessage = null
+        }
+    }
+
     LaunchedEffect(Unit) {
         telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
             errorMessage?.let {
