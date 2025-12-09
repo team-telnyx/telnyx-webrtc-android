@@ -76,6 +76,16 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupListeners()
+        updateEnvironmentLabel()
+    }
+
+    private fun updateEnvironmentLabel() {
+        val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+            getString(R.string.development_label)
+        } else {
+            getString(R.string.production_label)
+        }
+        binding.productionText.text = environmentLabel
     }
 
 
