@@ -66,6 +66,11 @@ internal class Peer(
         private const val AUDIO_BUFFER_RESET_DELAY_MS = 200L // 0.2 second delay for audio buffer reset
         private const val AUDIO_RE_ENABLE_DELAY_MS = 100L // 0.1 second delay before re-enabling audio
 
+        // ICE candidate parsing constants
+        private const val TYP_PREFIX = "typ "
+        private const val PROTOCOL_INDEX = 2
+        private const val UNKNOWN_VALUE = "unknown"
+
         /**
          * Shared PeerConnectionFactory used for codec queries and peer connections.
          * Lazily initialized on first access and shared across all Peer instances.
@@ -273,11 +278,15 @@ internal class Peer(
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
             Logger.d(tag = "Observer", message = "Signaling State Change: $p0")
             peerConnectionObserver?.onSignalingChange(p0)
+            // Notify debug data collector
+            p0?.let { client.debugDataCollector.onSignalingStateChange(callId, it.name) }
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
             Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
             peerConnectionObserver?.onIceConnectionChange(newState)
+            // Notify debug data collector
+            newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
 
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
@@ -294,6 +303,8 @@ internal class Peer(
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
             Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
             peerConnectionObserver?.onIceGatheringChange(p0)
+            // Notify debug data collector
+            p0?.let { client.debugDataCollector.onIceGatheringStateChange(callId, it.name) }
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
@@ -310,6 +321,11 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
+
+                // Notify debug data collector about ICE candidate
+                val candidateType = extractCandidateType(it.sdp)
+                val protocol = extractProtocol(it.sdp)
+                client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
 
                 val currentCallState = client.calls[callId]?.getCallState()?.value
 
@@ -1077,6 +1093,50 @@ internal class Peer(
     fun forceIceRenegotiationForTesting() {
         Logger.w(tag = "IceRenegotiationTest", message = "Forcing ICE renegotiation for testing")
         startIceRenegotiation()
+    }
+
+    /**
+     * Extracts the candidate type from an ICE candidate SDP string.
+     * Example SDP: "candidate:0 1 UDP 2122252543 192.168.1.1 54321 typ host"
+     *
+     * @param sdp The ICE candidate SDP string
+     * @return The candidate type (host, srflx, prflx, relay) or "unknown"
+     */
+    private fun extractCandidateType(sdp: String): String {
+        return try {
+            val typIndex = sdp.indexOf(TYP_PREFIX)
+            if (typIndex != -1) {
+                val typeStart = typIndex + TYP_PREFIX.length
+                val typeEnd = sdp.indexOf(' ', typeStart).takeIf { it != -1 } ?: sdp.length
+                sdp.substring(typeStart, typeEnd)
+            } else {
+                UNKNOWN_VALUE
+            }
+        } catch (e: Exception) {
+            Logger.d(tag = "Peer", message = "Failed to extract candidate type: ${e.message}")
+            UNKNOWN_VALUE
+        }
+    }
+
+    /**
+     * Extracts the protocol from an ICE candidate SDP string.
+     * Example SDP: "candidate:0 1 UDP 2122252543 192.168.1.1 54321 typ host"
+     *
+     * @param sdp The ICE candidate SDP string
+     * @return The protocol (udp, tcp) or "unknown"
+     */
+    private fun extractProtocol(sdp: String): String {
+        return try {
+            val parts = sdp.split(" ")
+            if (parts.size >= PROTOCOL_INDEX + 1) {
+                parts[PROTOCOL_INDEX].lowercase()
+            } else {
+                UNKNOWN_VALUE
+            }
+        } catch (e: Exception) {
+            Logger.d(tag = "Peer", message = "Failed to extract protocol: ${e.message}")
+            UNKNOWN_VALUE
+        }
     }
 
     /**
