@@ -182,6 +182,12 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(connectionStatus) {
+        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
+            lastShownErrorMessage = null
+        }
+    }
+
     LaunchedEffect(Unit) {
         telnyxViewModel.sessionStateError.collectLatest { errorMessage ->
             errorMessage?.let {
@@ -1180,7 +1186,7 @@ fun ConnectionState(
                     .size(Dimens.size12dp)
                     .background(
                         color = when (connectionStatus) {
-                            ConnectionStatus.CONNECTED -> MainGreen
+                            ConnectionStatus.CONNECTED -> RingingIconColor
                             ConnectionStatus.CLIENT_READY -> MainGreen
                             ConnectionStatus.RECONNECTING -> RingingIconColor
                             ConnectionStatus.DISCONNECTED -> Color.Red

@@ -31,7 +31,7 @@
     <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
     <string name="message_subscribe_failed">Failed to subscribe to topic</string>
     <string name="message_subscribed">Subscribed to topic</string>
-    <string name="connected">Client-ready</string>
+    <string name="connected">Connected</string>
     <string name="disconnect">Disconnect</string>
     <string name="login_token">Login Token</string>
     <string name="token_login">Token Login</string>
