@@ -4,10 +4,13 @@
 
 package com.telnyx.webrtc.sdk.stats
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import timber.log.Timber
 import java.text.SimpleDateFormat
@@ -52,7 +55,9 @@ class DebugDataCollector(private val context: Context) {
             sdkVersion = BuildConfig.SDK_VERSION,
             networkType = getNetworkType(),
             osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}"
+            deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}",
+            recordAudioPermissionGranted = checkPermission(Manifest.permission.RECORD_AUDIO),
+            postNotificationsPermissionGranted = checkPermission(Manifest.permission.POST_NOTIFICATIONS)
         )
         callDebugData[callId] = debugData
         Timber.tag(TAG).d("Call started - collecting debug data for call: $callId")
@@ -90,28 +95,82 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
-     * Records an ICE connection state change.
+     * Records an ICE connection state change and adds it to the connection timeline.
      *
      * @param callId The unique identifier for the call
      * @param state The new ICE connection state (new, checking, connected, completed, disconnected, failed, closed)
      */
     fun onIceConnectionStateChange(callId: UUID, state: String) {
         callDebugData[callId]?.let { data ->
-            data.iceConnectionStates.add(StateChange(state, System.currentTimeMillis()))
+            val timestamp = System.currentTimeMillis()
+            data.iceConnectionStates.add(StateChange(state, timestamp))
             data.lastIceConnectionState = state
+
+            // Track ICE connected timestamp for DTLS timeout detection
+            if (state.uppercase() == "CONNECTED" && data.iceConnectedTimestamp == null) {
+                data.iceConnectedTimestamp = timestamp
+            }
+
+            // Add to connection timeline
+            val event = when (state.uppercase()) {
+                "CHECKING" -> ConnectionStateEvent.IceChecking(timestamp)
+                "CONNECTED" -> ConnectionStateEvent.IceConnected(timestamp)
+                "COMPLETED" -> ConnectionStateEvent.IceCompleted(timestamp)
+                "DISCONNECTED" -> ConnectionStateEvent.IceDisconnected(timestamp)
+                "FAILED" -> ConnectionStateEvent.IceFailed(timestamp)
+                "CLOSED" -> ConnectionStateEvent.IceClosed(timestamp)
+                else -> null
+            }
+            event?.let { data.connectionTimeline.add(it) }
         }
     }
 
     /**
-     * Records a peer connection state change.
+     * Records a DTLS state change. Should be called when polling getStats() for transport stats.
+     * Automatically detects DTLS failures and adds them to the connection timeline.
      *
      * @param callId The unique identifier for the call
-     * @param state The new connection state (new, connecting, connected, disconnected, failed, closed)
+     * @param dtlsState The DTLS state from transport stats (new, connecting, connected, closed, failed)
      */
-    fun onConnectionStateChange(callId: UUID, state: String) {
+    fun onDtlsStateChange(callId: UUID, dtlsState: String) {
         callDebugData[callId]?.let { data ->
-            data.connectionStates.add(StateChange(state, System.currentTimeMillis()))
-            data.lastConnectionState = state
+            // Only add if this is a new state transition
+            if (data.lastDtlsState != dtlsState) {
+                val timestamp = System.currentTimeMillis()
+                data.lastDtlsState = dtlsState
+
+                // Track DTLS connected timestamp
+                if (dtlsState.uppercase() == "CONNECTED" && data.dtlsConnectedTimestamp == null) {
+                    data.dtlsConnectedTimestamp = timestamp
+                }
+
+                val event = when (dtlsState.uppercase()) {
+                    "CONNECTING" -> ConnectionStateEvent.DtlsConnecting(timestamp)
+                    "CONNECTED" -> {
+                        // Calculate time from ICE connected to DTLS connected
+                        data.iceConnectedTimestamp?.let { iceTime ->
+                            val dtlsDelay = timestamp - iceTime
+                            Timber.tag(TAG).d("DTLS connected ${dtlsDelay}ms after ICE connected")
+                        }
+                        ConnectionStateEvent.DtlsConnected(timestamp)
+                    }
+                    "FAILED" -> {
+                        // DTLS explicitly failed - record this as a connection failure
+                        val reason = if (data.lastIceConnectionState?.uppercase() == "CONNECTED") {
+                            "ICE connected but DTLS handshake failed"
+                        } else {
+                            "DTLS handshake failed"
+                        }
+                        // First add the DTLS failed event
+                        data.connectionTimeline.add(ConnectionStateEvent.DtlsFailed(timestamp, reason))
+                        // Then add the connection failed event
+                        data.connectionTimeline.add(ConnectionStateEvent.ConnectionFailed(timestamp, reason))
+                        null // Don't add event again below
+                    }
+                    else -> null
+                }
+                event?.let { data.connectionTimeline.add(it) }
+            }
         }
     }
 
@@ -154,36 +213,59 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
-     * Records the selected ICE candidate pair.
+     * Records the selected ICE candidate pair with full details.
      *
      * @param callId The unique identifier for the call
-     * @param localCandidateType The type of local candidate
-     * @param remoteCandidateType The type of remote candidate
-     * @param protocol The protocol being used
+     * @param localCandidate The local ICE candidate details
+     * @param remoteCandidate The remote ICE candidate details
      */
     fun onIceCandidatePairSelected(
         callId: UUID,
-        localCandidateType: String,
-        remoteCandidateType: String,
-        protocol: String
+        localCandidate: CandidateDetails,
+        remoteCandidate: CandidateDetails
     ) {
         callDebugData[callId]?.let { data ->
-            data.selectedCandidatePair = CandidatePairInfo(localCandidateType, remoteCandidateType, protocol)
+            data.selectedCandidatePair = CandidatePairInfo(localCandidate, remoteCandidate)
         }
     }
 
     /**
-     * Updates media statistics for the call.
+     * Updates media statistics for the call by accumulating the new values.
+     * Each stats update contains incremental values since the last update,
+     * so we add them to the existing accumulated totals. For instantaneous
+     * metrics like jitter, audio level, and RTT, we calculate running averages.
      *
      * @param callId The unique identifier for the call
-     * @param stats The media statistics to record
+     * @param stats The media statistics to add to accumulated totals
      */
     fun updateMediaStats(callId: UUID, stats: MediaStats) {
         callDebugData[callId]?.let { data ->
-            data.lastMediaStats = stats
-            if (data.firstMediaStats == null) {
-                data.firstMediaStats = stats
-            }
+            val currentStats = data.mediaStats
+
+            // Increment sample count
+            data.statsUpdateCount++
+
+            // Accumulate sums for averaging
+            data.jitterSum += stats.inboundJitter
+            data.audioLevelSum += stats.inboundAudioLevel
+            data.rttSum += stats.roundTripTime
+
+            // Calculate averages
+            val avgJitter = data.jitterSum / data.statsUpdateCount
+            val avgAudioLevel = data.audioLevelSum / data.statsUpdateCount
+            val avgRTT = data.rttSum / data.statsUpdateCount
+
+            data.mediaStats = MediaStats(
+                outboundPacketsSent = currentStats.outboundPacketsSent + stats.outboundPacketsSent,
+                outboundBytesSent = currentStats.outboundBytesSent + stats.outboundBytesSent,
+                outboundAudioEnergy = currentStats.outboundAudioEnergy + stats.outboundAudioEnergy,
+                inboundPacketsReceived = currentStats.inboundPacketsReceived + stats.inboundPacketsReceived,
+                inboundBytesReceived = currentStats.inboundBytesReceived + stats.inboundBytesReceived,
+                inboundPacketsLost = currentStats.inboundPacketsLost + stats.inboundPacketsLost,
+                inboundJitter = avgJitter, // Average jitter value
+                inboundAudioLevel = avgAudioLevel, // Average audio level
+                roundTripTime = avgRTT // Average RTT
+            )
         }
     }
 
@@ -207,7 +289,7 @@ class DebugDataCollector(private val context: Context) {
      */
     fun onMicrophoneAccessError(callId: UUID, error: String) {
         callDebugData[callId]?.let { data ->
-            data.microphoneErrors.add(error)
+            data.microphoneErrors.add(MicrophoneError(error, System.currentTimeMillis()))
         }
     }
 
@@ -221,6 +303,37 @@ class DebugDataCollector(private val context: Context) {
     fun onTrackStateChange(callId: UUID, trackType: String, state: String) {
         callDebugData[callId]?.let { data ->
             data.trackStateChanges.add(TrackStateChange(trackType, state, System.currentTimeMillis()))
+        }
+    }
+
+    /**
+     * Records a getUserMedia equivalent event (audio track creation).
+     *
+     * @param callId The unique identifier for the call
+     * @param trackId The ID of the audio track (e.g., "audio_local_track")
+     * @param state The state of the track (e.g., "LIVE", "ENDED")
+     * @param enabled Whether the track is enabled
+     */
+    fun onGetUserMediaAttempt(callId: UUID, trackId: String, state: String, enabled: Boolean) {
+        callDebugData[callId]?.let { data ->
+            data.getUserMediaEvents.add(
+                GetUserMediaEvent(trackId, state, enabled, System.currentTimeMillis())
+            )
+        }
+    }
+
+    /**
+     * Records a speaker/audio output device change.
+     *
+     * @param callId The unique identifier for the call
+     * @param device The audio output device (e.g., SPEAKER, EARPIECE, BLUETOOTH)
+     * @param isActive Whether this device is now active
+     */
+    fun onSpeakerOutputChange(callId: UUID, device: String, isActive: Boolean) {
+        callDebugData[callId]?.let { data ->
+            data.speakerOutputEvents.add(
+                SpeakerOutputEvent(device, isActive, System.currentTimeMillis())
+            )
         }
     }
 
@@ -249,12 +362,12 @@ class DebugDataCollector(private val context: Context) {
         val logBuilder = StringBuilder()
         logBuilder.appendLine()
         logBuilder.appendLine(LOG_SEPARATOR)
-        logBuilder.appendLine("📞 CALL DEBUG DATA REPORT")
+        logBuilder.appendLine("CALL DEBUG DATA REPORT")
         logBuilder.appendLine(LOG_SEPARATOR)
 
         // Basic Identifiers
         logBuilder.appendLine()
-        logBuilder.appendLine("📋 BASIC IDENTIFIERS")
+        logBuilder.appendLine("BASIC IDENTIFIERS")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
         logBuilder.appendLine("  Call ID:           ${data.callId}")
         logBuilder.appendLine("  Telnyx Session ID: ${data.telnyxSessionId ?: "N/A"}")
@@ -271,28 +384,44 @@ class DebugDataCollector(private val context: Context) {
 
         // Device & Network Info
         logBuilder.appendLine()
-        logBuilder.appendLine("📱 DEVICE & NETWORK")
+        logBuilder.appendLine("DEVICE & NETWORK")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
         logBuilder.appendLine("  Device:            ${data.deviceModel}")
         logBuilder.appendLine("  OS:                ${data.osVersion}")
         logBuilder.appendLine("  Network Type:      ${data.networkType}")
 
-        // Connection States
+        // Permissions
         logBuilder.appendLine()
-        logBuilder.appendLine("🔗 CONNECTION STATES")
+        logBuilder.appendLine("PERMISSIONS")
+        logBuilder.appendLine(LOG_SECTION_SEPARATOR)
+        logBuilder.appendLine("  RECORD_AUDIO:      ${if (data.recordAudioPermissionGranted) "GRANTED" else "DENIED"}")
+        logBuilder.appendLine("  POST_NOTIFICATIONS: ${if (data.postNotificationsPermissionGranted) "GRANTED" else "DENIED"}")
+
+        // Connection Timeline (ICE & DTLS)
+        if (data.connectionTimeline.isNotEmpty()) {
+            logBuilder.appendLine()
+            logBuilder.appendLine("CONNECTION TIMELINE (ICE & DTLS)")
+            logBuilder.appendLine(LOG_SECTION_SEPARATOR)
+            data.connectionTimeline.forEach { event ->
+                logBuilder.appendLine("  ${dateFormat.format(Date(event.timestamp))}: ${event.getDisplayName()}")
+            }
+        }
+
+        // Legacy State Tracking
+        logBuilder.appendLine()
+        logBuilder.appendLine("LEGACY CONNECTION STATES")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
         logBuilder.appendLine("  Last ICE Gathering State:   ${data.lastIceGatheringState ?: "N/A"}")
         logBuilder.appendLine("  Last ICE Connection State:  ${data.lastIceConnectionState ?: "N/A"}")
-        logBuilder.appendLine("  Last Connection State:      ${data.lastConnectionState ?: "N/A"}")
+        logBuilder.appendLine("  Last DTLS State:            ${data.lastDtlsState ?: "N/A"}")
         logBuilder.appendLine("  Last Signaling State:       ${data.lastSignalingState ?: "N/A"}")
 
-        // State Change History
+        // Legacy State Change History (Deprecated)
         if (data.iceGatheringStates.isNotEmpty()) {
             logBuilder.appendLine()
             logBuilder.appendLine("  ICE Gathering State History:")
             data.iceGatheringStates.forEach { change ->
-                val relativeTime = (change.timestamp - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
-                logBuilder.appendLine("    +${String.format(Locale.US, "%.3f", relativeTime)}s: ${change.state}")
+                logBuilder.appendLine("    ${dateFormat.format(Date(change.timestamp))}: ${change.state}")
             }
         }
 
@@ -300,23 +429,13 @@ class DebugDataCollector(private val context: Context) {
             logBuilder.appendLine()
             logBuilder.appendLine("  ICE Connection State History:")
             data.iceConnectionStates.forEach { change ->
-                val relativeTime = (change.timestamp - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
-                logBuilder.appendLine("    +${String.format(Locale.US, "%.3f", relativeTime)}s: ${change.state}")
-            }
-        }
-
-        if (data.connectionStates.isNotEmpty()) {
-            logBuilder.appendLine()
-            logBuilder.appendLine("  Connection State History:")
-            data.connectionStates.forEach { change ->
-                val relativeTime = (change.timestamp - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
-                logBuilder.appendLine("    +${String.format(Locale.US, "%.3f", relativeTime)}s: ${change.state}")
+                logBuilder.appendLine("    ${dateFormat.format(Date(change.timestamp))}: ${change.state}")
             }
         }
 
         // ICE Candidates
         logBuilder.appendLine()
-        logBuilder.appendLine("🧊 ICE CANDIDATES")
+        logBuilder.appendLine("ICE CANDIDATES")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
         logBuilder.appendLine("  Total Candidates:  ${data.iceCandidates.size}")
         if (data.iceCandidates.isNotEmpty()) {
@@ -327,22 +446,43 @@ class DebugDataCollector(private val context: Context) {
         }
         data.selectedCandidatePair?.let { pair ->
             logBuilder.appendLine("  Selected Pair:")
-            logBuilder.appendLine("    Local:  ${pair.localType}")
-            logBuilder.appendLine("    Remote: ${pair.remoteType}")
-            logBuilder.appendLine("    Protocol: ${pair.protocol}")
+            logBuilder.appendLine("    Local Candidate:")
+            logBuilder.appendLine("      Type:        ${pair.local.candidateType}")
+            logBuilder.appendLine("      Protocol:    ${pair.local.protocol}")
+            logBuilder.appendLine("      IP:          ${pair.local.ip}")
+            logBuilder.appendLine("      Port:        ${pair.local.port}")
+            if (pair.local.priority != null) {
+                logBuilder.appendLine("      Priority:    ${pair.local.priority}")
+            }
+            if (pair.local.relatedAddress != null && pair.local.relatedPort != null) {
+                logBuilder.appendLine("      Related:     ${pair.local.relatedAddress}:${pair.local.relatedPort}")
+            }
+            logBuilder.appendLine()
+            logBuilder.appendLine("    Remote Candidate:")
+            logBuilder.appendLine("      Type:        ${pair.remote.candidateType}")
+            logBuilder.appendLine("      Protocol:    ${pair.remote.protocol}")
+            logBuilder.appendLine("      IP:          ${pair.remote.ip}")
+            logBuilder.appendLine("      Port:        ${pair.remote.port}")
+            if (pair.remote.priority != null) {
+                logBuilder.appendLine("      Priority:    ${pair.remote.priority}")
+            }
+            if (pair.remote.relatedAddress != null && pair.remote.relatedPort != null) {
+                logBuilder.appendLine("      Related:     ${pair.remote.relatedAddress}:${pair.remote.relatedPort}")
+            }
         }
 
         // Codec
         logBuilder.appendLine()
-        logBuilder.appendLine("🎵 CODEC")
+        logBuilder.appendLine("CODEC")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
         logBuilder.appendLine("  Selected Codec:    ${data.selectedCodec ?: "N/A"}")
 
         // Media Statistics
         logBuilder.appendLine()
-        logBuilder.appendLine("📊 MEDIA STATISTICS")
+        logBuilder.appendLine("MEDIA STATISTICS")
         logBuilder.appendLine(LOG_SECTION_SEPARATOR)
-        data.lastMediaStats?.let { stats ->
+        val stats = data.mediaStats
+        if (stats.outboundPacketsSent > 0 || stats.inboundPacketsReceived > 0) {
             logBuilder.appendLine("  Outbound RTP:")
             logBuilder.appendLine("    Packets Sent:    ${stats.outboundPacketsSent}")
             logBuilder.appendLine("    Bytes Sent:      ${stats.outboundBytesSent}")
@@ -352,44 +492,71 @@ class DebugDataCollector(private val context: Context) {
             logBuilder.appendLine("    Packets Received: ${stats.inboundPacketsReceived}")
             logBuilder.appendLine("    Bytes Received:   ${stats.inboundBytesReceived}")
             logBuilder.appendLine("    Packets Lost:     ${stats.inboundPacketsLost}")
+
+            // Calculate packet loss percentage if we have received packets
+            if (stats.inboundPacketsReceived > 0) {
+                val totalPackets = stats.inboundPacketsReceived + stats.inboundPacketsLost
+                val lossPercentage = (stats.inboundPacketsLost.toDouble() / totalPackets.toDouble()) * 100
+                logBuilder.appendLine("    Packet Loss:      ${String.format(Locale.US, "%.2f", lossPercentage)}%")
+            }
+
             logBuilder.appendLine("    Jitter:           ${String.format(Locale.US, "%.3f", stats.inboundJitter)} ms")
             logBuilder.appendLine("    Audio Level:      ${String.format(Locale.US, "%.6f", stats.inboundAudioLevel)}")
             logBuilder.appendLine()
             logBuilder.appendLine("  Connection Quality:")
             logBuilder.appendLine("    Round Trip Time:  ${String.format(Locale.US, "%.3f", stats.roundTripTime)} ms")
-        } ?: run {
+        } else {
             logBuilder.appendLine("  No media statistics available")
         }
 
         // Audio Device Events
         if (data.audioDeviceEvents.isNotEmpty()) {
             logBuilder.appendLine()
-            logBuilder.appendLine("🔊 AUDIO DEVICE EVENTS")
+            logBuilder.appendLine("AUDIO DEVICE EVENTS")
             logBuilder.appendLine(LOG_SECTION_SEPARATOR)
             data.audioDeviceEvents.forEach { event ->
-                val relativeTime = (event.timestamp - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
-                logBuilder.appendLine("  +${String.format(Locale.US, "%.3f", relativeTime)}s: ${event.event}")
+                logBuilder.appendLine("  ${dateFormat.format(Date(event.timestamp))}: ${event.event}")
+            }
+        }
+
+        // getUserMedia Events
+        if (data.getUserMediaEvents.isNotEmpty()) {
+            logBuilder.appendLine()
+            logBuilder.appendLine("GET USER MEDIA EVENTS")
+            logBuilder.appendLine(LOG_SECTION_SEPARATOR)
+            data.getUserMediaEvents.forEach { event ->
+                logBuilder.appendLine("  ${dateFormat.format(Date(event.timestamp))}: ID: ${event.trackId}, State: ${event.state}, Enabled: ${event.enabled}")
             }
         }
 
         // Microphone Errors
         if (data.microphoneErrors.isNotEmpty()) {
             logBuilder.appendLine()
-            logBuilder.appendLine("⚠️ MICROPHONE ERRORS")
+            logBuilder.appendLine("MICROPHONE ERRORS")
             logBuilder.appendLine(LOG_SECTION_SEPARATOR)
             data.microphoneErrors.forEach { error ->
-                logBuilder.appendLine("  - $error")
+                logBuilder.appendLine("  ${dateFormat.format(Date(error.timestamp))}: ${error.error}")
             }
         }
 
         // Track State Changes
         if (data.trackStateChanges.isNotEmpty()) {
             logBuilder.appendLine()
-            logBuilder.appendLine("🎤 TRACK STATE CHANGES")
+            logBuilder.appendLine("TRACK STATE CHANGES")
             logBuilder.appendLine(LOG_SECTION_SEPARATOR)
             data.trackStateChanges.forEach { change ->
-                val relativeTime = (change.timestamp - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
-                logBuilder.appendLine("  +${String.format(Locale.US, "%.3f", relativeTime)}s: ${change.trackType} -> ${change.state}")
+                logBuilder.appendLine("  ${dateFormat.format(Date(change.timestamp))}: ${change.trackType} -> ${change.state}")
+            }
+        }
+
+        // Speaker Output Events
+        if (data.speakerOutputEvents.isNotEmpty()) {
+            logBuilder.appendLine()
+            logBuilder.appendLine("SPEAKER OUTPUT EVENTS")
+            logBuilder.appendLine(LOG_SECTION_SEPARATOR)
+            data.speakerOutputEvents.forEach { event ->
+                val status = if (event.isActive) "ACTIVE" else "INACTIVE"
+                logBuilder.appendLine("  ${dateFormat.format(Date(event.timestamp))}: ${event.device} -> $status")
             }
         }
 
@@ -420,6 +587,18 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Checks if a specific permission is granted.
+     */
+    private fun checkPermission(permission: String): Boolean {
+        return try {
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error checking permission: $permission")
+            false
+        }
+    }
+
+    /**
      * Clears all debug data. Should be called when the TelnyxClient is destroyed.
      */
     fun clear() {
@@ -442,15 +621,21 @@ internal data class CallDebugData(
     val osVersion: String,
     val deviceModel: String,
 
+    // Permissions
+    val recordAudioPermissionGranted: Boolean,
+    val postNotificationsPermissionGranted: Boolean,
+
     // State tracking
     val iceGatheringStates: MutableList<StateChange> = mutableListOf(),
     val iceConnectionStates: MutableList<StateChange> = mutableListOf(),
-    val connectionStates: MutableList<StateChange> = mutableListOf(),
+    val connectionTimeline: MutableList<ConnectionStateEvent> = mutableListOf(),
     val signalingStates: MutableList<StateChange> = mutableListOf(),
     var lastIceGatheringState: String? = null,
     var lastIceConnectionState: String? = null,
-    var lastConnectionState: String? = null,
     var lastSignalingState: String? = null,
+    var lastDtlsState: String? = null,
+    var iceConnectedTimestamp: Long? = null,
+    var dtlsConnectedTimestamp: Long? = null,
 
     // ICE candidates
     val iceCandidates: MutableList<IceCandidateInfo> = mutableListOf(),
@@ -459,14 +644,21 @@ internal data class CallDebugData(
     // Codec
     var selectedCodec: String? = null,
 
-    // Media stats
-    var firstMediaStats: MediaStats? = null,
-    var lastMediaStats: MediaStats? = null,
+    // Media stats (accumulated totals)
+    var mediaStats: MediaStats = MediaStats(),
+
+    // Tracking for average calculations
+    var jitterSum: Double = 0.0,
+    var audioLevelSum: Double = 0.0,
+    var rttSum: Double = 0.0,
+    var statsUpdateCount: Int = 0,
 
     // Audio device events
     val audioDeviceEvents: MutableList<AudioDeviceEvent> = mutableListOf(),
-    val microphoneErrors: MutableList<String> = mutableListOf(),
-    val trackStateChanges: MutableList<TrackStateChange> = mutableListOf()
+    val microphoneErrors: MutableList<MicrophoneError> = mutableListOf(),
+    val trackStateChanges: MutableList<TrackStateChange> = mutableListOf(),
+    val getUserMediaEvents: MutableList<GetUserMediaEvent> = mutableListOf(),
+    val speakerOutputEvents: MutableList<SpeakerOutputEvent> = mutableListOf()
 )
 
 /**
@@ -478,6 +670,40 @@ internal data class StateChange(
 )
 
 /**
+ * Sealed class representing connection state events with timestamps.
+ * Tracks ICE and DTLS states separately for better diagnostics.
+ */
+sealed class ConnectionStateEvent(
+    open val timestamp: Long
+) {
+    data class IceChecking(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class IceConnected(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class IceCompleted(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class IceDisconnected(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class IceFailed(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class IceClosed(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+
+    data class DtlsConnecting(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class DtlsConnected(override val timestamp: Long) : ConnectionStateEvent(timestamp)
+    data class DtlsFailed(override val timestamp: Long, val reason: String) : ConnectionStateEvent(timestamp)
+
+    data class ConnectionFailed(override val timestamp: Long, val reason: String) : ConnectionStateEvent(timestamp)
+
+    fun getDisplayName(): String = when (this) {
+        is IceChecking -> "ICE_CHECKING"
+        is IceConnected -> "ICE_CONNECTED"
+        is IceCompleted -> "ICE_COMPLETED"
+        is IceDisconnected -> "ICE_DISCONNECTED"
+        is IceFailed -> "ICE_FAILED"
+        is IceClosed -> "ICE_CLOSED"
+        is DtlsConnecting -> "DTLS_CONNECTING"
+        is DtlsConnected -> "DTLS_CONNECTED"
+        is DtlsFailed -> "DTLS_FAILED: $reason"
+        is ConnectionFailed -> "CONNECTION_FAILED: $reason"
+    }
+}
+
+/**
  * Represents ICE candidate information.
  */
 internal data class IceCandidateInfo(
@@ -487,12 +713,24 @@ internal data class IceCandidateInfo(
 )
 
 /**
- * Represents the selected ICE candidate pair.
+ * Represents detailed information about an ICE candidate.
+ */
+data class CandidateDetails(
+    val candidateType: String,
+    val protocol: String,
+    val ip: String,
+    val port: Int,
+    val priority: Long? = null,
+    val relatedAddress: String? = null,
+    val relatedPort: Int? = null
+)
+
+/**
+ * Represents the selected ICE candidate pair with full details.
  */
 internal data class CandidatePairInfo(
-    val localType: String,
-    val remoteType: String,
-    val protocol: String
+    val local: CandidateDetails,
+    val remote: CandidateDetails
 )
 
 /**
@@ -509,6 +747,42 @@ internal data class AudioDeviceEvent(
 internal data class TrackStateChange(
     val trackType: String,
     val state: String,
+    val timestamp: Long
+)
+
+/**
+ * Represents a microphone error event with timestamp.
+ */
+internal data class MicrophoneError(
+    val error: String,
+    val timestamp: Long
+)
+
+/**
+ * Represents a getUserMedia attempt (audio track creation).
+ */
+internal data class GetUserMediaEvent(
+    val trackId: String,
+    val state: String,
+    val enabled: Boolean,
+    val timestamp: Long
+)
+
+/**
+ * Represents a permission change event.
+ */
+internal data class PermissionEvent(
+    val permission: String,
+    val granted: Boolean,
+    val timestamp: Long
+)
+
+/**
+ * Represents a speaker/output device change event.
+ */
+internal data class SpeakerOutputEvent(
+    val device: String,
+    val isActive: Boolean,
     val timestamp: Long
 )
 

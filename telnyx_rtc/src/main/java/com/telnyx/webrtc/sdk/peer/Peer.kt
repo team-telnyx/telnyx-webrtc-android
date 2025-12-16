@@ -438,11 +438,24 @@ internal class Peer(
 
         if (localAudioTrack == null) {
             Logger.e(tag = "Peer:Audio", message = "Failed to create local audio track.")
+            // Track getUserMedia failure
+            client.debugDataCollector.onMicrophoneAccessError(callId, "Failed to create local audio track")
             return
         }
 
         localAudioTrack?.setEnabled(true)
         localAudioTrack?.setVolume(1.0)
+
+        // Track getUserMedia success with track details
+        val track = localAudioTrack
+        if (track != null) {
+            client.debugDataCollector.onGetUserMediaAttempt(
+                callId,
+                track.id() ?: "audio_local_track",
+                track.state()?.name ?: "LIVE",
+                track.enabled()
+            )
+        }
         Logger.d(
             tag = "Peer:Audio",
             message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}"
