@@ -31,6 +31,7 @@ class DebugDataCollector(private val context: Context) {
         private const val LOG_SEPARATOR = "═══════════════════════════════════════════════════════════════"
         private const val LOG_SECTION_SEPARATOR = "───────────────────────────────────────────────────────────────"
         private const val MILLIS_PER_SECOND = 1000
+        private const val PERCENT_FACTOR = 100.0
     }
 
     private val callDebugData = ConcurrentHashMap<UUID, CallDebugData>()
@@ -355,6 +356,7 @@ class DebugDataCollector(private val context: Context) {
         logCallDebugData(data)
     }
 
+    @Suppress("ComplexMethod")
     private fun logCallDebugData(data: CallDebugData) {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
         val duration = data.endTimestamp?.let { (it - data.startTimestamp) / MILLIS_PER_SECOND.toDouble() } ?: 0.0
@@ -496,7 +498,7 @@ class DebugDataCollector(private val context: Context) {
             // Calculate packet loss percentage if we have received packets
             if (stats.inboundPacketsReceived > 0) {
                 val totalPackets = stats.inboundPacketsReceived + stats.inboundPacketsLost
-                val lossPercentage = (stats.inboundPacketsLost.toDouble() / totalPackets.toDouble()) * 100
+                val lossPercentage = (stats.inboundPacketsLost.toDouble() / totalPackets.toDouble()) * PERCENT_FACTOR
                 logBuilder.appendLine("    Packet Loss:      ${String.format(Locale.US, "%.2f", lossPercentage)}%")
             }
 
