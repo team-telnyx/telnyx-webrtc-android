@@ -41,7 +41,7 @@ When `debug: true` is configured:
 
 The SDK provides real-time call quality metrics through the `onCallQualityChange` callback on the `Call` object. This allows you to monitor call quality in real-time and provide feedback to users.
 
-#### Using onCallQualityChanged
+**Using onCallQualityChanged**
 
 ```Kotlin
 // When creating a new call set debug to true for CallQualityMetrics
@@ -65,7 +65,7 @@ incomingCall.onCallQualityChange = { callQualityMetrics ->
 
 ```
 
-#### CallQualityMetrics Properties
+**CallQualityMetrics Properties**
 
 The `CallQualityMetrics` object provides the following properties:
 
@@ -80,7 +80,7 @@ The `CallQualityMetrics` object provides the following properties:
 | `remoteInboundAudio` | Map<String, Any>? | Remote inbound audio statistics |
 | `remoteOutboundAudio` | Map<String, Any>? | Remote outbound audio statistics |
 
-#### CallQuality Enum
+**CallQuality Enum**
 
 The `CallQuality` enum provides the following values:
 
@@ -93,7 +93,7 @@ The `CallQuality` enum provides the following values:
 | `.bad` | MOS <= 3.0 | Bad call quality |
 | `.unknown` | N/A | Unable to calculate quality |
 
-#### Best Practices for Call Quality Monitoring
+**Best Practices for Call Quality Monitoring**
 
 1. **User Feedback**:
     - Consider showing a visual indicator of call quality to users
