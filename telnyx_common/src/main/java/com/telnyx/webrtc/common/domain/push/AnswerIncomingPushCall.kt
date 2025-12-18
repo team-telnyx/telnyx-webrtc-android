@@ -37,6 +37,9 @@ class AnswerIncomingPushCall(private val context: Context) {
     // Callback to be invoked when there is a change in call quality metrics.
     private var onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null
 
+    // Device token to be included when answering a push notification call.
+    private var answeredDeviceToken: String? = null
+
     // Observer for incoming call responses.
     private val incomingCallObserver = Observer<SocketResponse<ReceivedMessageBody>> { response ->
         handleSocketResponse(response)
@@ -67,6 +70,7 @@ class AnswerIncomingPushCall(private val context: Context) {
 
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
             val fcmToken = lastProfile.fcmToken ?: ""
+            this.answeredDeviceToken = fcmToken.ifEmpty { null }
 
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
@@ -120,6 +124,7 @@ class AnswerIncomingPushCall(private val context: Context) {
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
             val fcmToken = lastProfile.fcmToken ?: ""
+            this.answeredDeviceToken = fcmToken.ifEmpty { null }
 
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
@@ -160,7 +165,8 @@ class AnswerIncomingPushCall(private val context: Context) {
                         customHeaders,
                         debug,
                         audioConstraints = null,  // Use defaults for push calls
-                        onCallQualityChange = onCallQualityChange
+                        onCallQualityChange = onCallQualityChange,
+                        answeredDeviceToken = answeredDeviceToken
                     )
                     cleanUp(answeredCall)
                     return true

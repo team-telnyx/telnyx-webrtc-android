@@ -37,4 +37,4 @@ data class CallDialogParams(
     val customHeaders: ArrayList<CustomHeaders> = arrayListOf(),
     @SerializedName("preferred_codecs")
     val preferredCodecs: List<AudioCodec>? = null
-    )
+)
