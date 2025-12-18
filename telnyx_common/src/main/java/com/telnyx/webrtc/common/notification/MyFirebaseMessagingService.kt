@@ -30,7 +30,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         Timber.d("Message Received From Firebase Priority: ${remoteMessage.priority}")
-        Timber.d("Message Received From Firebase: ${remoteMessage.originalPriority}")
+        Timber.d("Message Received From Firebase Original Priority: ${remoteMessage.originalPriority}")
+        if (remoteMessage.priority < remoteMessage.originalPriority) {
+            Timber.e("Message priority downgraded, call notification may have arrived late")
+        }
 
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
