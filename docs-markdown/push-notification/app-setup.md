@@ -1,4 +1,11 @@
 # Push Notification App Setup
+
+### Multidevice Push Notifications
+
+Telnyx WebRTC supports multidevice push notifications. A single user can have up to 5 device tokens (either iOS - APNS or Android - FCM). 
+When a user logs into the socket and provides a push token, our services will register this token to that user - allowing it to receive push notifications for incoming calls. If a 6th registration is made, the least recently used token will be removed.
+This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
+
 ### Retrieving a Firebase Cloud Messaging Token
 
 If the portal setup is complete and when firebase is properly integrated into your application, you will be able to retrieve a token with a method such as this:
