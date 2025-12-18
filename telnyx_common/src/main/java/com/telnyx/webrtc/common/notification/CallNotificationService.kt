@@ -22,6 +22,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.getSystemService
+import com.google.gson.Gson
 import com.telnyx.webrtc.common.R
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import timber.log.Timber
@@ -37,7 +38,9 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     companion object {
         const val CHANNEL_ID = "telnyx_call_notification_channel"
         const val CHANNEL_ONGOING_ID = "telnyx_call_ongoing_channel"
+        const val CHANNEL_MISSED_ID = "telnyx_missed_call_channel"
         const val NOTIFICATION_ID = 1234
+        const val NOTIFICATION_MISSED_ID = 1235
         const val NOTIFICATION_ACTION = "NOTIFICATION_ACTION"
 
         enum class NotificationState(val value: Int) {
@@ -91,7 +94,14 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
             NotificationManager.IMPORTANCE_LOW
         )
 
-        managerCompat.createNotificationChannels(listOf(incomingCallChannel, ongoingCallChannel))
+        // Create missed call channel
+        val missedCallChannel = NotificationChannel(
+            CHANNEL_MISSED_ID,
+            "Missed Call Notifications",
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+
+        managerCompat.createNotificationChannels(listOf(incomingCallChannel, ongoingCallChannel, missedCallChannel))
     }
 
     /**
@@ -103,11 +113,16 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
     }
 
     /**
-     * Show ongoing call notification
+     * Show missed call notification
      */
-    fun showOngoingCallNotification(txPushMetaData: PushMetaData) {
-        Timber.d("Showing ongoing call notification: ${txPushMetaData.toJson()}")
-        notificationManager.notify(NOTIFICATION_ID, createOngoingCallNotification(txPushMetaData))
+    fun showMissedCallNotification(metadataJson: String) {
+        try {
+            val txPushMetaData = Gson().fromJson(metadataJson, PushMetaData::class.java)
+            Timber.d("Showing missed call notification: ${txPushMetaData.toJson()}")
+            notificationManager.notify(NOTIFICATION_MISSED_ID, createMissedCallNotification(txPushMetaData))
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to parse metadata for missed call notification")
+        }
     }
 
     /**
@@ -270,6 +285,56 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
                     endCallPendingIntent
                 )
             )
+            .build()
+    }
+
+    /**
+     * Create a missed call notification
+     * Shows a simple notification informing the user they missed a call
+     */
+    private fun createMissedCallNotification(txPushMetaData: PushMetaData): Notification {
+        // Get the target activity class
+        val activityClassName = getActivityClassName()
+        val targetActivityClass = try {
+            if (activityClassName.isNotEmpty()) {
+                Class.forName(activityClassName)
+            } else {
+                null
+            }
+        } catch (e: ClassNotFoundException) {
+            Timber.e(e, "Failed to get target activity class")
+            null
+        }
+
+        // Intent to open the app when notification is tapped
+        val openAppIntent = if (targetActivityClass != null) {
+            Intent(context, targetActivityClass).apply {
+                action = Intent.ACTION_VIEW
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        } else {
+            Intent().apply {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        }
+
+        val openAppPendingIntent = PendingIntent.getActivity(
+            context, 0, openAppIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Build simple missed call notification
+        return NotificationCompat.Builder(context, CHANNEL_MISSED_ID)
+            .setSmallIcon(R.drawable.ic_stat_contact_phone)
+            .setContentTitle("Missed Call")
+            .setContentText("Missed call from ${txPushMetaData.callerName} (${txPushMetaData.callerNumber})")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openAppPendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
 

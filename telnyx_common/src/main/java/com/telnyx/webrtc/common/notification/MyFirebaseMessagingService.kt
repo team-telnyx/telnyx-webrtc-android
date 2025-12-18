@@ -40,16 +40,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val metadata = objects.getString("metadata")
         val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
-        if(isMissedCall){
-            Timber.d("Missed Call - cancelling notification")
-            // Cancel any active incoming call notifications directly
-            CallNotificationService.cancelNotification(this)
-            return
-        }
-
         // Initialize CallNotificationService if needed
         if (callNotificationService == null) {
             callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+        }
+
+
+        if(isMissedCall){
+            Timber.d("Missed Call - cancelling incoming notification and showing missed call notification")
+            // Cancel any active incoming call notifications directly
+            CallNotificationService.cancelNotification(this)
+
+            // Show missed call notification
+            callNotificationService?.showMissedCallNotification(metadata)
+            return
         }
 
         // Try to use the new CallNotificationService if available
