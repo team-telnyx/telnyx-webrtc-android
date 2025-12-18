@@ -41,12 +41,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
         if(isMissedCall){
-            Timber.d("Missed Call")
-            val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
-                putExtra("action", LegacyCallNotificationService.STOP_ACTION)
-            }
-            serviceIntent.setAction(LegacyCallNotificationService.STOP_ACTION)
-            startMessagingService(serviceIntent)
+            Timber.d("Missed Call - cancelling notification")
+            // Cancel any active incoming call notifications directly
+            CallNotificationService.cancelNotification(this)
             return
         }
 
