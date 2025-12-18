@@ -1,6 +1,6 @@
 # Telnyx Android WebRTC SDK
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android)
-[![Unit Tests](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml)
+<a href="https://jitpack.io/#team-telnyx/telnyx-webrtc-android"><img src="https://jitpack.io/v/team-telnyx/telnyx-webrtc-android.svg" alt="JitPack" /></a>
+<a href="https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml"><img src="https://github.com/team-telnyx/telnyx-webrtc-android/actions/workflows/unit_test_on_push.yml/badge.svg" alt="Unit Tests" /></a>
 
 Enable Telnyx real-time communication services on Android 
 
@@ -37,7 +37,7 @@ Enable Telnyx real-time communication services on Android
 - SDK project: sdk module, containing all Telnyx SDK components as well as tests.
 - Demo application: app module, containing a sample demo application utilizing the sdk module. 
        <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/114007708-78bb8a80-9859-11eb-9667-dfc2ef464ac1.PNG">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/114007708-78bb8a80-9859-11eb-9667-dfc2ef464ac1.PNG" />
          </p>
 
 ## Project Setup:
@@ -45,18 +45,18 @@ Enable Telnyx real-time communication services on Android
 1. Clone the repository
 2. Open the cloned repository in Android Studio and hit the build button to build both the sdk and sample app:
         <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/113999521-05fae100-9852-11eb-92fa-42ce3040e420.PNG">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/113999521-05fae100-9852-11eb-92fa-42ce3040e420.PNG" />
             </p>
 
 4. Connect a device or start an emulated device and hit the run button
      <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/114007294-1d899800-9859-11eb-85ee-8803c570d6b1.PNG">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/114007294-1d899800-9859-11eb-85ee-8803c570d6b1.PNG" />
             </p>
 
 5. Enjoy 😎
  
  <p align="center">
-               <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif">
+               <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif" />
             </p>
             
 
@@ -70,14 +70,14 @@ In order to start making and receiving calls using the TelnyxRTC SDK you will ne
 
 For more information on how to generate SIP credentials check the [Telnyx WebRTC quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart). 
             
- ## Usage
+## Usage
 
 ### Telnyx Client
 NOTE:
        Remember to add and handle INTERNET, RECORD_AUDIO and ACCESS_NETWORK_STATE permissions
        
    <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png" />
             </p>
 
 To initialize the TelnyxClient you will have to provide the application context. Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
@@ -337,7 +337,7 @@ With the current call object, you can perform actions such as:
 3. AcceptCall `currentCall.acceptCall(...)`
 4. EndCall `currentCall.endCall(callId: UUID)`
 
- ## Adding push notifications
+## Adding push notifications
 The Telnyx Android Client WebRTC SDK makes use of Firebase Cloud Messaging in order to deliver push notifications. 
 If you want to receive notifications for incoming calls on your Android mobile device you have to enable Firebase Cloud Messaging within your application.
 
@@ -431,9 +431,9 @@ If no custom logger is provided, the SDK will use its default logging implementa
 ## Best Practices
 
 ### Handling Push Notifications
-In order to properly handle push notifications, we recommend using a call type (Foreground Service)[https://developer.android.com/develop/background-work/services/foreground-services] with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
+In order to properly handle push notifications, we recommend using a call type [Foreground Service](https://developer.android.com/develop/background-work/services/foreground-services) with a broadcast receiver to show push notifications. An answer or reject call intent with `telnyxPushMetaData` can then be passed to the MainActivity for processing.
 
-#### Declining Push Notifications
+**Declining Push Notifications**
 The SDK now provides a simplified way to decline incoming calls from push notifications using the `connectWithDeclinePush()` method. This new approach automatically handles the decline process by:
 
 1. Connecting to the socket with a `decline_push` parameter
@@ -442,53 +442,53 @@ The SDK now provides a simplified way to decline incoming calls from push notifi
 
 This eliminates the need for the complex flow of launching the app, waiting for invites, and manually sending bye messages. Use `connectWithDeclinePush()` instead of the standard `connect()` method when declining calls from push notifications.
 
-#### Best Practices for Push Notifications
+**Best Practices for Push Notifications**
 - Play a ringtone when a call is received from push notification using the `RingtoneManager`
-``` kotlin
+```kotlin
 val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
- RingtoneManager.getRingtone(applicationContext, notification).play()
+RingtoneManager.getRingtone(applicationContext, notification).play()
 ```
 - Make Sure to set these flags for your pendingIntents, so the values get updated anytime when the notification is clicked
-``` kotlin
-   PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+```kotlin
+PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 ```
 
 ### Android 14 Requirements
 In order to receive push notifications on Android 14, you will need to add  the following permissions to your AndroidManifest.xml file and request a few at runtime:
-   ``` xml
-       // Request this permission at runtime
-       <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-   
-       // If you need to use foreground services, you will need to add the following permissions
-       <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-       <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
-   
-       // Configure foregroundservice and set the foreground service type
-       // Remember to stopForegroundService when the call is answered or rejected
-       <service
-           android:name=".ForegroundService"
-           android:foregroundServiceType="phoneCall"
-           android:exported="true" />
-   ```
+```xml
+// Request this permission at runtime
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+// If you need to use foreground services, you will need to add the following permissions
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+
+// Configure foregroundservice and set the foreground service type
+// Remember to stopForegroundService when the call is answered or rejected
+<service
+    android:name=".ForegroundService"
+    android:foregroundServiceType="phoneCall"
+    android:exported="true" />
+```
 ### Handling Missed Call Notifications
 The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
-   ``` kotlin
-        const val Missed_Call = "Missed call!"
-        val params = remoteMessage.data
-        val objects = JSONObject(params as Map<*, *>)
-        val metadata = objects.getString("metadata")
-        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call) // 
+```kotlin
+const val Missed_Call = "Missed call!"
+val params = remoteMessage.data
+val objects = JSONObject(params as Map<*, *>)
+val metadata = objects.getString("metadata")
+val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
 
-        if(isMissedCall){
-            Timber.d("Missed Call")
-            val serviceIntent = Intent(this, NotificationsService::class.java).apply {
-                putExtra("action", NotificationsService.STOP_ACTION)
-            }
-            serviceIntent.setAction(NotificationsService.STOP_ACTION)
-            startMessagingService(serviceIntent)
-            return
-        }
-   ```
+if(isMissedCall){
+    Timber.d("Missed Call")
+    val serviceIntent = Intent(this, NotificationsService::class.java).apply {
+        putExtra("action", NotificationsService.STOP_ACTION)
+    }
+    serviceIntent.setAction(NotificationsService.STOP_ACTION)
+    startMessagingService(serviceIntent)
+    return
+}
+```
 
 ### Handling Multiple Calls 
 The Telnyx WebRTC SDK allows for multiple calls to be handled at once. You can use the callId to differentiate the calls. 
@@ -622,11 +622,11 @@ This feature enables rich conversational experiences where users can seamlessly 
 
 For detailed documentation and advanced usage examples, see the [AI Agent documentation](docs-markdown/ai-agent/introduction.md).
 
- ## ProGuard changes
+## ProGuard changes
  NOTE:
        In the case that you need to modify your application's proguard settings in order to obfuscate your code, such as we have done below:
     
-#### **`app/build.gradle`**
+**`app/build.gradle`**
 ```gradle
 buildTypes {
         release {
@@ -646,7 +646,7 @@ buildTypes {
 ```
 please keep in mind that you will need to add the following rules to the proguard-rules.pro file in your app in order for the SDK to continue functioning
 
-#### **`app/proguard-rules.pro`**
+**`app/proguard-rules.pro`**
 ```gradle
 -keep class com.telnyx.webrtc.** { *; }
 -dontwarn kotlin.Experimental$Level
