@@ -20,6 +20,7 @@ import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.RTCStats
 import com.telnyx.webrtc.sdk.utilities.Logger
+import timber.log.Timber
 import java.util.*
 
 sealed class StatsData {
@@ -37,6 +38,7 @@ enum class WebRTCStatsEvent(val event: String) {
     ON_RENEGOTIATION_NEEDED("onnegotiationneeded"),
     ON_DATA_CHANNEL("ondatachannel"),
     ON_ICE_CONNECTION_STATE_CHANGE("oniceconnectionstatechange"),
+    ON_CONNECTION_STATE_CHANGE("onconnectionstatechange"),
     ON_ICE_CANDIDATE_ERROR("onicecandidateerror"),
     ADD_CONNECTION("addConnection"),
     STATS("stats")
@@ -57,13 +59,22 @@ internal class WebRTCReporter(
     val connectionId: String?,
     val peer: Peer,
     val callDebug: Boolean,
-    val socketDebug: Boolean
+    val socketDebug: Boolean,
+    val debugDataCollector: DebugDataCollector? = null
 ) {
 
     companion object {
-        private const val STATS_INTERVAL: Long = 100L
+        private const val STATS_INTERVAL_DEBUG: Long = 100L // 100ms when debug is enabled
+        private const val STATS_INTERVAL_NORMAL: Long = 10000L // 10 seconds when debug is disabled
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
+    }
+
+    // Dynamic stats interval based on debug flags
+    private val statsInterval: Long = if (callDebug || socketDebug) {
+        STATS_INTERVAL_DEBUG
+    } else {
+        STATS_INTERVAL_NORMAL
     }
 
     internal var debugStatsId = UUID.randomUUID()
@@ -71,6 +82,8 @@ internal class WebRTCReporter(
     private var debugReportStarted = false
 
     private var debugReportJob: Job? = null
+
+    private var codecName: String? = null
 
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
@@ -87,6 +100,8 @@ internal class WebRTCReporter(
             return
 
         debugReportStarted = true
+
+        codecName = null
 
         val debugStartMessage = InitiateOrStopStatPrams(
             type = "debug_report_start",
@@ -162,6 +177,9 @@ internal class WebRTCReporter(
                         WebRTCStatsEvent.ON_ICE_CANDIDATE_ERROR -> {}
                         WebRTCStatsEvent.ADD_CONNECTION -> {}
                         WebRTCStatsEvent.STATS -> {}
+                        WebRTCStatsEvent.ON_CONNECTION_STATE_CHANGE -> {
+                            processConnectionStateChange(it)
+                        }
                     }
                 }
 
@@ -204,6 +222,15 @@ internal class WebRTCReporter(
 
                     it.statsMap.forEach { (key, value) ->
                         when (value.type) {
+                            "codec" -> {
+                                // Extract codec information for audio
+                                if (value.members["mimeType"]?.toString()?.startsWith("audio/") == true && codecName == null) {
+                                    codecName = value.members["mimeType"]?.toString()
+                                    Logger.d(tag = "stats", "Codec detected: $codecName")
+                                }
+                                processStatsDataMember(key, value, statsData)
+                            }
+
                             "inbound-rtp" -> {
                                 processInboundRtp(key, value, statsData, inBoundStats, audio)
                                 if (value.members["kind"]?.toString()?.equals("audio") == true) {
@@ -248,10 +275,39 @@ internal class WebRTCReporter(
                                 }
                             }
 
+                            "transport" -> {
+                                // Track DTLS state for connection diagnostics
+                                value.members["dtlsState"]?.toString()?.let { dtlsState ->
+                                    debugDataCollector?.onDtlsStateChange(peerId, dtlsState)
+                                }
+                                processStatsDataMember(key, value, statsData)
+                            }
+
                             else -> {
                                 processStatsDataMember(key, value, statsData)
                             }
                         }
+                    }
+
+                    // Report codec selection to debug data collector
+                    codecName?.let { codec ->
+                        debugDataCollector?.onCodecSelected(peerId, codec)
+                    }
+
+                    // Update media stats in debug data collector
+                    if (inboundAudioMap.isNotEmpty() || outboundAudioMap.isNotEmpty()) {
+                        val mediaStats = MediaStats(
+                            outboundPacketsSent = (outboundAudioMap["packetsSent"] as? Number)?.toLong() ?: 0L,
+                            outboundBytesSent = (outboundAudioMap["bytesSent"] as? Number)?.toLong() ?: 0L,
+                            outboundAudioEnergy = outboundAudioLevel.toDouble(),
+                            inboundPacketsReceived = (inboundAudioMap["packetsReceived"] as? Number)?.toLong() ?: 0L,
+                            inboundBytesReceived = (inboundAudioMap["bytesReceived"] as? Number)?.toLong() ?: 0L,
+                            inboundPacketsLost = (inboundAudioMap["packetsLost"] as? Number)?.toLong() ?: 0L,
+                            inboundJitter = ((inboundAudioMap["jitter"] as? Double) ?: 0.0) * MS_IN_SECONDS,
+                            inboundAudioLevel = inboundAudioLevel.toDouble(),
+                            roundTripTime = ((remoteInboundAudioMap["roundTripTime"] as? Double) ?: 0.0) * MS_IN_SECONDS
+                        )
+                        debugDataCollector?.updateMediaStats(peerId, mediaStats)
                     }
 
                     //complete data which has different struct at webrtc-debug
@@ -274,6 +330,43 @@ internal class WebRTCReporter(
                                     }
                                 }
                             data.add("connection", gson.toJsonTree(connectionCandidateMap))
+
+                            // Report selected candidate pair to debug data collector
+                            connectionCandidateMap?.let { candidateMap ->
+                                val localCandidate = candidateMap["local"] as? com.google.gson.JsonElement
+                                val remoteCandidate = candidateMap["remote"] as? com.google.gson.JsonElement
+
+                                if (localCandidate != null && remoteCandidate != null) {
+                                    val localObj = localCandidate.asJsonObject
+                                    val remoteObj = remoteCandidate.asJsonObject
+
+                                    val localDetails = CandidateDetails(
+                                        candidateType = localObj.get("candidateType")?.asString ?: "unknown",
+                                        protocol = localObj.get("protocol")?.asString ?: "unknown",
+                                        ip = localObj.get("address")?.asString ?: localObj.get("ip")?.asString ?: "unknown",
+                                        port = localObj.get("port")?.asInt ?: 0,
+                                        priority = localObj.get("priority")?.asLong,
+                                        relatedAddress = localObj.get("relatedAddress")?.asString,
+                                        relatedPort = localObj.get("relatedPort")?.asInt
+                                    )
+
+                                    val remoteDetails = CandidateDetails(
+                                        candidateType = remoteObj.get("candidateType")?.asString ?: "unknown",
+                                        protocol = remoteObj.get("protocol")?.asString ?: "unknown",
+                                        ip = remoteObj.get("address")?.asString ?: remoteObj.get("ip")?.asString ?: "unknown",
+                                        port = remoteObj.get("port")?.asInt ?: 0,
+                                        priority = remoteObj.get("priority")?.asLong,
+                                        relatedAddress = remoteObj.get("relatedAddress")?.asString,
+                                        relatedPort = remoteObj.get("relatedPort")?.asInt
+                                    )
+
+                                    debugDataCollector?.onIceCandidatePairSelected(
+                                        peerId,
+                                        localDetails,
+                                        remoteDetails
+                                    )
+                                }
+                            }
                         }
                     audio.add("outbound", outBoundStats)
                     data.add("audio", audio)
@@ -314,10 +407,11 @@ internal class WebRTCReporter(
                         WebRTCStatsEvent.STATS.event, WebRTCStatsTag.STATS.tag,
                         peerId.toString(), connectionId ?: "", data, statsData = statsData
                     )
+
                     onStatsDataEvent(StatsData.WebRTCEvent(statsEvent.toJson()))
                 }
 
-                delay(STATS_INTERVAL)
+                delay(statsInterval)
             }
         }
 
@@ -399,6 +493,21 @@ internal class WebRTCReporter(
                 peerId.toString(), connectionId ?: "", dataString = ""
             )
         onStatsEvent(statsEvent)
+    }
+
+    private fun processConnectionStateChange(peerEvent: StatsData.PeerEvent<*>) {
+        if (peerEvent.data is PeerConnection.PeerConnectionState) {
+            Logger.d(tag = "stats", "Peer Event: ${peerEvent.statsType} ${peerEvent.data.name}")
+
+            // Note: onConnectionStateChange is unreliable on Android and not used
+            // Connection state tracking is now done via ICE and DTLS states in the connection timeline
+
+            val statsEvent = StatsEvent(
+                peerEvent.statsType.event, WebRTCStatsTag.CONNECTION.tag,
+                peerId.toString(), connectionId ?: "", dataString = peerEvent.data.name.lowercase()
+            )
+            onStatsEvent(statsEvent)
+        }
     }
 
     private fun processInboundRtp(

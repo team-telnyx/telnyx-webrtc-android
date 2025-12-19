@@ -32,6 +32,19 @@ internal open class PeerConnectionObserver(private val statsManager: WebRTCRepor
     }
 
     /**
+     * Called when the peer connection state changes.
+     * This represents the overall connection state (new, connecting, connected, disconnected, failed, closed).
+     *
+     * @param p0 The new connection state
+     */
+    override fun onConnectionChange(p0: PeerConnection.PeerConnectionState?) {
+        Timber.tag("PeerObserver").d("onConnectionChange [%s]", "$p0")
+        p0?.let {
+            statsManager.onStatsDataEvent(StatsData.PeerEvent(WebRTCStatsEvent.ON_CONNECTION_STATE_CHANGE, it))
+        }
+    }
+
+    /**
      * Called when the ICE connection state changes.
      *
      * @param p0 The new ICE connection state

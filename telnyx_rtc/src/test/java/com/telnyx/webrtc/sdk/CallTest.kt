@@ -112,7 +112,9 @@ class CallTest : BaseTest() {
     @Test
     fun `test mute pressed during call`() {
         val newCall = Call(mockContext, client, socket, "123", audioManager)
-        newCall.endCall(UUID.randomUUID())
+        val callId = UUID.randomUUID()
+        newCall.callId = callId
+        newCall.endCall(callId)
         newCall.onMuteUnmutePressed()
         assertEquals(newCall.getIsMuteStatus().getOrAwaitValue(), true)
     }
@@ -131,6 +133,7 @@ class CallTest : BaseTest() {
     @Test
     fun `test loudspeaker pressed during call`() {
         val newCall = Call(mockContext, client, socket, "123", audioManager)
+        newCall.callId = UUID.randomUUID() // Initialize callId before using the call
         newCall.onLoudSpeakerPressed()
         assertEquals(newCall.getIsOnLoudSpeakerStatus().getOrAwaitValue(), true)
     }
