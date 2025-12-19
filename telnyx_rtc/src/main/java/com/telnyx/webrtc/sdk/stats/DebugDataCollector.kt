@@ -446,8 +446,9 @@ class DebugDataCollector(private val context: Context) {
                 logBuilder.appendLine("    $type: ${candidates.size}")
             }
         }
+
+        logBuilder.appendLine("  Selected Pair:")
         data.selectedCandidatePair?.let { pair ->
-            logBuilder.appendLine("  Selected Pair:")
             logBuilder.appendLine("    Local Candidate:")
             logBuilder.appendLine("      Type:        ${pair.local.candidateType}")
             logBuilder.appendLine("      Protocol:    ${pair.local.protocol}")
@@ -471,6 +472,8 @@ class DebugDataCollector(private val context: Context) {
             if (pair.remote.relatedAddress != null && pair.remote.relatedPort != null) {
                 logBuilder.appendLine("      Related:     ${pair.remote.relatedAddress}:${pair.remote.relatedPort}")
             }
+        } ?: run {
+            logBuilder.appendLine("    No candidates collected, connection never established")
         }
 
         // Codec
