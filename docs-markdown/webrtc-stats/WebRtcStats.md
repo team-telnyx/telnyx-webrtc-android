@@ -86,11 +86,11 @@ The `CallQuality` enum provides the following values:
 
 | Value | MOS Range | Description |
 |-------|-----------|-------------|
-| `.excellent` | MOS > 4.2 | Excellent call quality |
-| `.good` | 4.1 <= MOS <= 4.2 | Good call quality |
-| `.fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
-| `.poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
-| `.bad` | MOS <= 3.0 | Bad call quality |
+| `.excellent` | `MOS > 4.2` | Excellent call quality |
+| `.good` | `4.1 <= MOS <= 4.2` | Good call quality |
+| `.fair` | `3.7 <= MOS <= 4.0` | Fair call quality |
+| `.poor` | `3.1 <= MOS <= 3.6` | Poor call quality |
+| `.bad` | `MOS <= 3.0` | Bad call quality |
 | `.unknown` | N/A | Unable to calculate quality |
 
 **Best Practices for Call Quality Monitoring**
