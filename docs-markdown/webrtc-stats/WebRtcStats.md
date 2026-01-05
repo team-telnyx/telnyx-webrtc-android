@@ -75,10 +75,10 @@ The `CallQualityMetrics` object provides the following properties:
 | `rtt` | Double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
 | `mos` | Double | Mean Opinion Score (1.0-5.0) |
 | `quality` | CallQuality | Call quality rating based on MOS |
-| `inboundAudio` | Map<String, Any>? | Inbound audio statistics |
-| `outboundAudio` | Map<String, Any>? | Outbound audio statistics |
-| `remoteInboundAudio` | Map<String, Any>? | Remote inbound audio statistics |
-| `remoteOutboundAudio` | Map<String, Any>? | Remote outbound audio statistics |
+| `inboundAudio` | `Map<String, Any>?` | Inbound audio statistics |
+| `outboundAudio` | `Map<String, Any>?` | Outbound audio statistics |
+| `remoteInboundAudio` | `Map<String, Any>?` | Remote inbound audio statistics |
+| `remoteOutboundAudio` | `Map<String, Any>?` | Remote outbound audio statistics |
 
 **CallQuality Enum**
 
