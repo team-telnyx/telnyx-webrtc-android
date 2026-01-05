@@ -12,6 +12,7 @@ import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
@@ -45,6 +46,7 @@ import kotlin.concurrent.timerTask
  * Peer class that represents a peer connection which is required to initiate a call.
  *
  * @param context the Context of the application
+ * @param audioConstraints optional audio processing constraints for the call
  */
 internal class Peer(
     context: Context,
@@ -55,7 +57,8 @@ internal class Peer(
     private val prefetchIceCandidate: Boolean = false,
     private val forceRelayCandidate: Boolean = false,
     private val isAnswering: Boolean = false,
-    val onIceCandidateAdd: ((String) -> (Unit))? = null
+    val onIceCandidateAdd: ((String) -> (Unit))? = null,
+    private val audioConstraints: AudioConstraints? = null
 ) {
 
     companion object {
@@ -427,13 +430,40 @@ internal class Peer(
 
     /**
      * Starts local audio capture to be used during call
+     * Applies audio processing constraints (echo cancellation, noise suppression, auto gain control)
+     * @param constraints Optional audio constraints to override constructor constraints
      * @see [AudioSource]
      * @see [AudioTrack]
      * @see [RtpTransceiver]
      */
-    fun startLocalAudioCapture() {
+    fun startLocalAudioCapture(constraints: AudioConstraints? = null) {
         Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
-        val audioSource: AudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
+
+        // Use provided constraints, fall back to constructor constraints, or default to all enabled
+        val effectiveConstraints = constraints ?: audioConstraints ?: AudioConstraints()
+        Logger.d(
+            tag = "Peer:Audio",
+            message = "Audio constraints: echoCancellation=${effectiveConstraints.echoCancellation}, " +
+                    "noiseSuppression=${effectiveConstraints.noiseSuppression}, " +
+                    "autoGainControl=${effectiveConstraints.autoGainControl}"
+        )
+
+        val audioMediaConstraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair(
+                "googEchoCancellation",
+                effectiveConstraints.echoCancellation.toString()
+            ))
+            mandatory.add(MediaConstraints.KeyValuePair(
+                "googNoiseSuppression",
+                effectiveConstraints.noiseSuppression.toString()
+            ))
+            mandatory.add(MediaConstraints.KeyValuePair(
+                "googAutoGainControl",
+                effectiveConstraints.autoGainControl.toString()
+            ))
+        }
+
+        val audioSource: AudioSource = peerConnectionFactory.createAudioSource(audioMediaConstraints)
         localAudioTrack = peerConnectionFactory.createAudioTrack(
             AUDIO_LOCAL_TRACK_ID,
             audioSource

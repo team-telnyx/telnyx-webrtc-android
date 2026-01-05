@@ -125,7 +125,7 @@ NOTE:
 Remember to add and handle INTERNET, RECORD_AUDIO and ACCESS_NETWORK_STATE permissions
 
    <p align="center">
-               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png">
+               <img align="center" src="https://user-images.githubusercontent.com/9112652/117322479-f4731c00-ae85-11eb-9259-6333fc20b629.png" />
             </p>
 
 ### Initialize

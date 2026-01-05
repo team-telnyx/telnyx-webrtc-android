@@ -37,6 +37,13 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
             }
         }
 
-        return AcceptCall(context).invoke(callId, callerIdNumber, customeHeaders, debug, useTrickleIce = useTrickleIce)
+        return AcceptCall(context).invoke(
+            callId,
+            callerIdNumber,
+            customeHeaders,
+            debug,
+            useTrickleIce = useTrickleIce,
+            audioConstraints = null  // Use defaults when accepting while holding
+        )
     }
 }

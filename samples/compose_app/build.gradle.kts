@@ -23,6 +23,7 @@ android {
 
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["runnerBuilder"] = "de.mannodermaus.junit5.AndroidJUnit5Builder"
 
         val properties = Properties()
         val localPropertiesFile = file("${rootDir}/local.properties")
@@ -63,6 +64,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/LICENSE.md",
+                "META-INF/LICENSE-notice.md"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -84,23 +94,40 @@ dependencies {
     implementation("com.google.code.gson:gson:2.12.0")
 
     implementation("androidx.compose.runtime:runtime-livedata:1.7.7")
+    testImplementation("org.testng:testng:6.9.6")
     androidTestImplementation("androidx.navigation:navigation-testing:2.8.7")
 
     //permissions
     implementation("com.karumi:dexter:6.2.2")
 
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    // JUnit 5 (Jupiter) for unit tests
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.2")
+
+    // JUnit 5 for Android instrumentation tests
+    androidTestImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.4.0")
+    androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.4.0")
+
+    // Compose testing with JUnit 5 support
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.04.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
     val nav_version = "2.8.7"
     implementation("androidx.navigation:navigation-compose:$nav_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
-    
+
     // Reorderable list for codec selection
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
 }

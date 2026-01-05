@@ -31,7 +31,7 @@
     <string name="telnyx_notification_channel_name" translatable="true">Telnyx</string>
     <string name="message_subscribe_failed">Failed to subscribe to topic</string>
     <string name="message_subscribed">Subscribed to topic</string>
-    <string name="connected">Client-ready</string>
+    <string name="connected">Connected</string>
     <string name="disconnect">Disconnect</string>
     <string name="login_token">Login Token</string>
     <string name="token_login">Token Login</string>
@@ -170,11 +170,17 @@
     <string name="assistant_send">Send</string>
     <string name="assistant_you">You</string>
     <string name="assistant_ai">Assistant</string>
+    <string name="assistant_add_image">Add image</string>
     <string name="assistant_dial">Dial the connected Assistant</string>
 
     <!-- Codec Selection -->
     <string name="preferred_codecs">Preferred Codecs</string>
     <string name="preferred_audio_codecs">Preferred Audio Codecs</string>
+
+    <!-- Audio Constraints -->
+    <string name="audio_constraints">Audio Constraints</string>
+    <string name="mute_on_start_on">Mute On Start On</string>
+    <string name="mute_on_start_off">Mute On Start Off</string>
     <string name="websocket_messages">Websocket Messages</string>
     <string name="copy_fcm_token_menu">Copy FCM Token</string>
     <string name="disable_push_notifications_menu">Disable Push Notifications</string>

@@ -173,7 +173,8 @@ class AnswerIncomingPushCall(private val context: Context) {
                         customHeaders,
                         debug,
                         useTrickleIce,
-                        onCallQualityChange
+                        audioConstraints = null,  // Use defaults for push calls
+                        onCallQualityChange = onCallQualityChange
                     )
                     cleanUp(answeredCall)
                     return true

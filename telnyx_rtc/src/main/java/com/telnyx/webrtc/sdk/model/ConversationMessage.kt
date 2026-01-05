@@ -34,7 +34,9 @@ data class ConversationContent(
     @SerializedName("type")
     val type: String? = null,
     @SerializedName("text")
-    val text: String? = null
+    val text: String? = null,
+    @SerializedName("image_url")
+    val imageUrl: ConversationImageURL? = null
 )
 
 /**
@@ -73,4 +75,9 @@ data class AudioVisualizerConfig(
     val color: String? = null,
     @SerializedName("preset")
     val preset: String? = null
+)
+
+data class ConversationImageURL(
+    @SerializedName("url")
+    val url: String? = null
 )

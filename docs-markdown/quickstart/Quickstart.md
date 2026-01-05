@@ -1,4 +1,4 @@
-# Telnyx Android Quickstart - the `telnyx_common` module
+# Telnyx Android Quickstart - the telnyx_common module
 
 The `telnyx_common` module provides a ready-to-use implementation of the Telnyx WebRTC SDK for Android applications. This module is designed to be a drop-in solution for developers who want to quickly integrate Telnyx's voice calling capabilities into their Android applications without having to implement the low-level SDK interactions themselves.
 
@@ -19,14 +19,14 @@ The `telnyx_common` module serves as a bridge between your application and the `
 
 The `TelnyxViewModel` is the primary interface for interacting with the Telnyx WebRTC SDK. It provides methods for authentication, call management, and handling incoming calls.
 
-#### Authentication Methods
+**Authentication Methods**
 
 - `credentialLogin(viewContext, profile, txPushMetaData, autoLogin)`: Authenticates a user using SIP credentials (username/password)
 - `tokenLogin(viewContext, profile, txPushMetaData, autoLogin)`: Authenticates a user using a SIP token
 - `connectWithLastUsedConfig(viewContext, txPushMetaData)`: Reconnects using the last successful authentication method
 - `disconnect(viewContext)`: Disconnects the current session
 
-#### Call Management Methods
+**Call Management Methods**
 
 - `sendInvite(viewContext, destinationNumber)`: Initiates an outgoing call to the specified number
 - `answerCall(viewContext, callId, callerIdNumber)`: Answers an incoming call
@@ -35,13 +35,13 @@ The `TelnyxViewModel` is the primary interface for interacting with the Telnyx W
 - `holdUnholdCurrentCall(viewContext)`: Toggles hold state for the current call
 - `dtmfPressed(key)`: Sends DTMF tones during an active call
 
-#### Push Notification Methods
+**Push Notification Methods**
 
 - `answerIncomingPushCall(viewContext, txPushMetaData)`: Answers a call received via push notification with the metadata received from the push notification
 - `rejectIncomingPushCall(viewContext, txPushMetaData)`: Rejects a call received via push notification with the metadata received from the push notification
 - `disablePushNotifications(context)`: Disables push notifications for the current device
 
-#### Profile Management Methods - Saving and Loading Credentials (SIP or Generated) or Tokens
+**Profile Management Methods - Saving and Loading Credentials (SIP or Generated) or Tokens**
 
 - `setupProfileList(context)`: Initializes the list of user profiles
 - `addProfile(context, profile)`: Adds a new user profile
@@ -91,7 +91,7 @@ A more fleshed out example of how we use this is within `TelnyxCommon.kt` which 
 
 The notification folder provides a complete implementation for handling call notifications, including:
 
-#### CallNotificationService
+**CallNotificationService**
 
 Handles the creation and management of notifications for:
 - Incoming calls
@@ -100,14 +100,14 @@ Handles the creation and management of notifications for:
 
 The service creates appropriate notification channels and configures them with the correct importance levels, sounds, and vibration patterns.
 
-#### CallNotificationReceiver
+**CallNotificationReceiver**
 
 A `BroadcastReceiver` that handles user interactions with call notifications:
 - Answering calls from the notification
 - Rejecting calls from the notification
 - Ending ongoing calls from the notification
 
-#### MyFirebaseMessagingService
+**MyFirebaseMessagingService**
 
 Handles incoming Firebase Cloud Messaging (FCM) push notifications for calls:
 - Parses incoming push notifications and extracts the call metadata, which is required when answering or rejecting calls from the notification

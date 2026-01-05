@@ -46,6 +46,7 @@ import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
+import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQuality
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.common.model.MetricSummary
@@ -141,9 +142,22 @@ class TelnyxViewModel : ViewModel() {
     private var preferredAudioCodecs: List<AudioCodec>? = null
 
     /**
+     * Audio processing constraints for calls.
+     * These constraints control echo cancellation, noise suppression, and auto gain control.
+     * If null, defaults will be used (all constraints enabled).
+     */
+    private var audioConstraints: AudioConstraints? = null
+
+    /**
+     * When true, starts calls with the microphone muted.
+     * This applies to both outgoing and incoming calls.
+     */
+    private var mutedMicOnStart: Boolean = false
+
+    /**
      * Server configuration for the Telnyx WebRTC SDK.
      */
-    private var serverConfiguration = TxServerConfiguration()
+    private var serverConfiguration = TxServerConfiguration.production()
 
     /**
      * Flag indicating whether the server configuration is in development environment.
@@ -340,13 +354,11 @@ class TelnyxViewModel : ViewModel() {
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
         serverConfigurationIsDev = isDev
-        serverConfiguration = serverConfiguration.copy(
-            host = if (isDev) {
-                "rtcdev.telnyx.com"
-            } else {
-                "rtc.telnyx.com"
-            }
-        )
+        serverConfiguration = if (isDev) {
+            TxServerConfiguration.development()
+        } else {
+            TxServerConfiguration.production()
+        }
     }
 
     /**
@@ -403,6 +415,44 @@ class TelnyxViewModel : ViewModel() {
      */
     fun getPreferredAudioCodecs(): List<AudioCodec>? {
         return preferredAudioCodecs
+    }
+
+    /**
+     * Sets the audio processing constraints for calls.
+     * These constraints will be used for both outgoing and incoming calls.
+     *
+     * @param constraints Audio processing constraints or null to use defaults (all enabled).
+     */
+    fun setAudioConstraints(constraints: AudioConstraints?) {
+        audioConstraints = constraints
+    }
+
+    /**
+     * Gets the currently set audio processing constraints.
+     *
+     * @return Audio processing constraints or null if defaults are used.
+     */
+    fun getAudioConstraints(): AudioConstraints? {
+        return audioConstraints
+    }
+
+    /**
+     * Sets whether the microphone should be muted when starting calls.
+     * This setting will be used for both outgoing and incoming calls.
+     *
+     * @param muted true to start calls with microphone muted, false otherwise.
+     */
+    fun setMutedMicOnStart(muted: Boolean) {
+        mutedMicOnStart = muted
+    }
+
+    /**
+     * Gets the current muted microphone on start setting.
+     *
+     * @return true if calls will start with microphone muted, false otherwise.
+     */
+    fun getMutedMicOnStart(): Boolean {
+        return mutedMicOnStart
     }
 
     /**
@@ -971,13 +1021,16 @@ class TelnyxViewModel : ViewModel() {
      * @param destinationNumber The phone number to call.
      * @param debug Whether to enable debug mode for call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun sendInvite(
         viewContext: Context,
         destinationNumber: String,
         debug: Boolean,
         preferredCodecs: List<AudioCodec>? = null,
-        trickleIce: Boolean = false
+        trickleIce: Boolean = false,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
 
         toggleTrickleIce(trickleIce)
@@ -996,6 +1049,8 @@ class TelnyxViewModel : ViewModel() {
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
                     trickleIce,
+                    audioConstraintsOverride ?: audioConstraints,
+                    mutedMicOnStart,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.OUTBOUND, number)
                     }
@@ -1016,11 +1071,14 @@ class TelnyxViewModel : ViewModel() {
      * @param viewContext The application context.
      * @param debug Whether to enable debug mode for call quality metrics.
      * @param preferredCodecs Optional list of preferred audio codecs for the call.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun sendAiAssistantInvite(
         viewContext: Context,
         debug: Boolean,
-        preferredCodecs: List<AudioCodec>? = null
+        preferredCodecs: List<AudioCodec>? = null,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
 
         callStateJob?.cancel()
@@ -1037,6 +1095,8 @@ class TelnyxViewModel : ViewModel() {
                 debug,
                 preferredCodecs,
                 useTrickleIce,
+                audioConstraintsOverride ?: audioConstraints,
+                mutedMicOnStart,
                 onCallHistoryAdd = { number ->
                     addCallToHistory(CallType.OUTBOUND, number)
                 }
@@ -1050,10 +1110,10 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    fun sendAIAssistantMessage(viewContext: Context, message: String) {
+    fun sendAIAssistantMessage(viewContext: Context, message: String, imagesUrls: List<String>? = null) {
         val telnyxCommon = TelnyxCommon.getInstance()
         viewModelScope.launch {
-            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message)
+            telnyxCommon.getTelnyxClient(viewContext).sendAIAssistantMessage(message, imagesUrls)
         }
     }
 
@@ -1109,12 +1169,15 @@ class TelnyxViewModel : ViewModel() {
      * @param callId The UUID of the call to answer.
      * @param callerIdNumber The caller ID number for the call.
      * @param debug Whether to enable debug mode for call quality metrics.
+     * @param audioConstraintsOverride Optional audio constraints override for this specific call.
+     * If null, uses the constraints set via setAudioConstraints().
      */
     fun answerCall(
         viewContext: Context,
         callId: UUID,
         callerIdNumber: String,
-        debug: Boolean
+        debug: Boolean,
+        audioConstraintsOverride: AudioConstraints? = null
     ) {
         callStateJob?.cancel()
         callStateJob = null
@@ -1139,6 +1202,8 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     useTrickleIce,
+                    audioConstraintsOverride ?: audioConstraints,
+                    mutedMicOnStart,
                     onCallHistoryAdd = { number ->
                         addCallToHistory(CallType.INBOUND, number)
                     }

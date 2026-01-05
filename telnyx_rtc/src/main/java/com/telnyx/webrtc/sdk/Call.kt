@@ -129,6 +129,11 @@ data class Call(
      * @param destinationNumber, the number or SIP name that will receive the invitation
      * @param clientState, the provided client state.
      * @param customHeaders, optional custom SIP headers to include with the call
+     * 
+     *   Note that if you are calling a Telnyx AI Assistant,  Headers with the `X-` prefix
+     *   will be mapped to dynamic variables in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`).
+     *   Note: Hyphens in header names are converted to underscores in variable names.
+     *
      * @param debug, when true, enables real-time call quality metrics
      * @see [Call]
      */
@@ -221,13 +226,17 @@ data class Call(
      * @see [AudioManager]
      */
     fun onMuteUnmutePressed() {
-        if (!muteLiveData.value!!) {
-            muteLiveData.postValue(true)
-            audioManager.isMicrophoneMute = true
-        } else {
-            muteLiveData.postValue(false)
-            audioManager.isMicrophoneMute = false
-        }
+        setMuteState(!muteLiveData.value!!)
+    }
+
+    /**
+     * Sets the microphone mute state to a specific value
+     * @param muted true to mute the microphone, false to unmute
+     * @see [AudioManager]
+     */
+    fun setMuteState(muted: Boolean) {
+        muteLiveData.postValue(muted)
+        audioManager.isMicrophoneMute = muted
     }
 
     /**

@@ -50,14 +50,23 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
+
+        // Block back button and outside touch dismissal
+        isCancelable = false
+
         val dialog = dialog as? BottomSheetDialog
         dialog?.let {
+            // Block outside touch dismissal
+            it.setCanceledOnTouchOutside(false)
+
             val bottomSheet =
                 it.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
 
             bottomSheet?.let { sheet ->
                 val behavior = BottomSheetBehavior.from(sheet)
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED // Fullscreen
+                behavior.isDraggable = false // Block swipe down gesture
+                behavior.isHideable = false // Prevent hiding
                 sheet.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
             }
         }
@@ -67,6 +76,16 @@ class LoginBottomSheetFragment : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupListeners()
+        updateEnvironmentLabel()
+    }
+
+    private fun updateEnvironmentLabel() {
+        val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+            getString(R.string.development_label)
+        } else {
+            getString(R.string.production_label)
+        }
+        binding.productionText.text = environmentLabel
     }
 
 

@@ -10,6 +10,8 @@ internal object Config {
     const val TELNYX_PORT = 443
     const val DEFAULT_TURN = "turn:turn.telnyx.com:3478?transport=tcp"
     const val DEFAULT_STUN = "stun:stun.telnyx.com:3478"
+    const val DEV_TURN = "turn:turndev.telnyx.com:3478?transport=tcp"
+    const val DEV_STUN = "stun:stundev.telnyx.com:3478"
     const val USERNAME = "testuser"
     const val PASSWORD = "testpassword"
 }

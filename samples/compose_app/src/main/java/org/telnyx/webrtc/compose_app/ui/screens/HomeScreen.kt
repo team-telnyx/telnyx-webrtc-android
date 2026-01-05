@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +42,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -96,7 +95,6 @@ import org.telnyx.webrtc.compose_app.ui.theme.TelnyxAndroidWebRTCSDKTheme
 import org.telnyx.webrtc.compose_app.ui.theme.colorSecondary
 import org.telnyx.webrtc.compose_app.ui.theme.secondary_background_color
 import org.telnyx.webrtc.compose_app.ui.theme.telnyxGreen
-import org.telnyx.webrtc.compose_app.ui.components.ConnectionQualityIndicator
 import org.telnyx.webrtc.compose_app.ui.components.ConnectionMetricsDetail
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.MediumTextBold
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RegularText
@@ -104,10 +102,10 @@ import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundSmallButton
 import org.telnyx.webrtc.compose_app.ui.viewcomponents.RoundedOutlinedButton
 import org.telnyx.webrtc.compose_app.utils.capitalizeFirstChar
 import timber.log.Timber
+import org.telnyx.webrtc.compose_app.ui.components.AudioConstraintsDialog
 import org.telnyx.webrtc.compose_app.ui.components.CodecSelectionDialog
 import org.telnyx.webrtc.compose_app.ui.components.PreCallDiagnosisBottomSheet
 import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantLoginBottomSheet
-import org.telnyx.webrtc.compose_app.ui.screens.assistant.AssistantTranscriptBottomSheet
 
 @Serializable
 object LoginScreenNav
@@ -124,13 +122,23 @@ fun HomeScreen(
     onCopyFcmToken: () -> Unit = {},
     onDisablePushNotifications: () -> Unit = {}
 ) {
-    val sheetState = rememberModalBottomSheetState(true)
+    val loginSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { newValue ->
+            // Prevent the sheet from being hidden via swipe gesture
+            newValue != SheetValue.Hidden
+        }
+    )
+    val environmentSheetState = rememberModalBottomSheetState(true, confirmValueChange = { newValue ->
+        newValue != SheetValue.Hidden
+    })
     val scope = rememberCoroutineScope()
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showEnvironmentBottomSheet by remember { mutableStateOf(false) }
     var showPreCallDiagnosisBottomSheet by remember { mutableStateOf(false) }
     var showAssistantLoginBottomSheet by remember { mutableStateOf(false) }
     var showCodecSelectionDialog by remember { mutableStateOf(false) }
+    var showAudioConstraintsDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRegionMenu by remember { mutableStateOf(false) }
     var showConnectionMetrics by remember { mutableStateOf(false) }
@@ -144,6 +152,7 @@ fun HomeScreen(
     val uiState by telnyxViewModel.uiState.collectAsState()
     val isLoading by telnyxViewModel.isLoading.collectAsState()
     val connectionMetrics by telnyxViewModel.connectionMetrics.collectAsState()
+    val connectionMetricSheetState = rememberModalBottomSheetState(true)
     val connectionStatus by telnyxViewModel.connectionStatus?.collectAsState(initial = ConnectionStatus.DISCONNECTED)
         ?: remember { mutableStateOf(ConnectionStatus.DISCONNECTED) }
 
@@ -170,6 +179,12 @@ fun HomeScreen(
             is TelnyxSessionState.ClientDisconnected -> {
                 missingSessionIdLabel
             }
+        }
+    }
+
+    LaunchedEffect(connectionStatus) {
+        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
+            lastShownErrorMessage = null
         }
     }
 
@@ -201,6 +216,7 @@ fun HomeScreen(
 
     Scaffold(
         modifier = Modifier
+            .testTag("homeScreenRoot")
             .padding(start = Dimens.mediumSpacing, end = Dimens.mediumSpacing),
         topBar = {
             Column {
@@ -393,6 +409,49 @@ fun HomeScreen(
                                     }
                                 )
 
+                                // Audio Constraints option
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.audio_constraints)) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showAudioConstraintsDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                // Mute On Start toggle
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(
+                                                if (telnyxViewModel.getMutedMicOnStart())
+                                                    R.string.mute_on_start_on
+                                                else
+                                                    R.string.mute_on_start_off
+                                            )
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newValue = !telnyxViewModel.getMutedMicOnStart()
+                                        telnyxViewModel.setMutedMicOnStart(newValue)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(if (telnyxViewModel.getMutedMicOnStart())
+                                                R.drawable.mute_off_24
+                                            else
+                                                R.drawable.mute_24),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
                                 // Force ICE Renegotiation option (for testing)
                                 DropdownMenuItem(
                                     text = { Text("Force ICE Renegotiation (Test)") },
@@ -478,7 +537,7 @@ fun HomeScreen(
                             expanded = showRegionMenu,
                             onDismissRequest = { showRegionMenu = false }
                         ) {
-                            Region.values().forEach { region ->
+                            Region.entries.forEach { region ->
                                 DropdownMenuItem(
                                     text = { Text(region.displayName) },
                                     onClick = {
@@ -588,10 +647,14 @@ fun HomeScreen(
             ModalBottomSheet(
                 modifier = Modifier.fillMaxSize(),
                 onDismissRequest = {
-                    showLoginBottomSheet = false
+                    // Intentionally empty - prevents dismissal
                 },
+                dragHandle = null,
                 containerColor = Color.White,
-                sheetState = sheetState
+                sheetState = loginSheetState,
+                properties = androidx.compose.material3.ModalBottomSheetDefaults.properties(
+                    shouldDismissOnBackPress = false
+                )
             ) {
                 var isAddProfile by remember { mutableStateOf(false) }
 
@@ -608,7 +671,7 @@ fun HomeScreen(
                             text = stringResource(id = R.string.existing_profiles),
                             modifier = Modifier.fillMaxWidth(fraction = 0.9f)
                         )
-                        IconButton(onClick = {
+                        /*IconButton(onClick = {
                             scope.launch {
                                 sheetState.hide()
                                 selectedUserProfile = telnyxViewModel.currentProfile.value
@@ -623,11 +686,13 @@ fun HomeScreen(
                                 contentDescription = stringResource(id = R.string.close_button_dessc),
                                 modifier = Modifier.size(Dimens.size16dp)
                             )
-                        }
+                        }*/
                     }
 
                     RoundSmallButton(
-                        modifier = Modifier.height(Dimens.size32dp),
+                        modifier = Modifier
+                            .height(Dimens.size32dp)
+                            .testTag("addNewProfileButton"),
                         text = stringResource(id = R.string.add_new_profile),
                         textSize = 12.sp,
                         backgroundColor = secondary_background_color,
@@ -638,7 +703,12 @@ fun HomeScreen(
                         isAddProfile = !isAddProfile
                     }
 
-                    RegularText(stringResource(R.string.production_label))
+                    val environmentLabel = if (telnyxViewModel.serverConfigurationIsDev) {
+                        stringResource(R.string.development_label)
+                    } else {
+                        stringResource(R.string.production_label)
+                    }
+                    RegularText(environmentLabel)
 
                     val credentialConfigList by telnyxViewModel.profileList.collectAsState()
 
@@ -668,7 +738,7 @@ fun HomeScreen(
                                 negativeText = stringResource(id = R.string.Cancel),
                                 onPositiveClick = {
                                     scope.launch {
-                                        sheetState.hide()
+                                        loginSheetState.hide()
                                         selectedUserProfile?.let {
                                             telnyxViewModel.setCurrentConfig(context, it)
                                         }
@@ -678,7 +748,7 @@ fun HomeScreen(
                                 },
                                 onNegativeClick = {
                                     scope.launch {
-                                        sheetState.hide()
+                                        loginSheetState.hide()
                                         selectedUserProfile = telnyxViewModel.currentProfile.value
                                     }.invokeOnCompletion {
                                         showLoginBottomSheet = false
@@ -760,7 +830,7 @@ fun HomeScreen(
                 showEnvironmentBottomSheet = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = environmentSheetState
         ) {
             Column(
                 modifier = Modifier.padding(Dimens.mediumSpacing),
@@ -776,9 +846,9 @@ fun HomeScreen(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            environmentSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!environmentSheetState.isVisible) {
                                 showEnvironmentBottomSheet = false
                             }
                         }
@@ -898,6 +968,24 @@ fun HomeScreen(
         }
     )
 
+    // Audio Constraints Dialog
+    AudioConstraintsDialog(
+        isVisible = showAudioConstraintsDialog,
+        currentConstraints = telnyxViewModel.getAudioConstraints(),
+        onDismiss = {
+            showAudioConstraintsDialog = false
+        },
+        onConfirm = { constraints ->
+            telnyxViewModel.setAudioConstraints(constraints)
+            showAudioConstraintsDialog = false
+            Toast.makeText(
+                context,
+                "Audio constraints updated: EC=${constraints.echoCancellation}, NS=${constraints.noiseSuppression}, AGC=${constraints.autoGainControl}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    )
+
     // Connection Metrics Bottom Sheet
     if (showConnectionMetrics) {
         val configuration = LocalConfiguration.current
@@ -909,7 +997,7 @@ fun HomeScreen(
                 showConnectionMetrics = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = connectionMetricSheetState
         ) {
             Column(
                 modifier = Modifier
@@ -926,9 +1014,9 @@ fun HomeScreen(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            connectionMetricSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!connectionMetricSheetState.isVisible) {
                                 showConnectionMetrics = false
                             }
                         }
@@ -994,6 +1082,8 @@ fun ProfileListView(
 fun PosNegButton(
     positiveText: String,
     negativeText: String,
+    positiveTestTag: String = "positiveButton",
+    negativeTestTag: String = "negativeButton",
     contentAlignment: Alignment = Alignment.BottomEnd,
     onPositiveClick: () -> Unit = {},
     onNegativeClick: () -> Unit = {}
@@ -1007,7 +1097,7 @@ fun PosNegButton(
             RoundedOutlinedButton(
                 modifier = Modifier
                     .height(Dimens.size32dp)
-                    .testTag("negativeButton"),
+                    .testTag(negativeTestTag),
                 text = negativeText,
                 contentColor = MaterialTheme.colorScheme.primary,
                 backgroundColor = Color.White
@@ -1017,7 +1107,7 @@ fun PosNegButton(
             RoundedOutlinedButton(
                 modifier = Modifier
                     .height(Dimens.size32dp)
-                    .testTag("positiveButton"),
+                    .testTag(positiveTestTag),
                 text = positiveText
             ) {
                 onPositiveClick()
@@ -1079,8 +1169,12 @@ fun ProfileSwitcher(profileName: String, onProfileSwitch: () -> Unit = {}) {
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacing12dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RegularText(text = profileName)
+            RegularText(
+                text = profileName,
+                modifier = Modifier.testTag("profileName")
+            )
             RoundSmallButton(
+                modifier = Modifier.testTag("switchProfileButton"),
                 text = stringResource(R.string.switch_profile),
                 textSize = 14.sp,
                 backgroundColor = MaterialTheme.colorScheme.background
@@ -1110,7 +1204,7 @@ fun ConnectionState(
     onShowConnectionMetrics: () -> Unit = {}
 ) {
     val wsMessages by telnyxViewModel.wsMessages.collectAsState()
-    val sheetState = rememberModalBottomSheetState(true)
+    val messageSheetState = rememberModalBottomSheetState(true)
     val scope = rememberCoroutineScope()
 
     Column(
@@ -1126,7 +1220,7 @@ fun ConnectionState(
                     .size(Dimens.size12dp)
                     .background(
                         color = when (connectionStatus) {
-                            ConnectionStatus.CONNECTED -> MainGreen
+                            ConnectionStatus.CONNECTED -> RingingIconColor
                             ConnectionStatus.CLIENT_READY -> MainGreen
                             ConnectionStatus.RECONNECTING -> RingingIconColor
                             ConnectionStatus.DISCONNECTED -> Color.Red
@@ -1172,7 +1266,7 @@ fun ConnectionState(
                 showWsMessagesBottomSheet.value = false
             },
             containerColor = Color.White,
-            sheetState = sheetState
+            sheetState = messageSheetState
         ) {
             Column(
                 modifier = Modifier
@@ -1189,9 +1283,9 @@ fun ConnectionState(
                     )
                     IconButton(onClick = {
                         scope.launch {
-                            sheetState.hide()
+                            messageSheetState.hide()
                         }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
+                            if (!messageSheetState.isVisible) {
                                 showWsMessagesBottomSheet.value = false
                             }
                         }
@@ -1356,6 +1450,7 @@ fun BottomBar(
             text = if (state) stringResource(R.string.disconnect) else stringResource(R.string.connect),
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("connectDisconnectButton")
         ) {
             if (state) {
                 telnyxViewModel.disconnect(context)

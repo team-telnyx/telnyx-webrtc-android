@@ -3,6 +3,7 @@ package com.telnyx.webrtc.common.domain.call
 import android.content.Context
 import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,8 @@ class AcceptCall(private val context: Context) {
      * @param customHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
      * @param useTrickleIce When true, enables trickle ICE for faster call setup.
+     * @param audioConstraints Optional audio processing constraints for the call.
+     * @param mutedMicOnStart When true, starts the call with the microphone muted.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
@@ -34,13 +37,13 @@ class AcceptCall(private val context: Context) {
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         useTrickleIce: Boolean = false,
-
+        audioConstraints: AudioConstraints? = null,
+        mutedMicOnStart: Boolean = false,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug,  useTrickleIce)
-
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, useTrickleIce, audioConstraints, mutedMicOnStart)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {

@@ -42,6 +42,9 @@ jobs:
           echo "TEST_SIP_CALLER_NUMBER=${{ secrets.TEST_SIP_CALLER_NUMBER }}" >> local.properties
           echo "TEST_SIP_DEST_NUMBER=${{ secrets.TEST_SIP_DEST_NUMBER }}" >> local.properties
 
+      - name: Clean Build
+        run: ./gradlew clean
+
       - name: Build Debug APK and Test APK
         run: |
           ./gradlew :samples:xml_app:assembleDebug samples:xml_app:assembleDebugAndroidTest
@@ -79,13 +82,80 @@ jobs:
             --timeout 30m
           echo "compose_status=success" >> $GITHUB_OUTPUT
 
+      # Reactive Circus fallback mechanism - runs only when both Firebase tests fail
+      - name: Enable KVM group perms (Reactive Circus)
+        if: always() && steps.xml_tests.outcome == 'failure' && steps.compose_tests.outcome == 'failure'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run XML App Tests with Reactive Circus (Fallback)
+        id: xml_fallback_tests
+        if: always() && steps.xml_tests.outcome == 'failure' && steps.compose_tests.outcome == 'failure'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            echo "Running XML app instrumentation tests as fallback..."
+            ./gradlew :samples:xml_app:connectedDebugAndroidTest --stacktrace
+        env:
+          TEST_SIP_USERNAME: ${{ secrets.TEST_SIP_USERNAME }}
+          TEST_SIP_PASSWORD: ${{ secrets.TEST_SIP_PASSWORD }}
+          TEST_SIP_CALLER_NAME: ${{ secrets.TEST_SIP_CALLER_NAME }}
+          TEST_SIP_CALLER_NUMBER: ${{ secrets.TEST_SIP_CALLER_NUMBER }}
+          TEST_SIP_DEST_NUMBER: ${{ secrets.TEST_SIP_DEST_NUMBER }}
+
+      - name: Run Compose App Tests with Reactive Circus (Fallback)
+        id: compose_fallback_tests
+        if: always() && steps.xml_tests.outcome == 'failure' && steps.compose_tests.outcome == 'failure'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            echo "Running Compose app instrumentation tests as fallback..."
+            ./gradlew :samples:compose_app:connectedDebugAndroidTest --stacktrace
+        env:
+          TEST_SIP_USERNAME: ${{ secrets.TEST_SIP_USERNAME }}
+          TEST_SIP_PASSWORD: ${{ secrets.TEST_SIP_PASSWORD }}
+          TEST_SIP_CALLER_NAME: ${{ secrets.TEST_SIP_CALLER_NAME }}
+          TEST_SIP_CALLER_NUMBER: ${{ secrets.TEST_SIP_CALLER_NUMBER }}
+          TEST_SIP_DEST_NUMBER: ${{ secrets.TEST_SIP_DEST_NUMBER }}
+
       - name: Check Test Results
         if: always()
         run: |
+          # Check Firebase test results first
           if [[ "${{ steps.xml_tests.outcome }}" == "success" || "${{ steps.compose_tests.outcome }}" == "success" ]]; then
-            echo "At least one test suite passed"
+            echo "✅ At least one Firebase test suite passed"
             exit 0
-          else
-            echo "Both test suites failed"
+          fi
+          
+          # If Firebase tests failed, check fallback results
+          echo "⚠️ Both Firebase test suites failed, checking fallback results..."
+          if [[ "${{ steps.xml_fallback_tests.outcome }}" == "success" || "${{ steps.compose_fallback_tests.outcome }}" == "success" ]]; then
+            echo "✅ At least one Reactive Circus fallback test suite passed"
+            exit 0
+          fi
+          
+          # If both Firebase and fallback tests failed
+          if [[ "${{ steps.xml_fallback_tests.outcome }}" == "failure" && "${{ steps.compose_fallback_tests.outcome }}" == "failure" ]]; then
+            echo "❌ Both Firebase and Reactive Circus fallback test suites failed"
             exit 1
           fi
+          
+          # If fallback tests were skipped (Firebase tests passed)
+          echo "❌ All test suites failed"
+          exit 1

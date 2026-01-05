@@ -171,6 +171,8 @@
     <string name="assistant_transcript_title">Assistant Transcript</string>
     <string name="assistant_message_hint">Type your message...</string>
     <string name="assistant_send_button">Send</string>
+    <string name="assistant_add_image">Add image</string>
+    <string name="assistant_image_attached">Image attached</string>
     <string name="assistant_transcript_empty">No conversation yet</string>
     <string name="assistant_error_empty_target_id">Please enter a Target ID</string>
     <string name="assistant_error_connection_failed">Failed to connect to Assistant</string>
@@ -190,6 +192,19 @@
     <string name="available_codecs">Available Codecs:</string>
     <string name="selected_codecs_order">Selected Codecs (in order of preference):</string>
     <string name="region">Region</string>
+
+    <!-- Audio Constraints -->
+    <string name="audio_constraints">Audio Constraints</string>
+    <string name="mute_on_start_on">Mute On Start On</string>
+    <string name="mute_on_start_off">Mute On Start Off</string>
+    <string name="audio_constraints_title">Audio Processing Constraints</string>
+    <string name="echo_cancellation">Echo Cancellation</string>
+    <string name="echo_cancellation_description">Removes acoustic echo from speaker feedback</string>
+    <string name="noise_suppression">Noise Suppression</string>
+    <string name="noise_suppression_description">Reduces background noise for clearer voice</string>
+    <string name="auto_gain_control">Auto Gain Control</string>
+    <string name="auto_gain_control_description">Automatically adjusts microphone volume</string>
+    <string name="audio_constraints_saved">Audio constraints saved</string>
 
     <!-- Connection Quality -->
     <string name="connection_details">Connection Details</string>

@@ -26,7 +26,7 @@ fun connectAnonymously(
 | `targetId` | String | Yes | - | The ID of your AI assistant |
 | `targetType` | String | No | "ai_assistant" | The type of target |
 | `targetVersionId` | String? | No | null | Optional version ID of the target. If not provided, uses latest version |
-| `userVariables` | Map<String, Any>? | No | null | Optional user variables to include |
+| `userVariables` | `Map<String, Any>?` | No | null | Optional user variables to include |
 | `reconnection` | Boolean | No | false | Whether this is a reconnection attempt |
 | `logLevel` | LogLevel | No | LogLevel.NONE | Logging level configuration |
 
