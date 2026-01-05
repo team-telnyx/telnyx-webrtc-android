@@ -24,7 +24,7 @@ telnyxClient.newInvite(
 | `callerNumber` | String | Your phone number (passed to AI assistant) |
 | `destinationNumber` | String | Ignored after anonymous login - can be empty string |
 | `clientState` | String | Custom state information for your application |
-| `customHeaders` | Map<String, String> | Optional SIP headers to pass context to the AI assistant (mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)) |
+| `customHeaders` | `Map<String, String>` | Optional SIP headers to pass context to the AI assistant (mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)) |
 
 Note that you can also provide `customHeaders` in the `newInvite` method. These headers need to start with the `X-` prefix and will be mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables) in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`). Hyphens in header names are converted to underscores in variable names.
 
