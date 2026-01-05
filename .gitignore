@@ -93,3 +93,7 @@ connection_service_app/google-services.json
 # system
 .DS_Store
 /platform-samples/
+
+# Node.js (docs-markdown linting)
+node_modules/
+docs-markdown/node_modules/
