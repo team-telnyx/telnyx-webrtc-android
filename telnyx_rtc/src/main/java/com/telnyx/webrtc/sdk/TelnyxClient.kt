@@ -239,13 +239,13 @@ class TelnyxClient(
      */
     val transcriptUpdateFlow: SharedFlow<List<TranscriptItem>> =
         _transcriptUpdateFlow.asSharedFlow()
-    
+
     // SharedFlow for connection metrics updates
     private val _socketConnectionMetricsFlow = MutableSharedFlow<SocketConnectionMetrics>(
         replay = 1,
         extraBufferCapacity = 64
     )
-    
+
     /**
      * Returns the connection metrics updates in the form of SharedFlow (recommended)
      * Contains connection quality information including latency, jitter, and overall quality score
@@ -253,8 +253,9 @@ class TelnyxClient(
      * @see [SocketConnectionMetrics]
      * @see [SocketConnectionQuality]
      */
-    val socketConnectionMetricsFlow: SharedFlow<SocketConnectionMetrics> = _socketConnectionMetricsFlow.asSharedFlow()
-    
+    val socketConnectionMetricsFlow: SharedFlow<SocketConnectionMetrics> =
+        _socketConnectionMetricsFlow.asSharedFlow()
+
     // Store the latest connection metrics
     private var currentSocketConnectionMetrics: SocketConnectionMetrics? = null
 
@@ -344,6 +345,7 @@ class TelnyxClient(
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
+     * @param answeredDeviceToken Optional device token to include when answering a push notification call
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -352,7 +354,8 @@ class TelnyxClient(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         audioConstraints: AudioConstraints? = null,
-        mutedMicOnStart: Boolean = false
+        mutedMicOnStart: Boolean = false,
+        answeredDeviceToken: String? = null
     ): Call {
         var callDebug = debug
         var socketPortalDebug = isSocketDebug
@@ -426,11 +429,12 @@ class TelnyxClient(
                                 CallParams(
                                     sessid = sessionId,
                                     sdp = finalAnswerSdp,
+                                    answeredDeviceToken = answeredDeviceToken,
                                     dialogParams = CallDialogParams(
                                         callId = callId,
                                         destinationNumber = destinationNumber,
                                         customHeaders = customHeaders?.toCustomHeaders()
-                                            ?: arrayListOf()
+                                            ?: arrayListOf(),
                                     )
                                 )
                             )
@@ -1271,7 +1275,7 @@ class TelnyxClient(
     fun getActiveCalls(): Map<UUID, Call> {
         return calls.toMap()
     }
-    
+
     /**
      * Returns the current connection quality based on the latest metrics
      * @return Current [SocketConnectionQuality], or DISCONNECTED if no metrics available
@@ -1279,7 +1283,7 @@ class TelnyxClient(
     fun getCurrentConnectionQuality(): SocketConnectionQuality {
         return currentSocketConnectionMetrics?.quality ?: SocketConnectionQuality.DISCONNECTED
     }
-    
+
     /**
      * Returns the latest connection metrics
      * @return Current [SocketConnectionMetrics], or null if no metrics available yet
@@ -1507,17 +1511,21 @@ class TelnyxClient(
         val uuid: String = UUID.randomUUID().toString()
 
         val conversationContent = mutableListOf<ConversationContent>()
-        conversationContent.add(ConversationContent(
-            type = "input_text",
-            text = message
-        ))
+        conversationContent.add(
+            ConversationContent(
+                type = "input_text",
+                text = message
+            )
+        )
 
         imagesUrls?.forEach { imageUrl ->
             val conversationImageURL = ConversationImageURL(imageUrl)
-            conversationContent.add(ConversationContent(
-                type = "image_url",
-                imageUrl = conversationImageURL
-            ))
+            conversationContent.add(
+                ConversationContent(
+                    type = "image_url",
+                    imageUrl = conversationImageURL
+                )
+            )
         }
 
         val conversationItem = ConversationItem(
@@ -2139,7 +2147,7 @@ class TelnyxClient(
             )
         )
         emitSocketResponse(SocketResponse.established())
-        
+
         // Emit initial connection metrics with CALCULATING state
         val initialMetrics = SocketConnectionMetrics(quality = SocketConnectionQuality.CALCULATING)
         _socketConnectionMetricsFlow.tryEmit(initialMetrics)
@@ -2656,7 +2664,7 @@ class TelnyxClient(
                 socketConnectionMetrics?.jitterMs
             )
         )
-        
+
         // Store and emit the connection metrics
         socketConnectionMetrics?.let { metrics ->
             currentSocketConnectionMetrics = metrics
@@ -2681,10 +2689,10 @@ class TelnyxClient(
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
-        
+
         // Clear connection metrics on disconnect
         currentSocketConnectionMetrics = null
-        
+
         socket.destroy()
     }
 

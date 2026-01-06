@@ -54,7 +54,9 @@ data class CallParams(
     val sdp: String,
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
-    val dialogParams: CallDialogParams
+    val dialogParams: CallDialogParams,
+    @SerializedName("answered_device_token")
+    val answeredDeviceToken: String? = null
 ) : ParamRequest()
 
 data class ByeParams(

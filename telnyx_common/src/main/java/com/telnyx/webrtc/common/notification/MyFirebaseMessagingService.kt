@@ -30,26 +30,30 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
         Timber.d("Message Received From Firebase Priority: ${remoteMessage.priority}")
-        Timber.d("Message Received From Firebase: ${remoteMessage.originalPriority}")
+        Timber.d("Message Received From Firebase Original Priority: ${remoteMessage.originalPriority}")
+        if (remoteMessage.priority < remoteMessage.originalPriority) {
+            Timber.e("Message priority downgraded, call notification may have arrived late")
+        }
 
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
         val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
-        if(isMissedCall){
-            Timber.d("Missed Call")
-            val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
-                putExtra("action", LegacyCallNotificationService.STOP_ACTION)
-            }
-            serviceIntent.setAction(LegacyCallNotificationService.STOP_ACTION)
-            startMessagingService(serviceIntent)
-            return
-        }
-
         // Initialize CallNotificationService if needed
         if (callNotificationService == null) {
             callNotificationService = CallNotificationService(this, CallNotificationReceiver::class.java)
+        }
+
+
+        if(isMissedCall){
+            Timber.d("Missed Call - cancelling incoming notification and showing missed call notification")
+            // Cancel any active incoming call notifications directly
+            CallNotificationService.cancelNotification(this)
+
+            // Show missed call notification
+            callNotificationService?.showMissedCallNotification(metadata)
+            return
         }
 
         // Try to use the new CallNotificationService if available
