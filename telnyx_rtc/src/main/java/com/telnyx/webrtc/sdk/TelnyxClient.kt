@@ -26,6 +26,7 @@ import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.TxSocketListener
+import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -55,6 +56,8 @@ class TelnyxClient(
 
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
+
+    internal val debugDataCollector: DebugDataCollector = DebugDataCollector(context)
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -437,23 +440,22 @@ class TelnyxClient(
                             socket.send(answerBodyMessage)
                             updateCallState(CallState.ACTIVE)
 
-                            // Start stats collection if debug is enabled
-                            if (callDebug || socketPortalDebug) {
-                                if (getWebRTCReporter(callId) == null) {
-                                    val webRTCReporter = WebRTCReporter(
-                                        socket,
-                                        callId,
-                                        getTelnyxLegId()?.toString(),
-                                        peerConnection!!,
-                                        callDebug,
-                                        socketPortalDebug
-                                    )
-                                    webRTCReporter.onCallQualityChange = { metrics ->
-                                        onCallQualityChange?.invoke(metrics)
-                                    }
-                                    webRTCReporter.startStats()
-                                    addWebRTCReporter(callId, webRTCReporter)
+                            // Start stats collection - interval is adjusted internally based on debug flags
+                            if (getWebRTCReporter(callId) == null) {
+                                val webRTCReporter = WebRTCReporter(
+                                    socket,
+                                    callId,
+                                    getTelnyxLegId()?.toString(),
+                                    peerConnection!!,
+                                    callDebug,
+                                    socketPortalDebug,
+                                    debugDataCollector
+                                )
+                                webRTCReporter.onCallQualityChange = { metrics ->
+                                    onCallQualityChange?.invoke(metrics)
                                 }
+                                webRTCReporter.startStats()
+                                addWebRTCReporter(callId, webRTCReporter)
                             }
 
                             Logger.d(
@@ -547,6 +549,9 @@ class TelnyxClient(
             callId = inviteCallId
             updateCallState(CallState.RINGING)
 
+            // Notify debug data collector that a new call has started
+            client.debugDataCollector.onCallStarted(inviteCallId)
+
             peerConnection = Peer(
                 context,
                 client,
@@ -561,25 +566,24 @@ class TelnyxClient(
                 audioConstraints = audioConstraints
             ).also {
 
-                // Create reporter if per-call debug is enabled or config debug is enabled
-                if (callDebug || socketPortalDebug) {
-                    val webRTCReporter =
-                        WebRTCReporter(
-                            socket,
-                            callId,
-                            this.getTelnyxLegId()?.toString(),
-                            it,
-                            callDebug,
-                            socketPortalDebug
-                        )
-                    if (callDebug) {
-                        webRTCReporter.onCallQualityChange = { metrics ->
-                            onCallQualityChange?.invoke(metrics)
-                        }
+                // Create reporter - interval is adjusted internally based on debug flags
+                val webRTCReporter =
+                    WebRTCReporter(
+                        socket,
+                        callId,
+                        this.getTelnyxLegId()?.toString(),
+                        it,
+                        callDebug,
+                        socketPortalDebug,
+                        client.debugDataCollector
+                    )
+                if (callDebug) {
+                    webRTCReporter.onCallQualityChange = { metrics ->
+                        onCallQualityChange?.invoke(metrics)
                     }
-                    webRTCReporter.startStats()
-                    addWebRTCReporter(callId, webRTCReporter)
                 }
+                webRTCReporter.startStats()
+                addWebRTCReporter(callId, webRTCReporter)
             }
 
             peerConnection?.startLocalAudioCapture()
@@ -663,6 +667,9 @@ class TelnyxClient(
 
             // Stop reporter before releasing the peer connection
             removeWebRTCReporter(callId)?.stopStats()
+
+            // Log debug data for the ended call
+            client.debugDataCollector.onCallEnded(callId, causeName)
 
             client.removeFromCalls(callId)
             client.callNotOngoing()
@@ -2215,6 +2222,9 @@ class TelnyxClient(
                 // Existing cleanup logic
                 removeWebRTCReporter(callId)?.stopStats()
 
+                // Log debug data for the ended call
+                client.debugDataCollector.onCallEnded(callId, cause ?: "REMOTE_BYE")
+
                 client.removeFromCalls(callId)
                 client.callNotOngoing()
                 resetCallOptions()
@@ -2394,6 +2404,8 @@ class TelnyxClient(
                 callId = offerCallId
                 val call = this
 
+                // Notify debug data collector that a new call has started
+                client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
 
                 //retrieve custom headers
                 val customHeaders =
@@ -2412,7 +2424,7 @@ class TelnyxClient(
                     },
                     audioConstraints = null // Use defaults for incoming calls
                 ).also {
-                    // Check the global debug flag here for incoming calls where per-call isn't set yet
+                    // Create reporter - interval is adjusted internally based on debug flags
                     if (isSocketDebug) {
                         val webRTCReporter = WebRTCReporter(
                             socket,
@@ -2420,7 +2432,8 @@ class TelnyxClient(
                             telnyxLegId?.toString(),
                             it,
                             false,
-                            isSocketDebug
+                            isSocketDebug,
+                            debugDataCollector
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -2498,6 +2511,14 @@ class TelnyxClient(
             } else {
                 UUID.randomUUID()
             }
+
+            // Update debug data collector with Telnyx identifiers
+            client.debugDataCollector.updateTelnyxIdentifiers(
+                UUID.fromString(callId),
+                telnyxSessionId,
+                telnyxLegId
+            )
+
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
@@ -2582,6 +2603,8 @@ class TelnyxClient(
             // Set global callID
             callId = offerCallId
 
+            // Notify debug data collector that a new call has started (push notification reattach)
+            client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
 
             peerConnection = Peer(
                 context,
@@ -2594,7 +2617,7 @@ class TelnyxClient(
                 onIceCandidateAdd = null,
                 audioConstraints = null // Use defaults for reattached calls
             ).also {
-                // Check the global debug flag here for reattach scenarios
+                // Create reporter - interval is adjusted internally based on debug flags
                 if (isSocketDebug) {
                     val webRTCReporter = WebRTCReporter(
                         socket,
@@ -2602,7 +2625,8 @@ class TelnyxClient(
                         telnyxLegId?.toString(),
                         it,
                         false,
-                        isSocketDebug
+                        isSocketDebug,
+                        debugDataCollector
                     )
                     webRTCReporter.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
