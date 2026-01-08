@@ -22,6 +22,7 @@ Enable Telnyx real-time communication services on Android
   - [Enabling Call Quality Metrics](#enabling-call-quality-metrics)
   - [CallQualityMetrics Properties](#callqualitymetrics-properties)
   - [CallQuality Enum](#callquality-enum)
+- [Trickle Ice](#trickle-ice)
 - [AI Agent Usage](#ai-agent-usage)
   - [1. Logging in to communicate with the AI Agent](#1-logging-in-to-communicate-with-the-ai-agent)
   - [2. Starting a Conversation with the AI Assistant](#2-starting-a-conversation-with-the-ai-assistant)
@@ -427,6 +428,32 @@ val tokenConfig = TokenConfig(
 ### Default Behavior
 
 If no custom logger is provided, the SDK will use its default logging implementation based on Android's Log class. The `logLevel` parameter still controls which logs are generated, regardless of whether you're using a custom logger or the default one.
+
+## Trickle ICE
+
+The SDK supports Trickle ICE, which enables faster call setup by sending ICE candidates incrementally as they are discovered, rather than waiting for all candidates before establishing the connection.
+
+### Key Features
+
+- **Faster Call Establishment**: Candidates are sent immediately as discovered, reducing connection time
+- **Automatic Management**: No configuration required - the SDK handles Trickle ICE automatically
+- **Smart Queuing**: Answering side queues candidates until ANSWER is sent to prevent race conditions
+- **Candidate Cleaning**: WebRTC extensions are removed for maximum server compatibility
+
+### How It Works
+
+**Outbound Calls**: Candidates are sent immediately as they are generated
+
+**Inbound Calls**: Candidates are queued until the call is answered, then flushed all at once followed by real-time sending of new candidates
+
+This approach prevents race conditions where candidates might arrive before the answer, ensuring reliable call setup.
+
+#### Important Notes
+
+- **Codec Negotiation**: The final codec used will be negotiated between your preferred codecs and what the remote party supports.
+- **Fallback Behavior**: If none of your preferred codecs are supported, the system will automatically fall back to a mutually supported codec.
+- **Order Matters**: Codecs are prioritized in the order you specify them in the list.
+- **Platform Support**: All codecs listed are supported by the Telnyx platform, but actual availability may depend on the remote party's capabilities.
 
 ## Best Practices
 

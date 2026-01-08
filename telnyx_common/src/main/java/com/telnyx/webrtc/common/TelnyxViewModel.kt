@@ -329,6 +329,25 @@ class TelnyxViewModel : ViewModel() {
         }
 
     /**
+     * Flag indicating whether trickle ICE should be enabled for new calls.
+     * This preference will be used when making or accepting calls.
+     */
+    var useTrickleIce: Boolean = false
+        private set
+
+    /**
+     * Toggles the trickle ICE setting for new calls.
+     * This method provides a centralized way to control the trickle ICE preference
+     * that will be used when making or accepting calls.
+     *
+     * @param enabled True to enable trickle ICE, false to disable it.
+     */
+    fun toggleTrickleIce(enabled: Boolean) {
+        useTrickleIce = enabled
+        Timber.d("Trickle ICE toggled: $enabled")
+    }
+
+    /**
      * Changes the server configuration environment.
      *
      * @param isDev If true, uses the development environment; otherwise, uses production.
@@ -795,7 +814,9 @@ class TelnyxViewModel : ViewModel() {
                     testNumber,
                     "",
                     mapOf(Pair("X-test", "123456")),
-                    true
+                    true,
+                    null,
+                    useTrickleIce
                 ).callStateFlow.collect {
                     handlePrecallDiagnosisCallState(it)
                 }
@@ -1008,9 +1029,11 @@ class TelnyxViewModel : ViewModel() {
         destinationNumber: String,
         debug: Boolean,
         preferredCodecs: List<AudioCodec>? = null,
+        trickleIce: Boolean = false,
         audioConstraintsOverride: AudioConstraints? = null
     ) {
 
+        toggleTrickleIce(trickleIce)
         callStateJob?.cancel()
         callStateJob = null
 
@@ -1025,6 +1048,7 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
+                    trickleIce,
                     audioConstraintsOverride ?: audioConstraints,
                     mutedMicOnStart,
                     onCallHistoryAdd = { number ->
@@ -1070,6 +1094,7 @@ class TelnyxViewModel : ViewModel() {
                 mapOf(Pair("X-test", "123456")),
                 debug,
                 preferredCodecs,
+                useTrickleIce,
                 audioConstraintsOverride ?: audioConstraints,
                 mutedMicOnStart,
                 onCallHistoryAdd = { number ->
@@ -1176,6 +1201,7 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
+                    useTrickleIce,
                     audioConstraintsOverride ?: audioConstraints,
                     mutedMicOnStart,
                     onCallHistoryAdd = { number ->

@@ -360,6 +360,40 @@ fun HomeScreen(
                                     }
                                 )
 
+                                // Trickle ICE option
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (telnyxViewModel.useTrickleIce) {
+                                                stringResource(R.string.disable_trickle_ice)
+                                            } else {
+                                                stringResource(R.string.enable_trickle_ice)
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newState = !telnyxViewModel.useTrickleIce
+                                        telnyxViewModel.toggleTrickleIce(newState)
+                                        val message = if (newState) {
+                                            context.getString(R.string.enable_trickle_ice)
+                                        } else {
+                                            context.getString(R.string.disable_trickle_ice)
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            message,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
                                 // Preferred Codecs option
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.preferred_codecs)) },

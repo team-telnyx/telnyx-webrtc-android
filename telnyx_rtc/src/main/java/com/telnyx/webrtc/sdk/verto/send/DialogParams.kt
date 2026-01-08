@@ -14,6 +14,11 @@ sealed class DialogParams
 
 data class ByeDialogParams(val callId: UUID) : DialogParams()
 
+data class CandidateDialogParams(
+    @SerializedName("callID")
+    val callId: UUID
+) : DialogParams()
+
 data class CallDialogParams(
     val useStereo: Boolean = false,
     val attach: Boolean = false,

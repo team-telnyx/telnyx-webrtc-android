@@ -36,7 +36,9 @@ fun CallHistoryBottomSheet(
     rememberCoroutineScope()
 
     ModalBottomSheet(
-        modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
         onDismissRequest = {
             onDismiss.invoke(null)
         },
@@ -69,7 +71,12 @@ fun CallHistoryBottomSheet(
                         CallHistoryItemCompose(
                             callItem = callItem,
                             onCallClick = { number ->
-                                telnyxViewModel.sendInvite(context, number, true)
+                                telnyxViewModel.sendInvite(
+                                    context,
+                                    number,
+                                    true,
+                                    trickleIce = telnyxViewModel.useTrickleIce
+                                )
                                 onDismiss(number)
                             }
                         )

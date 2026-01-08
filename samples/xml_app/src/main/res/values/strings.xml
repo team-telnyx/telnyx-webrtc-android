@@ -154,6 +154,10 @@
     <string name="enable_prefetch_ice_candidates">Enable Prefetch Ice Candidates</string>
     <string name="disable_prefetch_ice_candidates">Disable Prefetch Ice Candidates</string>
     
+    <!-- Trickle ICE -->
+    <string name="enable_trickle_ice">Enable Trickle ICE</string>
+    <string name="disable_trickle_ice">Disable Trickle ICE</string>
+    
     <!-- Assistant Login -->
     <string name="assistant_login">Assistant Login</string>
     <string name="assistant_login_dialog_title">Assistant Login</string>
@@ -187,6 +191,7 @@
     <string name="select_reorder_codecs">Select and reorder your preferred codecs. Drag to reorder by priority.</string>
     <string name="available_codecs">Available Codecs:</string>
     <string name="selected_codecs_order">Selected Codecs (in order of preference):</string>
+    <string name="region">Region</string>
 
     <!-- Audio Constraints -->
     <string name="audio_constraints">Audio Constraints</string>
@@ -225,6 +230,5 @@
     <string name="connection_metrics_percent">%.1f%%</string>
     <string name="no_connection_metrics">No connection metrics available</string>
     <string name="close">Close</string>
-
     <string name="loading_codecs">Loading available codecs…</string>
 </resources>

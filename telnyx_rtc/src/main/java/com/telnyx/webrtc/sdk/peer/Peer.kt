@@ -11,9 +11,15 @@ import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.utilities.SdpUtils
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
+import com.telnyx.webrtc.sdk.verto.send.CandidateParams
+import com.telnyx.webrtc.sdk.verto.send.EndOfCandidatesParams
+import com.telnyx.webrtc.sdk.verto.send.CandidateDialogParams
 import com.telnyx.webrtc.sdk.utilities.CodecUtils
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
@@ -50,6 +56,7 @@ internal class Peer(
     private val callId: UUID,
     private val prefetchIceCandidate: Boolean = false,
     private val forceRelayCandidate: Boolean = false,
+    private val isAnswering: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
     private val audioConstraints: AudioConstraints? = null
 ) {
@@ -58,13 +65,19 @@ internal class Peer(
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
+        private const val END_OF_CANDIDATES_TIMEOUT =
+            3000L // 3 seconds timeout for end-of-candidates
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
 
         // ICE renegotiation delay constants
         private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
-        private const val AUDIO_BUFFER_RESET_DELAY_MS = 200L // 0.2 second delay for audio buffer reset
-        private const val AUDIO_RE_ENABLE_DELAY_MS = 100L // 0.1 second delay before re-enabling audio
+
+        private const val AUDIO_BUFFER_RESET_DELAY_MS =
+            200L // 0.2 second delay for audio buffer reset
+        private const val AUDIO_RE_ENABLE_DELAY_MS =
+            100L // 0.1 second delay before re-enabling audio
+
 
         // ICE candidate parsing constants
         private const val TYP_PREFIX = "typ "
@@ -163,6 +176,14 @@ internal class Peer(
     // Deferred to signal when the first ICE candidate (local or remote) is processed
     internal val firstCandidateDeferred = CompletableDeferred<Unit>()
     private var firstCandidateReceived = false // Flag to ensure deferred completes only once
+
+    // Selective candidate queuing for answering side (until ANSWER is sent)
+    private val queuedCandidates = mutableListOf<IceCandidate>()
+    private var answerSent = false
+
+    // End-of-candidates timer management
+    private var endOfCandidatesTimer: Timer? = null
+    private var endOfCandidatesSent = false
 
     private val rootEglBase: EglBase = EglBase.create()
 
@@ -302,6 +323,13 @@ internal class Peer(
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
             Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
+
+            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
+            if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
+                sendEndOfCandidates()
+                Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+            }
+
             peerConnectionObserver?.onIceGatheringChange(p0)
             // Notify debug data collector
             p0?.let { client.debugDataCollector.onIceGatheringStateChange(callId, it.name) }
@@ -321,32 +349,53 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
+                if (client.getUseTrickleIce()) {
+                    if (isAnswering && !answerSent) {
+                        // Answering side: Queue candidate until ANSWER is sent
+                        queuedCandidates.add(it)
+                        Logger.d(
+                            tag = "Observer",
+                            message = "ICE candidate queued for answering side (ANSWER not sent yet): $it"
+                        )
+                    } else {
+                        // Calling side OR answering side after ANSWER sent: Send immediately
+                        sendIceCandidate(it)
+                        Logger.d(
+                            tag = "Observer",
+                            message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
+                        )
 
-                // Notify debug data collector about ICE candidate
-                val candidateType = extractCandidateType(it.sdp)
-                val protocol = extractProtocol(it.sdp)
-                client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
+                        // Start/restart the end-of-candidates timer when sending candidates
+                        startEndOfCandidatesTimer()
+                    }
 
-                val currentCallState = client.calls[callId]?.getCallState()?.value
-
-                // Allow ICE candidates when:
-                // 1. Call is NOT active (for initial invites/answers)
-                // 2. Call is in RENEGOTIATING state (for ICE restart)
-                if (currentCallState != CallState.ACTIVE ||
-                    currentCallState == CallState.RENEGOTIATING
-                ) {
-                    peerConnection?.addIceCandidate(it)
-                    Logger.d(tag = "Observer", message = "ICE candidate added: $it")
-                    onIceCandidateAdd?.invoke(it.serverUrl)
-                    lastCandidateTime = System.currentTimeMillis()
+                    // Notify debug data collector about ICE candidate
+                    val candidateType = extractCandidateType(it.sdp)
+                    val protocol = extractProtocol(it.sdp)
+                    client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
                 } else {
-                    Logger.d(
-                        tag = "Observer",
-                        message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
-                    )
+                    // Traditional ICE: Only process if call is not ACTIVE or RENEGOTIATING yet
+                    val currentCallState = client.calls[callId]?.callStateFlow?.value
+
+                    // Allow ICE candidates when:
+                    // 1. Call is NOT active (for initial invites/answers)
+                    // 2. Call is in RENEGOTIATING state (for ICE restart)
+                    if (currentCallState != CallState.ACTIVE ||
+                        currentCallState == CallState.RENEGOTIATING
+                    ) {
+                        peerConnection?.addIceCandidate(it)
+                        Logger.d(tag = "Observer", message = "ICE candidate added: $it")
+                        onIceCandidateAdd?.invoke(it.serverUrl)
+                        lastCandidateTime = System.currentTimeMillis()
+                    } else {
+                        Logger.d(
+                            tag = "Observer",
+                            message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
+                        )
+                    }
+                    peerConnectionObserver?.onIceCandidate(candidate)
                 }
             }
-            peerConnectionObserver?.onIceCandidate(candidate)
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
@@ -698,6 +747,70 @@ internal class Peer(
     }
 
     /**
+     * Sends an ICE candidate via signaling for trickle ICE
+     * @param candidate the [IceCandidate] to send
+     */
+    private fun sendIceCandidate(candidate: IceCandidate) {
+        val call = client.calls[callId]
+        call?.let {
+            // Clean the candidate string to remove WebRTC-specific extensions
+            val cleanedCandidateString = SdpUtils.cleanCandidateString(candidate.sdp)
+
+            val candidateMessage = SendingMessageBody(
+                id = UUID.randomUUID().toString(),
+                method = SocketMethod.CANDIDATE.methodName,
+                params = CandidateParams(
+                    sessid = it.sessionId,
+                    candidate = cleanedCandidateString,
+                    sdpMid = candidate.sdpMid,
+                    sdpMLineIndex = candidate.sdpMLineIndex,
+                    dialogParams = CandidateDialogParams(
+                        callId = callId
+                    )
+                )
+            )
+
+            Logger.d(
+                tag = "CandidateSend",
+                message = "Sending cleaned candidate: $cleanedCandidateString"
+            )
+            client.socket.send(candidateMessage)
+        }
+    }
+
+    /**
+     * Sends end-of-candidates signal for trickle ICE
+     */
+    private fun sendEndOfCandidates() {
+        // Prevent sending duplicate end-of-candidates signals
+        if (endOfCandidatesSent) {
+            Logger.d(tag = "EndOfCandidates", message = "Already sent, skipping duplicate")
+            return
+        }
+
+        val call = client.calls[callId]
+        call?.let {
+            val endOfCandidatesMessage = SendingMessageBody(
+                id = UUID.randomUUID().toString(),
+                method = SocketMethod.END_OF_CANDIDATES.methodName,
+                params = EndOfCandidatesParams(
+                    sessid = it.sessionId,
+                    dialogParams = CandidateDialogParams(
+                        callId = callId
+                    )
+                )
+            )
+            client.socket.send(endOfCandidatesMessage)
+            endOfCandidatesSent = true
+
+            // Stop the timer since we've sent the signal
+            stopEndOfCandidatesTimer()
+
+            Logger.d(tag = "EndOfCandidates", message = "Signal sent successfully")
+        }
+    }
+
+    /**
      * Returns the current local SDP
      * @return [SessionDescription]
      */
@@ -784,6 +897,9 @@ internal class Peer(
 
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
+
+        // turn off IceTrickle, as it is not required for renegotiation:
+        client.setUseTrickleIce(false)
 
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
@@ -1039,6 +1155,104 @@ internal class Peer(
     }
 
     /**
+     * Flushes all queued ICE candidates after ANSWER is sent.
+     * This is called when the answering side sends the ANSWER message.
+     */
+    internal fun flushQueuedCandidatesAfterAnswer() {
+        if (!client.getUseTrickleIce() || !isAnswering) {
+            Logger.d(
+                tag = "CandidateFlush",
+                message = "Not flushing - trickleIce=${client.getUseTrickleIce()}, isAnswering=$isAnswering"
+            )
+            return
+        }
+
+        Logger.d(
+            tag = "CandidateFlush",
+            message = "Flushing ${queuedCandidates.size} queued candidates after ANSWER sent"
+        )
+
+        val hadCandidates = queuedCandidates.isNotEmpty()
+
+        // Send all queued candidates
+        queuedCandidates.forEach { candidate ->
+            sendIceCandidate(candidate)
+            Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
+        }
+
+        // Clear the queue and mark answer as sent
+        queuedCandidates.clear()
+        answerSent = true
+
+        // Start the end-of-candidates timer after flushing candidates (if there were any)
+        if (hadCandidates) {
+            startEndOfCandidatesTimer()
+        }
+
+        Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, answerSent = true")
+    }
+
+    /**
+     * Starts the end-of-candidates timer that sends end-of-candidates signal
+     * after a period of inactivity in ICE candidate discovery
+     */
+    private fun startEndOfCandidatesTimer() {
+        // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
+        if (!client.getUseTrickleIce()) {
+            Logger.d(
+                tag = "EndOfCandidatesTimer",
+                message = "Timer not started - Trickle ICE disabled"
+            )
+            return
+        }
+        if (endOfCandidatesSent) {
+            Logger.d(
+                tag = "EndOfCandidatesTimer",
+                message = "Timer not started - end-of-candidates already sent"
+            )
+            return
+        }
+
+        // Cancel any existing timer
+        endOfCandidatesTimer?.cancel()
+        endOfCandidatesTimer?.purge()
+
+        endOfCandidatesTimer = Timer()
+        endOfCandidatesTimer?.schedule(
+            timerTask {
+                Logger.d(
+                    tag = "EndOfCandidatesTimer",
+                    message = "Timer triggered after ${END_OF_CANDIDATES_TIMEOUT}ms of inactivity"
+                )
+
+                // Send end-of-candidates if not already sent
+                if (!endOfCandidatesSent && client.getUseTrickleIce()) {
+                    Logger.d(
+                        tag = "EndOfCandidatesTimer",
+                        message = "Sending end-of-candidates via timer"
+                    )
+                    sendEndOfCandidates()
+                }
+
+                stopEndOfCandidatesTimer()
+            },
+            END_OF_CANDIDATES_TIMEOUT
+        )
+
+        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer started/restarted")
+    }
+
+    /**
+     * Stops and cleans up the end-of-candidates timer
+     */
+    private fun stopEndOfCandidatesTimer() {
+        endOfCandidatesTimer?.cancel()
+        endOfCandidatesTimer?.purge()
+        endOfCandidatesTimer = null
+        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer stopped")
+    }
+
+    /**
      * Applies audio codec preferences to the peer connection's audio transceiver.
      * This method must be called before creating an offer or answer to ensure the
      * preferred codecs are negotiated in the correct order.
@@ -1094,6 +1308,11 @@ internal class Peer(
     fun release() {
         Logger.d(message = "Releasing Peer resources...")
         stopNegotiationTimer()
+        stopEndOfCandidatesTimer()
+        // Clear queued candidates and reset flags
+        queuedCandidates.clear()
+        answerSent = false
+        endOfCandidatesSent = false
         if (peerConnection != null) {
             disconnect()
         }
@@ -1158,9 +1377,12 @@ internal class Peer(
      */
     init {
         // Ensure WebRTC is initialized using companion's method
-        Companion.initPeerConnectionFactory(context)
+        initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
-        // Reset the flag when a new Peer is created
+        // Reset flags when a new Peer is created
         firstCandidateReceived = false
+        answerSent = false
+        endOfCandidatesSent = false
+        queuedCandidates.clear()
     }
 }

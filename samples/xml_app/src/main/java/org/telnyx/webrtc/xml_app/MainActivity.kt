@@ -161,6 +161,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_trickle_ice).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_preferred_codecs).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_audio_constraints).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_mute_on_start).isVisible = isConnected
@@ -175,7 +176,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_assistant_login).isVisible = !isConnected
 
         // Update state of debug mode menu item
-        popupMenu.menu.findItem(R.id.action_debug_mode).title = getString(if (telnyxViewModel.debugMode) R.string.debug_mode_off else R.string.debug_mode_on)
+        popupMenu.menu.findItem(R.id.action_debug_mode).title =
+            getString(if (telnyxViewModel.debugMode) R.string.debug_mode_off else R.string.debug_mode_on)
 
         // Add badge count to websocket messages menu item if there are messages
         val wsMessages = telnyxViewModel.wsMessages.value
@@ -187,7 +189,8 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         // Update region menu item title to show current selection
         val currentProfile = telnyxViewModel.currentProfile.value
         val currentRegion = currentProfile?.region ?: Region.AUTO
-        popupMenu.menu.findItem(R.id.action_region_selection).title = getString(R.string.region_format, currentRegion.displayName)
+        popupMenu.menu.findItem(R.id.action_region_selection).title =
+            getString(R.string.region_format, currentRegion.displayName)
 
         // Update prefetch ice candidates menu item title based on current state
         val prefetchMenuItem = popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates)
@@ -195,6 +198,14 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.disable_prefetch_ice_candidates)
         } else {
             getString(R.string.enable_prefetch_ice_candidates)
+        }
+
+        // Update trickle ICE menu item title based on current state
+        val trickleIceMenuItem = popupMenu.menu.findItem(R.id.action_trickle_ice)
+        trickleIceMenuItem.title = if (telnyxViewModel.useTrickleIce) {
+            getString(R.string.disable_trickle_ice)
+        } else {
+            getString(R.string.enable_trickle_ice)
         }
 
         // Update mute on start menu item title based on current state
@@ -211,38 +222,52 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     showWebsocketMessagesBottomSheet()
                     true
                 }
+
                 R.id.action_copy_fcm_token -> {
                     copyFcmTokenToClipboard()
                     true
                 }
+
                 R.id.action_disable_push -> {
                     disablePushNotifications()
                     true
                 }
+
                 R.id.action_precall_diagnosis -> {
                     showPreCallDiagnosisBottomSheet()
                     true
                 }
+
                 R.id.action_prefetch_ice_candidates -> {
                     togglePrefetchIceCandidates()
                     true
                 }
+
+                R.id.action_trickle_ice -> {
+                    toggleTrickleIce()
+                    true
+                }
+
                 R.id.action_preferred_codecs -> {
                     showCodecSelectionDialog()
                     true
                 }
+
                 R.id.action_audio_constraints -> {
                     showAudioConstraintsDialog()
                     true
                 }
+
                 R.id.action_mute_on_start -> {
                     toggleMuteOnStart()
                     true
                 }
+
                 R.id.action_region_selection -> {
                     showRegionSelectionDialog()
                     true
                 }
+
                 R.id.action_debug_mode -> {
                     // Update debug mode in current profile or create a default profile
                     var currentDebugMode = telnyxViewModel.debugMode
@@ -251,10 +276,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     telnyxViewModel.updateDebugMode(currentDebugMode)
                     true
                 }
+
                 R.id.action_assistant_login -> {
                     showAssistantLoginDialog()
                     true
                 }
+
                 else -> false
             }
         }
@@ -276,7 +303,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             .setTitle(getString(R.string.select_region))
             .setSingleChoiceItems(regionNames, selectedIndex) { dialog, which ->
                 val selectedRegion = regions[which]
-                
+
                 // Update region in current profile or create a default profile
                 if (currentProfile != null) {
                     telnyxViewModel.updateRegion(this, selectedRegion)
@@ -284,9 +311,13 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                     val newProfile = Profile(region = selectedRegion)
                     telnyxViewModel.setCurrentConfig(this, newProfile)
                 }
-                
+
                 dialog.dismiss()
-                Toast.makeText(this, getString(R.string.region_set_to, selectedRegion.displayName), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(R.string.region_set_to, selectedRegion.displayName),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             .setNegativeButton(getString(R.string.cancel), null)
             .show()
@@ -320,6 +351,20 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             getString(R.string.enable_prefetch_ice_candidates)
         } else {
             getString(R.string.disable_prefetch_ice_candidates)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Toggles the trickle ICE setting
+     */
+    private fun toggleTrickleIce() {
+        val newState = !telnyxViewModel.useTrickleIce
+        telnyxViewModel.toggleTrickleIce(newState)
+        val message = if (newState) {
+            getString(R.string.enable_trickle_ice)
+        } else {
+            getString(R.string.disable_trickle_ice)
         }
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
@@ -381,9 +426,17 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                         binding.bottomButton.setOnClickListener {
                             telnyxViewModel.currentProfile.value?.let { currentProfile ->
                                 if (currentProfile.sipToken?.isEmpty() == false)
-                                    telnyxViewModel.tokenLogin(this@MainActivity, currentProfile,null)
+                                    telnyxViewModel.tokenLogin(
+                                        this@MainActivity,
+                                        currentProfile,
+                                        null
+                                    )
                                 else
-                                    telnyxViewModel.credentialLogin(this@MainActivity, currentProfile,null)
+                                    telnyxViewModel.credentialLogin(
+                                        this@MainActivity,
+                                        currentProfile,
+                                        null
+                                    )
                             }
                         }
 
@@ -470,6 +523,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 val cause = uiState.message?.cause
                 if (cause != null) "Done - $cause" else getString(R.string.call_state_ended)
             }
+
             is TelnyxSocketEvent.OnRinging -> getString(R.string.call_state_ringing)
             is TelnyxSocketEvent.OnCallDropped -> getString(R.string.call_state_dropped)
             is TelnyxSocketEvent.OnCallReconnecting -> getString(R.string.call_state_reconnecting)
@@ -489,7 +543,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             ConnectionStatus.RECONNECTING -> getString(R.string.call_state_reconnecting)
             ConnectionStatus.CLIENT_READY -> getString(R.string.client_ready)
         }
-        
+
         val isConnected = connectionStatus != ConnectionStatus.DISCONNECTED
         binding.socketStatusIcon.isEnabled = isConnected
         binding.socketStatusInfo.text = statusText
@@ -594,7 +648,10 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
 
         // Start the diagnosis call
         lifecycleScope.launch {
-            telnyxViewModel.makePreCallDiagnosis(this@MainActivity, BuildConfig.PRECALL_DIAGNOSIS_NUMBER)
+            telnyxViewModel.makePreCallDiagnosis(
+                this@MainActivity,
+                BuildConfig.PRECALL_DIAGNOSIS_NUMBER
+            )
         }
     }
 
@@ -716,7 +773,12 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 getString(R.string.production_label)
             }.replaceFirstChar { it.uppercaseChar() }
 
-            versionInfo.text = String.format(getString(R.string.bottom_bar_production_text), environmentLabel, TelnyxClient.SDK_VERSION.toString(), BuildConfig.VERSION_NAME)
+            versionInfo.text = String.format(
+                getString(R.string.bottom_bar_production_text),
+                environmentLabel,
+                TelnyxClient.SDK_VERSION.toString(),
+                BuildConfig.VERSION_NAME
+            )
         }
     }
 }

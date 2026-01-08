@@ -8,6 +8,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 
+
 /**
  * TxSocket interface containing the methods that the socket connection will fire
  */
@@ -23,7 +24,7 @@ interface TxSocketListener {
     /**
      * Fires once a Gateway state has been received. These are used to find a verified registration
      * @param gatewayState, the string representation of the gateway state received from the socket connection
-     * @param sessionId, the string representation of the session ID received from the socket connection
+     * @param receivedSessionId, the string representation of the session ID received from the socket connection
      * @see [TxSocket]
      */
     fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?)
@@ -109,6 +110,7 @@ interface TxSocketListener {
      * @param socketConnectionMetrics Current connection quality metrics calculated from ping history
      */
     fun pingPong(socketConnectionMetrics: SocketConnectionMetrics? = null)
+
     /**
      * Fires when the socket has disconnected
      * */
@@ -120,6 +122,20 @@ interface TxSocketListener {
      * @see [TxSocket]
      */
     fun onAiConversationReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when an ICE candidate is received via trickle ICE
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onCandidateReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when end-of-candidates is received via trickle ICE
+     * @param jsonObject, the socket response in a jsonObject format
+     * @see [TxSocket]
+     */
+    fun onEndOfCandidatesReceived(jsonObject: JsonObject)
 
     /**
      * Fires when a modify message is received (e.g., updateMedia for ICE renegotiation)

@@ -4,19 +4,19 @@
     
     <item
         android:id="@+id/action_websocket_messages"
-        android:title="Websocket Messages"
+        android:title="@string/websocket_messages"
         android:icon="@drawable/ic_message"
         app:showAsAction="never" />
         
     <item
         android:id="@+id/action_copy_fcm_token"
-        android:title="Copy FCM Token"
+        android:title="@string/copy_fcm_token"
         android:icon="@drawable/ic_copy"
         app:showAsAction="never" />
         
     <item
         android:id="@+id/action_disable_push"
-        android:title="Disable Push Notifications"
+        android:title="@string/disable_push_notifications"
         android:icon="@drawable/ic_notifications_off"
         app:showAsAction="never" />
 
@@ -33,8 +33,14 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_trickle_ice"
+        android:title="@string/enable_trickle_ice"
+        android:icon="@drawable/ic_more_vert"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_preferred_codecs"
-        android:title="Preferred Codecs"
+        android:title="@string/preferred_codecs"
         android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
 
@@ -52,7 +58,7 @@
 
     <item
         android:id="@+id/action_region_selection"
-        android:title="Region"
+        android:title="@string/region"
         android:icon="@drawable/ic_more_vert"
         app:showAsAction="never" />
 
