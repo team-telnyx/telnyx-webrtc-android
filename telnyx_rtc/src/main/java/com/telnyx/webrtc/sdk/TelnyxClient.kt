@@ -29,6 +29,7 @@ import com.telnyx.webrtc.sdk.socket.TxSocketListener
 import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.CandidateUtils
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
@@ -375,12 +376,17 @@ class TelnyxClient(
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
+        // Start benchmark for inbound call
+        CallTimingBenchmark.start(isOutbound = false)
+        CallTimingBenchmark.mark("accept_call_started")
+
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
             val originalOfferSdp = inviteResponse?.sdp
             if (originalOfferSdp == null) {
                 Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
                 updateCallState(CallState.ERROR)
+                CallTimingBenchmark.reset()
                 return@apply
             }
 
@@ -436,6 +442,7 @@ class TelnyxClient(
                         )
                     )
                     socket.send(answerBodyMessage)
+                    CallTimingBenchmark.mark("answer_sdp_sent")
 
                     // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
                     peerConnection?.flushQueuedCandidatesAfterAnswer()
@@ -535,6 +542,7 @@ class TelnyxClient(
                                     )
                                 )
                                 socket.send(answerBodyMessage)
+                                CallTimingBenchmark.mark("answer_sdp_sent")
                                 updateCallState(CallState.ACTIVE)
 
                                 // Start stats collection - interval is adjusted internally based on debug flags
@@ -2384,6 +2392,10 @@ class TelnyxClient(
                 params.has("sdp") -> {
                     val stringSdp = params.get("sdp").asString
 
+                    // Start benchmark for outbound call when answer SDP is received
+                    CallTimingBenchmark.start(isOutbound = true)
+                    CallTimingBenchmark.mark("answer_sdp_received")
+
                     // Check if remote party supports trickle ICE
                     val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(stringSdp)
                     if (remoteSupportsTrickleIce) {
@@ -2410,6 +2422,7 @@ class TelnyxClient(
                     val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
 
                     peerConnection?.onRemoteSessionReceived(sdp)
+                    CallTimingBenchmark.mark("remote_description_set")
 
                     // Process any queued ICE candidates after remote description is set
                     processQueuedIceCandidates(UUID.fromString(callId))

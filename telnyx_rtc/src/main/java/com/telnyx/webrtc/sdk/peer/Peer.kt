@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
@@ -309,6 +310,9 @@ internal class Peer(
             // Notify debug data collector
             newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
 
+            // Mark benchmark milestone for ICE connection state changes
+            newState?.let { CallTimingBenchmark.mark("ice_state_${it.name}") }
+
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
 
@@ -323,6 +327,9 @@ internal class Peer(
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
             Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
+
+            // Mark benchmark milestone for ICE gathering state changes
+            p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
 
             // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
             if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
@@ -340,6 +347,8 @@ internal class Peer(
             if (!firstCandidateReceived) {
                 firstCandidateReceived = true
                 firstCandidateDeferred.complete(Unit)
+                // Mark benchmark milestone for first ICE candidate
+                CallTimingBenchmark.markFirstCandidate()
                 Logger.d(
                     tag = "Observer",
                     message = "First ICE candidate processed, completing deferred."
@@ -421,6 +430,21 @@ internal class Peer(
         override fun onRenegotiationNeeded() {
             Logger.d(tag = "Observer", message = "Renegotiation Needed")
             peerConnectionObserver?.onRenegotiationNeeded()
+        }
+
+        override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
+            Logger.d(tag = "Observer", message = "Peer Connection State Change: $newState")
+            peerConnectionObserver?.onConnectionChange(newState)
+
+            // Mark benchmark milestone for peer connection state changes
+            newState?.let {
+                CallTimingBenchmark.mark("peer_state_${it.name}")
+
+                // End benchmark when peer connection reaches CONNECTED state
+                if (it == PeerConnection.PeerConnectionState.CONNECTED) {
+                    CallTimingBenchmark.end()
+                }
+            }
         }
     }
 
