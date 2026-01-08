@@ -237,6 +237,10 @@ data class Call(
     fun setMuteState(muted: Boolean) {
         muteLiveData.postValue(muted)
         audioManager.isMicrophoneMute = muted
+
+        // Track mute/unmute state change
+        val state = if (muted) "muted" else "unmuted"
+        client.debugDataCollector.onTrackStateChange(callId, "audio", state)
     }
 
     /**
@@ -247,9 +251,15 @@ data class Call(
         if (!audioManager.isSpeakerphoneOn) {
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true
+            // Track speaker output change
+            client.debugDataCollector.onSpeakerOutputChange(callId, "LOUDSPEAKER", true)
+            client.debugDataCollector.onAudioDeviceChange(callId, "Speaker enabled")
         } else {
             loudSpeakerLiveData.postValue(false)
             audioManager.isSpeakerphoneOn = false
+            // Track speaker output change
+            client.debugDataCollector.onSpeakerOutputChange(callId, "LOUDSPEAKER", false)
+            client.debugDataCollector.onAudioDeviceChange(callId, "Speaker disabled")
         }
         Timber.e("audioManager.isSpeakerphoneOn ${audioManager.isSpeakerphoneOn}")
     }
