@@ -115,16 +115,6 @@ object CallTimingBenchmark {
     }
 
     /**
-     * Checks if the benchmark is currently running.
-     * @return true if the benchmark is running, false otherwise
-     */
-    fun isRunning(): Boolean {
-        synchronized(lock) {
-            return isRunning
-        }
-    }
-
-    /**
      * Resets the benchmark state without logging.
      * Useful for cleanup when a call fails before connecting.
      */

@@ -537,6 +537,7 @@ internal class Peer(
         val localStream = peerConnectionFactory.createLocalMediaStream(AUDIO_LOCAL_STREAM_ID)
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
+        CallTimingBenchmark.mark("media_stream_acquired")
     }
 
     /**
@@ -650,6 +651,7 @@ internal class Peer(
         createAnswer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
+                    CallTimingBenchmark.mark("local_answer_created")
                     logAllTransceiverStates("After createAnswer success, before setLocalDescription")
 
                     setLocalDescription(
@@ -666,6 +668,7 @@ internal class Peer(
                                     tag = "Answer",
                                     message = "setLocalDescription onSetSuccess"
                                 )
+                                CallTimingBenchmark.mark("local_answer_sdp_set")
                                 logAllTransceiverStates("After setLocalDescription success")
                             }
 
@@ -743,6 +746,12 @@ internal class Peer(
                         tag = "RemoteSessionReceived",
                         message = "Set Remote Description Success"
                     )
+                    // Mark different benchmarks based on SDP type
+                    when (sessionDescription.type) {
+                        SessionDescription.Type.OFFER -> CallTimingBenchmark.mark("remote_offer_sdp_set")
+                        SessionDescription.Type.ANSWER -> CallTimingBenchmark.mark("remote_answer_sdp_set")
+                        else -> CallTimingBenchmark.mark("remote_sdp_set")
+                    }
                     logAllTransceiverStates("After setRemoteDescription success")
                 }
 
@@ -1403,6 +1412,7 @@ internal class Peer(
         // Ensure WebRTC is initialized using companion's method
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
+        CallTimingBenchmark.mark("peer_connection_created")
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
         answerSent = false
