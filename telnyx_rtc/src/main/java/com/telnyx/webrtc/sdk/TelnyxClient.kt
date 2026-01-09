@@ -376,6 +376,8 @@ class TelnyxClient(
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
+        // Start benchmark for inbound call
+        CallTimingBenchmark.start(isOutbound = false)
         CallTimingBenchmark.mark("accept_call_started")
 
         // Use apply block to get the correct context for Call members/extensions
@@ -2606,9 +2608,6 @@ class TelnyxClient(
                 providedTurn = providedTurn!!,
                 providedStun = providedStun!!
             ).apply {
-                // Start benchmark for inbound call
-                CallTimingBenchmark.start(isOutbound = false)
-
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val remoteSdp = params.get("sdp").asString
