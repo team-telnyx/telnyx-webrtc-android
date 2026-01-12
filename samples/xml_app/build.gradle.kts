@@ -83,5 +83,5 @@ dependencies {
     implementation("com.google.code.gson:gson:2.12.0")
 
     // Glide for image loading
-    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("com.github.bumptech.glide:glide:5.0.5")
 }
