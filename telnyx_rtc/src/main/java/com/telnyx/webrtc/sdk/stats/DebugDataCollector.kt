@@ -11,8 +11,12 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import timber.log.Timber
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Collects debug data during a call and logs it at the end of the call.
  * This class is responsible for gathering essential connection, signaling,
  * and media metrics to help with debugging and troubleshooting.
+ * Also creates a JSON file with call statistics when the call ends.
  */
 class DebugDataCollector(private val context: Context) {
 
@@ -32,9 +37,14 @@ class DebugDataCollector(private val context: Context) {
         private const val LOG_SECTION_SEPARATOR = "───────────────────────────────────────────────────────────────"
         private const val MILLIS_PER_SECOND = 1000
         private const val PERCENT_FACTOR = 100.0
+        private const val CALL_STATS_DIR = "call_stats"
+        private const val JSON_FILE_PREFIX = "call_stats_"
+        private const val JSON_FILE_EXTENSION = ".json"
     }
 
     private val callDebugData = ConcurrentHashMap<UUID, CallDebugData>()
+    private val gson = GsonBuilder().setPrettyPrinting().create()
+    private var lastGeneratedJsonFilePath: String? = null
 
     /**
      * Called when a new call is started. Initializes debug data collection for the call.
@@ -339,7 +349,8 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
-     * Called when a call ends. Logs all collected debug data using Timber.
+     * Called when a call ends. Logs all collected debug data using Timber
+     * and creates a JSON file with the call statistics.
      *
      * @param callId The unique identifier for the call
      * @param endReason The reason the call ended (optional)
@@ -354,6 +365,260 @@ class DebugDataCollector(private val context: Context) {
         data.endReason = endReason
 
         logCallDebugData(data)
+        saveCallStatsToJsonFile(data)
+    }
+
+    /**
+     * Returns the path to the last generated JSON file containing call statistics.
+     * This can be used to retrieve the file for sending to a server or for debugging.
+     *
+     * @return The absolute path to the last generated JSON file, or null if no file has been generated
+     */
+    fun getLastGeneratedJsonFilePath(): String? = lastGeneratedJsonFilePath
+
+    /**
+     * Converts the call debug data to a structured JSON object.
+     * The JSON structure has summary information at the top level
+     * and detailed stats/events as arrays.
+     *
+     * @param data The call debug data to convert
+     * @return A JsonObject containing the structured call statistics
+     */
+    @Suppress("LongMethod")
+    internal fun convertToJson(data: CallDebugData): JsonObject {
+        val json = JsonObject()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        val duration = data.endTimestamp?.let {
+            (it - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
+        } ?: 0.0
+
+        // Summary section (top level)
+        val summary = JsonObject().apply {
+            addProperty("callId", data.callId.toString())
+            addProperty("telnyxSessionId", data.telnyxSessionId?.toString())
+            addProperty("telnyxLegId", data.telnyxLegId?.toString())
+            addProperty("sdkVersion", data.sdkVersion)
+            addProperty("startTimestamp", dateFormat.format(Date(data.startTimestamp)))
+            data.endTimestamp?.let { addProperty("endTimestamp", dateFormat.format(Date(it))) }
+            addProperty("durationSeconds", duration)
+            addProperty("endReason", data.endReason)
+            addProperty("networkType", data.networkType)
+            addProperty("osVersion", data.osVersion)
+            addProperty("deviceModel", data.deviceModel)
+            addProperty("selectedCodec", data.selectedCodec)
+            addProperty("lastIceGatheringState", data.lastIceGatheringState)
+            addProperty("lastIceConnectionState", data.lastIceConnectionState)
+            addProperty("lastDtlsState", data.lastDtlsState)
+            addProperty("lastSignalingState", data.lastSignalingState)
+        }
+        json.add("summary", summary)
+
+        // Permissions
+        val permissions = JsonObject().apply {
+            addProperty("recordAudio", data.recordAudioPermissionGranted)
+            addProperty("postNotifications", data.postNotificationsPermissionGranted)
+        }
+        json.add("permissions", permissions)
+
+        // Selected candidate pair
+        data.selectedCandidatePair?.let { pair ->
+            val candidatePair = JsonObject().apply {
+                add("local", createCandidateJson(pair.local))
+                add("remote", createCandidateJson(pair.remote))
+            }
+            json.add("selectedCandidatePair", candidatePair)
+        }
+
+        // Media statistics
+        val mediaStats = JsonObject().apply {
+            val stats = data.mediaStats
+            addProperty("outboundPacketsSent", stats.outboundPacketsSent)
+            addProperty("outboundBytesSent", stats.outboundBytesSent)
+            addProperty("outboundAudioEnergy", stats.outboundAudioEnergy)
+            addProperty("inboundPacketsReceived", stats.inboundPacketsReceived)
+            addProperty("inboundBytesReceived", stats.inboundBytesReceived)
+            addProperty("inboundPacketsLost", stats.inboundPacketsLost)
+            addProperty("inboundJitterMs", stats.inboundJitter)
+            addProperty("inboundAudioLevel", stats.inboundAudioLevel)
+            addProperty("roundTripTimeMs", stats.roundTripTime)
+
+            if (stats.inboundPacketsReceived > 0) {
+                val totalPackets = stats.inboundPacketsReceived + stats.inboundPacketsLost
+                val lossPercentage = (stats.inboundPacketsLost.toDouble() / totalPackets) * PERCENT_FACTOR
+                addProperty("packetLossPercentage", lossPercentage)
+            }
+        }
+        json.add("mediaStats", mediaStats)
+
+        // Detailed events as arrays
+        json.add("iceGatheringStates", createStateChangeArray(data.iceGatheringStates, dateFormat))
+        json.add("iceConnectionStates", createStateChangeArray(data.iceConnectionStates, dateFormat))
+        json.add("signalingStates", createStateChangeArray(data.signalingStates, dateFormat))
+        json.add("connectionTimeline", createConnectionTimelineArray(data.connectionTimeline, dateFormat))
+        json.add("iceCandidates", createIceCandidatesArray(data.iceCandidates, dateFormat))
+        json.add("audioDeviceEvents", createAudioDeviceEventsArray(data.audioDeviceEvents, dateFormat))
+        json.add("microphoneErrors", createMicrophoneErrorsArray(data.microphoneErrors, dateFormat))
+        json.add("trackStateChanges", createTrackStateChangesArray(data.trackStateChanges, dateFormat))
+        json.add("getUserMediaEvents", createGetUserMediaEventsArray(data.getUserMediaEvents, dateFormat))
+        json.add("speakerOutputEvents", createSpeakerOutputEventsArray(data.speakerOutputEvents, dateFormat))
+
+        return json
+    }
+
+    private fun createCandidateJson(candidate: CandidateDetails): JsonObject {
+        return JsonObject().apply {
+            addProperty("candidateType", candidate.candidateType)
+            addProperty("protocol", candidate.protocol)
+            addProperty("ip", candidate.ip)
+            addProperty("port", candidate.port)
+            candidate.priority?.let { addProperty("priority", it) }
+            candidate.relatedAddress?.let { addProperty("relatedAddress", it) }
+            candidate.relatedPort?.let { addProperty("relatedPort", it) }
+        }
+    }
+
+    private fun createStateChangeArray(
+        states: List<StateChange>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            states.forEach { state ->
+                add(JsonObject().apply {
+                    addProperty("state", state.state)
+                    addProperty("timestamp", dateFormat.format(Date(state.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createConnectionTimelineArray(
+        events: List<ConnectionStateEvent>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            events.forEach { event ->
+                add(JsonObject().apply {
+                    addProperty("event", event.getDisplayName())
+                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createIceCandidatesArray(
+        candidates: List<IceCandidateInfo>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            candidates.forEach { candidate ->
+                add(JsonObject().apply {
+                    addProperty("type", candidate.type)
+                    addProperty("protocol", candidate.protocol)
+                    addProperty("timestamp", dateFormat.format(Date(candidate.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createAudioDeviceEventsArray(
+        events: List<AudioDeviceEvent>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            events.forEach { event ->
+                add(JsonObject().apply {
+                    addProperty("event", event.event)
+                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createMicrophoneErrorsArray(
+        errors: List<MicrophoneError>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            errors.forEach { error ->
+                add(JsonObject().apply {
+                    addProperty("error", error.error)
+                    addProperty("timestamp", dateFormat.format(Date(error.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createTrackStateChangesArray(
+        changes: List<TrackStateChange>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            changes.forEach { change ->
+                add(JsonObject().apply {
+                    addProperty("trackType", change.trackType)
+                    addProperty("state", change.state)
+                    addProperty("timestamp", dateFormat.format(Date(change.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createGetUserMediaEventsArray(
+        events: List<GetUserMediaEvent>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            events.forEach { event ->
+                add(JsonObject().apply {
+                    addProperty("trackId", event.trackId)
+                    addProperty("state", event.state)
+                    addProperty("enabled", event.enabled)
+                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
+                })
+            }
+        }
+    }
+
+    private fun createSpeakerOutputEventsArray(
+        events: List<SpeakerOutputEvent>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            events.forEach { event ->
+                add(JsonObject().apply {
+                    addProperty("device", event.device)
+                    addProperty("isActive", event.isActive)
+                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
+                })
+            }
+        }
+    }
+
+    /**
+     * Saves the call statistics to a JSON file in the app's cache directory.
+     *
+     * @param data The call debug data to save
+     */
+    private fun saveCallStatsToJsonFile(data: CallDebugData) {
+        try {
+            val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
+            if (!callStatsDir.exists()) {
+                callStatsDir.mkdirs()
+            }
+
+            val fileName = "$JSON_FILE_PREFIX${data.callId}$JSON_FILE_EXTENSION"
+            val file = File(callStatsDir, fileName)
+
+            val jsonObject = convertToJson(data)
+            val jsonString = gson.toJson(jsonObject)
+
+            file.writeText(jsonString)
+            lastGeneratedJsonFilePath = file.absolutePath
+
+            Timber.tag(TAG).d("Call stats JSON saved to: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to save call stats JSON file")
+        }
     }
 
     @Suppress("ComplexMethod")
