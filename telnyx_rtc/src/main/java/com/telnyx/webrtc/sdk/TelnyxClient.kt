@@ -108,6 +108,12 @@ class TelnyxClient(
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
         const val RECONNECT_TIMEOUT: Long = 60000
 
+        /** Maximum number of reconnection retries when server closes connection during reconnection */
+        const val MAX_RECONNECTION_RETRIES = 3
+
+        /** Base delay for exponential backoff during reconnection retries (milliseconds) */
+        const val RECONNECTION_RETRY_BASE_DELAY: Long = 1000
+
         /** Timeout dividend*/
         const val TIMEOUT_DIVISOR: Long = 1000
 
@@ -119,6 +125,9 @@ class TelnyxClient(
     private var tokenSessionConfig: TokenConfig? = null
     private var useTrickleIce: Boolean = false
     private var reconnecting = false
+
+    // Counter for reconnection retries when server closes connection during reconnection
+    private var reconnectionRetryCounter = 0
 
     // Reconnection timeout timer
     private var reconnectTimeOutJob: Job? = null
@@ -2243,6 +2252,7 @@ class TelnyxClient(
             if (reconnecting) {
                 Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
                 reconnecting = false
+                reconnectionRetryCounter = 0
                 // Handle the timeout by updating call states and notifying the user
                 Handler(Looper.getMainLooper()).post {
                     getActiveCalls().forEach { (_, call) ->
@@ -2257,6 +2267,7 @@ class TelnyxClient(
 
                     // Reset reconnection state
                     reconnecting = false
+                    reconnectionRetryCounter = 0
                     cancelReconnectionTimer()
                 }
             } else {
@@ -2817,6 +2828,7 @@ class TelnyxClient(
     override fun onAttachReceived(jsonObject: JsonObject) {
         // reset reconnecting state
         reconnecting = false
+        reconnectionRetryCounter = 0
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 
@@ -2942,15 +2954,65 @@ class TelnyxClient(
     /**
      * Disconnect from the TxSocket and unregister the provided network callback
      *
+     * If we're in the middle of a reconnection attempt with active calls and the server
+     * closes the connection (e.g., session expired), we should retry with exponential
+     * backoff instead of immediately giving up.
+     *
      * @see [ConnectivityHelper]
      * @see [TxSocket]
      */
     override fun onDisconnect() {
+        // Check if we should retry reconnection instead of giving up
+        if (reconnecting && getActiveCalls().isNotEmpty()) {
+            if (reconnectionRetryCounter < MAX_RECONNECTION_RETRIES) {
+                reconnectionRetryCounter++
+                val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (reconnectionRetryCounter - 1))
+                
+                Logger.d(
+                    message = Logger.formatMessage(
+                        "[%s] :: Server closed connection during reconnection. Retrying (%d/%d) in %dms",
+                        this@TelnyxClient.javaClass.simpleName,
+                        reconnectionRetryCounter,
+                        MAX_RECONNECTION_RETRIES,
+                        backoffDelay
+                    )
+                )
+                
+                // Destroy current socket before retry
+                socket.destroy()
+                
+                // Schedule retry with exponential backoff
+                CoroutineScope(Dispatchers.Default).launch {
+                    delay(backoffDelay)
+                    // Only retry if still reconnecting (timer hasn't expired)
+                    if (reconnecting) {
+                        reconnectToSocket()
+                    }
+                }
+                return
+            } else {
+                Logger.d(
+                    message = Logger.formatMessage(
+                        "[%s] :: Max reconnection retries (%d) reached. Giving up.",
+                        this@TelnyxClient.javaClass.simpleName,
+                        MAX_RECONNECTION_RETRIES
+                    )
+                )
+                // Reset retry counter and fall through to normal disconnect handling
+                reconnectionRetryCounter = 0
+            }
+        }
+        
+        // Normal disconnect handling
         emitSocketResponse(SocketResponse.disconnect())
         emitConnectionStatus(ConnectionStatus.DISCONNECTED)
         invalidateGatewayResponseTimer()
         resetGatewayCounters()
         unregisterNetworkCallback()
+        
+        // Reset reconnection state
+        reconnecting = false
+        reconnectionRetryCounter = 0
         
         // Clear connection metrics on disconnect
         currentSocketConnectionMetrics = null
