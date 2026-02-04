@@ -45,6 +45,7 @@ import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.timerTask
 
 /**
@@ -124,10 +125,14 @@ class TelnyxClient(
     private var credentialSessionConfig: CredentialConfig? = null
     private var tokenSessionConfig: TokenConfig? = null
     private var useTrickleIce: Boolean = false
+    @Volatile
     private var reconnecting = false
 
     // Counter for reconnection retries when server closes connection during reconnection
-    private var reconnectionRetryCounter = 0
+    private var reconnectionRetryCounter = AtomicInteger(0)
+
+    // Coroutine scope tied to client lifecycle for retry operations
+    private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Reconnection timeout timer
     private var reconnectTimeOutJob: Job? = null
@@ -2252,7 +2257,7 @@ class TelnyxClient(
             if (reconnecting) {
                 Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
                 reconnecting = false
-                reconnectionRetryCounter = 0
+                reconnectionRetryCounter.set(0)
                 // Handle the timeout by updating call states and notifying the user
                 Handler(Looper.getMainLooper()).post {
                     getActiveCalls().forEach { (_, call) ->
@@ -2267,7 +2272,7 @@ class TelnyxClient(
 
                     // Reset reconnection state
                     reconnecting = false
-                    reconnectionRetryCounter = 0
+                    reconnectionRetryCounter.set(0)
                     cancelReconnectionTimer()
                 }
             } else {
@@ -2828,7 +2833,7 @@ class TelnyxClient(
     override fun onAttachReceived(jsonObject: JsonObject) {
         // reset reconnecting state
         reconnecting = false
-        reconnectionRetryCounter = 0
+        reconnectionRetryCounter.set(0)
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 
@@ -2964,15 +2969,15 @@ class TelnyxClient(
     override fun onDisconnect() {
         // Check if we should retry reconnection instead of giving up
         if (reconnecting && getActiveCalls().isNotEmpty()) {
-            if (reconnectionRetryCounter < MAX_RECONNECTION_RETRIES) {
-                reconnectionRetryCounter++
-                val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (reconnectionRetryCounter - 1))
+            if (reconnectionRetryCounter.get() < MAX_RECONNECTION_RETRIES) {
+                val retryCount = reconnectionRetryCounter.incrementAndGet()
+                val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (retryCount - 1))
                 
                 Logger.d(
                     message = Logger.formatMessage(
                         "[%s] :: Server closed connection during reconnection. Retrying (%d/%d) in %dms",
                         this@TelnyxClient.javaClass.simpleName,
-                        reconnectionRetryCounter,
+                        retryCount,
                         MAX_RECONNECTION_RETRIES,
                         backoffDelay
                     )
@@ -2982,7 +2987,7 @@ class TelnyxClient(
                 socket.destroy()
                 
                 // Schedule retry with exponential backoff
-                CoroutineScope(Dispatchers.Default).launch {
+                clientScope.launch {
                     delay(backoffDelay)
                     // Only retry if still reconnecting (timer hasn't expired)
                     if (reconnecting) {
@@ -2999,7 +3004,7 @@ class TelnyxClient(
                     )
                 )
                 // Reset retry counter and fall through to normal disconnect handling
-                reconnectionRetryCounter = 0
+                reconnectionRetryCounter.set(0)
             }
         }
         
@@ -3012,7 +3017,7 @@ class TelnyxClient(
         
         // Reset reconnection state
         reconnecting = false
-        reconnectionRetryCounter = 0
+        reconnectionRetryCounter.set(0)
         
         // Clear connection metrics on disconnect
         currentSocketConnectionMetrics = null
