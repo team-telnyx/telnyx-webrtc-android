@@ -1,0 +1,4 @@
+project:
+  squad: webrtc.squad
+  primary_maintainer: Oliver-Zimmerman
+  secondary_maintainer: ai-swe-agent
