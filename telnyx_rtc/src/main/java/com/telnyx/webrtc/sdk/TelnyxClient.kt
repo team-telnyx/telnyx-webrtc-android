@@ -379,7 +379,8 @@ class TelnyxClient(
         debug: Boolean = false,
         useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
-        mutedMicOnStart: Boolean = false
+        mutedMicOnStart: Boolean = false,
+        answeredDeviceToken: String? = null
     ): Call {
         val callDebug = debug
         val socketPortalDebug = isSocketDebug
@@ -447,6 +448,7 @@ class TelnyxClient(
                         CallParams(
                             sessid = sessionId,
                             sdp = finalAnswerSdp,
+                            answeredDeviceToken = answeredDeviceToken,
                             dialogParams = CallDialogParams(
                                 callId = callId,
                                 destinationNumber = destinationNumber,
@@ -546,6 +548,7 @@ class TelnyxClient(
                                     CallParams(
                                         sessid = sessionId,
                                         sdp = finalAnswerSdp,
+                                        answeredDeviceToken = answeredDeviceToken,
                                         dialogParams = CallDialogParams(
                                             callId = callId,
                                             destinationNumber = destinationNumber,
