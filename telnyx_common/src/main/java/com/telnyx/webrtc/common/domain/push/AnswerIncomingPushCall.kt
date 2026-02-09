@@ -40,6 +40,9 @@ class AnswerIncomingPushCall(private val context: Context) {
     // Indicates whether trickle ICE should be enabled for the call.
     private var useTrickleIce: Boolean = false
 
+    // The FCM token to identify which device answered the push call.
+    private var fcmToken: String? = null
+
     // Observer for incoming call responses.
     private val incomingCallObserver = Observer<SocketResponse<ReceivedMessageBody>> { response ->
         handleSocketResponse(response)
@@ -74,13 +77,14 @@ class AnswerIncomingPushCall(private val context: Context) {
         val socketFlow = telnyxClient.socketResponseFlow
 
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
-            val fcmToken = lastProfile.fcmToken ?: ""
+            val token = lastProfile.fcmToken ?: ""
+            this.fcmToken = token
 
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
                 telnyxClient.connect(
                     TxServerConfiguration(),
-                    lastProfile.toTokenConfig(fcmToken),
+                    lastProfile.toTokenConfig(token),
                     txPushMetaData,
                     true
                 )
@@ -88,7 +92,7 @@ class AnswerIncomingPushCall(private val context: Context) {
 
                 telnyxClient.connect(
                     TxServerConfiguration(),
-                    lastProfile.toCredentialConfig(fcmToken),
+                    lastProfile.toCredentialConfig(token),
                     txPushMetaData,
                     true
                 )
@@ -132,13 +136,14 @@ class AnswerIncomingPushCall(private val context: Context) {
 
         val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(context)
         ProfileManager.getProfilesList(context).lastOrNull()?.let { lastProfile ->
-            val fcmToken = lastProfile.fcmToken ?: ""
+            val token = lastProfile.fcmToken ?: ""
+            this.fcmToken = token
 
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
                 telnyxClient.connect(
                     TxServerConfiguration(),
-                    lastProfile.toTokenConfig(fcmToken),
+                    lastProfile.toTokenConfig(token),
                     txPushMetaData,
                     true
                 )
@@ -146,7 +151,7 @@ class AnswerIncomingPushCall(private val context: Context) {
 
                 telnyxClient.connect(
                     TxServerConfiguration(),
-                    lastProfile.toCredentialConfig(fcmToken),
+                    lastProfile.toCredentialConfig(token),
                     txPushMetaData,
                     true
                 )
@@ -174,6 +179,7 @@ class AnswerIncomingPushCall(private val context: Context) {
                         debug,
                         useTrickleIce,
                         audioConstraints = null,  // Use defaults for push calls
+                        answeredDeviceToken = fcmToken,
                         onCallQualityChange = onCallQualityChange
                     )
                     cleanUp(answeredCall)

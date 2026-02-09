@@ -27,6 +27,7 @@ class AcceptCall(private val context: Context) {
      * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @param audioConstraints Optional audio processing constraints for the call.
      * @param mutedMicOnStart When true, starts the call with the microphone muted.
+     * @param answeredDeviceToken Optional device token to identify which device answered a push call.
      * @param onCallQualityChange Optional callback for receiving real-time call quality metrics.
      * @param onCallHistoryAdd Optional callback for adding call to history.
      * @return The accepted incoming call.
@@ -39,11 +40,12 @@ class AcceptCall(private val context: Context) {
         useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
         mutedMicOnStart: Boolean = false,
+        answeredDeviceToken: String? = null,
         onCallQualityChange: ((CallQualityMetrics) -> Unit)? = null,
         onCallHistoryAdd: (suspend (String) -> Unit)? = null
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
-        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, useTrickleIce, audioConstraints, mutedMicOnStart)
+        val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, useTrickleIce, audioConstraints, mutedMicOnStart, answeredDeviceToken)
         
         // Set the call quality change callback if provided
         if (debug && onCallQualityChange != null) {
