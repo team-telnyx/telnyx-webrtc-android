@@ -66,6 +66,7 @@ internal class WebRTCReporter(
     companion object {
         private const val STATS_INTERVAL_DEBUG: Long = 100L // 100ms when debug is enabled
         private const val STATS_INTERVAL_NORMAL: Long = 10000L // 10 seconds when debug is disabled
+        private const val AUDIO_SAMPLE_INTERVAL: Long = 5000L // 5 seconds for audio sampling
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
     }
@@ -85,6 +86,9 @@ internal class WebRTCReporter(
 
     private var codecName: String? = null
 
+    private var lastAudioSampleTime: Long = 0L
+    private var previousPacketsLost: Long = 0L
+
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
     /**
@@ -102,6 +106,8 @@ internal class WebRTCReporter(
         debugReportStarted = true
 
         codecName = null
+        lastAudioSampleTime = 0L
+        previousPacketsLost = 0L
 
         val debugStartMessage = InitiateOrStopStatPrams(
             type = "debug_report_start",
@@ -308,6 +314,25 @@ internal class WebRTCReporter(
                             roundTripTime = ((remoteInboundAudioMap["roundTripTime"] as? Double) ?: 0.0) * MS_IN_SECONDS
                         )
                         debugDataCollector?.updateMediaStats(peerId, mediaStats)
+
+                        // Record audio sample every 5 seconds
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastAudioSampleTime >= AUDIO_SAMPLE_INTERVAL) {
+                            val currentPacketsLost = mediaStats.inboundPacketsLost
+                            val packetsLostSinceLastSample = currentPacketsLost - previousPacketsLost
+
+                            debugDataCollector?.recordAudioSample(
+                                callId = peerId,
+                                inboundAudioLevel = mediaStats.inboundAudioLevel,
+                                outboundAudioEnergy = mediaStats.outboundAudioEnergy,
+                                jitter = mediaStats.inboundJitter,
+                                packetsLost = packetsLostSinceLastSample,
+                                roundTripTime = mediaStats.roundTripTime
+                            )
+
+                            lastAudioSampleTime = currentTime
+                            previousPacketsLost = currentPacketsLost
+                        }
                     }
 
                     //complete data which has different struct at webrtc-debug

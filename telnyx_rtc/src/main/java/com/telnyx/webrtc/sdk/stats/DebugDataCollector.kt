@@ -287,6 +287,39 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Records a periodic audio sample. Should be called every 5 seconds during a call
+     * to capture time-series audio quality data.
+     *
+     * @param callId The unique identifier for the call
+     * @param inboundAudioLevel The current inbound audio level (0.0 to 1.0)
+     * @param outboundAudioEnergy The current outbound audio energy
+     * @param jitter The current jitter in milliseconds
+     * @param packetsLost The number of packets lost since the last sample
+     * @param roundTripTime The current round trip time in milliseconds
+     */
+    fun recordAudioSample(
+        callId: UUID,
+        inboundAudioLevel: Double,
+        outboundAudioEnergy: Double,
+        jitter: Double,
+        packetsLost: Long,
+        roundTripTime: Double
+    ) {
+        callDebugData[callId]?.let { data ->
+            val sample = AudioSample(
+                timestamp = System.currentTimeMillis(),
+                inboundAudioLevel = inboundAudioLevel,
+                outboundAudioEnergy = outboundAudioEnergy,
+                jitter = jitter,
+                packetsLost = packetsLost,
+                roundTripTime = roundTripTime
+            )
+            data.audioSamples.add(sample)
+            Timber.tag(TAG).d("Audio sample recorded for call $callId: audioLevel=$inboundAudioLevel, jitter=$jitter")
+        }
+    }
+
+    /**
      * Records an audio device change event.
      *
      * @param callId The unique identifier for the call
@@ -466,6 +499,9 @@ class DebugDataCollector(private val context: Context) {
 
         // Media statistics
         stats.add("media", createMediaJson(data.mediaStats))
+
+        // Audio samples (time-series)
+        stats.add("audioSamples", createAudioSamplesArray(data.audioSamples, dateFormat))
 
         // Media events
         stats.add("mediaEvents", createMediaEventsJson(data, dateFormat))
@@ -664,6 +700,27 @@ class DebugDataCollector(private val context: Context) {
             add("inbound", inbound)
 
             addProperty("roundTripTimeMs", stats.roundTripTime)
+        }
+    }
+
+    /**
+     * Creates the audio samples JSON array with time-series audio quality data.
+     */
+    private fun createAudioSamplesArray(
+        samples: List<AudioSample>,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        return JsonArray().apply {
+            samples.forEach { sample ->
+                add(JsonObject().apply {
+                    addProperty("timestamp", dateFormat.format(Date(sample.timestamp)))
+                    addProperty("inboundAudioLevel", sample.inboundAudioLevel)
+                    addProperty("outboundAudioEnergy", sample.outboundAudioEnergy)
+                    addProperty("jitterMs", sample.jitter)
+                    addProperty("packetsLost", sample.packetsLost)
+                    addProperty("roundTripTimeMs", sample.roundTripTime)
+                })
+            }
         }
     }
 
@@ -901,6 +958,33 @@ class DebugDataCollector(private val context: Context) {
             logBuilder.appendLine("  No media statistics available")
         }
 
+        // Audio Samples (time-series)
+        if (data.audioSamples.isNotEmpty()) {
+            logBuilder.appendLine()
+            logBuilder.appendLine("AUDIO SAMPLES (${data.audioSamples.size} samples)")
+            logBuilder.appendLine(LOG_SECTION_SEPARATOR)
+            data.audioSamples.forEach { sample ->
+                logBuilder.appendLine("  ${dateFormat.format(Date(sample.timestamp))}:")
+                logBuilder.appendLine("    Audio Level:     ${String.format(Locale.US, "%.6f", sample.inboundAudioLevel)}")
+                logBuilder.appendLine("    Audio Energy:    ${String.format(Locale.US, "%.6f", sample.outboundAudioEnergy)}")
+                logBuilder.appendLine("    Jitter:          ${String.format(Locale.US, "%.3f", sample.jitter)} ms")
+                logBuilder.appendLine("    Packets Lost:    ${sample.packetsLost}")
+                logBuilder.appendLine("    RTT:             ${String.format(Locale.US, "%.3f", sample.roundTripTime)} ms")
+            }
+
+            // Calculate and log averages
+            val avgAudioLevel = data.audioSamples.map { it.inboundAudioLevel }.average()
+            val avgJitter = data.audioSamples.map { it.jitter }.average()
+            val avgRtt = data.audioSamples.map { it.roundTripTime }.average()
+            val totalPacketsLost = data.audioSamples.sumOf { it.packetsLost }
+            logBuilder.appendLine()
+            logBuilder.appendLine("  Averages:")
+            logBuilder.appendLine("    Avg Audio Level: ${String.format(Locale.US, "%.6f", avgAudioLevel)}")
+            logBuilder.appendLine("    Avg Jitter:      ${String.format(Locale.US, "%.3f", avgJitter)} ms")
+            logBuilder.appendLine("    Avg RTT:         ${String.format(Locale.US, "%.3f", avgRtt)} ms")
+            logBuilder.appendLine("    Total Pkt Lost:  $totalPacketsLost")
+        }
+
         // Audio Device Events
         if (data.audioDeviceEvents.isNotEmpty()) {
             logBuilder.appendLine()
@@ -1074,7 +1158,10 @@ internal data class CallDebugData(
     val microphoneErrors: MutableList<MicrophoneError> = mutableListOf(),
     val trackStateChanges: MutableList<TrackStateChange> = mutableListOf(),
     val getUserMediaEvents: MutableList<GetUserMediaEvent> = mutableListOf(),
-    val speakerOutputEvents: MutableList<SpeakerOutputEvent> = mutableListOf()
+    val speakerOutputEvents: MutableList<SpeakerOutputEvent> = mutableListOf(),
+
+    // Periodic audio samples (captured every 5 seconds)
+    val audioSamples: MutableList<AudioSample> = mutableListOf()
 )
 
 /**
@@ -1215,4 +1302,17 @@ data class MediaStats(
     val inboundJitter: Double = 0.0,
     val inboundAudioLevel: Double = 0.0,
     val roundTripTime: Double = 0.0
+)
+
+/**
+ * Represents a periodic audio sample captured during a call.
+ * These samples are collected every 5 seconds to provide time-series audio quality data.
+ */
+data class AudioSample(
+    val timestamp: Long,
+    val inboundAudioLevel: Double,
+    val outboundAudioEnergy: Double,
+    val jitter: Double,
+    val packetsLost: Long,
+    val roundTripTime: Double
 )
