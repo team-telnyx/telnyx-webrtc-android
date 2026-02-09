@@ -138,6 +138,7 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
+    private var callReportId: String? = null
 
     private var isSocketDebug = false
 
@@ -2060,6 +2061,7 @@ class TelnyxClient(
         if (voiceSdkID != null) {
             Logger.d(message = "Voice SDK ID _ $voiceSdkID")
             this@TelnyxClient.voiceSDKID = voiceSdkID
+            updateDebugDataCollectorUploadConfig()
         } else {
             Logger.e(message = "No Voice SDK ID")
         }
@@ -2636,6 +2638,7 @@ class TelnyxClient(
                 if (voiceSdkID != null) {
                     Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
+                    updateDebugDataCollectorUploadConfig()
                 } else {
                     Logger.e(message = "No Voice SDK ID")
                 }
@@ -2836,6 +2839,7 @@ class TelnyxClient(
             if (voiceSdkID != null) {
                 Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
+                updateDebugDataCollectorUploadConfig()
             } else {
                 Logger.e(message = "No Voice SDK ID")
             }
@@ -3248,6 +3252,26 @@ class TelnyxClient(
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
         Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
+    }
+
+    override fun onCallReportIdReceived(callReportId: String) {
+        this.callReportId = callReportId
+        Logger.d(message = "Received call_report_id: $callReportId")
+        updateDebugDataCollectorUploadConfig()
+    }
+
+    /**
+     * Updates the debug data collector with the upload configuration.
+     * Upload is enabled when the debug flag is set in the session config.
+     */
+    private fun updateDebugDataCollectorUploadConfig() {
+        val uploadEnabled = credentialSessionConfig?.debug == true ||
+            tokenSessionConfig?.debug == true
+        debugDataCollector.setUploadConfig(
+            callReportId = callReportId,
+            voiceSDKID = voiceSDKID,
+            uploadEnabled = uploadEnabled
+        )
     }
 
     /**

@@ -46,6 +46,12 @@ class DebugDataCollector(private val context: Context) {
     private val gson = GsonBuilder().setPrettyPrinting().create()
     private var lastGeneratedJsonFilePath: String? = null
 
+    // Upload configuration
+    private var callReportId: String? = null
+    private var voiceSDKID: String? = null
+    private var uploadEnabled: Boolean = false
+    private var callStatsUploader: CallStatsUploader? = null
+
     /**
      * Called when a new call is started. Initializes debug data collection for the call.
      *
@@ -366,6 +372,17 @@ class DebugDataCollector(private val context: Context) {
 
         logCallDebugData(data)
         saveCallStatsToJsonFile(data)
+
+        // Upload stats if enabled and all required values are present
+        if (uploadEnabled && callReportId != null && voiceSDKID != null) {
+            val jsonContent = gson.toJson(convertToJson(data))
+            callStatsUploader?.uploadCallStats(
+                callReportId = callReportId!!,
+                callId = callId,
+                voiceSdkId = voiceSDKID!!,
+                jsonContent = jsonContent
+            )
+        }
     }
 
     /**
@@ -978,6 +995,30 @@ class DebugDataCollector(private val context: Context) {
      */
     fun clear() {
         callDebugData.clear()
+        callStatsUploader?.destroy()
+        callStatsUploader = null
+    }
+
+    /**
+     * Configures the upload settings for call statistics.
+     * When enabled, call stats will be uploaded to the Telnyx call report endpoint
+     * when a call ends.
+     *
+     * @param callReportId The call report ID token received from the REGED response
+     * @param voiceSDKID The WebSocket session ID
+     * @param uploadEnabled Whether upload is enabled (controlled by debug flag)
+     */
+    fun setUploadConfig(
+        callReportId: String?,
+        voiceSDKID: String?,
+        uploadEnabled: Boolean
+    ) {
+        this.callReportId = callReportId
+        this.voiceSDKID = voiceSDKID
+        this.uploadEnabled = uploadEnabled
+        if (uploadEnabled && callStatsUploader == null) {
+            callStatsUploader = CallStatsUploader()
+        }
     }
 }
 
