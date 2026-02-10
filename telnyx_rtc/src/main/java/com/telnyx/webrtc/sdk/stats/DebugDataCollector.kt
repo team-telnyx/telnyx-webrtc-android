@@ -49,7 +49,7 @@ class DebugDataCollector(private val context: Context) {
     // Upload configuration
     private var callReportId: String? = null
     private var voiceSDKID: String? = null
-    private var uploadEnabled: Boolean = false
+    private var hostAddress: String? = null
     private var callStatsUploader: CallStatsUploader? = null
 
     /**
@@ -406,8 +406,9 @@ class DebugDataCollector(private val context: Context) {
         logCallDebugData(data)
         saveCallStatsToJsonFile(data)
 
-        // Upload stats if enabled and all required values are present
-        if (uploadEnabled && callReportId != null && voiceSDKID != null) {
+        // Upload stats if all required values are present
+        Timber.d("callReportId: $callReportId, voiceSDKID: $voiceSDKID, callStatsUploader: $callStatsUploader")
+        if (callReportId != null && voiceSDKID != null && callStatsUploader != null) {
             val jsonContent = gson.toJson(convertToJson(data))
             callStatsUploader?.uploadCallStats(
                 callReportId = callReportId!!,
@@ -1085,24 +1086,26 @@ class DebugDataCollector(private val context: Context) {
 
     /**
      * Configures the upload settings for call statistics.
-     * When enabled, call stats will be uploaded to the Telnyx call report endpoint
-     * when a call ends.
+     * Call stats will be uploaded to the Telnyx call report endpoint when a call ends
+     * if all required values (callReportId, voiceSDKID, hostAddress) are present.
      *
      * @param callReportId The call report ID token received from the REGED response
      * @param voiceSDKID The WebSocket session ID
-     * @param uploadEnabled Whether upload is enabled (controlled by debug flag)
+     * @param hostAddress The host address from TxServerConfiguration (e.g., "rtc.telnyx.com")
      */
     fun setUploadConfig(
         callReportId: String?,
         voiceSDKID: String?,
-        uploadEnabled: Boolean
+        hostAddress: String?
     ) {
         this.callReportId = callReportId
         this.voiceSDKID = voiceSDKID
-        this.uploadEnabled = uploadEnabled
-        if (uploadEnabled && callStatsUploader == null) {
-            callStatsUploader = CallStatsUploader()
+        // Recreate uploader if host changed
+        if (hostAddress != null && hostAddress != this.hostAddress) {
+            callStatsUploader?.destroy()
+            callStatsUploader = CallStatsUploader(hostAddress)
         }
+        this.hostAddress = hostAddress
     }
 }
 

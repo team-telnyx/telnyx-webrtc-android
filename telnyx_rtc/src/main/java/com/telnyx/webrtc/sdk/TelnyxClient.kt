@@ -3262,15 +3262,13 @@ class TelnyxClient(
 
     /**
      * Updates the debug data collector with the upload configuration.
-     * Upload is enabled when the debug flag is set in the session config.
+     * Upload will occur when callReportId, voiceSDKID, and hostAddress are all set.
      */
     private fun updateDebugDataCollectorUploadConfig() {
-        val uploadEnabled = credentialSessionConfig?.debug == true ||
-            tokenSessionConfig?.debug == true
         debugDataCollector.setUploadConfig(
             callReportId = callReportId,
             voiceSDKID = voiceSDKID,
-            uploadEnabled = uploadEnabled
+            hostAddress = providedHostAddress
         )
     }
 

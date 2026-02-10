@@ -20,12 +20,14 @@ import java.util.concurrent.TimeUnit
 /**
  * Service class responsible for uploading call statistics to the Telnyx call report endpoint.
  * This class handles HTTP POST requests with the required headers and JSON body.
+ *
+ * @param host The host address from TxServerConfiguration (e.g., "rtc.telnyx.com" or "rtcdev.telnyx.com")
  */
-internal class CallStatsUploader : CoroutineScope {
+internal class CallStatsUploader(private val host: String) : CoroutineScope {
 
     companion object {
         private const val TAG = "CallStatsUploader"
-        private const val CALL_REPORT_ENDPOINT = "https://rtcdev.telnyx.com/call_report"
+        private const val CALL_REPORT_PATH = "/call_report"
         private const val HEADER_CALL_REPORT_ID = "x-call-report-id"
         private const val HEADER_CALL_ID = "x-call-id"
         private const val HEADER_VOICE_SDK_ID = "x-voice-sdk-id"
@@ -33,6 +35,8 @@ internal class CallStatsUploader : CoroutineScope {
         private const val WRITE_TIMEOUT_SECONDS = 30L
         private const val READ_TIMEOUT_SECONDS = 30L
     }
+
+    private val callReportEndpoint: String = "https://$host$CALL_REPORT_PATH"
 
     private var job: Job = SupervisorJob()
     override val coroutineContext = Dispatchers.IO + job
@@ -60,7 +64,7 @@ internal class CallStatsUploader : CoroutineScope {
         try {
             val requestBody = jsonContent.toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
-                .url(CALL_REPORT_ENDPOINT)
+                .url(callReportEndpoint)
                 .addHeader(HEADER_CALL_REPORT_ID, callReportId)
                 .addHeader(HEADER_CALL_ID, callId.toString())
                 .addHeader(HEADER_VOICE_SDK_ID, voiceSdkId)
