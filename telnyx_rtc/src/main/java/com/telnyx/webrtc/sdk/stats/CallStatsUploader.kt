@@ -75,8 +75,27 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
                 if (response.isSuccessful) {
                     Timber.tag(TAG).d("Call stats uploaded successfully for call: $callId")
                 } else {
+                    val errorBody = response.body?.string()
+                    val errorMessage = when (response.code) {
+                        400 -> when {
+                            errorBody?.contains("missing call_id") == true ->
+                                "Missing call_id - no call_id in header or body"
+                            errorBody?.contains("missing voice_sdk_id") == true ->
+                                "Missing voice_sdk_id - no voice_sdk_id in header or body"
+                            else -> "Bad request: $errorBody"
+                        }
+                        401 -> when {
+                            errorBody?.contains("missing call_report_id") == true ->
+                                "Missing call_report_id - no call_report_id in header or body"
+                            errorBody?.contains("invalid call_report_id") == true ->
+                                "Invalid call_report_id - token failed to decode/validate"
+                            else -> "Unauthorized: $errorBody"
+                        }
+                        413 -> "Body too large - request body exceeds 2MB limit"
+                        else -> "HTTP error: $errorBody"
+                    }
                     Timber.tag(TAG).w(
-                        "Failed to upload call stats for call $callId: HTTP ${response.code}"
+                        "Failed to upload call stats for call $callId: HTTP ${response.code} - $errorMessage"
                     )
                 }
             }
