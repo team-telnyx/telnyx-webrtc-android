@@ -380,13 +380,16 @@ internal class WebRTCReporter(
                                 ((mediaStats.outboundBytesSent - previousOutboundBytes) * 8) / intervalDurationSeconds
                             } else 0.0
 
-                            // Extract connection stats from candidate pair
+                            // Extract connection stats from selected candidate pair
                             var connectionBytesReceived = 0L
                             var connectionBytesSent = 0L
                             var connectionPacketsReceived = 0L
                             var connectionPacketsSent = 0L
 
-                            connectionCandidates.values.firstOrNull { it["state"] == "succeeded" }?.let { pair ->
+                            // Find selected candidate pair using transport's selectedCandidatePairId
+                            val selectedPairId = statsData.get("T01")?.asJsonObject?.get("selectedCandidatePairId")?.asString
+                            val selectedPair = selectedPairId?.let { connectionCandidates[it] }
+                            selectedPair?.let { pair ->
                                 connectionBytesReceived = (pair["bytesReceived"] as? Number)?.toLong() ?: 0L
                                 connectionBytesSent = (pair["bytesSent"] as? Number)?.toLong() ?: 0L
                                 connectionPacketsReceived = (pair["packetsReceived"] as? Number)?.toLong() ?: 0L
