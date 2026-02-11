@@ -4,6 +4,10 @@
 
 package com.telnyx.webrtc.sdk.stats
 
+import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +46,10 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
         private const val MAX_RETRY_ATTEMPTS = 3
         private const val INITIAL_RETRY_DELAY_MS = 1000L
         private const val MAX_PAYLOAD_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
+        private const val SAFE_PAYLOAD_SIZE_BYTES = (1.9 * 1024 * 1024).toInt() // 1.9MB safety margin
     }
+
+    private val gson = Gson()
 
     private val callReportEndpoint: String = "https://$host$CALL_REPORT_PATH"
 
@@ -57,6 +64,7 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
 
     /**
      * Uploads call statistics to the call report endpoint with retry logic.
+     * If payload exceeds 2MB, splits stats array into chunks and uploads each separately.
      *
      * @param callReportId The call report ID token received from the REGED response
      * @param callId The UUID of the call
@@ -69,15 +77,98 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
         voiceSdkId: String,
         jsonContent: String
     ) = launch {
-        // Check payload size before upload
         val payloadSize = jsonContent.toByteArray().size
-        if (payloadSize > MAX_PAYLOAD_SIZE_BYTES) {
-            Timber.tag(TAG).w(
-                "Call stats for call $callId exceed 2MB limit ($payloadSize bytes), skipping upload"
+
+        if (payloadSize <= MAX_PAYLOAD_SIZE_BYTES) {
+            // Payload fits, upload directly
+            uploadWithRetry(callReportId, callId, voiceSdkId, jsonContent)
+        } else {
+            // Payload too large, split stats and upload in chunks
+            Timber.tag(TAG).i(
+                "Call stats for call $callId exceed 2MB ($payloadSize bytes), splitting into chunks"
             )
-            return@launch
+            val chunks = splitIntoChunks(jsonContent)
+            Timber.tag(TAG).i("Split into ${chunks.size} chunks for call $callId")
+
+            chunks.forEachIndexed { index, chunk ->
+                Timber.tag(TAG).d("Uploading chunk ${index + 1}/${chunks.size} for call $callId")
+                uploadWithRetry(callReportId, callId, voiceSdkId, chunk)
+            }
+        }
+    }
+
+    /**
+     * Splits the JSON content into multiple chunks, each under the size limit.
+     * Each chunk contains the same base structure but with a subset of the stats array.
+     */
+    private fun splitIntoChunks(jsonContent: String): List<String> {
+        val chunks = mutableListOf<String>()
+
+        try {
+            val json = JsonParser.parseString(jsonContent).asJsonObject
+            val statsArray = json.getAsJsonArray("stats") ?: JsonArray()
+
+            if (statsArray.size() == 0) {
+                // No stats to split, return original
+                chunks.add(jsonContent)
+                return chunks
+            }
+
+            // Calculate base size (everything except stats array)
+            val baseJson = json.deepCopy()
+            baseJson.add("stats", JsonArray())
+            val baseSize = gson.toJson(baseJson).toByteArray().size
+
+            // Build chunks
+            var currentChunk = JsonArray()
+            var currentSize = baseSize
+
+            for (i in 0 until statsArray.size()) {
+                val stat = statsArray.get(i)
+                val statSize = gson.toJson(stat).toByteArray().size + 1 // +1 for comma
+
+                if (currentSize + statSize > SAFE_PAYLOAD_SIZE_BYTES && currentChunk.size() > 0) {
+                    // Current chunk is full, save it and start new one
+                    chunks.add(buildChunkJson(json, currentChunk))
+                    currentChunk = JsonArray()
+                    currentSize = baseSize
+                }
+
+                currentChunk.add(stat)
+                currentSize += statSize
+            }
+
+            // Add remaining chunk
+            if (currentChunk.size() > 0) {
+                chunks.add(buildChunkJson(json, currentChunk))
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to split JSON into chunks, uploading original")
+            chunks.clear()
+            chunks.add(jsonContent)
         }
 
+        return chunks
+    }
+
+    /**
+     * Builds a chunk JSON with the original structure but a subset of stats.
+     */
+    private fun buildChunkJson(originalJson: JsonObject, statsChunk: JsonArray): String {
+        val chunkJson = originalJson.deepCopy()
+        chunkJson.add("stats", statsChunk)
+        return gson.toJson(chunkJson)
+    }
+
+    /**
+     * Uploads with retry logic.
+     */
+    private suspend fun uploadWithRetry(
+        callReportId: String,
+        callId: UUID,
+        voiceSdkId: String,
+        jsonContent: String
+    ) {
         var lastException: Exception? = null
         var attempt = 0
 
@@ -85,7 +176,7 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
             try {
                 val success = executeUpload(callReportId, callId, voiceSdkId, jsonContent)
                 if (success) {
-                    return@launch
+                    return
                 }
                 // Non-retryable HTTP error (4xx), don't retry
                 break
