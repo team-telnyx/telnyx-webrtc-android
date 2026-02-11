@@ -69,6 +69,8 @@ internal class WebRTCReporter(
         private const val AUDIO_SAMPLE_INTERVAL: Long = 5000L // 5 seconds for audio sampling
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
+        private const val BITS_PER_BYTE = 8
+        private const val MAX_LOG_ENTRIES = 1000
     }
 
     // Dynamic stats interval based on debug flags
@@ -131,7 +133,7 @@ internal class WebRTCReporter(
             context = mapOf(
                 "interval" to AUDIO_SAMPLE_INTERVAL,
                 "logLevel" to "debug",
-                "maxLogEntries" to 1000
+                "maxLogEntries" to MAX_LOG_ENTRIES
             )
         )
 
@@ -374,10 +376,10 @@ internal class WebRTCReporter(
                             // Calculate bitrates
                             val intervalDurationSeconds = (currentTime - intervalStartTime) / MS_IN_SECONDS
                             val inboundBitrateAvg = if (intervalDurationSeconds > 0 && previousInboundBytes > 0) {
-                                ((mediaStats.inboundBytesReceived - previousInboundBytes) * 8) / intervalDurationSeconds
+                                ((mediaStats.inboundBytesReceived - previousInboundBytes) * BITS_PER_BYTE) / intervalDurationSeconds
                             } else 0.0
                             val outboundBitrateAvg = if (intervalDurationSeconds > 0 && previousOutboundBytes > 0) {
-                                ((mediaStats.outboundBytesSent - previousOutboundBytes) * 8) / intervalDurationSeconds
+                                ((mediaStats.outboundBytesSent - previousOutboundBytes) * BITS_PER_BYTE) / intervalDurationSeconds
                             } else 0.0
 
                             // Extract connection stats from selected candidate pair

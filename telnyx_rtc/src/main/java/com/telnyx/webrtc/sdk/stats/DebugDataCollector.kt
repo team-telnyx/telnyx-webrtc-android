@@ -489,73 +489,90 @@ class DebugDataCollector(private val context: Context) {
      * @param data The call debug data to convert
      * @return A JsonObject containing the structured call statistics
      */
-    @Suppress("LongMethod")
     internal fun convertToJson(data: CallDebugData): JsonObject {
         val json = JsonObject()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
         dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+
+        // Add main sections
+        json.add("stats", createStatsArray(data, dateFormat))
+        json.add("summary", createSummaryJson(data, dateFormat))
+
+        // Top-level identifiers
+        addTopLevelIdentifiers(json, data)
+
+        // Logs and Android-specific extra data
+        json.add("logs", createLogsArray(data, dateFormat))
+        json.add("android_extra", createAndroidExtraJson(data, dateFormat))
+
+        return json
+    }
+
+    private fun createStatsArray(data: CallDebugData, dateFormat: SimpleDateFormat): JsonArray {
+        val statsArray = JsonArray()
+        data.intervalStats.forEach { interval ->
+            statsArray.add(createIntervalJson(interval, dateFormat))
+        }
+        return statsArray
+    }
+
+    private fun createIntervalJson(interval: IntervalStats, dateFormat: SimpleDateFormat): JsonObject {
+        return JsonObject().apply {
+            add("audio", createIntervalAudioJson(interval))
+            add("connection", createIntervalConnectionJson(interval))
+            addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
+            addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
+        }
+    }
+
+    private fun createIntervalAudioJson(interval: IntervalStats): JsonObject {
+        val audio = JsonObject()
+
+        val audioInbound = JsonObject().apply {
+            addProperty("bytesReceived", interval.inboundBytesReceived)
+            addProperty("packetsReceived", interval.inboundPacketsReceived)
+            addProperty("packetsLost", interval.inboundPacketsLost)
+            addProperty("packetsDiscarded", interval.inboundPacketsDiscarded)
+            addProperty("jitterAvg", interval.inboundJitterAvg)
+            addProperty("jitterBufferDelay", interval.inboundJitterBufferDelay)
+            addProperty("jitterBufferEmittedCount", interval.inboundJitterBufferEmittedCount)
+            addProperty("concealedSamples", interval.inboundConcealedSamples)
+            addProperty("concealmentEvents", interval.inboundConcealmentEvents)
+            addProperty("totalSamplesReceived", interval.inboundTotalSamplesReceived)
+            if (interval.inboundBitrateAvg > 0) {
+                addProperty("bitrateAvg", interval.inboundBitrateAvg)
+            }
+        }
+        audio.add("inbound", audioInbound)
+
+        val audioOutbound = JsonObject().apply {
+            addProperty("bytesSent", interval.outboundBytesSent)
+            addProperty("packetsSent", interval.outboundPacketsSent)
+            if (interval.outboundBitrateAvg > 0) {
+                addProperty("bitrateAvg", interval.outboundBitrateAvg)
+            }
+        }
+        audio.add("outbound", audioOutbound)
+
+        return audio
+    }
+
+    private fun createIntervalConnectionJson(interval: IntervalStats): JsonObject {
+        return JsonObject().apply {
+            addProperty("bytesReceived", interval.connectionBytesReceived)
+            addProperty("bytesSent", interval.connectionBytesSent)
+            addProperty("packetsReceived", interval.connectionPacketsReceived)
+            addProperty("packetsSent", interval.connectionPacketsSent)
+            addProperty("roundTripTimeAvg", interval.connectionRoundTripTimeAvg)
+        }
+    }
+
+    private fun createSummaryJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
         val duration = data.endTimestamp?.let {
             (it - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
         } ?: 0.0
 
-        // Stats array - interval-based statistics
-        val statsArray = JsonArray()
-        data.intervalStats.forEach { interval ->
-            val intervalJson = JsonObject()
-
-            // Audio section
-            val audio = JsonObject()
-
-            // Audio inbound
-            val audioInbound = JsonObject().apply {
-                addProperty("bytesReceived", interval.inboundBytesReceived)
-                addProperty("packetsReceived", interval.inboundPacketsReceived)
-                addProperty("packetsLost", interval.inboundPacketsLost)
-                addProperty("packetsDiscarded", interval.inboundPacketsDiscarded)
-                addProperty("jitterAvg", interval.inboundJitterAvg)
-                addProperty("jitterBufferDelay", interval.inboundJitterBufferDelay)
-                addProperty("jitterBufferEmittedCount", interval.inboundJitterBufferEmittedCount)
-                addProperty("concealedSamples", interval.inboundConcealedSamples)
-                addProperty("concealmentEvents", interval.inboundConcealmentEvents)
-                addProperty("totalSamplesReceived", interval.inboundTotalSamplesReceived)
-                if (interval.inboundBitrateAvg > 0) {
-                    addProperty("bitrateAvg", interval.inboundBitrateAvg)
-                }
-            }
-            audio.add("inbound", audioInbound)
-
-            // Audio outbound
-            val audioOutbound = JsonObject().apply {
-                addProperty("bytesSent", interval.outboundBytesSent)
-                addProperty("packetsSent", interval.outboundPacketsSent)
-                if (interval.outboundBitrateAvg > 0) {
-                    addProperty("bitrateAvg", interval.outboundBitrateAvg)
-                }
-            }
-            audio.add("outbound", audioOutbound)
-
-            intervalJson.add("audio", audio)
-
-            // Connection section
-            val connection = JsonObject().apply {
-                addProperty("bytesReceived", interval.connectionBytesReceived)
-                addProperty("bytesSent", interval.connectionBytesSent)
-                addProperty("packetsReceived", interval.connectionPacketsReceived)
-                addProperty("packetsSent", interval.connectionPacketsSent)
-                addProperty("roundTripTimeAvg", interval.connectionRoundTripTimeAvg)
-            }
-            intervalJson.add("connection", connection)
-
-            // Interval timestamps
-            intervalJson.addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
-            intervalJson.addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
-
-            statsArray.add(intervalJson)
-        }
-        json.add("stats", statsArray)
-
-        // Summary section
-        val summary = JsonObject().apply {
+        return JsonObject().apply {
             addProperty("callId", data.callId.toString())
             addProperty("callerNumber", data.callerNumber)
             addProperty("destinationNumber", data.destinationNumber)
@@ -568,16 +585,17 @@ class DebugDataCollector(private val context: Context) {
             data.telnyxLegId?.let { addProperty("telnyxLegId", it.toString()) }
             data.telnyxSessionId?.let { addProperty("telnyxSessionId", it.toString()) }
         }
-        json.add("summary", summary)
+    }
 
-        // Top-level identifiers
+    private fun addTopLevelIdentifiers(json: JsonObject, data: CallDebugData) {
         json.addProperty("call_id", data.callId.toString())
         callReportId?.let { json.addProperty("call_report_id", it) }
         data.telnyxLegId?.let { json.addProperty("telnyx_leg_id", it.toString()) }
         data.telnyxSessionId?.let { json.addProperty("telnyx_session_id", it.toString()) }
         voiceSDKID?.let { json.addProperty("voice_sdk_id", it) }
+    }
 
-        // Logs array
+    private fun createLogsArray(data: CallDebugData, dateFormat: SimpleDateFormat): JsonArray {
         val logsArray = JsonArray()
         data.logs.forEach { log ->
             val logJson = JsonObject().apply {
@@ -598,47 +616,16 @@ class DebugDataCollector(private val context: Context) {
             }
             logsArray.add(logJson)
         }
-        json.add("logs", logsArray)
+        return logsArray
+    }
 
-        // Android-specific extra data (keep our additional diagnostics)
+    private fun createAndroidExtraJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
         val androidExtra = JsonObject()
 
-        // Device and environment info
-        val deviceInfo = JsonObject().apply {
-            addProperty("userAgent", "TelnyxAndroidSDK/${data.sdkVersion}")
-            addProperty("networkType", data.networkType)
-            addProperty("osVersion", data.osVersion)
-            addProperty("deviceModel", data.deviceModel)
-            addProperty("selectedCodec", data.selectedCodec)
-            addProperty("endReason", data.endReason)
-
-            val permissions = JsonObject().apply {
-                addProperty("microphone", data.recordAudioPermissionGranted)
-                addProperty("notifications", data.postNotificationsPermissionGranted)
-            }
-            add("permissions", permissions)
-        }
-        androidExtra.add("deviceInfo", deviceInfo)
-
-        // Connection state
-        val connectionState = JsonObject().apply {
-            addProperty("lastIceGatheringState", data.lastIceGatheringState)
-            addProperty("lastIceConnectionState", data.lastIceConnectionState)
-            addProperty("lastDtlsState", data.lastDtlsState)
-            addProperty("lastSignalingState", data.lastSignalingState)
-        }
-        androidExtra.add("connectionState", connectionState)
-
-        // Connection timeline
+        androidExtra.add("deviceInfo", createDeviceInfoJson(data))
+        androidExtra.add("connectionState", createConnectionStateJson(data))
         androidExtra.add("connectionTimeline", createConnectionTimelineArray(data.connectionTimeline, dateFormat))
-
-        // State transitions
-        val stateTransitions = JsonObject().apply {
-            add("iceGathering", createStateChangeArray(data.iceGatheringStates, dateFormat))
-            add("iceConnection", createStateChangeArray(data.iceConnectionStates, dateFormat))
-            add("signaling", createStateChangeArray(data.signalingStates, dateFormat))
-        }
-        androidExtra.add("stateTransitions", stateTransitions)
+        androidExtra.add("stateTransitions", createStateTransitionsJson(data, dateFormat))
 
         // ICE candidates
         androidExtra.add("iceCandidates", createIceCandidatesStatsJson(data, dateFormat))
@@ -654,9 +641,41 @@ class DebugDataCollector(private val context: Context) {
         // Media events
         androidExtra.add("mediaEvents", createMediaEventsJson(data, dateFormat))
 
-        json.add("android_extra", androidExtra)
+        return androidExtra
+    }
 
-        return json
+    private fun createDeviceInfoJson(data: CallDebugData): JsonObject {
+        return JsonObject().apply {
+            addProperty("userAgent", "TelnyxAndroidSDK/${data.sdkVersion}")
+            addProperty("networkType", data.networkType)
+            addProperty("osVersion", data.osVersion)
+            addProperty("deviceModel", data.deviceModel)
+            addProperty("selectedCodec", data.selectedCodec)
+            addProperty("endReason", data.endReason)
+
+            val permissions = JsonObject().apply {
+                addProperty("microphone", data.recordAudioPermissionGranted)
+                addProperty("notifications", data.postNotificationsPermissionGranted)
+            }
+            add("permissions", permissions)
+        }
+    }
+
+    private fun createConnectionStateJson(data: CallDebugData): JsonObject {
+        return JsonObject().apply {
+            addProperty("lastIceGatheringState", data.lastIceGatheringState)
+            addProperty("lastIceConnectionState", data.lastIceConnectionState)
+            addProperty("lastDtlsState", data.lastDtlsState)
+            addProperty("lastSignalingState", data.lastSignalingState)
+        }
+    }
+
+    private fun createStateTransitionsJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
+        return JsonObject().apply {
+            add("iceGathering", createStateChangeArray(data.iceGatheringStates, dateFormat))
+            add("iceConnection", createStateChangeArray(data.iceConnectionStates, dateFormat))
+            add("signaling", createStateChangeArray(data.signalingStates, dateFormat))
+        }
     }
 
     private fun createCandidateJson(candidate: CandidateDetails): JsonObject {
@@ -709,80 +728,6 @@ class DebugDataCollector(private val context: Context) {
                     addProperty("type", candidate.type)
                     addProperty("protocol", candidate.protocol)
                     addProperty("timestamp", dateFormat.format(Date(candidate.timestamp)))
-                })
-            }
-        }
-    }
-
-    private fun createAudioDeviceEventsArray(
-        events: List<AudioDeviceEvent>,
-        dateFormat: SimpleDateFormat
-    ): JsonArray {
-        return JsonArray().apply {
-            events.forEach { event ->
-                add(JsonObject().apply {
-                    addProperty("event", event.event)
-                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
-                })
-            }
-        }
-    }
-
-    private fun createMicrophoneErrorsArray(
-        errors: List<MicrophoneError>,
-        dateFormat: SimpleDateFormat
-    ): JsonArray {
-        return JsonArray().apply {
-            errors.forEach { error ->
-                add(JsonObject().apply {
-                    addProperty("error", error.error)
-                    addProperty("timestamp", dateFormat.format(Date(error.timestamp)))
-                })
-            }
-        }
-    }
-
-    private fun createTrackStateChangesArray(
-        changes: List<TrackStateChange>,
-        dateFormat: SimpleDateFormat
-    ): JsonArray {
-        return JsonArray().apply {
-            changes.forEach { change ->
-                add(JsonObject().apply {
-                    addProperty("trackType", change.trackType)
-                    addProperty("state", change.state)
-                    addProperty("timestamp", dateFormat.format(Date(change.timestamp)))
-                })
-            }
-        }
-    }
-
-    private fun createGetUserMediaEventsArray(
-        events: List<GetUserMediaEvent>,
-        dateFormat: SimpleDateFormat
-    ): JsonArray {
-        return JsonArray().apply {
-            events.forEach { event ->
-                add(JsonObject().apply {
-                    addProperty("trackId", event.trackId)
-                    addProperty("state", event.state)
-                    addProperty("enabled", event.enabled)
-                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
-                })
-            }
-        }
-    }
-
-    private fun createSpeakerOutputEventsArray(
-        events: List<SpeakerOutputEvent>,
-        dateFormat: SimpleDateFormat
-    ): JsonArray {
-        return JsonArray().apply {
-            events.forEach { event ->
-                add(JsonObject().apply {
-                    addProperty("device", event.device)
-                    addProperty("isActive", event.isActive)
-                    addProperty("timestamp", dateFormat.format(Date(event.timestamp)))
                 })
             }
         }
@@ -916,7 +861,14 @@ class DebugDataCollector(private val context: Context) {
             add("audioDeviceChanges", audioDeviceChanges)
 
             // Microphone errors
-            add("microphoneErrors", createMicrophoneErrorsArray(data.microphoneErrors, dateFormat))
+            val microphoneErrors = JsonArray()
+            data.microphoneErrors.forEach { error ->
+                microphoneErrors.add(JsonObject().apply {
+                    addProperty("error", error.error)
+                    addProperty("timestamp", dateFormat.format(Date(error.timestamp)))
+                })
+            }
+            add("microphoneErrors", microphoneErrors)
         }
     }
 
