@@ -34,6 +34,9 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
         private const val CONNECT_TIMEOUT_SECONDS = 30L
         private const val WRITE_TIMEOUT_SECONDS = 30L
         private const val READ_TIMEOUT_SECONDS = 30L
+        private const val HTTP_BAD_REQUEST = 400
+        private const val HTTP_UNAUTHORIZED = 401
+        private const val HTTP_PAYLOAD_TOO_LARGE = 413
     }
 
     private val callReportEndpoint: String = "https://$host$CALL_REPORT_PATH"
@@ -77,21 +80,21 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
                 } else {
                     val errorBody = response.body?.string()
                     val errorMessage = when (response.code) {
-                        400 -> when {
+                        HTTP_BAD_REQUEST -> when {
                             errorBody?.contains("missing call_id") == true ->
                                 "Missing call_id - no call_id in header or body"
                             errorBody?.contains("missing voice_sdk_id") == true ->
                                 "Missing voice_sdk_id - no voice_sdk_id in header or body"
                             else -> "Bad request: $errorBody"
                         }
-                        401 -> when {
+                        HTTP_UNAUTHORIZED -> when {
                             errorBody?.contains("missing call_report_id") == true ->
                                 "Missing call_report_id - no call_report_id in header or body"
                             errorBody?.contains("invalid call_report_id") == true ->
                                 "Invalid call_report_id - token failed to decode/validate"
                             else -> "Unauthorized: $errorBody"
                         }
-                        413 -> "Body too large - request body exceeds 2MB limit"
+                        HTTP_PAYLOAD_TOO_LARGE -> "Body too large - request body exceeds 2MB limit"
                         else -> "HTTP error: $errorBody"
                     }
                     Timber.tag(TAG).w(
