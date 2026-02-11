@@ -89,6 +89,13 @@ internal class WebRTCReporter(
     private var lastAudioSampleTime: Long = 0L
     private var previousPacketsLost: Long = 0L
 
+    // Interval stats tracking
+    private var lastIntervalTime: Long = 0L
+    private var previousInboundBytes: Long = 0L
+    private var previousOutboundBytes: Long = 0L
+    private var previousConnectionBytesReceived: Long = 0L
+    private var previousConnectionBytesSent: Long = 0L
+
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
     /**
@@ -108,6 +115,25 @@ internal class WebRTCReporter(
         codecName = null
         lastAudioSampleTime = 0L
         previousPacketsLost = 0L
+
+        // Reset interval tracking
+        lastIntervalTime = 0L
+        previousInboundBytes = 0L
+        previousOutboundBytes = 0L
+        previousConnectionBytesReceived = 0L
+        previousConnectionBytesSent = 0L
+
+        // Add initial log entry
+        debugDataCollector?.addLogEntry(
+            callId = peerId,
+            level = "info",
+            message = "CallReportCollector: Starting stats and log collection",
+            context = mapOf(
+                "interval" to AUDIO_SAMPLE_INTERVAL,
+                "logLevel" to "debug",
+                "maxLogEntries" to 1000
+            )
+        )
 
         val debugStartMessage = InitiateOrStopStatPrams(
             type = "debug_report_start",
@@ -315,7 +341,7 @@ internal class WebRTCReporter(
                         )
                         debugDataCollector?.updateMediaStats(peerId, mediaStats)
 
-                        // Record audio sample every 5 seconds
+                        // Record audio sample and interval stats every 5 seconds
                         val currentTime = System.currentTimeMillis()
                         if (currentTime - lastAudioSampleTime >= AUDIO_SAMPLE_INTERVAL) {
                             val currentPacketsLost = mediaStats.inboundPacketsLost
@@ -329,6 +355,79 @@ internal class WebRTCReporter(
                                 packetsLost = packetsLostSinceLastSample,
                                 roundTripTime = mediaStats.roundTripTime
                             )
+
+                            // Record interval stats for call reporting
+                            val intervalStartTime = if (lastIntervalTime == 0L) {
+                                currentTime - AUDIO_SAMPLE_INTERVAL
+                            } else {
+                                lastIntervalTime
+                            }
+
+                            // Extract additional stats from inbound audio
+                            val concealedSamples = (inboundAudioMap["concealedSamples"] as? Number)?.toLong() ?: 0L
+                            val concealmentEvents = (inboundAudioMap["concealmentEvents"] as? Number)?.toLong() ?: 0L
+                            val jitterBufferDelay = (inboundAudioMap["jitterBufferDelay"] as? Number)?.toDouble() ?: 0.0
+                            val jitterBufferEmittedCount = (inboundAudioMap["jitterBufferEmittedCount"] as? Number)?.toLong() ?: 0L
+                            val packetsDiscarded = (inboundAudioMap["packetsDiscarded"] as? Number)?.toLong() ?: 0L
+                            val totalSamplesReceived = (inboundAudioMap["totalSamplesReceived"] as? Number)?.toLong() ?: 0L
+
+                            // Calculate bitrates
+                            val intervalDurationSeconds = (currentTime - intervalStartTime) / MS_IN_SECONDS
+                            val inboundBitrateAvg = if (intervalDurationSeconds > 0 && previousInboundBytes > 0) {
+                                ((mediaStats.inboundBytesReceived - previousInboundBytes) * 8) / intervalDurationSeconds
+                            } else 0.0
+                            val outboundBitrateAvg = if (intervalDurationSeconds > 0 && previousOutboundBytes > 0) {
+                                ((mediaStats.outboundBytesSent - previousOutboundBytes) * 8) / intervalDurationSeconds
+                            } else 0.0
+
+                            // Extract connection stats from candidate pair
+                            var connectionBytesReceived = 0L
+                            var connectionBytesSent = 0L
+                            var connectionPacketsReceived = 0L
+                            var connectionPacketsSent = 0L
+
+                            connectionCandidates.values.firstOrNull { it["state"] == "succeeded" }?.let { pair ->
+                                connectionBytesReceived = (pair["bytesReceived"] as? Number)?.toLong() ?: 0L
+                                connectionBytesSent = (pair["bytesSent"] as? Number)?.toLong() ?: 0L
+                                connectionPacketsReceived = (pair["packetsReceived"] as? Number)?.toLong() ?: 0L
+                                connectionPacketsSent = (pair["packetsSent"] as? Number)?.toLong() ?: 0L
+                            }
+
+                            val intervalStats = IntervalStats(
+                                intervalStartUtc = intervalStartTime,
+                                intervalEndUtc = currentTime,
+                                // Audio inbound
+                                inboundBytesReceived = mediaStats.inboundBytesReceived,
+                                inboundPacketsReceived = mediaStats.inboundPacketsReceived,
+                                inboundPacketsLost = mediaStats.inboundPacketsLost,
+                                inboundPacketsDiscarded = packetsDiscarded,
+                                inboundJitterAvg = mediaStats.inboundJitter,
+                                inboundJitterBufferDelay = jitterBufferDelay,
+                                inboundJitterBufferEmittedCount = jitterBufferEmittedCount,
+                                inboundConcealedSamples = concealedSamples,
+                                inboundConcealmentEvents = concealmentEvents,
+                                inboundTotalSamplesReceived = totalSamplesReceived,
+                                inboundBitrateAvg = inboundBitrateAvg,
+                                // Audio outbound
+                                outboundBytesSent = mediaStats.outboundBytesSent,
+                                outboundPacketsSent = mediaStats.outboundPacketsSent,
+                                outboundBitrateAvg = outboundBitrateAvg,
+                                // Connection
+                                connectionBytesReceived = connectionBytesReceived,
+                                connectionBytesSent = connectionBytesSent,
+                                connectionPacketsReceived = connectionPacketsReceived,
+                                connectionPacketsSent = connectionPacketsSent,
+                                connectionRoundTripTimeAvg = mediaStats.roundTripTime / MS_IN_SECONDS
+                            )
+
+                            debugDataCollector?.recordIntervalStats(peerId, intervalStats)
+
+                            // Update tracking variables
+                            lastIntervalTime = currentTime
+                            previousInboundBytes = mediaStats.inboundBytesReceived
+                            previousOutboundBytes = mediaStats.outboundBytesSent
+                            previousConnectionBytesReceived = connectionBytesReceived
+                            previousConnectionBytesSent = connectionBytesSent
 
                             lastAudioSampleTime = currentTime
                             previousPacketsLost = currentPacketsLost

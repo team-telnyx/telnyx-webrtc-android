@@ -663,6 +663,12 @@ class TelnyxClient(
 
             // Notify debug data collector that a new call has started
             client.debugDataCollector.onCallStarted(inviteCallId)
+            client.debugDataCollector.updateCallMetadata(
+                callId = inviteCallId,
+                callerNumber = callerNumber,
+                destinationNumber = destinationNumber,
+                direction = "outbound"
+            )
 
             peerConnection = Peer(
                 context,
@@ -2653,6 +2659,12 @@ class TelnyxClient(
 
                 // Notify debug data collector that a new call has started
                 client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
+                client.debugDataCollector.updateCallMetadata(
+                    callId = offerCallId,
+                    callerNumber = callerNumber,
+                    destinationNumber = "",
+                    direction = "inbound"
+                )
 
                 //retrieve custom headers
                 val customHeaders =
@@ -2854,6 +2866,12 @@ class TelnyxClient(
 
             // Notify debug data collector that a new call has started (push notification reattach)
             client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
+            client.debugDataCollector.updateCallMetadata(
+                callId = offerCallId,
+                callerNumber = callerNumber,
+                destinationNumber = "",
+                direction = "inbound"
+            )
 
             peerConnection = Peer(
                 context,

@@ -99,6 +99,60 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Updates the call metadata (caller number, destination, direction).
+     *
+     * @param callId The unique identifier for the call
+     * @param callerNumber The caller's phone number
+     * @param destinationNumber The destination phone number
+     * @param direction The call direction ("inbound" or "outbound")
+     */
+    fun updateCallMetadata(
+        callId: UUID,
+        callerNumber: String? = null,
+        destinationNumber: String? = null,
+        direction: String? = null
+    ) {
+        callDebugData[callId]?.let { data ->
+            callerNumber?.let { data.callerNumber = it }
+            destinationNumber?.let { data.destinationNumber = it }
+            direction?.let { data.direction = it }
+        }
+    }
+
+    /**
+     * Records interval-based statistics for call reporting.
+     * This should be called every 5 seconds during a call.
+     *
+     * @param callId The unique identifier for the call
+     * @param stats The interval statistics to record
+     */
+    fun recordIntervalStats(callId: UUID, stats: IntervalStats) {
+        callDebugData[callId]?.let { data ->
+            data.intervalStats.add(stats)
+            Timber.tag(TAG).d("Interval stats recorded for call $callId")
+        }
+    }
+
+    /**
+     * Adds a log entry for call reporting.
+     *
+     * @param callId The unique identifier for the call
+     * @param level The log level (e.g., "info", "debug", "error")
+     * @param message The log message
+     * @param context Optional context map with additional details
+     */
+    fun addLogEntry(
+        callId: UUID,
+        level: String,
+        message: String,
+        context: Map<String, Any>? = null
+    ) {
+        callDebugData[callId]?.let { data ->
+            data.logs.add(LogEntry(System.currentTimeMillis(), level, message, context))
+        }
+    }
+
+    /**
      * Records an ICE gathering state change.
      *
      * @param callId The unique identifier for the call
@@ -429,8 +483,8 @@ class DebugDataCollector(private val context: Context) {
 
     /**
      * Converts the call debug data to a structured JSON object.
-     * The JSON structure has a top-level "data" wrapper containing
-     * "summary" and "stats" sections.
+     * The JSON structure matches the Telnyx call report format with stats array,
+     * summary, and top-level identifiers.
      *
      * @param data The call debug data to convert
      * @return A JsonObject containing the structured call statistics
@@ -438,39 +492,133 @@ class DebugDataCollector(private val context: Context) {
     @Suppress("LongMethod")
     internal fun convertToJson(data: CallDebugData): JsonObject {
         val json = JsonObject()
-        val dataWrapper = JsonObject()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
         val duration = data.endTimestamp?.let {
             (it - data.startTimestamp) / MILLIS_PER_SECOND.toDouble()
         } ?: 0.0
 
-        // Summary section with nested permissions
+        // Stats array - interval-based statistics
+        val statsArray = JsonArray()
+        data.intervalStats.forEach { interval ->
+            val intervalJson = JsonObject()
+
+            // Audio section
+            val audio = JsonObject()
+
+            // Audio inbound
+            val audioInbound = JsonObject().apply {
+                addProperty("bytesReceived", interval.inboundBytesReceived)
+                addProperty("packetsReceived", interval.inboundPacketsReceived)
+                addProperty("packetsLost", interval.inboundPacketsLost)
+                addProperty("packetsDiscarded", interval.inboundPacketsDiscarded)
+                addProperty("jitterAvg", interval.inboundJitterAvg)
+                addProperty("jitterBufferDelay", interval.inboundJitterBufferDelay)
+                addProperty("jitterBufferEmittedCount", interval.inboundJitterBufferEmittedCount)
+                addProperty("concealedSamples", interval.inboundConcealedSamples)
+                addProperty("concealmentEvents", interval.inboundConcealmentEvents)
+                addProperty("totalSamplesReceived", interval.inboundTotalSamplesReceived)
+                if (interval.inboundBitrateAvg > 0) {
+                    addProperty("bitrateAvg", interval.inboundBitrateAvg)
+                }
+            }
+            audio.add("inbound", audioInbound)
+
+            // Audio outbound
+            val audioOutbound = JsonObject().apply {
+                addProperty("bytesSent", interval.outboundBytesSent)
+                addProperty("packetsSent", interval.outboundPacketsSent)
+                if (interval.outboundBitrateAvg > 0) {
+                    addProperty("bitrateAvg", interval.outboundBitrateAvg)
+                }
+            }
+            audio.add("outbound", audioOutbound)
+
+            intervalJson.add("audio", audio)
+
+            // Connection section
+            val connection = JsonObject().apply {
+                addProperty("bytesReceived", interval.connectionBytesReceived)
+                addProperty("bytesSent", interval.connectionBytesSent)
+                addProperty("packetsReceived", interval.connectionPacketsReceived)
+                addProperty("packetsSent", interval.connectionPacketsSent)
+                addProperty("roundTripTimeAvg", interval.connectionRoundTripTimeAvg)
+            }
+            intervalJson.add("connection", connection)
+
+            // Interval timestamps
+            intervalJson.addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
+            intervalJson.addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
+
+            statsArray.add(intervalJson)
+        }
+        json.add("stats", statsArray)
+
+        // Summary section
         val summary = JsonObject().apply {
             addProperty("callId", data.callId.toString())
-            addProperty("telnyxSessionId", data.telnyxSessionId?.toString())
-            addProperty("telnyxLegId", data.telnyxLegId?.toString())
-            addProperty("sdkVersion", data.sdkVersion)
-            addProperty("userAgent", "TelnyxAndroidSDK/${data.sdkVersion}")
+            addProperty("callerNumber", data.callerNumber)
+            addProperty("destinationNumber", data.destinationNumber)
+            addProperty("direction", data.direction)
+            addProperty("durationSeconds", duration)
             addProperty("startTimestamp", dateFormat.format(Date(data.startTimestamp)))
             data.endTimestamp?.let { addProperty("endTimestamp", dateFormat.format(Date(it))) }
-            addProperty("durationSeconds", duration)
-            addProperty("endReason", data.endReason)
+            addProperty("sdkVersion", data.sdkVersion)
+            addProperty("state", if (data.endTimestamp != null) "done" else data.state)
+            data.telnyxLegId?.let { addProperty("telnyxLegId", it.toString()) }
+            data.telnyxSessionId?.let { addProperty("telnyxSessionId", it.toString()) }
+        }
+        json.add("summary", summary)
+
+        // Top-level identifiers
+        json.addProperty("call_id", data.callId.toString())
+        callReportId?.let { json.addProperty("call_report_id", it) }
+        data.telnyxLegId?.let { json.addProperty("telnyx_leg_id", it.toString()) }
+        data.telnyxSessionId?.let { json.addProperty("telnyx_session_id", it.toString()) }
+        voiceSDKID?.let { json.addProperty("voice_sdk_id", it) }
+
+        // Logs array
+        val logsArray = JsonArray()
+        data.logs.forEach { log ->
+            val logJson = JsonObject().apply {
+                addProperty("timestamp", dateFormat.format(Date(log.timestamp)))
+                addProperty("level", log.level)
+                addProperty("message", log.message)
+                log.context?.let { ctx ->
+                    val contextJson = JsonObject()
+                    ctx.forEach { (key, value) ->
+                        when (value) {
+                            is Number -> contextJson.addProperty(key, value)
+                            is Boolean -> contextJson.addProperty(key, value)
+                            else -> contextJson.addProperty(key, value.toString())
+                        }
+                    }
+                    add("context", contextJson)
+                }
+            }
+            logsArray.add(logJson)
+        }
+        json.add("logs", logsArray)
+
+        // Android-specific extra data (keep our additional diagnostics)
+        val androidExtra = JsonObject()
+
+        // Device and environment info
+        val deviceInfo = JsonObject().apply {
+            addProperty("userAgent", "TelnyxAndroidSDK/${data.sdkVersion}")
             addProperty("networkType", data.networkType)
             addProperty("osVersion", data.osVersion)
             addProperty("deviceModel", data.deviceModel)
             addProperty("selectedCodec", data.selectedCodec)
+            addProperty("endReason", data.endReason)
 
-            // Nested permissions
             val permissions = JsonObject().apply {
                 addProperty("microphone", data.recordAudioPermissionGranted)
                 addProperty("notifications", data.postNotificationsPermissionGranted)
             }
             add("permissions", permissions)
         }
-        dataWrapper.add("summary", summary)
-
-        // Stats section
-        val stats = JsonObject()
+        androidExtra.add("deviceInfo", deviceInfo)
 
         // Connection state
         val connectionState = JsonObject().apply {
@@ -479,10 +627,10 @@ class DebugDataCollector(private val context: Context) {
             addProperty("lastDtlsState", data.lastDtlsState)
             addProperty("lastSignalingState", data.lastSignalingState)
         }
-        stats.add("connectionState", connectionState)
+        androidExtra.add("connectionState", connectionState)
 
         // Connection timeline
-        stats.add("connectionTimeline", createConnectionTimelineArray(data.connectionTimeline, dateFormat))
+        androidExtra.add("connectionTimeline", createConnectionTimelineArray(data.connectionTimeline, dateFormat))
 
         // State transitions
         val stateTransitions = JsonObject().apply {
@@ -490,25 +638,23 @@ class DebugDataCollector(private val context: Context) {
             add("iceConnection", createStateChangeArray(data.iceConnectionStates, dateFormat))
             add("signaling", createStateChangeArray(data.signalingStates, dateFormat))
         }
-        stats.add("stateTransitions", stateTransitions)
+        androidExtra.add("stateTransitions", stateTransitions)
 
-        // ICE candidates with counts
-        stats.add("iceCandidates", createIceCandidatesStatsJson(data, dateFormat))
+        // ICE candidates
+        androidExtra.add("iceCandidates", createIceCandidatesStatsJson(data, dateFormat))
 
-        // ICE candidate errors (placeholder for future use)
-        stats.add("iceCandidateErrors", JsonArray())
+        // Legacy media stats (accumulated)
+        androidExtra.add("mediaAccumulated", createMediaJson(data.mediaStats))
 
-        // Media statistics
-        stats.add("media", createMediaJson(data.mediaStats))
-
-        // Audio samples (time-series)
-        stats.add("audioSamples", createAudioSamplesArray(data.audioSamples, dateFormat))
+        // Audio samples (legacy time-series)
+        if (data.audioSamples.isNotEmpty()) {
+            androidExtra.add("audioSamples", createAudioSamplesArray(data.audioSamples, dateFormat))
+        }
 
         // Media events
-        stats.add("mediaEvents", createMediaEventsJson(data, dateFormat))
+        androidExtra.add("mediaEvents", createMediaEventsJson(data, dateFormat))
 
-        dataWrapper.add("stats", stats)
-        json.add("data", dataWrapper)
+        json.add("android_extra", androidExtra)
 
         return json
     }
@@ -1124,6 +1270,12 @@ internal data class CallDebugData(
     val osVersion: String,
     val deviceModel: String,
 
+    // Call metadata
+    var callerNumber: String = "",
+    var destinationNumber: String = "",
+    var direction: String = "",
+    var state: String = "active",
+
     // Permissions
     val recordAudioPermissionGranted: Boolean,
     val postNotificationsPermissionGranted: Boolean,
@@ -1164,7 +1316,13 @@ internal data class CallDebugData(
     val speakerOutputEvents: MutableList<SpeakerOutputEvent> = mutableListOf(),
 
     // Periodic audio samples (captured every 5 seconds)
-    val audioSamples: MutableList<AudioSample> = mutableListOf()
+    val audioSamples: MutableList<AudioSample> = mutableListOf(),
+
+    // Interval-based stats for call reporting
+    val intervalStats: MutableList<IntervalStats> = mutableListOf(),
+
+    // Log entries for call reporting
+    val logs: MutableList<LogEntry> = mutableListOf()
 )
 
 /**
@@ -1318,4 +1476,45 @@ data class AudioSample(
     val jitter: Double,
     val packetsLost: Long,
     val roundTripTime: Double
+)
+
+/**
+ * Represents interval-based statistics for call reporting.
+ * Each interval captures audio and connection metrics over a time period.
+ */
+data class IntervalStats(
+    val intervalStartUtc: Long,
+    val intervalEndUtc: Long,
+    // Audio inbound
+    val inboundBytesReceived: Long = 0,
+    val inboundPacketsReceived: Long = 0,
+    val inboundPacketsLost: Long = 0,
+    val inboundPacketsDiscarded: Long = 0,
+    val inboundJitterAvg: Double = 0.0,
+    val inboundJitterBufferDelay: Double = 0.0,
+    val inboundJitterBufferEmittedCount: Long = 0,
+    val inboundConcealedSamples: Long = 0,
+    val inboundConcealmentEvents: Long = 0,
+    val inboundTotalSamplesReceived: Long = 0,
+    val inboundBitrateAvg: Double = 0.0,
+    // Audio outbound
+    val outboundBytesSent: Long = 0,
+    val outboundPacketsSent: Long = 0,
+    val outboundBitrateAvg: Double = 0.0,
+    // Connection
+    val connectionBytesReceived: Long = 0,
+    val connectionBytesSent: Long = 0,
+    val connectionPacketsReceived: Long = 0,
+    val connectionPacketsSent: Long = 0,
+    val connectionRoundTripTimeAvg: Double = 0.0
+)
+
+/**
+ * Represents a log entry for call reporting.
+ */
+data class LogEntry(
+    val timestamp: Long,
+    val level: String,
+    val message: String,
+    val context: Map<String, Any>? = null
 )
