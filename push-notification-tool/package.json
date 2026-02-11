@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "inquirer": "^8.2.6",
-    "axios": "^1.12.2",
+    "axios": "^1.13.5",
     "chalk": "^4.1.2",
     "google-auth-library": "^9.6.3"
   },
