@@ -101,12 +101,12 @@ dependencies {
     implementation("com.karumi:dexter:6.2.2")
 
     // JUnit 5 (Jupiter) for unit tests
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.2")
 
     // JUnit 5 for Android instrumentation tests
-    androidTestImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    androidTestImplementation("org.junit.jupiter:junit-jupiter-api:6.0.2")
     androidTestImplementation("de.mannodermaus.junit5:android-test-core:1.4.0")
     androidTestRuntimeOnly("de.mannodermaus.junit5:android-test-runner:1.4.0")
 
