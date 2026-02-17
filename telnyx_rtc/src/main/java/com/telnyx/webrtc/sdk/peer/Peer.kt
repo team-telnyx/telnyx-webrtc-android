@@ -7,6 +7,11 @@ package com.telnyx.webrtc.sdk.peer
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.DEV_STUN
+import com.telnyx.webrtc.sdk.Config.DEV_TURN
+import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -199,6 +204,12 @@ internal class Peer(
     /**
      * Retrieves the IceServers built with the provided STUN and TURN servers
      *
+     * ICE server order for optimal connectivity:
+     * 1. Telnyx STUN - Primary STUN server
+     * 2. Google STUN - Redundancy fallback
+     * 3. TURN UDP - Lower latency, preferred for real-time media
+     * 4. TURN TCP - Fallback for restrictive firewalls
+     *
      * @see [TxSocket]
      * @see [PeerConnection.IceServer]
      *
@@ -207,17 +218,43 @@ internal class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         Logger.d(message = "Start collection of ice servers")
+
+        // Detect if we're using dev servers based on the provided STUN server
+        val isDevEnvironment = providedStun.contains("dev")
+        val turnUdp = if (isDevEnvironment) DEV_TURN_UDP else DEFAULT_TURN_UDP
+        val turnTcp = if (isDevEnvironment) DEV_TURN else DEFAULT_TURN
+
+        // 1. Telnyx STUN (primary)
         iceServers.add(
-            PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
-                PASSWORD
-            ).createIceServer()
+            PeerConnection.IceServer.builder(providedStun)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
         )
+
+        // 2. Google STUN (redundancy)
         iceServers.add(
-            PeerConnection.IceServer.builder(providedTurn).setUsername(USERNAME).setPassword(
-                PASSWORD
-            ).createIceServer()
+            PeerConnection.IceServer.builder(GOOGLE_STUN)
+                .createIceServer()
         )
-        Logger.d(message = "End collection of ice servers")
+
+        // 3. TURN UDP (preferred - lower latency)
+        iceServers.add(
+            PeerConnection.IceServer.builder(turnUdp)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
+        )
+
+        // 4. TURN TCP (fallback for restrictive firewalls)
+        iceServers.add(
+            PeerConnection.IceServer.builder(turnTcp)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
+        )
+
+        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP primary, TCP fallback)")
         return iceServers
     }
 
