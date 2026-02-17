@@ -7,6 +7,9 @@ package com.telnyx.webrtc.sdk.peer
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.DEV_TURN
+import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
 import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
@@ -215,10 +218,13 @@ internal class Peer(
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         Logger.d(message = "Start collection of ice servers")
 
-        // Derive UDP TURN URL from providedTurn by replacing transport parameter
-        // This preserves custom TURN server configurations while adding UDP support
-        val turnUdp = providedTurn.replace("transport=tcp", "transport=udp")
-        val turnTcp = providedTurn
+        // Determine UDP and TCP TURN URLs
+        // Use predefined constants for default Telnyx servers, derive for custom servers
+        val (turnUdp, turnTcp) = when (providedTurn) {
+            DEFAULT_TURN -> Pair(DEFAULT_TURN_UDP, DEFAULT_TURN)
+            DEV_TURN -> Pair(DEV_TURN_UDP, DEV_TURN)
+            else -> Pair(deriveUdpTurnUrl(providedTurn), ensureTcpTransport(providedTurn))
+        }
 
         // 1. Telnyx STUN (primary)
         iceServers.add(
@@ -250,8 +256,33 @@ internal class Peer(
                 .createIceServer()
         )
 
-        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP primary, TCP fallback)")
+        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp)")
         return iceServers
+    }
+
+    /**
+     * Derives a UDP TURN URL from a given TURN URL.
+     * Handles both URLs with existing transport param and those without.
+     */
+    private fun deriveUdpTurnUrl(turnUrl: String): String {
+        return when {
+            turnUrl.contains("transport=tcp") -> turnUrl.replace("transport=tcp", "transport=udp")
+            turnUrl.contains("transport=udp") -> turnUrl // Already UDP
+            turnUrl.contains("?") -> "$turnUrl&transport=udp" // Has other params, append
+            else -> "$turnUrl?transport=udp" // No params, add
+        }
+    }
+
+    /**
+     * Ensures a TURN URL has TCP transport specified.
+     * If no transport is specified, adds transport=tcp.
+     */
+    private fun ensureTcpTransport(turnUrl: String): String {
+        return when {
+            turnUrl.contains("transport=") -> turnUrl // Already has transport param
+            turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
+            else -> "$turnUrl?transport=tcp" // No params, add
+        }
     }
 
     val iceCandidatePoolSize = getIceCandidatePool()
