@@ -7,10 +7,6 @@ package com.telnyx.webrtc.sdk.peer
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
-import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
-import com.telnyx.webrtc.sdk.Config.DEV_STUN
-import com.telnyx.webrtc.sdk.Config.DEV_TURN
-import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
 import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
@@ -219,10 +215,10 @@ internal class Peer(
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         Logger.d(message = "Start collection of ice servers")
 
-        // Detect if we're using dev servers based on the provided STUN server
-        val isDevEnvironment = providedStun.contains("dev")
-        val turnUdp = if (isDevEnvironment) DEV_TURN_UDP else DEFAULT_TURN_UDP
-        val turnTcp = if (isDevEnvironment) DEV_TURN else DEFAULT_TURN
+        // Derive UDP TURN URL from providedTurn by replacing transport parameter
+        // This preserves custom TURN server configurations while adding UDP support
+        val turnUdp = providedTurn.replace("transport=tcp", "transport=udp")
+        val turnTcp = providedTurn
 
         // 1. Telnyx STUN (primary)
         iceServers.add(
