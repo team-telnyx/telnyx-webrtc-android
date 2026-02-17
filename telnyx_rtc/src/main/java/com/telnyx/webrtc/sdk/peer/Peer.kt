@@ -7,6 +7,10 @@ package com.telnyx.webrtc.sdk.peer
 import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.DEV_TURN
+import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -199,6 +203,12 @@ internal class Peer(
     /**
      * Retrieves the IceServers built with the provided STUN and TURN servers
      *
+     * ICE server order for optimal connectivity:
+     * 1. Telnyx STUN - Primary STUN server
+     * 2. Google STUN - Redundancy fallback
+     * 3. TURN UDP - Lower latency, preferred for real-time media
+     * 4. TURN TCP - Fallback for restrictive firewalls
+     *
      * @see [TxSocket]
      * @see [PeerConnection.IceServer]
      *
@@ -207,18 +217,72 @@ internal class Peer(
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         Logger.d(message = "Start collection of ice servers")
+
+        // Determine UDP and TCP TURN URLs
+        // Use predefined constants for default Telnyx servers, derive for custom servers
+        val (turnUdp, turnTcp) = when (providedTurn) {
+            DEFAULT_TURN -> Pair(DEFAULT_TURN_UDP, DEFAULT_TURN)
+            DEV_TURN -> Pair(DEV_TURN_UDP, DEV_TURN)
+            else -> Pair(deriveUdpTurnUrl(providedTurn), ensureTcpTransport(providedTurn))
+        }
+
+        // 1. Telnyx STUN (primary)
         iceServers.add(
-            PeerConnection.IceServer.builder(providedStun).setUsername(USERNAME).setPassword(
-                PASSWORD
-            ).createIceServer()
+            PeerConnection.IceServer.builder(providedStun)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
         )
+
+        // 2. Google STUN (redundancy)
         iceServers.add(
-            PeerConnection.IceServer.builder(providedTurn).setUsername(USERNAME).setPassword(
-                PASSWORD
-            ).createIceServer()
+            PeerConnection.IceServer.builder(GOOGLE_STUN)
+                .createIceServer()
         )
-        Logger.d(message = "End collection of ice servers")
+
+        // 3. TURN UDP (preferred - lower latency)
+        iceServers.add(
+            PeerConnection.IceServer.builder(turnUdp)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
+        )
+
+        // 4. TURN TCP (fallback for restrictive firewalls)
+        iceServers.add(
+            PeerConnection.IceServer.builder(turnTcp)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
+        )
+
+        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp)")
         return iceServers
+    }
+
+    /**
+     * Derives a UDP TURN URL from a given TURN URL.
+     * Handles both URLs with existing transport param and those without.
+     */
+    private fun deriveUdpTurnUrl(turnUrl: String): String {
+        return when {
+            turnUrl.contains("transport=tcp") -> turnUrl.replace("transport=tcp", "transport=udp")
+            turnUrl.contains("transport=udp") -> turnUrl // Already UDP
+            turnUrl.contains("?") -> "$turnUrl&transport=udp" // Has other params, append
+            else -> "$turnUrl?transport=udp" // No params, add
+        }
+    }
+
+    /**
+     * Ensures a TURN URL has TCP transport specified.
+     * If no transport is specified, adds transport=tcp.
+     */
+    private fun ensureTcpTransport(turnUrl: String): String {
+        return when {
+            turnUrl.contains("transport=") -> turnUrl // Already has transport param
+            turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
+            else -> "$turnUrl?transport=tcp" // No params, add
+        }
     }
 
     val iceCandidatePoolSize = getIceCandidatePool()
