@@ -1,3 +1,18 @@
+## [3.4.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.4.0) (2025-02-18)
+
+### Enhancement
+- ICE Trickle Support for faster call setup
+- Port TURN/STUN server configuration changes with custom ICE servers support
+- Add DebugDataCollector for call debug logging
+- Call Connection Benchmarking support
+- Add answered_device_token parameter for push notification call answering
+- Add DEV_TURN and DEV_STUN constants for development environment
+- Support for starting calls with muted microphone (Invite/Answer muted)
+
+### Bug Fixing
+- Fix incorrect client ready state on failed login
+- Retry with exponential backoff when server closes during reconnection
+
 ## [3.3.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.3.0) (2025-11-18)
 
 ### Enhancement
