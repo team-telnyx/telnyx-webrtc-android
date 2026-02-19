@@ -13,13 +13,11 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.6.1")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
-        classpath("org.jetbrains.kotlinx:kover:0.5.1")
-        classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.21.0")
-        classpath("org.jetbrains.dokka:dokka-gradle-plugin:1.9.20")
         classpath("com.android.tools.build:gradle:$androidGradlePluginVersion")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        classpath("org.jetbrains.kotlinx:kover:0.5.1")
+        classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.23.7")
+        classpath("org.jetbrains.dokka:dokka-gradle-plugin:1.9.20")
         classpath("com.google.gms:google-services:$googlePlayServicesVersion")
         classpath("com.google.dagger:hilt-android-gradle-plugin:$hiltVersion")
     }
@@ -39,5 +37,5 @@ allprojects {
 }
 
 tasks.register("clean", Delete::class) {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }
