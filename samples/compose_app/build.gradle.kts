@@ -89,7 +89,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation(project(":telnyx_common"))
-    implementation("com.jakewharton.timber:timber:4.5.1")
+    implementation("com.jakewharton.timber:timber:5.0.1")
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
     implementation("com.google.code.gson:gson:2.12.0")
 
