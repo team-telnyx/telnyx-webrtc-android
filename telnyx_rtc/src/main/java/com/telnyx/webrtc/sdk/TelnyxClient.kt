@@ -414,6 +414,7 @@ class TelnyxClient(
                 Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
                 updateCallState(CallState.ERROR)
                 CallTimingBenchmark.reset()
+                client.latencyTracker.cancelCallTracking(callId)
                 return@apply
             }
 
@@ -851,6 +852,9 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
+        
+        // Clean up latency tracking for this call
+        latencyTracker.cancelCallTracking(callId)
 
         // Clean up any pending ICE candidates for this call
         synchronized(pendingIceCandidates) {
