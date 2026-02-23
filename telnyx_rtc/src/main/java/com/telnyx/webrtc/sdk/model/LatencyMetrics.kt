@@ -43,10 +43,16 @@ data class LatencyMetrics(
      * Returns a formatted string representation of the latency metrics.
      */
     fun toFormattedString(): String {
-        val direction = if (isOutbound) "OUTBOUND" else "INBOUND"
+        val isRegistration = callId == null && registrationLatencyMs != null
+        val header = if (isRegistration) {
+            "REGISTRATION LATENCY METRICS"
+        } else {
+            val direction = if (isOutbound) "OUTBOUND" else "INBOUND"
+            "$direction CALL LATENCY METRICS"
+        }
         val sb = StringBuilder()
         sb.appendLine("═══════════════════════════════════════════════════")
-        sb.appendLine("       $direction CALL LATENCY METRICS")
+        sb.appendLine("       $header")
         sb.appendLine("═══════════════════════════════════════════════════")
         
         callId?.let { sb.appendLine("Call ID: $it") }
