@@ -94,7 +94,6 @@ class LatencyTracker {
         registrationMilestones.clear()
         isTrackingRegistration = true
         markRegistrationMilestone(MILESTONE_LOGIN_INITIATED)
-        Logger.d(TAG, "Registration tracking started")
     }
     
     /**
@@ -105,7 +104,7 @@ class LatencyTracker {
         if (!isTrackingRegistration) return
         val elapsed = System.currentTimeMillis() - registrationStartTime
         registrationMilestones[milestone] = elapsed
-        Logger.d(TAG, "Registration milestone: $milestone at ${elapsed}ms")
+        // Milestones are stored silently; only completion is logged
     }
     
     /**
@@ -146,7 +145,6 @@ class LatencyTracker {
         )
         callTrackers[callId] = state
         markCallMilestone(callId, MILESTONE_CALL_INITIATED)
-        Logger.d(TAG, "Call tracking started for $callId (${if (isOutbound) "outbound" else "inbound"})")
     }
     
     /**
@@ -158,7 +156,7 @@ class LatencyTracker {
         val state = callTrackers[callId] ?: return
         val elapsed = System.currentTimeMillis() - state.startTime
         state.milestones[milestone] = elapsed
-        Logger.d(TAG, "Call $callId milestone: $milestone at ${elapsed}ms")
+        // Milestones are stored silently; only completion is logged
     }
     
     /**
@@ -215,7 +213,6 @@ class LatencyTracker {
      */
     fun cancelCallTracking(callId: UUID) {
         callTrackers.remove(callId)
-        Logger.d(TAG, "Call tracking cancelled for $callId")
     }
     
     /**
@@ -290,6 +287,5 @@ class LatencyTracker {
         registrationMilestones.clear()
         isTrackingRegistration = false
         callTrackers.clear()
-        Logger.d(TAG, "LatencyTracker reset")
     }
 }
