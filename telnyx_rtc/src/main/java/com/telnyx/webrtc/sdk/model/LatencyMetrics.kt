@@ -34,6 +34,11 @@ data class LatencyMetrics(
     val milestones: Map<String, Long> = emptyMap(),
     val timestamp: Long = System.currentTimeMillis()
 ) {
+    companion object {
+        /** Padding length for milestone names in formatted output */
+        private const val MILESTONE_NAME_PAD_LENGTH = 35
+    }
+    
     /**
      * Returns a formatted string representation of the latency metrics.
      */
@@ -56,7 +61,7 @@ data class LatencyMetrics(
             sb.appendLine("───────────────────────────────────────────────────")
             sb.appendLine("Detailed Milestones:")
             milestones.entries.sortedBy { it.value }.forEach { (name, time) ->
-                sb.appendLine("  ${name.padEnd(35)} ${time}ms")
+                sb.appendLine("  ${name.padEnd(MILESTONE_NAME_PAD_LENGTH)} ${time}ms")
             }
         }
         sb.appendLine("═══════════════════════════════════════════════════")

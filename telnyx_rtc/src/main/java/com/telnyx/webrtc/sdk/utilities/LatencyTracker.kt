@@ -243,6 +243,7 @@ class LatencyTracker {
         _latencyMetricsFlow.tryEmit(metrics)
     }
     
+    @Suppress("ReturnCount")
     private fun calculateIceGatheringLatency(milestones: Map<String, Long>): Long? {
         val start = milestones[MILESTONE_FIRST_ICE_CANDIDATE] ?: return null
         val end = milestones[MILESTONE_ICE_GATHERING_COMPLETE] 
@@ -251,6 +252,7 @@ class LatencyTracker {
         return end - start
     }
     
+    @Suppress("ReturnCount")
     private fun calculateSignalingLatency(milestones: Map<String, Long>, isOutbound: Boolean): Long? {
         return if (isOutbound) {
             val start = milestones[MILESTONE_INVITE_SENT] ?: return null
@@ -263,6 +265,7 @@ class LatencyTracker {
         }
     }
     
+    @Suppress("ReturnCount")
     private fun calculateMediaEstablishmentLatency(milestones: Map<String, Long>): Long? {
         val start = milestones[MILESTONE_ICE_CONNECTED] 
             ?: milestones[MILESTONE_PEER_CONNECTED] 
