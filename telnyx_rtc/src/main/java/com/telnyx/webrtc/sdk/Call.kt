@@ -21,6 +21,7 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
+import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.utilities.encodeBase64
@@ -570,6 +571,8 @@ data class Call(
                 )
             )
             socket.send(inviteMessageBody)
+            // Track invite sent milestone
+            client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_INVITE_SENT)
         } else {
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [$callId]. Cannot send invite.")
@@ -621,6 +624,8 @@ data class Call(
                             )
                         )
                         socket.send(inviteMessageBody)
+                        // Track invite sent milestone
+                        client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_INVITE_SENT)
                         resetIceCandidateTimer() // Stop timer after sending
                     } else {
                          if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")

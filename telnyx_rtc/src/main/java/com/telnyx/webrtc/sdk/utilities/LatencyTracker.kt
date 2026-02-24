@@ -42,9 +42,22 @@ class LatencyTracker {
         const val MILESTONE_ANSWER_SENT = "answer_sent"
         const val MILESTONE_REMOTE_SDP_RECEIVED = "remote_sdp_received"
         const val MILESTONE_REMOTE_SDP_SET = "remote_sdp_set"
+        
+        // ICE gathering milestones
+        const val MILESTONE_ICE_GATHERING_STARTED = "ice_gathering_started"
         const val MILESTONE_FIRST_ICE_CANDIDATE = "first_ice_candidate"
         const val MILESTONE_ICE_GATHERING_COMPLETE = "ice_gathering_complete"
+        
+        // ICE connection milestones
+        const val MILESTONE_ICE_CHECKING = "ice_checking"
         const val MILESTONE_ICE_CONNECTED = "ice_connected"
+        const val MILESTONE_ICE_COMPLETED = "ice_completed"
+        
+        // DTLS milestones
+        const val MILESTONE_DTLS_CONNECTING = "dtls_connecting"
+        const val MILESTONE_DTLS_CONNECTED = "dtls_connected"
+        
+        // Peer connection milestones
         const val MILESTONE_PEER_CONNECTED = "peer_connected"
         const val MILESTONE_FIRST_RTP_SENT = "first_rtp_sent"
         const val MILESTONE_FIRST_RTP_RECEIVED = "first_rtp_received"

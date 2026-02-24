@@ -2456,6 +2456,8 @@ class TelnyxClient(
                     // Start benchmark for outbound call when answer SDP is received
                     CallTimingBenchmark.start(isOutbound = true)
                     CallTimingBenchmark.mark("answer_sdp_received")
+                    // Track remote SDP received milestone
+                    client.latencyTracker.markCallMilestone(UUID.fromString(callId), LatencyTracker.MILESTONE_REMOTE_SDP_RECEIVED)
 
                     // Check if remote party supports trickle ICE
                     val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(stringSdp)
