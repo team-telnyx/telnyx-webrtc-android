@@ -143,4 +143,10 @@ interface TxSocketListener {
      * @see [TxSocket]
      */
     fun onModifyReceived(jsonObject: JsonObject)
+
+    /**
+     * Fires when a call_report_id is received in the REGED response
+     * @param callReportId the call report token for uploading stats
+     */
+    fun onCallReportIdReceived(callReportId: String)
 }
