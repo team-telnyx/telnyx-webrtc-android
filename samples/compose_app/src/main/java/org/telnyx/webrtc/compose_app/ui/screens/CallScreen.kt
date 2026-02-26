@@ -225,7 +225,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                         Modifier.testTag("call"),
                                         icon = R.drawable.baseline_call_24,
                                         backGroundColor = telnyxGreen,
-                                        contentColor = Color.Black
+                                        contentColor = Color.Black,
+                                        contentDescription = "make a call"
                                     ) {
                                         if (destinationNumber.isNotEmpty())
                                             telnyxViewModel.sendInvite(
@@ -322,7 +323,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     icon = R.drawable.baseline_call_end_24,
                                     backGroundColor = callRed,
                                     contentColor = Color.White,
-                                    stringResource(R.string.end)
+                                    contentDescription = "end call"
                                 ) {
                                     telnyxViewModel.endCall(context)
                                 }
@@ -340,7 +341,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 Modifier.testTag("callReject"),
                                 icon = R.drawable.baseline_call_end_24,
                                 backGroundColor = callRed,
-                                contentColor = Color.Black
+                                contentColor = Color.Black,
+                                contentDescription = "reject call"
                             ) {
                                 val inviteResponse =
                                     (uiState as TelnyxSocketEvent.OnIncomingCall).message
@@ -351,7 +353,8 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 Modifier.testTag("callAnswer"),
                                 icon = R.drawable.baseline_call_24,
                                 backGroundColor = telnyxGreen,
-                                contentColor = Color.Black
+                                contentColor = Color.Black,
+                                contentDescription = "answer call"
                             ) {
                                 val inviteResponse =
                                     (uiState as TelnyxSocketEvent.OnIncomingCall).message
