@@ -37,10 +37,6 @@ object CallTimingBenchmark {
             this.isOutbound = isOutbound
             isRunning = true
             hasEnded = false
-            Logger.d(
-                tag = "CallTimingBenchmark",
-                message = "Benchmark started for ${if (isOutbound) "OUTBOUND" else "INBOUND"} call"
-            )
         }
     }
 
@@ -53,10 +49,7 @@ object CallTimingBenchmark {
             if (!isRunning) return
             val elapsed = System.currentTimeMillis() - startTime
             milestones[milestone] = elapsed
-            Logger.d(
-                tag = "CallTimingBenchmark",
-                message = "Milestone marked: $milestone at ${elapsed}ms"
-            )
+            // Milestones logged in summary at end()
         }
     }
 

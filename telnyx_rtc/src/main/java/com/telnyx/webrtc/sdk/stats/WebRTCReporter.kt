@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.RTCStats
+import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.Logger
 import timber.log.Timber
 import java.util.*
@@ -84,6 +85,9 @@ internal class WebRTCReporter(
     private var debugReportJob: Job? = null
 
     private var codecName: String? = null
+    
+    // Track DTLS state for latency milestones (avoid duplicate tracking)
+    private var lastTrackedDtlsState: String? = null
 
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
@@ -279,6 +283,19 @@ internal class WebRTCReporter(
                                 // Track DTLS state for connection diagnostics
                                 value.members["dtlsState"]?.toString()?.let { dtlsState ->
                                     debugDataCollector?.onDtlsStateChange(peerId, dtlsState)
+                                    
+                                    // Track latency milestones for DTLS state changes (only once per state)
+                                    if (dtlsState != lastTrackedDtlsState) {
+                                        lastTrackedDtlsState = dtlsState
+                                        val milestone = when (dtlsState.uppercase()) {
+                                            "CONNECTING" -> LatencyTracker.MILESTONE_DTLS_CONNECTING
+                                            "CONNECTED" -> LatencyTracker.MILESTONE_DTLS_CONNECTED
+                                            else -> null
+                                        }
+                                        milestone?.let {
+                                            peer.client.latencyTracker.markCallMilestone(peerId, it)
+                                        }
+                                    }
                                 }
                                 processStatsDataMember(key, value, statsData)
                             }
