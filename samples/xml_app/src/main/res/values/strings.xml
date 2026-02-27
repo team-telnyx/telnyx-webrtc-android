@@ -163,6 +163,7 @@
     <string name="assistant_login_dialog_title">Assistant Login</string>
     <string name="assistant_target_id">Target ID</string>
     <string name="assistant_target_id_hint">Enter Assistant Target ID</string>
+    <string name="assistant_conversation_id_hint">Conversation ID (Optional)</string>
     <string name="assistant_login_button">Login</string>
     <string name="assistant_cancel_button">Cancel</string>
     <string name="assistant_dial_button">Dial the connected Assistant</string>

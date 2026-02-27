@@ -1251,6 +1251,7 @@ class TelnyxClient(
      * @param targetId The unique identifier of the target AI assistant
      * @param targetType The type of target (defaults to "ai_assistant")
      * @param targetVersionId Optional version ID of the target
+     * @param conversationId Optional conversation ID to join an existing conversation
      * @param userVariables Optional user variables to include
      * @param reconnection Whether this is a reconnection attempt (defaults to false)
      */
@@ -1259,6 +1260,7 @@ class TelnyxClient(
         targetId: String,
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
+        conversationId: String? = null,
         userVariables: Map<String, Any>? = null,
         reconnection: Boolean = false,
         logLevel: LogLevel = LogLevel.NONE,
@@ -1291,6 +1293,7 @@ class TelnyxClient(
                         targetId = targetId,
                         targetType = targetType,
                         targetVersionId = targetVersionId,
+                        conversationId = conversationId,
                         userVariables = userVariables,
                         reconnection = reconnection,
                     )
@@ -1627,6 +1630,7 @@ class TelnyxClient(
      * @param targetId the unique identifier of the target AI assistant
      * @param targetType the type of target (defaults to "ai_assistant")
      * @param targetVersionId optional version ID of the target
+     * @param conversationId optional conversation ID to join an existing conversation
      * @param userVariables optional user variables to include
      * @param reconnection whether this is a reconnection attempt (defaults to false)
      */
@@ -1634,6 +1638,7 @@ class TelnyxClient(
         targetId: String,
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
+        conversationId: String? = null,
         userVariables: Map<String, Any>? = null,
         reconnection: Boolean = false,
     ) {
@@ -1648,6 +1653,7 @@ class TelnyxClient(
             targetType = targetType,
             targetId = targetId,
             targetVersionId = targetVersionId,
+            conversationId = conversationId,
             userVariables = userVariables,
             reconnection = reconnection,
             userAgent = userAgent,

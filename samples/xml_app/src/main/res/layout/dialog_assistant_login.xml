@@ -18,7 +18,7 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="16dp"
         app:boxStrokeColor="@color/black"
         app:hintTextColor="@color/black">
 
@@ -27,6 +27,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/assistant_target_id_hint"
+            android:inputType="text"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        app:boxStrokeColor="@color/black"
+        app:hintTextColor="@color/black">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etConversationId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/assistant_conversation_id_hint"
             android:inputType="text"
             android:maxLines="1" />
 
