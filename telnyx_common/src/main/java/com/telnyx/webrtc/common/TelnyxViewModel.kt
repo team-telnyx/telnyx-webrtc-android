@@ -693,6 +693,7 @@ class TelnyxViewModel : ViewModel() {
      * @param targetId The unique identifier of the target AI assistant.
      * @param targetType The type of target (defaults to "ai_assistant").
      * @param targetVersionId Optional version ID of the target.
+     * @param conversationId Optional conversation ID to join an existing conversation.
      * @param userVariables Optional user variables to include.
      */
     fun anonymousLogin(
@@ -700,6 +701,7 @@ class TelnyxViewModel : ViewModel() {
         targetId: String,
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
+        conversationId: String? = null,
         userVariables: Map<String, Any>? = null
     ) {
         _isLoading.value = true
@@ -715,6 +717,7 @@ class TelnyxViewModel : ViewModel() {
                 targetId = targetId,
                 targetType = targetType,
                 targetVersionId = targetVersionId,
+                conversationId = conversationId,
                 userVariables = userVariables,
                 reconnection = false,
                 logLevel = LogLevel.ALL
