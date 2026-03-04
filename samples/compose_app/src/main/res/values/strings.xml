@@ -164,6 +164,7 @@
     <string name="assistant_login">Assistant Login</string>
     <string name="assistant_target_id">Target ID</string>
     <string name="assistant_target_id_hint">Enter assistant target ID</string>
+    <string name="assistant_conversation_id">Conversation ID (Optional)</string>
     <string name="assistant_login_button">Login</string>
     <string name="assistant_transcript">Assistant Transcript</string>
     <string name="assistant_message_hint">Type your message...</string>

@@ -13,6 +13,7 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
  * @param targetType the type of target (defaults to "ai_assistant")
  * @param targetId the unique identifier of the target assistant
  * @param targetVersionId optional version ID of the target
+ * @param conversationId optional conversation ID to join an existing conversation
  * @param userVariables optional user variables to include
  * @param reconnection whether this is a reconnection attempt
  * @param userAgent user agent information containing SDK version and platform data
@@ -25,6 +26,8 @@ data class AnonymousLoginParams(
     val targetId: String,
     @SerializedName("target_version_id")
     val targetVersionId: String? = null,
+    @SerializedName("conversation_id")
+    val conversationId: String? = null,
     @SerializedName("userVariables")
     val userVariables: Map<String, Any>? = null,
     @SerializedName("reconnection")

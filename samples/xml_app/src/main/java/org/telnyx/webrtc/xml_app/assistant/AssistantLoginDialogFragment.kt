@@ -14,23 +14,25 @@ import kotlinx.coroutines.launch
 import org.telnyx.webrtc.xmlapp.R
 
 class AssistantLoginDialogFragment : DialogFragment() {
-    
+
     private val telnyxViewModel: TelnyxViewModel by activityViewModels()
-    
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val view = layoutInflater.inflate(R.layout.dialog_assistant_login, null)
-        
+
         val etTargetId = view.findViewById<TextInputEditText>(R.id.etTargetId)
+        val etConversationId = view.findViewById<TextInputEditText>(R.id.etConversationId)
         val btnLogin = view.findViewById<MaterialButton>(R.id.btnLogin)
         val btnCancel = view.findViewById<MaterialButton>(R.id.btnCancel)
-        
+
         val dialog = AlertDialog.Builder(requireContext())
             .setView(view)
             .create()
-        
+
         btnLogin.setOnClickListener {
             val targetId = etTargetId.text?.toString()?.trim()
-            
+            val conversationId = etConversationId.text?.toString()?.trim()?.ifBlank { null }
+
             if (targetId.isNullOrEmpty()) {
                 Toast.makeText(
                     requireContext(),
@@ -39,11 +41,14 @@ class AssistantLoginDialogFragment : DialogFragment() {
                 ).show()
                 return@setOnClickListener
             }
-            
-            // Perform anonymous login for assistant
+
             lifecycleScope.launch {
                 try {
-                    telnyxViewModel.anonymousLogin(requireContext(), targetId)
+                    telnyxViewModel.anonymousLogin(
+                        viewContext = requireContext(),
+                        targetId = targetId,
+                        conversationId = conversationId
+                    )
                     Toast.makeText(
                         requireContext(),
                         getString(R.string.assistant_connected),
@@ -59,17 +64,17 @@ class AssistantLoginDialogFragment : DialogFragment() {
                 }
             }
         }
-        
+
         btnCancel.setOnClickListener {
             dialog.dismiss()
         }
-        
+
         return dialog
     }
-    
+
     companion object {
         const val TAG = "AssistantLoginDialog"
-        
+
         fun newInstance(): AssistantLoginDialogFragment {
             return AssistantLoginDialogFragment()
         }
