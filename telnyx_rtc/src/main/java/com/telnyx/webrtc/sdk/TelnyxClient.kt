@@ -2618,7 +2618,7 @@ class TelnyxClient(
                     jsonObject
                 )
             )
-            val offerCall = call!!.copy(
+            val offerCall = Call(
                 context = context,
                 client = this,
                 socket = socket,
