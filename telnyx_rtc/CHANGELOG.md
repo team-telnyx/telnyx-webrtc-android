@@ -1,3 +1,11 @@
+## [3.4.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.4.1) (2026-03-05)
+
+### Enhancement
+- Add conversation_id parameter to anonymous login methods for joining existing conversations (WEBRTC-3319)
+
+### Bug Fixing
+- Fix CallState.CONNECTING emitted on active call when receiving a second incoming call
+
 ## [3.4.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.4.0) (2025-02-18)
 
 ### Enhancement
