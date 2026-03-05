@@ -2413,6 +2413,16 @@ class TelnyxClient(
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
+            // Parse telnyx_call_control_id if present (for outbound flows: parked & bridged)
+            val callControlId = if (params.has("telnyx_call_control_id")) {
+                params.get("telnyx_call_control_id").asString
+            } else {
+                null
+            }
+
+            // Store the call control ID on the call object
+            telnyxCallControlId = callControlId
+
             when {
                 params.has("sdp") -> {
                     val stringSdp = params.get("sdp").asString
@@ -2457,7 +2467,8 @@ class TelnyxClient(
                     val answerResponse = AnswerResponse(
                         UUID.fromString(callId),
                         stringSdp,
-                        customHeaders?.toCustomHeaders() ?: arrayListOf()
+                        customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                        callControlId
                     )
                     this.answerResponse = answerResponse
                     client.emitSocketResponse(
@@ -2476,7 +2487,8 @@ class TelnyxClient(
                     val answerResponse = AnswerResponse(
                         UUID.fromString(callId),
                         stringSdp!!,
-                        customHeaders?.toCustomHeaders() ?: arrayListOf()
+                        customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                        callControlId
                     )
                     this.answerResponse = answerResponse
                     client.emitSocketResponse(
