@@ -84,6 +84,7 @@ data class Call(
 
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
+    internal var telnyxCallControlId: String? = null
 
     val callStateFlow: StateFlow<CallState> = mutableCallStateFlow
 
@@ -376,6 +377,17 @@ data class Call(
      */
     fun getTelnyxLegId(): UUID? {
         return telnyxLegId
+    }
+
+    /**
+     * Returns the Telnyx Call Control ID for outbound flows (parked & bridged).
+     * This ID is received in the answer event and can be used for call control operations.
+     *
+     * @return The call control ID string, or null if not available (e.g., for inbound calls
+     *         or when using older backend versions that don't provide this field)
+     */
+    fun getTelnyxCallControlId(): String? {
+        return telnyxCallControlId
     }
 
     /**

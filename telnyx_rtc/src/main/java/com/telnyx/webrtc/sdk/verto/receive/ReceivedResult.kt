@@ -58,6 +58,10 @@ data class ByeResponse(
  *
  * @param callId a unique UUID that represents each ongoing call.
  * @param sdp the Session Description Protocol that is received as a part of the answer to the call.
+ * @param customHeaders optional custom SIP headers included in the response.
+ * @param telnyxCallControlId the Telnyx Call Control ID for outbound flows (parked & bridged).
+ *        This field may be null for backwards compatibility with older backend versions or
+ *        different call flows.
  */
 data class AnswerResponse(
     @SerializedName("callID")
@@ -65,7 +69,9 @@ data class AnswerResponse(
     @SerializedName("sdp")
     val sdp: String,
     @SerializedName("custom_headers")
-    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf(),
+    @SerializedName("telnyx_call_control_id")
+    val telnyxCallControlId: String? = null
 ) : ReceivedResult()
 
 /**
