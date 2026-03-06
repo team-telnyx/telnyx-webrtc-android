@@ -614,13 +614,13 @@ class TelnyxClientTest : BaseTest() {
         client.addToCalls(fakeCall)
         params.addProperty("callID", callID.toString())
         params.addProperty("sdp", "sdp")
-        // Note: telnyx_call_control_id is intentionally NOT added for backwards compatibility test
+        // Note: telnyx_call_control_id is intentionally NOT added - should return empty string
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
         Mockito.verify(client, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
         assert(fakeCall.answerResponse != null)
-        assertEquals(null, fakeCall.answerResponse?.telnyxCallControlId)
-        assertEquals(null, fakeCall.getTelnyxCallControlId())
+        assertEquals("", fakeCall.answerResponse?.telnyxCallControlId)
+        assertEquals("", fakeCall.getTelnyxCallControlId())
     }
 
     @Test
@@ -641,14 +641,14 @@ class TelnyxClientTest : BaseTest() {
         client.addToCalls(fakeCall)
         params.addProperty("callID", callID.toString())
         params.addProperty("sdp", "sdp")
-        // Add explicit JSON null value for telnyx_call_control_id
+        // Add explicit JSON null value for telnyx_call_control_id - should return empty string
         params.add("telnyx_call_control_id", com.google.gson.JsonNull.INSTANCE)
         callMessage.add("params", params)
         client.onAnswerReceived(callMessage)
         Mockito.verify(client, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
         assert(fakeCall.answerResponse != null)
-        assertEquals(null, fakeCall.answerResponse?.telnyxCallControlId)
-        assertEquals(null, fakeCall.getTelnyxCallControlId())
+        assertEquals("", fakeCall.answerResponse?.telnyxCallControlId)
+        assertEquals("", fakeCall.getTelnyxCallControlId())
     }
 
     @Test
