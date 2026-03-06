@@ -2414,11 +2414,7 @@ class TelnyxClient(
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
             // Parse telnyx_call_control_id if present (for outbound flows: parked & bridged)
-            val callControlId = if (params.has("telnyx_call_control_id") && !params.get("telnyx_call_control_id").isJsonNull) {
-                params.get("telnyx_call_control_id").asString
-            } else {
-                null
-            }
+            val callControlId = if (params.has("telnyx_call_control_id")) params.get("telnyx_call_control_id").asString else ""
 
             // Store the call control ID on the call object
             telnyxCallControlId = callControlId
