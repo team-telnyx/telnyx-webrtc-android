@@ -293,10 +293,25 @@ class DebugDataCollector(private val context: Context) {
     fun onIceCandidatePairSelected(
         callId: UUID,
         localCandidate: CandidateDetails,
-        remoteCandidate: CandidateDetails
+        remoteCandidate: CandidateDetails,
+        pairId: String? = null,
+        nominated: Boolean = false,
+        state: String? = null,
+        requestsSent: Long = 0,
+        responsesReceived: Long = 0,
+        writable: Boolean = false
     ) {
         callDebugData[callId]?.let { data ->
-            data.selectedCandidatePair = CandidatePairInfo(localCandidate, remoteCandidate)
+            data.selectedCandidatePair = CandidatePairInfo(
+                id = pairId,
+                local = localCandidate,
+                remote = remoteCandidate,
+                nominated = nominated,
+                state = state,
+                requestsSent = requestsSent,
+                responsesReceived = responsesReceived,
+                writable = writable
+            )
         }
     }
 
@@ -687,6 +702,7 @@ class DebugDataCollector(private val context: Context) {
             candidate.priority?.let { addProperty("priority", it) }
             candidate.relatedAddress?.let { addProperty("relatedAddress", it) }
             candidate.relatedPort?.let { addProperty("relatedPort", it) }
+            candidate.networkType?.let { addProperty("networkType", it) }
         }
     }
 
@@ -751,8 +767,14 @@ class DebugDataCollector(private val context: Context) {
             // Selected candidate pair
             data.selectedCandidatePair?.let { pair ->
                 val selectedPair = JsonObject().apply {
+                    pair.id?.let { addProperty("id", it) }
                     add("local", createCandidateJson(pair.local))
                     add("remote", createCandidateJson(pair.remote))
+                    addProperty("nominated", pair.nominated)
+                    pair.state?.let { addProperty("state", it) }
+                    addProperty("requestsSent", pair.requestsSent)
+                    addProperty("responsesReceived", pair.responsesReceived)
+                    addProperty("writable", pair.writable)
                 }
                 add("selectedPair", selectedPair)
             }
@@ -992,11 +1014,18 @@ class DebugDataCollector(private val context: Context) {
 
         logBuilder.appendLine("  Selected Pair:")
         data.selectedCandidatePair?.let { pair ->
+            pair.id?.let { logBuilder.appendLine("    ID:            $it") }
+            logBuilder.appendLine("    State:         ${pair.state ?: "unknown"}")
+            logBuilder.appendLine("    Nominated:     ${pair.nominated}")
+            logBuilder.appendLine("    Writable:      ${pair.writable}")
+            logBuilder.appendLine("    Requests:      ${pair.requestsSent} sent, ${pair.responsesReceived} received")
+            logBuilder.appendLine()
             logBuilder.appendLine("    Local Candidate:")
             logBuilder.appendLine("      Type:        ${pair.local.candidateType}")
             logBuilder.appendLine("      Protocol:    ${pair.local.protocol}")
             logBuilder.appendLine("      IP:          ${pair.local.ip}")
             logBuilder.appendLine("      Port:        ${pair.local.port}")
+            pair.local.networkType?.let { logBuilder.appendLine("      Network:     $it") }
             if (pair.local.priority != null) {
                 logBuilder.appendLine("      Priority:    ${pair.local.priority}")
             }
@@ -1338,15 +1367,22 @@ data class CandidateDetails(
     val port: Int,
     val priority: Long? = null,
     val relatedAddress: String? = null,
-    val relatedPort: Int? = null
+    val relatedPort: Int? = null,
+    val networkType: String? = null
 )
 
 /**
- * Represents the selected ICE candidate pair with full details.
+ * Represents the selected ICE candidate pair with full details including connection stats.
  */
 internal data class CandidatePairInfo(
+    val id: String? = null,
     val local: CandidateDetails,
-    val remote: CandidateDetails
+    val remote: CandidateDetails,
+    val nominated: Boolean = false,
+    val state: String? = null,
+    val requestsSent: Long = 0,
+    val responsesReceived: Long = 0,
+    val writable: Boolean = false
 )
 
 /**
