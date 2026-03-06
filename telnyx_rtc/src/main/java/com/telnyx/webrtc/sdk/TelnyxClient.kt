@@ -152,6 +152,7 @@ class TelnyxClient(
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
+    private var callReportId: String? = null
 
     private var isSocketDebug = false
 
@@ -679,6 +680,12 @@ class TelnyxClient(
 
             // Notify debug data collector that a new call has started
             client.debugDataCollector.onCallStarted(inviteCallId)
+            client.debugDataCollector.updateCallMetadata(
+                callId = inviteCallId,
+                callerNumber = callerNumber,
+                destinationNumber = destinationNumber,
+                direction = "outbound"
+            )
 
             peerConnection = Peer(
                 context,
@@ -2083,6 +2090,7 @@ class TelnyxClient(
         if (voiceSdkID != null) {
             Logger.d(message = "Voice SDK ID _ $voiceSdkID")
             this@TelnyxClient.voiceSDKID = voiceSdkID
+            updateDebugDataCollectorUploadConfig()
         } else {
             Logger.e(message = "No Voice SDK ID")
         }
@@ -2661,6 +2669,7 @@ class TelnyxClient(
                 if (voiceSdkID != null) {
                     Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
+                    updateDebugDataCollectorUploadConfig()
                 } else {
                     Logger.e(message = "No Voice SDK ID")
                 }
@@ -2675,6 +2684,12 @@ class TelnyxClient(
 
                 // Notify debug data collector that a new call has started
                 client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
+                client.debugDataCollector.updateCallMetadata(
+                    callId = offerCallId,
+                    callerNumber = callerNumber,
+                    destinationNumber = "",
+                    direction = "inbound"
+                )
 
                 //retrieve custom headers
                 val customHeaders =
@@ -2862,6 +2877,7 @@ class TelnyxClient(
             if (voiceSdkID != null) {
                 Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
+                updateDebugDataCollectorUploadConfig()
             } else {
                 Logger.e(message = "No Voice SDK ID")
             }
@@ -2876,6 +2892,12 @@ class TelnyxClient(
 
             // Notify debug data collector that a new call has started (push notification reattach)
             client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
+            client.debugDataCollector.updateCallMetadata(
+                callId = offerCallId,
+                callerNumber = callerNumber,
+                destinationNumber = "",
+                direction = "inbound"
+            )
 
             peerConnection = Peer(
                 context,
@@ -3324,6 +3346,24 @@ class TelnyxClient(
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
         Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
+    }
+
+    override fun onCallReportIdReceived(callReportId: String) {
+        this.callReportId = callReportId
+        Logger.d(message = "Received call_report_id: $callReportId")
+        updateDebugDataCollectorUploadConfig()
+    }
+
+    /**
+     * Updates the debug data collector with the upload configuration.
+     * Upload will occur when callReportId, voiceSDKID, and hostAddress are all set.
+     */
+    private fun updateDebugDataCollectorUploadConfig() {
+        debugDataCollector.setUploadConfig(
+            callReportId = callReportId,
+            voiceSDKID = voiceSDKID,
+            hostAddress = providedHostAddress
+        )
     }
 
     /**
