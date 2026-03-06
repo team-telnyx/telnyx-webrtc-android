@@ -476,7 +476,8 @@ internal class WebRTCReporter(
                                         port = localObj.get("port")?.asInt ?: 0,
                                         priority = localObj.get("priority")?.asLong,
                                         relatedAddress = localObj.get("relatedAddress")?.asString,
-                                        relatedPort = localObj.get("relatedPort")?.asInt
+                                        relatedPort = localObj.get("relatedPort")?.asInt,
+                                        networkType = localObj.get("networkType")?.asString
                                     )
 
                                     val remoteDetails = CandidateDetails(
@@ -489,10 +490,24 @@ internal class WebRTCReporter(
                                         relatedPort = remoteObj.get("relatedPort")?.asInt
                                     )
 
+                                    // Extract candidate pair stats
+                                    val pairId = candidateMap["id"]?.toString()
+                                    val nominated = (candidateMap["nominated"] as? Boolean) ?: false
+                                    val state = candidateMap["state"]?.toString()
+                                    val requestsSent = (candidateMap["requestsSent"] as? Number)?.toLong() ?: 0L
+                                    val responsesReceived = (candidateMap["responsesReceived"] as? Number)?.toLong() ?: 0L
+                                    val writable = (candidateMap["writable"] as? Boolean) ?: false
+
                                     debugDataCollector?.onIceCandidatePairSelected(
-                                        peerId,
-                                        localDetails,
-                                        remoteDetails
+                                        callId = peerId,
+                                        localCandidate = localDetails,
+                                        remoteCandidate = remoteDetails,
+                                        pairId = pairId,
+                                        nominated = nominated,
+                                        state = state,
+                                        requestsSent = requestsSent,
+                                        responsesReceived = responsesReceived,
+                                        writable = writable
                                     )
                                 }
                             }
