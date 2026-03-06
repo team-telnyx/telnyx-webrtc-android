@@ -624,6 +624,34 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `Test onAnswerReceived handles explicit null telnyx_call_control_id gracefully`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        Mockito.`when`(client.call).thenReturn(fakeCall)
+        val callMessage = JsonObject()
+        val params = JsonObject()
+        val callID = UUID.randomUUID()
+        fakeCall.callId = callID
+        client.addToCalls(fakeCall)
+        params.addProperty("callID", callID.toString())
+        params.addProperty("sdp", "sdp")
+        // Add explicit JSON null value for telnyx_call_control_id
+        params.add("telnyx_call_control_id", com.google.gson.JsonNull.INSTANCE)
+        callMessage.add("params", params)
+        client.onAnswerReceived(callMessage)
+        Mockito.verify(client, Mockito.atLeast(1))?.onAnswerReceived(callMessage)
+        assert(fakeCall.answerResponse != null)
+        assertEquals(null, fakeCall.answerResponse?.telnyxCallControlId)
+        assertEquals(null, fakeCall.getTelnyxCallControlId())
+    }
+
+    @Test
     fun `Test onMediaReceived calls call related method`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.socket = Mockito.spy(
