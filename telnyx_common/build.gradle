@@ -50,16 +50,16 @@ dependencies {
 
     implementation deps.gson
 
-    implementation 'androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
+    implementation 'androidx.lifecycle:lifecycle-livedata-core-ktx:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.8.7'
-    implementation 'com.jakewharton.timber:timber:4.5.1'
+    implementation deps.timber
     api 'com.google.firebase:firebase-messaging-ktx:24.1.0'
 
     // Room database
-    implementation 'androidx.room:room-runtime:2.6.1'
-    implementation 'androidx.room:room-ktx:2.6.1'
-    kapt 'androidx.room:room-compiler:2.6.1'
+    implementation 'androidx.room:room-runtime:2.7.0'
+    implementation 'androidx.room:room-ktx:2.7.0'
+    kapt 'androidx.room:room-compiler:2.7.0'
 
 }
