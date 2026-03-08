@@ -1,0 +1,40 @@
+# Test Account Configuration
+# This file contains credentials and settings for test accounts used in automated testing
+
+# App Configuration
+app:
+  package: "org.telnyx.webrtc.compose_app"
+  main_activity: "org.telnyx.webrtc.compose_app.MainActivity"
+
+# Test Accounts
+test_accounts:
+  account_1:
+    device: simulator
+    login_method: "credential"
+    username: "ReleaseTestSIPAccount"
+    password: "demo.123"
+    caller_name: "ReleaseTestSIPAccount"
+    caller_number: "18142929004"
+
+  account_2:
+    device: physical
+    login_method: "credential"
+    username: "ReleaseTestSIPAccount2"
+    password: "demo.123"
+    caller_name: "ReleaseTestSIPAccount2"
+    caller_number: "12487494707"
+
+  account_3:
+    device: physical
+    login_method: "token"
+    token: "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzY5NTExMDc5LCJpYXQiOjE3Njk0MjQ2NzksImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzZjYyZDAxNS0wZDZkLTQ1YzctODM3Ni1hMmNiMzlhZjg4MWYiLCJuYmYiOjE3Njk0MjQ2NzgsInN1YiI6ImZhZmI5MjA3LWQzNDAtNGE3ZS1iNmY3LTk2ZmQ2MTFiNzc5NCIsInRlbF90b2tlbiI6IkdzT2wtN1dvUlA2MTI0ZDhVN0VfV3J3QW0zWG1rbmduNUlJaVZXMk1PNUtiZlU1LW5SbE1iblRGVUhDOTNEQ0hIcjFWaFRxdnh4V3JZazMzU1hTY2tTeVRoVXhYekpodEtTaGpYRGxPSEVrLUVPcEtHN1J2VGdhZjBqOHNWM3RoU2RGeHgyVF9HOVAtaW9VYnFjOEdobklQIiwidHlwIjoiYWNjZXNzIn0.i7VcUByaRWwOCs20MNm4jYgkY7TC7m96fI0WpAgS3dBTgCkTDaiNMymm9aYfDGmRnbf1yiGWeAJGtSD-Uzib1Q"
+    caller_name: "ReleaseTestTokenAccount"
+
+  account_4:
+    device: physical
+    login_method: "genCred"
+    username: "gencred01ZyIxmogqKWbjZJHYsQLC9rdLALwAZARY2ltqJ7B7"
+    password: "353fe4cd66e54c7a8f8996e7bbfa12fb"
+    caller_name: "ReleaseTestGenCredAccount"
+    caller_number: ""
+
