@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
+import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
@@ -377,6 +378,17 @@ internal class Peer(
             // Mark benchmark milestone for ICE connection state changes
             newState?.let { CallTimingBenchmark.mark("ice_state_${it.name}") }
 
+            // Track latency milestones for ICE connection states
+            newState?.let { state ->
+                val milestone = when (state) {
+                    PeerConnection.IceConnectionState.CHECKING -> LatencyTracker.MILESTONE_ICE_CHECKING
+                    PeerConnection.IceConnectionState.CONNECTED -> LatencyTracker.MILESTONE_ICE_CONNECTED
+                    PeerConnection.IceConnectionState.COMPLETED -> LatencyTracker.MILESTONE_ICE_COMPLETED
+                    else -> null
+                }
+                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+            }
+
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
 
@@ -394,6 +406,16 @@ internal class Peer(
 
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
+
+            // Track latency milestones for ICE gathering states
+            p0?.let { state ->
+                val milestone = when (state) {
+                    PeerConnection.IceGatheringState.GATHERING -> LatencyTracker.MILESTONE_ICE_GATHERING_STARTED
+                    PeerConnection.IceGatheringState.COMPLETE -> LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE
+                    else -> null
+                }
+                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+            }
 
             // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
             if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
@@ -413,6 +435,8 @@ internal class Peer(
                 firstCandidateDeferred.complete(Unit)
                 // Mark benchmark milestone for first ICE candidate
                 CallTimingBenchmark.markFirstCandidate()
+                // Track latency milestone for first ICE candidate
+                client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_FIRST_ICE_CANDIDATE)
                 Logger.d(
                     tag = "Observer",
                     message = "First ICE candidate processed, completing deferred."
@@ -504,8 +528,10 @@ internal class Peer(
             newState?.let {
                 CallTimingBenchmark.mark("peer_state_${it.name}")
 
-                // End benchmark when peer connection reaches CONNECTED state
+                // Track latency milestone for peer connected
                 if (it == PeerConnection.PeerConnectionState.CONNECTED) {
+                    client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_PEER_CONNECTED)
+                    // End benchmark when peer connection reaches CONNECTED state
                     CallTimingBenchmark.end()
                 }
             }
@@ -620,6 +646,9 @@ internal class Peer(
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
+                    // Track local SDP created milestone
+                    client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
+                    
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
@@ -631,6 +660,8 @@ internal class Peer(
 
                             override fun onSetSuccess() {
                                 Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
+                                // Track local SDP set milestone
+                                client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -716,6 +747,8 @@ internal class Peer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     CallTimingBenchmark.mark("local_answer_created")
+                    // Track local SDP created milestone
+                    client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
                     logAllTransceiverStates("After createAnswer success, before setLocalDescription")
 
                     setLocalDescription(
@@ -733,6 +766,8 @@ internal class Peer(
                                     message = "setLocalDescription onSetSuccess"
                                 )
                                 CallTimingBenchmark.mark("local_answer_sdp_set")
+                                // Track local SDP set milestone
+                                client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
                                 logAllTransceiverStates("After setLocalDescription success")
                             }
 
@@ -1477,6 +1512,8 @@ internal class Peer(
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
         CallTimingBenchmark.mark("peer_connection_created")
+        // Track peer connection created milestone
+        client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_PEER_CREATED)
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
         answerSent = false

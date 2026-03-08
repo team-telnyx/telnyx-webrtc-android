@@ -31,6 +31,9 @@ import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.CandidateUtils
+import com.telnyx.webrtc.sdk.utilities.LatencyTracker
+import com.telnyx.webrtc.sdk.model.LatencyMetrics
+import com.telnyx.webrtc.sdk.model.LatencyMetricsListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
@@ -61,6 +64,12 @@ class TelnyxClient(
         ConcurrentHashMap<UUID, WebRTCReporter>()
 
     internal val debugDataCollector: DebugDataCollector = DebugDataCollector(context)
+    
+    /**
+     * Latency tracker for measuring SDK performance metrics.
+     * Use this to observe registration and call establishment latencies.
+     */
+    val latencyTracker: LatencyTracker = LatencyTracker()
 
     /**
      * Enum class that defines the type of ringtone resource.
@@ -395,6 +404,9 @@ class TelnyxClient(
         // Start benchmark for inbound call
         CallTimingBenchmark.start(isOutbound = false)
         CallTimingBenchmark.mark("accept_call_started")
+        
+        // Start latency tracking for inbound call
+        latencyTracker.startCallTracking(callId, isOutbound = false)
 
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
@@ -403,6 +415,7 @@ class TelnyxClient(
                 Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
                 updateCallState(CallState.ERROR)
                 CallTimingBenchmark.reset()
+                client.latencyTracker.cancelCallTracking(callId)
                 return@apply
             }
 
@@ -460,11 +473,15 @@ class TelnyxClient(
                     )
                     socket.send(answerBodyMessage)
                     CallTimingBenchmark.mark("answer_sent")
+                    client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
 
                     // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
                     peerConnection?.flushQueuedCandidatesAfterAnswer()
 
                     updateCallState(CallState.ACTIVE)
+                    
+                    // Complete call latency tracking
+                    client.latencyTracker.completeCallTracking(callId)
 
                     // Start stats collection - interval is adjusted internally based on debug flags
                     if (getWebRTCReporter(callId) == null) {
@@ -561,7 +578,11 @@ class TelnyxClient(
                                 )
                                 socket.send(answerBodyMessage)
                                 CallTimingBenchmark.mark("answer_sdp_sent")
+                                client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
                                 updateCallState(CallState.ACTIVE)
+                                
+                                // Complete call latency tracking
+                                client.latencyTracker.completeCallTracking(callId)
 
                                 // Start stats collection - interval is adjusted internally based on debug flags
                                 if (getWebRTCReporter(callId) == null) {
@@ -666,6 +687,9 @@ class TelnyxClient(
         // Set trickle ICE for this call
         this.useTrickleIce = useTrickleIce
 
+        // Start latency tracking for outbound call
+        latencyTracker.startCallTracking(inviteCallId, isOutbound = true)
+        
         val inviteCall = Call(
             context = context,
             client = this,
@@ -835,6 +859,9 @@ class TelnyxClient(
      */
     internal fun removeFromCalls(callId: UUID) {
         calls.remove(callId)
+        
+        // Clean up latency tracking for this call
+        latencyTracker.cancelCallTracking(callId)
 
         // Clean up any pending ICE candidates for this call
         synchronized(pendingIceCandidates) {
@@ -1514,6 +1541,10 @@ class TelnyxClient(
             )
         )
         Logger.d(message = "Auto login with credentialConfig")
+        
+        // Start registration latency tracking
+        latencyTracker.startRegistrationTracking()
+        latencyTracker.markRegistrationMilestone(LatencyTracker.MILESTONE_LOGIN_SENT)
 
         socket.send(loginMessage)
     }
@@ -1627,6 +1658,11 @@ class TelnyxClient(
                 sessid = sessid
             )
         )
+        
+        // Start registration latency tracking
+        latencyTracker.startRegistrationTracking()
+        latencyTracker.markRegistrationMilestone(LatencyTracker.MILESTONE_LOGIN_SENT)
+        
         socket.send(loginMessage)
     }
 
@@ -2069,6 +2105,9 @@ class TelnyxClient(
         if (isCallPendingFromPush) {
             attachCall()
         }
+        
+        // Complete registration latency tracking
+        latencyTracker.completeRegistrationTracking()
 
         CoroutineScope(Dispatchers.Main).launch {
             emitSocketResponse(
@@ -2137,6 +2176,9 @@ class TelnyxClient(
                     this@TelnyxClient.javaClass.simpleName
                 )
             )
+            
+            // Complete registration latency tracking
+            latencyTracker.completeRegistrationTracking()
 
             emitSocketResponse(
                 SocketResponse.messageReceived(
@@ -2428,6 +2470,8 @@ class TelnyxClient(
                     // Start benchmark for outbound call when answer SDP is received
                     CallTimingBenchmark.start(isOutbound = true)
                     CallTimingBenchmark.mark("answer_sdp_received")
+                    // Track remote SDP received milestone
+                    client.latencyTracker.markCallMilestone(UUID.fromString(callId), LatencyTracker.MILESTONE_REMOTE_SDP_RECEIVED)
 
                     // Check if remote party supports trickle ICE
                     val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(stringSdp)
@@ -2456,11 +2500,15 @@ class TelnyxClient(
 
                     peerConnection?.onRemoteSessionReceived(sdp)
                     CallTimingBenchmark.mark("remote_description_set")
+                    client.latencyTracker.markCallMilestone(UUID.fromString(callId), LatencyTracker.MILESTONE_REMOTE_SDP_SET)
 
                     // Process any queued ICE candidates after remote description is set
                     processQueuedIceCandidates(UUID.fromString(callId))
 
                     updateCallState(CallState.ACTIVE)
+                    
+                    // Complete call latency tracking
+                    client.latencyTracker.completeCallTracking(UUID.fromString(callId))
 
                     val answerResponse = AnswerResponse(
                         UUID.fromString(callId),
@@ -2496,6 +2544,9 @@ class TelnyxClient(
                         )
                     )
                     updateCallState(CallState.ACTIVE)
+                    
+                    // Complete call latency tracking
+                    client.latencyTracker.completeCallTracking(UUID.fromString(callId))
                 }
 
                 else -> {
