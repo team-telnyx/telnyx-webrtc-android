@@ -766,7 +766,7 @@ class DebugDataCollector(private val context: Context) {
 
             // Selected candidate pair
             data.selectedCandidatePair?.let { pair ->
-                val selectedPair = JsonObject().apply {
+                val iceData = JsonObject().apply {
                     pair.id?.let { addProperty("id", it) }
                     add("local", createCandidateJson(pair.local))
                     add("remote", createCandidateJson(pair.remote))
@@ -776,7 +776,7 @@ class DebugDataCollector(private val context: Context) {
                     addProperty("responsesReceived", pair.responsesReceived)
                     addProperty("writable", pair.writable)
                 }
-                add("selectedPair", selectedPair)
+                add("ice", iceData)
             }
 
             // All candidates array
