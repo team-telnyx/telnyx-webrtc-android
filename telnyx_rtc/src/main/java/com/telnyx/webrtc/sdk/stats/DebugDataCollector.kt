@@ -246,6 +246,19 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Updates the transport statistics for a call.
+     * Should be called when polling getStats() with transport stats.
+     *
+     * @param callId The unique identifier for the call
+     * @param transportStats The transport statistics to record
+     */
+    fun updateTransportStats(callId: UUID, transportStats: TransportStats) {
+        callDebugData[callId]?.let { data ->
+            data.transportStats = transportStats
+        }
+    }
+
+    /**
      * Records a signaling state change.
      *
      * @param callId The unique identifier for the call
@@ -526,7 +539,7 @@ class DebugDataCollector(private val context: Context) {
     private fun createStatsArray(data: CallDebugData, dateFormat: SimpleDateFormat): JsonArray {
         val statsArray = JsonArray()
         data.intervalStats.forEach { interval ->
-            statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, dateFormat))
+            statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, data.transportStats, dateFormat))
         }
         return statsArray
     }
@@ -534,14 +547,26 @@ class DebugDataCollector(private val context: Context) {
     private fun createIntervalJson(
         interval: IntervalStats,
         icePair: CandidatePairInfo?,
+        transport: TransportStats?,
         dateFormat: SimpleDateFormat
     ): JsonObject {
         return JsonObject().apply {
             add("audio", createIntervalAudioJson(interval))
             add("connection", createIntervalConnectionJson(interval))
             icePair?.let { add("ice", createIceJson(it)) }
+            transport?.let { add("transport", createTransportJson(it)) }
             addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
             addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
+        }
+    }
+
+    private fun createTransportJson(transport: TransportStats): JsonObject {
+        return JsonObject().apply {
+            transport.dtlsState?.let { addProperty("dtlsState", it) }
+            transport.iceState?.let { addProperty("iceState", it) }
+            addProperty("selectedCandidatePairChanges", transport.selectedCandidatePairChanges)
+            transport.srtpCipher?.let { addProperty("srtpCipher", it) }
+            transport.tlsVersion?.let { addProperty("tlsVersion", it) }
         }
     }
 
@@ -1280,6 +1305,9 @@ internal data class CallDebugData(
     val iceCandidates: MutableList<IceCandidateInfo> = mutableListOf(),
     var selectedCandidatePair: CandidatePairInfo? = null,
 
+    // Transport stats
+    var transportStats: TransportStats? = null,
+
     // Codec
     var selectedCodec: String? = null,
 
@@ -1508,4 +1536,16 @@ data class LogEntry(
     val level: String,
     val message: String,
     val context: Map<String, Any>? = null
+)
+
+/**
+ * Represents transport-level statistics from WebRTC.
+ * Contains DTLS/ICE state and security information.
+ */
+data class TransportStats(
+    val dtlsState: String? = null,
+    val iceState: String? = null,
+    val selectedCandidatePairChanges: Long = 0,
+    val srtpCipher: String? = null,
+    val tlsVersion: String? = null
 )

@@ -311,9 +311,21 @@ internal class WebRTCReporter(
 
                             "transport" -> {
                                 // Track DTLS state for connection diagnostics
-                                value.members["dtlsState"]?.toString()?.let { dtlsState ->
-                                    debugDataCollector?.onDtlsStateChange(peerId, dtlsState)
+                                val dtlsState = value.members["dtlsState"]?.toString()
+                                dtlsState?.let {
+                                    debugDataCollector?.onDtlsStateChange(peerId, it)
                                 }
+
+                                // Extract full transport stats
+                                val transportStats = TransportStats(
+                                    dtlsState = dtlsState,
+                                    iceState = value.members["iceState"]?.toString(),
+                                    selectedCandidatePairChanges = (value.members["selectedCandidatePairChanges"] as? Number)?.toLong() ?: 0L,
+                                    srtpCipher = value.members["srtpCipher"]?.toString(),
+                                    tlsVersion = value.members["tlsVersion"]?.toString()
+                                )
+                                debugDataCollector?.updateTransportStats(peerId, transportStats)
+
                                 processStatsDataMember(key, value, statsData)
                             }
 
