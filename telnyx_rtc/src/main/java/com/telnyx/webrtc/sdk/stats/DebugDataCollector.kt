@@ -513,11 +513,6 @@ class DebugDataCollector(private val context: Context) {
         json.add("stats", createStatsArray(data, dateFormat))
         json.add("summary", createSummaryJson(data, dateFormat))
 
-        // ICE candidate pair info
-        data.selectedCandidatePair?.let { pair ->
-            json.add("ice", createIceJson(pair))
-        }
-
         // Top-level identifiers
         addTopLevelIdentifiers(json, data)
 
@@ -531,15 +526,20 @@ class DebugDataCollector(private val context: Context) {
     private fun createStatsArray(data: CallDebugData, dateFormat: SimpleDateFormat): JsonArray {
         val statsArray = JsonArray()
         data.intervalStats.forEach { interval ->
-            statsArray.add(createIntervalJson(interval, dateFormat))
+            statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, dateFormat))
         }
         return statsArray
     }
 
-    private fun createIntervalJson(interval: IntervalStats, dateFormat: SimpleDateFormat): JsonObject {
+    private fun createIntervalJson(
+        interval: IntervalStats,
+        icePair: CandidatePairInfo?,
+        dateFormat: SimpleDateFormat
+    ): JsonObject {
         return JsonObject().apply {
             add("audio", createIntervalAudioJson(interval))
             add("connection", createIntervalConnectionJson(interval))
+            icePair?.let { add("ice", createIceJson(it)) }
             addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
             addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
         }
