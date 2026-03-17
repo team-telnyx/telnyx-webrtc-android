@@ -513,6 +513,11 @@ class DebugDataCollector(private val context: Context) {
         json.add("stats", createStatsArray(data, dateFormat))
         json.add("summary", createSummaryJson(data, dateFormat))
 
+        // ICE candidate pair info
+        data.selectedCandidatePair?.let { pair ->
+            json.add("ice", createIceJson(pair))
+        }
+
         // Top-level identifiers
         addTopLevelIdentifiers(json, data)
 
@@ -693,6 +698,19 @@ class DebugDataCollector(private val context: Context) {
         }
     }
 
+    private fun createIceJson(pair: CandidatePairInfo): JsonObject {
+        return JsonObject().apply {
+            pair.id?.let { addProperty("id", it) }
+            add("local", createCandidateJson(pair.local))
+            add("remote", createCandidateJson(pair.remote))
+            addProperty("nominated", pair.nominated)
+            pair.state?.let { addProperty("state", it) }
+            addProperty("requestsSent", pair.requestsSent)
+            addProperty("responsesReceived", pair.responsesReceived)
+            addProperty("writable", pair.writable)
+        }
+    }
+
     private fun createCandidateJson(candidate: CandidateDetails): JsonObject {
         return JsonObject().apply {
             addProperty("candidateType", candidate.candidateType)
@@ -763,21 +781,6 @@ class DebugDataCollector(private val context: Context) {
             addProperty("hostCount", candidatesByType["host"]?.size ?: 0)
             addProperty("srflxCount", candidatesByType["srflx"]?.size ?: 0)
             addProperty("relayCount", candidatesByType["relay"]?.size ?: 0)
-
-            // Selected candidate pair
-            data.selectedCandidatePair?.let { pair ->
-                val iceData = JsonObject().apply {
-                    pair.id?.let { addProperty("id", it) }
-                    add("local", createCandidateJson(pair.local))
-                    add("remote", createCandidateJson(pair.remote))
-                    addProperty("nominated", pair.nominated)
-                    pair.state?.let { addProperty("state", it) }
-                    addProperty("requestsSent", pair.requestsSent)
-                    addProperty("responsesReceived", pair.responsesReceived)
-                    addProperty("writable", pair.writable)
-                }
-                add("ice", iceData)
-            }
 
             // All candidates array
             add("candidates", createIceCandidatesArray(data.iceCandidates, dateFormat))
