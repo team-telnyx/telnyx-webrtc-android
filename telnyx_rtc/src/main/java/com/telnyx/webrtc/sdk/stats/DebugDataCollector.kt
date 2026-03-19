@@ -246,6 +246,19 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Updates the transport statistics for a call.
+     * Should be called when polling getStats() with transport stats.
+     *
+     * @param callId The unique identifier for the call
+     * @param transportStats The transport statistics to record
+     */
+    fun updateTransportStats(callId: UUID, transportStats: TransportStats) {
+        callDebugData[callId]?.let { data ->
+            data.transportStats = transportStats
+        }
+    }
+
+    /**
      * Records a signaling state change.
      *
      * @param callId The unique identifier for the call
@@ -293,10 +306,25 @@ class DebugDataCollector(private val context: Context) {
     fun onIceCandidatePairSelected(
         callId: UUID,
         localCandidate: CandidateDetails,
-        remoteCandidate: CandidateDetails
+        remoteCandidate: CandidateDetails,
+        pairId: String? = null,
+        nominated: Boolean = false,
+        state: String? = null,
+        requestsSent: Long = 0,
+        responsesReceived: Long = 0,
+        writable: Boolean = false
     ) {
         callDebugData[callId]?.let { data ->
-            data.selectedCandidatePair = CandidatePairInfo(localCandidate, remoteCandidate)
+            data.selectedCandidatePair = CandidatePairInfo(
+                id = pairId,
+                local = localCandidate,
+                remote = remoteCandidate,
+                nominated = nominated,
+                state = state,
+                requestsSent = requestsSent,
+                responsesReceived = responsesReceived,
+                writable = writable
+            )
         }
     }
 
@@ -511,17 +539,34 @@ class DebugDataCollector(private val context: Context) {
     private fun createStatsArray(data: CallDebugData, dateFormat: SimpleDateFormat): JsonArray {
         val statsArray = JsonArray()
         data.intervalStats.forEach { interval ->
-            statsArray.add(createIntervalJson(interval, dateFormat))
+            statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, data.transportStats, dateFormat))
         }
         return statsArray
     }
 
-    private fun createIntervalJson(interval: IntervalStats, dateFormat: SimpleDateFormat): JsonObject {
+    private fun createIntervalJson(
+        interval: IntervalStats,
+        icePair: CandidatePairInfo?,
+        transport: TransportStats?,
+        dateFormat: SimpleDateFormat
+    ): JsonObject {
         return JsonObject().apply {
             add("audio", createIntervalAudioJson(interval))
             add("connection", createIntervalConnectionJson(interval))
+            icePair?.let { add("ice", createIceJson(it)) }
+            transport?.let { add("transport", createTransportJson(it)) }
             addProperty("intervalStartUtc", dateFormat.format(Date(interval.intervalStartUtc)))
             addProperty("intervalEndUtc", dateFormat.format(Date(interval.intervalEndUtc)))
+        }
+    }
+
+    private fun createTransportJson(transport: TransportStats): JsonObject {
+        return JsonObject().apply {
+            transport.dtlsState?.let { addProperty("dtlsState", it) }
+            transport.iceState?.let { addProperty("iceState", it) }
+            addProperty("selectedCandidatePairChanges", transport.selectedCandidatePairChanges)
+            transport.srtpCipher?.let { addProperty("srtpCipher", it) }
+            transport.tlsVersion?.let { addProperty("tlsVersion", it) }
         }
     }
 
@@ -542,6 +587,7 @@ class DebugDataCollector(private val context: Context) {
             if (interval.inboundBitrateAvg > 0) {
                 addProperty("bitrateAvg", interval.inboundBitrateAvg)
             }
+            addProperty("audioLevelAvg", interval.inboundAudioLevelAvg)
         }
         audio.add("inbound", audioInbound)
 
@@ -551,6 +597,7 @@ class DebugDataCollector(private val context: Context) {
             if (interval.outboundBitrateAvg > 0) {
                 addProperty("bitrateAvg", interval.outboundBitrateAvg)
             }
+            addProperty("audioLevelAvg", interval.outboundAudioLevelAvg)
         }
         audio.add("outbound", audioOutbound)
 
@@ -678,6 +725,19 @@ class DebugDataCollector(private val context: Context) {
         }
     }
 
+    private fun createIceJson(pair: CandidatePairInfo): JsonObject {
+        return JsonObject().apply {
+            pair.id?.let { addProperty("id", it) }
+            add("local", createCandidateJson(pair.local))
+            add("remote", createCandidateJson(pair.remote))
+            addProperty("nominated", pair.nominated)
+            pair.state?.let { addProperty("state", it) }
+            addProperty("requestsSent", pair.requestsSent)
+            addProperty("responsesReceived", pair.responsesReceived)
+            addProperty("writable", pair.writable)
+        }
+    }
+
     private fun createCandidateJson(candidate: CandidateDetails): JsonObject {
         return JsonObject().apply {
             addProperty("candidateType", candidate.candidateType)
@@ -687,6 +747,7 @@ class DebugDataCollector(private val context: Context) {
             candidate.priority?.let { addProperty("priority", it) }
             candidate.relatedAddress?.let { addProperty("relatedAddress", it) }
             candidate.relatedPort?.let { addProperty("relatedPort", it) }
+            candidate.networkType?.let { addProperty("networkType", it) }
         }
     }
 
@@ -747,15 +808,6 @@ class DebugDataCollector(private val context: Context) {
             addProperty("hostCount", candidatesByType["host"]?.size ?: 0)
             addProperty("srflxCount", candidatesByType["srflx"]?.size ?: 0)
             addProperty("relayCount", candidatesByType["relay"]?.size ?: 0)
-
-            // Selected candidate pair
-            data.selectedCandidatePair?.let { pair ->
-                val selectedPair = JsonObject().apply {
-                    add("local", createCandidateJson(pair.local))
-                    add("remote", createCandidateJson(pair.remote))
-                }
-                add("selectedPair", selectedPair)
-            }
 
             // All candidates array
             add("candidates", createIceCandidatesArray(data.iceCandidates, dateFormat))
@@ -992,11 +1044,18 @@ class DebugDataCollector(private val context: Context) {
 
         logBuilder.appendLine("  Selected Pair:")
         data.selectedCandidatePair?.let { pair ->
+            pair.id?.let { logBuilder.appendLine("    ID:            $it") }
+            logBuilder.appendLine("    State:         ${pair.state ?: "unknown"}")
+            logBuilder.appendLine("    Nominated:     ${pair.nominated}")
+            logBuilder.appendLine("    Writable:      ${pair.writable}")
+            logBuilder.appendLine("    Requests:      ${pair.requestsSent} sent, ${pair.responsesReceived} received")
+            logBuilder.appendLine()
             logBuilder.appendLine("    Local Candidate:")
             logBuilder.appendLine("      Type:        ${pair.local.candidateType}")
             logBuilder.appendLine("      Protocol:    ${pair.local.protocol}")
             logBuilder.appendLine("      IP:          ${pair.local.ip}")
             logBuilder.appendLine("      Port:        ${pair.local.port}")
+            pair.local.networkType?.let { logBuilder.appendLine("      Network:     $it") }
             if (pair.local.priority != null) {
                 logBuilder.appendLine("      Priority:    ${pair.local.priority}")
             }
@@ -1248,6 +1307,9 @@ internal data class CallDebugData(
     val iceCandidates: MutableList<IceCandidateInfo> = mutableListOf(),
     var selectedCandidatePair: CandidatePairInfo? = null,
 
+    // Transport stats
+    var transportStats: TransportStats? = null,
+
     // Codec
     var selectedCodec: String? = null,
 
@@ -1338,15 +1400,22 @@ data class CandidateDetails(
     val port: Int,
     val priority: Long? = null,
     val relatedAddress: String? = null,
-    val relatedPort: Int? = null
+    val relatedPort: Int? = null,
+    val networkType: String? = null
 )
 
 /**
- * Represents the selected ICE candidate pair with full details.
+ * Represents the selected ICE candidate pair with full details including connection stats.
  */
 internal data class CandidatePairInfo(
+    val id: String? = null,
     val local: CandidateDetails,
-    val remote: CandidateDetails
+    val remote: CandidateDetails,
+    val nominated: Boolean = false,
+    val state: String? = null,
+    val requestsSent: Long = 0,
+    val responsesReceived: Long = 0,
+    val writable: Boolean = false
 )
 
 /**
@@ -1449,10 +1518,12 @@ data class IntervalStats(
     val inboundConcealmentEvents: Long = 0,
     val inboundTotalSamplesReceived: Long = 0,
     val inboundBitrateAvg: Double = 0.0,
+    val inboundAudioLevelAvg: Double = 0.0,
     // Audio outbound
     val outboundBytesSent: Long = 0,
     val outboundPacketsSent: Long = 0,
     val outboundBitrateAvg: Double = 0.0,
+    val outboundAudioLevelAvg: Double = 0.0,
     // Connection
     val connectionBytesReceived: Long = 0,
     val connectionBytesSent: Long = 0,
@@ -1469,4 +1540,16 @@ data class LogEntry(
     val level: String,
     val message: String,
     val context: Map<String, Any>? = null
+)
+
+/**
+ * Represents transport-level statistics from WebRTC.
+ * Contains DTLS/ICE state and security information.
+ */
+data class TransportStats(
+    val dtlsState: String? = null,
+    val iceState: String? = null,
+    val selectedCandidatePairChanges: Long = 0,
+    val srtpCipher: String? = null,
+    val tlsVersion: String? = null
 )

@@ -311,9 +311,21 @@ internal class WebRTCReporter(
 
                             "transport" -> {
                                 // Track DTLS state for connection diagnostics
-                                value.members["dtlsState"]?.toString()?.let { dtlsState ->
-                                    debugDataCollector?.onDtlsStateChange(peerId, dtlsState)
+                                val dtlsState = value.members["dtlsState"]?.toString()
+                                dtlsState?.let {
+                                    debugDataCollector?.onDtlsStateChange(peerId, it)
                                 }
+
+                                // Extract full transport stats
+                                val transportStats = TransportStats(
+                                    dtlsState = dtlsState,
+                                    iceState = value.members["iceState"]?.toString(),
+                                    selectedCandidatePairChanges = (value.members["selectedCandidatePairChanges"] as? Number)?.toLong() ?: 0L,
+                                    srtpCipher = value.members["srtpCipher"]?.toString(),
+                                    tlsVersion = value.members["tlsVersion"]?.toString()
+                                )
+                                debugDataCollector?.updateTransportStats(peerId, transportStats)
+
                                 processStatsDataMember(key, value, statsData)
                             }
 
@@ -413,10 +425,12 @@ internal class WebRTCReporter(
                                 inboundConcealmentEvents = concealmentEvents,
                                 inboundTotalSamplesReceived = totalSamplesReceived,
                                 inboundBitrateAvg = inboundBitrateAvg,
+                                inboundAudioLevelAvg = inboundAudioLevel.toDouble(),
                                 // Audio outbound
                                 outboundBytesSent = mediaStats.outboundBytesSent,
                                 outboundPacketsSent = mediaStats.outboundPacketsSent,
                                 outboundBitrateAvg = outboundBitrateAvg,
+                                outboundAudioLevelAvg = outboundAudioLevel.toDouble(),
                                 // Connection
                                 connectionBytesReceived = connectionBytesReceived,
                                 connectionBytesSent = connectionBytesSent,
@@ -476,7 +490,8 @@ internal class WebRTCReporter(
                                         port = localObj.get("port")?.asInt ?: 0,
                                         priority = localObj.get("priority")?.asLong,
                                         relatedAddress = localObj.get("relatedAddress")?.asString,
-                                        relatedPort = localObj.get("relatedPort")?.asInt
+                                        relatedPort = localObj.get("relatedPort")?.asInt,
+                                        networkType = localObj.get("networkType")?.asString
                                     )
 
                                     val remoteDetails = CandidateDetails(
@@ -489,10 +504,24 @@ internal class WebRTCReporter(
                                         relatedPort = remoteObj.get("relatedPort")?.asInt
                                     )
 
+                                    // Extract candidate pair stats
+                                    val pairId = candidateMap["id"]?.toString()
+                                    val nominated = (candidateMap["nominated"] as? Boolean) ?: false
+                                    val state = candidateMap["state"]?.toString()
+                                    val requestsSent = (candidateMap["requestsSent"] as? Number)?.toLong() ?: 0L
+                                    val responsesReceived = (candidateMap["responsesReceived"] as? Number)?.toLong() ?: 0L
+                                    val writable = (candidateMap["writable"] as? Boolean) ?: false
+
                                     debugDataCollector?.onIceCandidatePairSelected(
-                                        peerId,
-                                        localDetails,
-                                        remoteDetails
+                                        callId = peerId,
+                                        localCandidate = localDetails,
+                                        remoteCandidate = remoteDetails,
+                                        pairId = pairId,
+                                        nominated = nominated,
+                                        state = state,
+                                        requestsSent = requestsSent,
+                                        responsesReceived = responsesReceived,
+                                        writable = writable
                                     )
                                 }
                             }
