@@ -67,8 +67,11 @@ internal class WebRTCReporter(
     companion object {
         private const val STATS_INTERVAL_DEBUG: Long = 100L // 100ms when debug is enabled
         private const val STATS_INTERVAL_NORMAL: Long = 10000L // 10 seconds when debug is disabled
+        private const val AUDIO_SAMPLE_INTERVAL: Long = 5000L // 5 seconds for audio sampling
         private const val UFRAG_LABEL = "ufrag"
         private const val MS_IN_SECONDS = 1000.0
+        private const val BITS_PER_BYTE = 8
+        private const val MAX_LOG_ENTRIES = 1000
     }
 
     // Dynamic stats interval based on debug flags
@@ -89,6 +92,16 @@ internal class WebRTCReporter(
     // Track DTLS state for latency milestones (avoid duplicate tracking)
     private var lastTrackedDtlsState: String? = null
 
+    private var lastAudioSampleTime: Long = 0L
+    private var previousPacketsLost: Long = 0L
+
+    // Interval stats tracking
+    private var lastIntervalTime: Long = 0L
+    private var previousInboundBytes: Long = 0L
+    private var previousOutboundBytes: Long = 0L
+    private var previousConnectionBytesReceived: Long = 0L
+    private var previousConnectionBytesSent: Long = 0L
+
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
     /**
@@ -106,6 +119,27 @@ internal class WebRTCReporter(
         debugReportStarted = true
 
         codecName = null
+        lastAudioSampleTime = 0L
+        previousPacketsLost = 0L
+
+        // Reset interval tracking
+        lastIntervalTime = 0L
+        previousInboundBytes = 0L
+        previousOutboundBytes = 0L
+        previousConnectionBytesReceived = 0L
+        previousConnectionBytesSent = 0L
+
+        // Add initial log entry
+        debugDataCollector?.addLogEntry(
+            callId = peerId,
+            level = "info",
+            message = "CallReportCollector: Starting stats and log collection",
+            context = mapOf(
+                "interval" to AUDIO_SAMPLE_INTERVAL,
+                "logLevel" to "debug",
+                "maxLogEntries" to MAX_LOG_ENTRIES
+            )
+        )
 
         val debugStartMessage = InitiateOrStopStatPrams(
             type = "debug_report_start",
@@ -126,6 +160,8 @@ internal class WebRTCReporter(
     }
 
     internal fun stopStats() {
+        // Cancel the stats coroutine. The isDisposed flag on Peer provides an
+        // additional guard in case the coroutine is mid-flight when cancelled.
         debugReportJob?.cancel()
 
         val debugStopMessage = InitiateOrStopStatPrams(
@@ -204,6 +240,14 @@ internal class WebRTCReporter(
     internal suspend fun startTimer() {
         CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
+                // Guard against calling getStats() on a disposed PeerConnection.
+                // The native PeerConnection may have been freed during call teardown,
+                // and calling nativeNewGetStats on a null native pointer causes SIGSEGV.
+                // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
+                if (peer.isDisposed.get()) {
+                    Logger.d(tag = "stats", "Peer connection disposed, stopping stats timer")
+                    return@launch
+                }
                 peer.peerConnection?.getStats {
                     val statsData = JsonObject()
                     val data = JsonObject()
@@ -281,22 +325,34 @@ internal class WebRTCReporter(
 
                             "transport" -> {
                                 // Track DTLS state for connection diagnostics
-                                value.members["dtlsState"]?.toString()?.let { dtlsState ->
-                                    debugDataCollector?.onDtlsStateChange(peerId, dtlsState)
+                                val dtlsState = value.members["dtlsState"]?.toString()
+                                dtlsState?.let {
+                                    debugDataCollector?.onDtlsStateChange(peerId, it)
                                     
                                     // Track latency milestones for DTLS state changes (only once per state)
-                                    if (dtlsState != lastTrackedDtlsState) {
-                                        lastTrackedDtlsState = dtlsState
-                                        val milestone = when (dtlsState.uppercase()) {
+                                    if (it != lastTrackedDtlsState) {
+                                        lastTrackedDtlsState = it
+                                        val milestone = when (it.uppercase()) {
                                             "CONNECTING" -> LatencyTracker.MILESTONE_DTLS_CONNECTING
                                             "CONNECTED" -> LatencyTracker.MILESTONE_DTLS_CONNECTED
                                             else -> null
                                         }
-                                        milestone?.let {
-                                            peer.client.latencyTracker.markCallMilestone(peerId, it)
+                                        milestone?.let { m ->
+                                            peer.client.latencyTracker.markCallMilestone(peerId, m)
                                         }
                                     }
                                 }
+
+                                // Extract full transport stats
+                                val transportStats = TransportStats(
+                                    dtlsState = dtlsState,
+                                    iceState = value.members["iceState"]?.toString(),
+                                    selectedCandidatePairChanges = (value.members["selectedCandidatePairChanges"] as? Number)?.toLong() ?: 0L,
+                                    srtpCipher = value.members["srtpCipher"]?.toString(),
+                                    tlsVersion = value.members["tlsVersion"]?.toString()
+                                )
+                                debugDataCollector?.updateTransportStats(peerId, transportStats)
+
                                 processStatsDataMember(key, value, statsData)
                             }
 
@@ -325,6 +381,103 @@ internal class WebRTCReporter(
                             roundTripTime = ((remoteInboundAudioMap["roundTripTime"] as? Double) ?: 0.0) * MS_IN_SECONDS
                         )
                         debugDataCollector?.updateMediaStats(peerId, mediaStats)
+
+                        // Record audio sample and interval stats every 5 seconds
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastAudioSampleTime >= AUDIO_SAMPLE_INTERVAL) {
+                            val currentPacketsLost = mediaStats.inboundPacketsLost
+                            val packetsLostSinceLastSample = currentPacketsLost - previousPacketsLost
+
+                            debugDataCollector?.recordAudioSample(
+                                callId = peerId,
+                                inboundAudioLevel = mediaStats.inboundAudioLevel,
+                                outboundAudioEnergy = mediaStats.outboundAudioEnergy,
+                                jitter = mediaStats.inboundJitter,
+                                packetsLost = packetsLostSinceLastSample,
+                                roundTripTime = mediaStats.roundTripTime
+                            )
+
+                            // Record interval stats for call reporting
+                            val intervalStartTime = if (lastIntervalTime == 0L) {
+                                currentTime - AUDIO_SAMPLE_INTERVAL
+                            } else {
+                                lastIntervalTime
+                            }
+
+                            // Extract additional stats from inbound audio
+                            val concealedSamples = (inboundAudioMap["concealedSamples"] as? Number)?.toLong() ?: 0L
+                            val concealmentEvents = (inboundAudioMap["concealmentEvents"] as? Number)?.toLong() ?: 0L
+                            val jitterBufferDelay = (inboundAudioMap["jitterBufferDelay"] as? Number)?.toDouble() ?: 0.0
+                            val jitterBufferEmittedCount = (inboundAudioMap["jitterBufferEmittedCount"] as? Number)?.toLong() ?: 0L
+                            val packetsDiscarded = (inboundAudioMap["packetsDiscarded"] as? Number)?.toLong() ?: 0L
+                            val totalSamplesReceived = (inboundAudioMap["totalSamplesReceived"] as? Number)?.toLong() ?: 0L
+
+                            // Calculate bitrates
+                            val intervalDurationSeconds = (currentTime - intervalStartTime) / MS_IN_SECONDS
+                            val inboundBitrateAvg = if (intervalDurationSeconds > 0 && previousInboundBytes > 0) {
+                                ((mediaStats.inboundBytesReceived - previousInboundBytes) * BITS_PER_BYTE) / intervalDurationSeconds
+                            } else 0.0
+                            val outboundBitrateAvg = if (intervalDurationSeconds > 0 && previousOutboundBytes > 0) {
+                                ((mediaStats.outboundBytesSent - previousOutboundBytes) * BITS_PER_BYTE) / intervalDurationSeconds
+                            } else 0.0
+
+                            // Extract connection stats from selected candidate pair
+                            var connectionBytesReceived = 0L
+                            var connectionBytesSent = 0L
+                            var connectionPacketsReceived = 0L
+                            var connectionPacketsSent = 0L
+
+                            // Find selected candidate pair using transport's selectedCandidatePairId
+                            val selectedPairId = statsData.get("T01")?.asJsonObject?.get("selectedCandidatePairId")?.asString
+                            val selectedPair = selectedPairId?.let { connectionCandidates[it] }
+                            selectedPair?.let { pair ->
+                                connectionBytesReceived = (pair["bytesReceived"] as? Number)?.toLong() ?: 0L
+                                connectionBytesSent = (pair["bytesSent"] as? Number)?.toLong() ?: 0L
+                                connectionPacketsReceived = (pair["packetsReceived"] as? Number)?.toLong() ?: 0L
+                                connectionPacketsSent = (pair["packetsSent"] as? Number)?.toLong() ?: 0L
+                            }
+
+                            val intervalStats = IntervalStats(
+                                intervalStartUtc = intervalStartTime,
+                                intervalEndUtc = currentTime,
+                                // Audio inbound
+                                inboundBytesReceived = mediaStats.inboundBytesReceived,
+                                inboundPacketsReceived = mediaStats.inboundPacketsReceived,
+                                inboundPacketsLost = mediaStats.inboundPacketsLost,
+                                inboundPacketsDiscarded = packetsDiscarded,
+                                inboundJitterAvg = mediaStats.inboundJitter,
+                                inboundJitterBufferDelay = jitterBufferDelay,
+                                inboundJitterBufferEmittedCount = jitterBufferEmittedCount,
+                                inboundConcealedSamples = concealedSamples,
+                                inboundConcealmentEvents = concealmentEvents,
+                                inboundTotalSamplesReceived = totalSamplesReceived,
+                                inboundBitrateAvg = inboundBitrateAvg,
+                                inboundAudioLevelAvg = inboundAudioLevel.toDouble(),
+                                // Audio outbound
+                                outboundBytesSent = mediaStats.outboundBytesSent,
+                                outboundPacketsSent = mediaStats.outboundPacketsSent,
+                                outboundBitrateAvg = outboundBitrateAvg,
+                                outboundAudioLevelAvg = outboundAudioLevel.toDouble(),
+                                // Connection
+                                connectionBytesReceived = connectionBytesReceived,
+                                connectionBytesSent = connectionBytesSent,
+                                connectionPacketsReceived = connectionPacketsReceived,
+                                connectionPacketsSent = connectionPacketsSent,
+                                connectionRoundTripTimeAvg = mediaStats.roundTripTime / MS_IN_SECONDS
+                            )
+
+                            debugDataCollector?.recordIntervalStats(peerId, intervalStats)
+
+                            // Update tracking variables
+                            lastIntervalTime = currentTime
+                            previousInboundBytes = mediaStats.inboundBytesReceived
+                            previousOutboundBytes = mediaStats.outboundBytesSent
+                            previousConnectionBytesReceived = connectionBytesReceived
+                            previousConnectionBytesSent = connectionBytesSent
+
+                            lastAudioSampleTime = currentTime
+                            previousPacketsLost = currentPacketsLost
+                        }
                     }
 
                     //complete data which has different struct at webrtc-debug
@@ -364,7 +517,8 @@ internal class WebRTCReporter(
                                         port = localObj.get("port")?.asInt ?: 0,
                                         priority = localObj.get("priority")?.asLong,
                                         relatedAddress = localObj.get("relatedAddress")?.asString,
-                                        relatedPort = localObj.get("relatedPort")?.asInt
+                                        relatedPort = localObj.get("relatedPort")?.asInt,
+                                        networkType = localObj.get("networkType")?.asString
                                     )
 
                                     val remoteDetails = CandidateDetails(
@@ -377,10 +531,24 @@ internal class WebRTCReporter(
                                         relatedPort = remoteObj.get("relatedPort")?.asInt
                                     )
 
+                                    // Extract candidate pair stats
+                                    val pairId = candidateMap["id"]?.toString()
+                                    val nominated = (candidateMap["nominated"] as? Boolean) ?: false
+                                    val state = candidateMap["state"]?.toString()
+                                    val requestsSent = (candidateMap["requestsSent"] as? Number)?.toLong() ?: 0L
+                                    val responsesReceived = (candidateMap["responsesReceived"] as? Number)?.toLong() ?: 0L
+                                    val writable = (candidateMap["writable"] as? Boolean) ?: false
+
                                     debugDataCollector?.onIceCandidatePairSelected(
-                                        peerId,
-                                        localDetails,
-                                        remoteDetails
+                                        callId = peerId,
+                                        localCandidate = localDetails,
+                                        remoteCandidate = remoteDetails,
+                                        pairId = pairId,
+                                        nominated = nominated,
+                                        state = state,
+                                        requestsSent = requestsSent,
+                                        responsesReceived = responsesReceived,
+                                        writable = writable
                                     )
                                 }
                             }

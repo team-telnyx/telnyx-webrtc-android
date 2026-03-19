@@ -168,6 +168,13 @@ class TxSocket(
                                 val params = result.get("params").asJsonObject
                                 if (params.asJsonObject.has("state")) {
                                     val gatewayState = params.get("state").asString
+
+                                    // Extract call_report_id if present in REGED response
+                                    if (gatewayState == STATE_REGED && params.has("call_report_id")) {
+                                        val callReportId = params.get("call_report_id").asString
+                                        listener.onCallReportIdReceived(callReportId)
+                                    }
+
                                     if (gatewayState != STATE_ATTACHED) {
                                         listener.onGatewayStateReceived(gatewayState, sessionId)
                                     }
@@ -184,6 +191,13 @@ class TxSocket(
                             params = jsonObject.get("params").asJsonObject
                             if (params.asJsonObject.has("state")) {
                                 val gatewayState = params.get("state").asString
+
+                                // Extract call_report_id if present in REGED response
+                                if (gatewayState == STATE_REGED && params.has("call_report_id")) {
+                                    val callReportId = params.get("call_report_id").asString
+                                    listener.onCallReportIdReceived(callReportId)
+                                }
+
                                 listener.onGatewayStateReceived(gatewayState, null)
                             }
                         }
@@ -496,6 +510,7 @@ class TxSocket(
 
     companion object {
         const val STATE_ATTACHED = "ATTACHED"
+        const val STATE_REGED = "REGED"
 
         // WebSocket constants
         private const val WEBSOCKET_NORMAL_CLOSURE = 1000

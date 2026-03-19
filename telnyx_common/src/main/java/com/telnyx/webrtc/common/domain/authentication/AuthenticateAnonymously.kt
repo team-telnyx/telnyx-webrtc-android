@@ -22,6 +22,7 @@ class AuthenticateAnonymously(private val context: Context) {
      * @param targetId The unique identifier of the target AI assistant.
      * @param targetType The type of target (defaults to "ai_assistant").
      * @param targetVersionId Optional version ID of the target.
+     * @param conversationId Optional conversation ID to join an existing conversation.
      * @param userVariables Optional user variables to include.
      * @param reconnection Whether this is a reconnection attempt (defaults to false).
      * @param logLevel The log level for the operation (defaults to LogLevel.NONE).
@@ -33,6 +34,7 @@ class AuthenticateAnonymously(private val context: Context) {
         targetId: String,
         targetType: String = "ai_assistant",
         targetVersionId: String? = null,
+        conversationId: String? = null,
         userVariables: Map<String, Any>? = null,
         reconnection: Boolean = false,
         logLevel: LogLevel = LogLevel.NONE
@@ -45,6 +47,7 @@ class AuthenticateAnonymously(private val context: Context) {
             targetId = targetId,
             targetType = targetType,
             targetVersionId = targetVersionId,
+            conversationId = conversationId,
             userVariables = userVariables,
             reconnection = reconnection,
             logLevel = logLevel

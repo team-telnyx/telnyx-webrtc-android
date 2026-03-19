@@ -24,6 +24,7 @@ fun AssistantLoginBottomSheet(
 ) {
     val context = LocalContext.current
     var targetId by remember { mutableStateOf("") }
+    var conversationId by remember { mutableStateOf("") }
     val isLoading by telnyxViewModel.isLoading.collectAsState()
 
     ModalBottomSheet(
@@ -59,6 +60,20 @@ fun AssistantLoginBottomSheet(
                     .padding(bottom = 16.dp),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                enabled = !isLoading
+            )
+
+            OutlinedTextField(
+                value = conversationId,
+                onValueChange = { conversationId = it },
+                label = { Text(stringResource(R.string.assistant_conversation_id)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
@@ -66,7 +81,8 @@ fun AssistantLoginBottomSheet(
                         if (targetId.isNotBlank()) {
                             telnyxViewModel.anonymousLogin(
                                 viewContext = context,
-                                targetId = targetId.trim()
+                                targetId = targetId.trim(),
+                                conversationId = conversationId.trim().ifBlank { null }
                             )
                             onDismiss()
                         }
@@ -92,7 +108,8 @@ fun AssistantLoginBottomSheet(
                         if (targetId.isNotBlank()) {
                             telnyxViewModel.anonymousLogin(
                                 viewContext = context,
-                                targetId = targetId.trim()
+                                targetId = targetId.trim(),
+                                conversationId = conversationId.trim().ifBlank { null }
                             )
                             onDismiss()
                         }
