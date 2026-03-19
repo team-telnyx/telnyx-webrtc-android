@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
  */
 fun String.encodeBase64(): String {
     return String(
-        android.util.Base64.encode(this.toByteArray(), android.util.Base64.DEFAULT),
+        android.util.Base64.encode(this.toByteArray(), android.util.Base64.NO_WRAP),
         StandardCharsets.UTF_8
     )
 }
