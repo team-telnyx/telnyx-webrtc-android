@@ -425,10 +425,12 @@ internal class WebRTCReporter(
                                 inboundConcealmentEvents = concealmentEvents,
                                 inboundTotalSamplesReceived = totalSamplesReceived,
                                 inboundBitrateAvg = inboundBitrateAvg,
+                                inboundAudioLevelAvg = inboundAudioLevel.toDouble(),
                                 // Audio outbound
                                 outboundBytesSent = mediaStats.outboundBytesSent,
                                 outboundPacketsSent = mediaStats.outboundPacketsSent,
                                 outboundBitrateAvg = outboundBitrateAvg,
+                                outboundAudioLevelAvg = outboundAudioLevel.toDouble(),
                                 // Connection
                                 connectionBytesReceived = connectionBytesReceived,
                                 connectionBytesSent = connectionBytesSent,

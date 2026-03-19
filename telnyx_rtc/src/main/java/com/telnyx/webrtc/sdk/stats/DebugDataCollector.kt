@@ -587,6 +587,7 @@ class DebugDataCollector(private val context: Context) {
             if (interval.inboundBitrateAvg > 0) {
                 addProperty("bitrateAvg", interval.inboundBitrateAvg)
             }
+            addProperty("audioLevelAvg", interval.inboundAudioLevelAvg)
         }
         audio.add("inbound", audioInbound)
 
@@ -596,6 +597,7 @@ class DebugDataCollector(private val context: Context) {
             if (interval.outboundBitrateAvg > 0) {
                 addProperty("bitrateAvg", interval.outboundBitrateAvg)
             }
+            addProperty("audioLevelAvg", interval.outboundAudioLevelAvg)
         }
         audio.add("outbound", audioOutbound)
 
@@ -1516,10 +1518,12 @@ data class IntervalStats(
     val inboundConcealmentEvents: Long = 0,
     val inboundTotalSamplesReceived: Long = 0,
     val inboundBitrateAvg: Double = 0.0,
+    val inboundAudioLevelAvg: Double = 0.0,
     // Audio outbound
     val outboundBytesSent: Long = 0,
     val outboundPacketsSent: Long = 0,
     val outboundBitrateAvg: Double = 0.0,
+    val outboundAudioLevelAvg: Double = 0.0,
     // Connection
     val connectionBytesReceived: Long = 0,
     val connectionBytesSent: Long = 0,
