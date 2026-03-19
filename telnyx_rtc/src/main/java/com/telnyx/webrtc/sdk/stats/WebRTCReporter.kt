@@ -156,6 +156,8 @@ internal class WebRTCReporter(
     }
 
     internal fun stopStats() {
+        // Cancel the stats coroutine. The isDisposed flag on Peer provides an
+        // additional guard in case the coroutine is mid-flight when cancelled.
         debugReportJob?.cancel()
 
         val debugStopMessage = InitiateOrStopStatPrams(
@@ -234,6 +236,14 @@ internal class WebRTCReporter(
     internal suspend fun startTimer() {
         CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
+                // Guard against calling getStats() on a disposed PeerConnection.
+                // The native PeerConnection may have been freed during call teardown,
+                // and calling nativeNewGetStats on a null native pointer causes SIGSEGV.
+                // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
+                if (peer.isDisposed.get()) {
+                    Logger.d(tag = "stats", "Peer connection disposed, stopping stats timer")
+                    return@launch
+                }
                 peer.peerConnection?.getStats {
                     val statsData = JsonObject()
                     val data = JsonObject()

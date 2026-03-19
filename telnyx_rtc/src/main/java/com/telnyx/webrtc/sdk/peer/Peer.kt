@@ -45,6 +45,7 @@ import com.telnyx.webrtc.lib.RtpCapabilities
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.timerTask
 
 /**
@@ -304,6 +305,13 @@ internal class Peer(
         get() = sharedPeerConnectionFactory
 
     internal var peerConnection: PeerConnection? = null
+
+    /**
+     * Flag indicating whether the peer connection has been disposed.
+     * Used to prevent stats collection from accessing a freed native PeerConnection.
+     * See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
+     */
+    internal val isDisposed = AtomicBoolean(false)
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
@@ -928,6 +936,10 @@ internal class Peer(
      */
     fun disconnect() {
         try {
+            // Mark as disposed BEFORE closing/disposing to prevent the stats timer
+            // from calling getStats() on a freed native PeerConnection (SIGSEGV).
+            // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
+            isDisposed.set(true)
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
