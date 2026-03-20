@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.RTCStats
+import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.Logger
 import timber.log.Timber
 import java.util.*
@@ -87,6 +88,9 @@ internal class WebRTCReporter(
     private var debugReportJob: Job? = null
 
     private var codecName: String? = null
+    
+    // Track DTLS state for latency milestones (avoid duplicate tracking)
+    private var lastTrackedDtlsState: String? = null
 
     private var lastAudioSampleTime: Long = 0L
     private var previousPacketsLost: Long = 0L
@@ -324,6 +328,19 @@ internal class WebRTCReporter(
                                 val dtlsState = value.members["dtlsState"]?.toString()
                                 dtlsState?.let {
                                     debugDataCollector?.onDtlsStateChange(peerId, it)
+                                    
+                                    // Track latency milestones for DTLS state changes (only once per state)
+                                    if (it != lastTrackedDtlsState) {
+                                        lastTrackedDtlsState = it
+                                        val milestone = when (it.uppercase()) {
+                                            "CONNECTING" -> LatencyTracker.MILESTONE_DTLS_CONNECTING
+                                            "CONNECTED" -> LatencyTracker.MILESTONE_DTLS_CONNECTED
+                                            else -> null
+                                        }
+                                        milestone?.let { m ->
+                                            peer.client.latencyTracker.markCallMilestone(peerId, m)
+                                        }
+                                    }
                                 }
 
                                 // Extract full transport stats
