@@ -1,3 +1,17 @@
+## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
+
+### Enhancement
+- WebRTC Call Stats and Troubleshooting Tool with JSON export and automatic upload to voice-sdk-proxy (WEBRTC-3227)
+- Add ICE candidate pair details to Call Stats including connection state, network type, and candidate info (WEBRTC-3346)
+- Add transport stats (dtlsState, iceState, srtpCipher, tlsVersion) to call report intervals (WEBRTC-3415)
+- Add audioLevelAvg for inbound/outbound audio per stats interval (WEBRTC-3414)
+- Add SDK latency measurement for WebRTC call establishment with milestone tracking (WEBRTC-3276)
+- Handle telnyx_call_control_id in answer for Call Control integration (WEBRTC-3341)
+
+### Bug Fixing
+- Fix clientState truncation when payload exceeds 57 bytes due to Base64.DEFAULT newline insertion (ENGDESK-50462)
+- Prevent SIGSEGV crash in WebRTCReporter stats timer after PeerConnection teardown
+
 ## [3.4.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.4.1) (2026-03-05)
 
 ### Enhancement
