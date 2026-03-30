@@ -36,6 +36,9 @@ class LatencyTracker {
         // Milestone names for calls
         const val MILESTONE_CALL_INITIATED = "call_initiated"
         const val MILESTONE_PEER_CREATED = "peer_connection_created"
+        const val MILESTONE_PEER_SETUP_COMPLETE = "peer_setup_complete"
+        const val MILESTONE_MEDIA_DEVICES_ACQUIRED = "media_devices_acquired"
+        const val MILESTONE_SDP_NEGOTIATION_STARTED = "sdp_negotiation_started"
         const val MILESTONE_LOCAL_SDP_CREATED = "local_sdp_created"
         const val MILESTONE_LOCAL_SDP_SET = "local_sdp_set"
         const val MILESTONE_INVITE_SENT = "invite_sent"
@@ -43,9 +46,18 @@ class LatencyTracker {
         const val MILESTONE_REMOTE_SDP_RECEIVED = "remote_sdp_received"
         const val MILESTONE_REMOTE_SDP_SET = "remote_sdp_set"
         
+        // Inbound call specific milestones
+        const val MILESTONE_INVITE_RECEIVED = "invite_received"
+        const val MILESTONE_ANSWER_INITIATED = "answer_initiated"
+        
+        // Outbound call specific milestones
+        const val MILESTONE_REMOTE_RINGING = "remote_side_ringing"
+        const val MILESTONE_CALL_ANSWERED_REMOTE = "call_answered_by_remote"
+        
         // ICE gathering milestones
         const val MILESTONE_ICE_GATHERING_STARTED = "ice_gathering_started"
         const val MILESTONE_FIRST_ICE_CANDIDATE = "first_ice_candidate"
+        const val MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE = "first_srflx_relay_candidate"
         const val MILESTONE_ICE_GATHERING_COMPLETE = "ice_gathering_complete"
         
         // ICE connection milestones
@@ -183,6 +195,81 @@ class LatencyTracker {
     }
     
     /**
+     * Marks when an inbound call invite is received.
+     * Call this when the invite arrives, before user answers.
+     * @param callId The call identifier
+     */
+    fun markInviteReceived(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_INVITE_RECEIVED)
+    }
+    
+    /**
+     * Marks when the user initiates answering an inbound call.
+     * Call this at the start of acceptCall().
+     * @param callId The call identifier
+     */
+    fun markAnswerInitiated(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_ANSWER_INITIATED)
+    }
+    
+    /**
+     * Marks when the remote side starts ringing (outbound calls).
+     * Call this when SIP 180 Ringing or equivalent is received.
+     * @param callId The call identifier
+     */
+    fun markRemoteRinging(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_REMOTE_RINGING)
+    }
+    
+    /**
+     * Marks when the remote side answers the call (outbound calls).
+     * Call this when SIP 200 OK or equivalent is received.
+     * @param callId The call identifier
+     */
+    fun markCallAnsweredByRemote(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_CALL_ANSWERED_REMOTE)
+    }
+    
+    /**
+     * Marks when the first server-reflexive or relay ICE candidate is found.
+     * @param callId The call identifier
+     * @param candidateType The type of candidate (e.g., "srflx", "relay")
+     */
+    fun markFirstSrflxRelayCandidate(callId: UUID, candidateType: String) {
+        val state = callTrackers[callId] ?: return
+        // Only mark if not already marked
+        if (!state.milestones.containsKey(MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE)) {
+            if (candidateType == "srflx" || candidateType == "relay") {
+                markCallMilestone(callId, MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE)
+            }
+        }
+    }
+    
+    /**
+     * Marks when media devices (microphone/camera) are acquired.
+     * @param callId The call identifier
+     */
+    fun markMediaDevicesAcquired(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_MEDIA_DEVICES_ACQUIRED)
+    }
+    
+    /**
+     * Marks when SDP negotiation starts (createOffer/createAnswer).
+     * @param callId The call identifier
+     */
+    fun markSdpNegotiationStarted(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_SDP_NEGOTIATION_STARTED)
+    }
+    
+    /**
+     * Marks when peer setup is complete.
+     * @param callId The call identifier
+     */
+    fun markPeerSetupComplete(callId: UUID) {
+        markCallMilestone(callId, MILESTONE_PEER_SETUP_COMPLETE)
+    }
+    
+    /**
      * Completes call tracking and emits the final metrics.
      * Call this when the call reaches ACTIVE state.
      * @param callId The call identifier
@@ -290,6 +377,26 @@ class LatencyTracker {
     private fun calculateTimeToFirstRtp(milestones: Map<String, Long>): Long? {
         return milestones[MILESTONE_FIRST_RTP_RECEIVED] 
             ?: milestones[MILESTONE_FIRST_RTP_SENT]
+    }
+    
+    /**
+     * Calculates the answer delay for inbound calls.
+     * This is the time from invite received to user answering.
+     */
+    private fun calculateAnswerDelay(milestones: Map<String, Long>): Long? {
+        val inviteReceived = milestones[MILESTONE_INVITE_RECEIVED] ?: return null
+        val answerInitiated = milestones[MILESTONE_ANSWER_INITIATED] ?: return null
+        return answerInitiated - inviteReceived
+    }
+    
+    /**
+     * Calculates the time for remote side to answer (outbound calls).
+     * This is from invite sent to call answered.
+     */
+    private fun calculateRemoteAnswerTime(milestones: Map<String, Long>): Long? {
+        val inviteSent = milestones[MILESTONE_INVITE_SENT] ?: return null
+        val callAnswered = milestones[MILESTONE_CALL_ANSWERED_REMOTE] ?: return null
+        return callAnswered - inviteSent
     }
     
     /**
