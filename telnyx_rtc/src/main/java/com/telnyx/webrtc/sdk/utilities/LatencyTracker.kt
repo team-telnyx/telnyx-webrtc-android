@@ -383,6 +383,7 @@ class LatencyTracker {
      * Calculates the answer delay for inbound calls.
      * This is the time from invite received to user answering.
      */
+    @Suppress("ReturnCount", "UnusedPrivateMember")
     private fun calculateAnswerDelay(milestones: Map<String, Long>): Long? {
         val inviteReceived = milestones[MILESTONE_INVITE_RECEIVED] ?: return null
         val answerInitiated = milestones[MILESTONE_ANSWER_INITIATED] ?: return null
@@ -393,6 +394,7 @@ class LatencyTracker {
      * Calculates the time for remote side to answer (outbound calls).
      * This is from invite sent to call answered.
      */
+    @Suppress("ReturnCount", "UnusedPrivateMember")
     private fun calculateRemoteAnswerTime(milestones: Map<String, Long>): Long? {
         val inviteSent = milestones[MILESTONE_INVITE_SENT] ?: return null
         val callAnswered = milestones[MILESTONE_CALL_ANSWERED_REMOTE] ?: return null
