@@ -405,8 +405,9 @@ class TelnyxClient(
         CallTimingBenchmark.start(isOutbound = false)
         CallTimingBenchmark.mark("accept_call_started")
         
-        // Start latency tracking for inbound call
-        latencyTracker.startCallTracking(callId, isOutbound = false)
+        // Mark that user initiated answering the call (for answer delay calculation)
+        // Note: Tracking already started in onOfferReceived when invite was received
+        latencyTracker.markAnswerInitiated(callId)
 
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
@@ -431,6 +432,9 @@ class TelnyxClient(
 
             // Start local audio capture with provided constraints before creating answer
             peerConnection?.startLocalAudioCapture(audioConstraints)
+            
+            // Mark peer setup complete (after media acquired)
+            client.latencyTracker.markPeerSetupComplete(callId)
 
             // Create the answer SDP
             peerConnection?.answer(AppSdpObserver())
@@ -753,6 +757,9 @@ class TelnyxClient(
 
             // Apply codec preferences before creating the offer
             peerConnection?.applyAudioCodecPreferences(preferredCodecs)
+            
+            // Mark peer setup complete (after media acquired and codec preferences applied)
+            client.latencyTracker.markPeerSetupComplete(inviteCallId)
 
             startOutgoingCallInternal(
                 callerName = callerName,
@@ -2458,7 +2465,12 @@ class TelnyxClient(
     override fun onAnswerReceived(jsonObject: JsonObject) {
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
-        val answeredCall = calls[UUID.fromString(callId)]
+        val callUuid = UUID.fromString(callId)
+        
+        // Mark call answered by remote milestone for outbound calls
+        latencyTracker.markCallAnsweredByRemote(callUuid)
+        
+        val answeredCall = calls[callUuid]
         answeredCall?.apply {
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
@@ -2740,6 +2752,10 @@ class TelnyxClient(
 
                 // Set global callID
                 callId = offerCallId
+                
+                // Start latency tracking when invite is received (for answer delay calculation)
+                client.latencyTracker.startCallTracking(offerCallId, isOutbound = false)
+                client.latencyTracker.markInviteReceived(offerCallId)
 
                 // Notify debug data collector that a new call has started
                 client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
@@ -2842,7 +2858,12 @@ class TelnyxClient(
         )
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
-        val ringingCall = calls[UUID.fromString(callId)]
+        val callUuid = UUID.fromString(callId)
+        
+        // Mark remote ringing milestone for outbound calls
+        latencyTracker.markRemoteRinging(callUuid)
+        
+        val ringingCall = calls[callUuid]
 
         ringingCall?.apply {
             telnyxSessionId = if (params.has("telnyx_session_id")) {

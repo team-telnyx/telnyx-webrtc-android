@@ -478,6 +478,9 @@ internal class Peer(
                     val candidateType = extractCandidateType(it.sdp)
                     val protocol = extractProtocol(it.sdp)
                     client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
+                    
+                    // Track first server-reflexive or relay candidate
+                    client.latencyTracker.markFirstSrflxRelayCandidate(callId, candidateType)
                 } else {
                     // Traditional ICE: Only process if call is not ACTIVE or RENEGOTIATING yet
                     val currentCallState = client.calls[callId]?.callStateFlow?.value
@@ -636,6 +639,9 @@ internal class Peer(
         localStream.addTrack(localAudioTrack)
         peerConnection?.addTrack(localAudioTrack)
         CallTimingBenchmark.mark("media_stream_acquired")
+        
+        // Mark media devices acquired milestone
+        client.latencyTracker.markMediaDevicesAcquired(callId)
     }
 
     /**
@@ -651,6 +657,10 @@ internal class Peer(
                 message = "Local audio track not initialized before creating offer."
             )
         }
+        
+        // Mark SDP negotiation started milestone
+        client.latencyTracker.markSdpNegotiationStarted(callId)
+        
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
@@ -750,6 +760,9 @@ internal class Peer(
             }
         }
         logAllTransceiverStates("Before createAnswer")
+        
+        // Mark SDP negotiation started milestone
+        client.latencyTracker.markSdpNegotiationStarted(callId)
 
         createAnswer(
             object : SdpObserver by sdpObserver {
