@@ -485,6 +485,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
+                    client.debugDataCollector.addCallTimingsLogs(callId, client.latencyTracker.generateCallTimingsLogs(callId))
                     client.latencyTracker.completeCallTracking(callId)
 
                     // Start stats collection - interval is adjusted internally based on debug flags
@@ -586,6 +587,7 @@ class TelnyxClient(
                                 updateCallState(CallState.ACTIVE)
                                 
                                 // Complete call latency tracking
+                                client.debugDataCollector.addCallTimingsLogs(callId, client.latencyTracker.generateCallTimingsLogs(callId))
                                 client.latencyTracker.completeCallTracking(callId)
 
                                 // Start stats collection - interval is adjusted internally based on debug flags
@@ -2526,6 +2528,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
+                    client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.generateCallTimingsLogs(UUID.fromString(callId)))
                     client.latencyTracker.completeCallTracking(UUID.fromString(callId))
 
                     val answerResponse = AnswerResponse(
@@ -2566,6 +2569,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
+                    client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.generateCallTimingsLogs(UUID.fromString(callId)))
                     client.latencyTracker.completeCallTracking(UUID.fromString(callId))
                 }
 

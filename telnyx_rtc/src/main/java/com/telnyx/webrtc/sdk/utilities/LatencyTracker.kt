@@ -13,6 +13,21 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
+ * Represents a single log entry for CallTimings data in the call report.
+ * These entries are added to the 'logs' array in the JSON call report
+ * to match the JS SDK's CallTimings log format.
+ *
+ * @property level Log level (always "info" for CallTimings)
+ * @property message The formatted CallTimings message
+ * @property timestamp The timestamp when the entry was created
+ */
+data class CallTimingsLogEntry(
+    val level: String,
+    val message: String,
+    val timestamp: Long
+)
+
+/**
  * Tracks and calculates latency metrics for WebRTC call establishment.
  * 
  * This class provides detailed timing information for:
@@ -306,7 +321,139 @@ class LatencyTracker {
         // Clean up
         callTrackers.remove(callId)
     }
-    
+
+    /**
+     * Ordered milestone-to-step mapping for outbound calls.
+     * Maps internal milestone names to JS SDK-compatible step names for log output.
+     */
+    private val outboundStepMapping = linkedMapOf(
+        MILESTONE_CALL_INITIATED to "Call Start",
+        MILESTONE_PEER_CREATED to "Peer object created",
+        MILESTONE_MEDIA_DEVICES_ACQUIRED to "Media devices acquired",
+        MILESTONE_PEER_SETUP_COMPLETE to "Peer setup complete",
+        MILESTONE_SDP_NEGOTIATION_STARTED to "SDP negotiation started",
+        MILESTONE_LOCAL_SDP_CREATED to "SDP offer generated",
+        MILESTONE_LOCAL_SDP_SET to "Local description applied",
+        MILESTONE_ICE_GATHERING_STARTED to "ICE candidate gathering started",
+        MILESTONE_INVITE_SENT to "SDP sent to server",
+        MILESTONE_FIRST_ICE_CANDIDATE to "First ICE candidate found",
+        MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE to "First server-reflexive/relay candidate found",
+        MILESTONE_REMOTE_RINGING to "Remote side ringing",
+        MILESTONE_FIRST_RTP_RECEIVED to "Early media received from server",
+        MILESTONE_REMOTE_SDP_RECEIVED to "Remote SDP received",
+        MILESTONE_REMOTE_SDP_SET to "Remote description applied",
+        MILESTONE_ICE_GATHERING_COMPLETE to "All ICE candidates gathered",
+        MILESTONE_ICE_CONNECTED to "ICE connection established",
+        MILESTONE_DTLS_CONNECTED to "Secure media channel established (DTLS)",
+        MILESTONE_CALL_ANSWERED_REMOTE to "Call answered by remote side",
+        MILESTONE_CALL_ACTIVE to "Call is active"
+    )
+
+    /**
+     * Ordered milestone-to-step mapping for inbound calls.
+     */
+    private val inboundStepMapping = linkedMapOf(
+        MILESTONE_CALL_INITIATED to "Call Start",
+        MILESTONE_INVITE_RECEIVED to "Invite received",
+        MILESTONE_ANSWER_INITIATED to "Answer initiated",
+        MILESTONE_PEER_CREATED to "Peer object created",
+        MILESTONE_MEDIA_DEVICES_ACQUIRED to "Media devices acquired",
+        MILESTONE_PEER_SETUP_COMPLETE to "Peer setup complete",
+        MILESTONE_SDP_NEGOTIATION_STARTED to "SDP negotiation started",
+        MILESTONE_LOCAL_SDP_CREATED to "SDP answer generated",
+        MILESTONE_LOCAL_SDP_SET to "Local description applied",
+        MILESTONE_ICE_GATHERING_STARTED to "ICE candidate gathering started",
+        MILESTONE_FIRST_ICE_CANDIDATE to "First ICE candidate found",
+        MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE to "First server-reflexive/relay candidate found",
+        MILESTONE_ANSWER_SENT to "Answer sent to server",
+        MILESTONE_REMOTE_SDP_RECEIVED to "Remote SDP received",
+        MILESTONE_REMOTE_SDP_SET to "Remote description applied",
+        MILESTONE_ICE_GATHERING_COMPLETE to "All ICE candidates gathered",
+        MILESTONE_ICE_CONNECTED to "ICE connection established",
+        MILESTONE_DTLS_CONNECTED to "Secure media channel established (DTLS)",
+        MILESTONE_CALL_ACTIVE to "Call is active"
+    )
+
+    /**
+     * Generates CallTimings log entries for a call based on tracked milestones.
+     * The output format matches the JS SDK's CallTimings log format:
+     *   [CallTimings][direction][mode] <step> <delta_ms> <from_start_ms>
+     *
+     * @param callId The call identifier
+     * @return List of CallTimingsLogEntry objects, or empty list if no tracking data
+     */
+    fun generateCallTimingsLogs(callId: UUID): List<CallTimingsLogEntry> {
+        val state = callTrackers[callId] ?: return emptyList()
+        val milestones = state.milestones.toMap()
+        if (milestones.isEmpty()) return emptyList()
+
+        val direction = if (state.isOutbound) "outbound" else "inbound"
+        val mode = "trickle" // Android SDK uses trickle ICE
+        val prefix = "[CallTimings][$direction][$mode]"
+
+        val stepMapping = if (state.isOutbound) outboundStepMapping else inboundStepMapping
+        val entries = mutableListOf<CallTimingsLogEntry>()
+        val timestamp = System.currentTimeMillis()
+
+        // Header entries
+        entries.add(
+            CallTimingsLogEntry(
+                level = "info",
+                message = "$prefix Call establishment timing breakdown:",
+                timestamp = timestamp
+            )
+        )
+        entries.add(
+            CallTimingsLogEntry(
+                level = "info",
+                message = "$prefix Step Delta From Start",
+                timestamp = timestamp
+            )
+        )
+        entries.add(
+            CallTimingsLogEntry(
+                level = "info",
+                message = "$prefix --------------------------------------------------------------------------",
+                timestamp = timestamp
+            )
+        )
+
+        // Step entries
+        var previousMs: Long? = null
+        for ((milestone, stepName) in stepMapping) {
+            val fromStartMs = milestones[milestone] ?: continue
+            val deltaMs = if (previousMs != null) fromStartMs - previousMs else null
+            previousMs = fromStartMs
+
+            val message = if (milestone == MILESTONE_CALL_INITIATED) {
+                "$prefix $stepName - ${String.format("%.2f", fromStartMs.toDouble())}ms"
+            } else {
+                val deltaStr = String.format("%.2f", (deltaMs ?: 0L).toDouble())
+                val fromStartStr = String.format("%.2f", fromStartMs.toDouble())
+                "$prefix $stepName ${deltaStr}ms ${fromStartStr}ms"
+            }
+
+            entries.add(
+                CallTimingsLogEntry(
+                    level = "info",
+                    message = message,
+                    timestamp = timestamp
+                )
+            )
+        }
+
+        // Footer
+        entries.add(
+            CallTimingsLogEntry(
+                level = "info",
+                message = "$prefix --------------------------------------------------------------------------",
+                timestamp = timestamp
+            )
+        )
+
+        return entries
+    }
+
     /**
      * Cancels tracking for a call (e.g., if call fails).
      * @param callId The call identifier
