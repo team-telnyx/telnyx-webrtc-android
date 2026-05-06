@@ -9,6 +9,7 @@ import com.telnyx.webrtc.sdk.model.LatencyMetricsListener
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -413,7 +414,7 @@ class LatencyTracker {
         entries.add(
             CallTimingsLogEntry(
                 level = "info",
-                message = "$prefix ${String.format("%-${stepColumnWidth}s", "Step")}${String.format("%${deltaColumnWidth}s", "Delta")}    From Start",
+                message = "$prefix ${String.format(Locale.US, "%-${stepColumnWidth}s", "Step")}${String.format(Locale.US, "%${deltaColumnWidth}s", "Delta")}    From Start",
                 timestamp = timestamp
             )
         )
@@ -432,15 +433,15 @@ class LatencyTracker {
             val deltaMs = if (previousMs != null) fromStartMs - previousMs else null
             previousMs = fromStartMs
 
-            val stepPadded = String.format("%-${stepColumnWidth}s", stepName)
+            val stepPadded = String.format(Locale.US, "%-${stepColumnWidth}s", stepName)
             val message = if (milestone == MILESTONE_CALL_INITIATED) {
                 // First row: delta is "-", from_start is 0.00ms
-                val fromStartStr = String.format("%.2f", fromStartMs.toDouble())
-                "$prefix $stepPadded${String.format("%${deltaColumnWidth}s", "-")}        ${fromStartStr}ms"
+                val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
+                "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "-")}        ${fromStartStr}ms"
             } else {
-                val deltaStr = String.format("%.2f", (deltaMs ?: 0L).toDouble())
-                val fromStartStr = String.format("%.2f", fromStartMs.toDouble())
-                "$prefix $stepPadded${String.format("%${deltaColumnWidth}s", "${deltaStr}ms")}        ${fromStartStr}ms"
+                val deltaStr = String.format(Locale.US, "%.2f", (deltaMs ?: 0L).toDouble())
+                val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
+                "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "${deltaStr}ms")}        ${fromStartStr}ms"
             }
 
             entries.add(
