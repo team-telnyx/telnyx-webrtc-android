@@ -426,20 +426,29 @@ class LatencyTracker {
             )
         )
 
-        // Step entries — column-aligned to match JS SDK format
-        var previousMs: Long? = null
+        // Step entries — sorted by actual chronological order to avoid negative deltas.
+        // The stepMapping defines human-readable labels, but milestones may fire in
+        // a different order than the mapping (e.g. Trickle ICE candidates arrive early).
+        // We sort recorded milestones by their timestamp so deltas are always positive.
+        val recordedSteps = mutableListOf<Pair<String, Long>>()
         for ((milestone, stepName) in stepMapping) {
             val fromStartMs = milestones[milestone] ?: continue
+            recordedSteps.add(Pair(stepName, fromStartMs))
+        }
+        recordedSteps.sortBy { it.second }
+
+        var previousMs: Long? = null
+        for ((stepName, fromStartMs) in recordedSteps) {
             val deltaMs = if (previousMs != null) fromStartMs - previousMs else null
             previousMs = fromStartMs
 
             val stepPadded = String.format(Locale.US, "%-${stepColumnWidth}s", stepName)
-            val message = if (milestone == MILESTONE_CALL_INITIATED) {
-                // First row: delta is "-", from_start is 0.00ms
+            val message = if (deltaMs == null) {
+                // First row (Call Start): delta is "-"
                 val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
                 "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "-")}        ${fromStartStr}ms"
             } else {
-                val deltaStr = String.format(Locale.US, "%.2f", (deltaMs ?: 0L).toDouble())
+                val deltaStr = String.format(Locale.US, "%.2f", deltaMs.toDouble())
                 val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
                 "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "${deltaStr}ms")}        ${fromStartStr}ms"
             }
