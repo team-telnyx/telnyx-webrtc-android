@@ -395,6 +395,13 @@ class LatencyTracker {
         val entries = mutableListOf<CallTimingsLogEntry>()
         val timestamp = System.currentTimeMillis()
 
+        // Column widths must match the JS SDK format so the call-report-stats
+        // portal can parse data rows with its regex:
+        //   ~r/^(?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)\s+(?<from>[\d.]+)ms\s*$/
+        // The key requirement is at least 2 spaces between columns.
+        val stepColumnWidth = 40  // left-padded step name column
+        val deltaColumnWidth = 10  // right-aligned delta column
+
         // Header entries
         entries.add(
             CallTimingsLogEntry(
@@ -406,7 +413,7 @@ class LatencyTracker {
         entries.add(
             CallTimingsLogEntry(
                 level = "info",
-                message = "$prefix Step Delta From Start",
+                message = "$prefix ${String.format("%-${stepColumnWidth}s", "Step")}${String.format("%${deltaColumnWidth}s", "Delta")}    From Start",
                 timestamp = timestamp
             )
         )
@@ -418,19 +425,22 @@ class LatencyTracker {
             )
         )
 
-        // Step entries
+        // Step entries — column-aligned to match JS SDK format
         var previousMs: Long? = null
         for ((milestone, stepName) in stepMapping) {
             val fromStartMs = milestones[milestone] ?: continue
             val deltaMs = if (previousMs != null) fromStartMs - previousMs else null
             previousMs = fromStartMs
 
+            val stepPadded = String.format("%-${stepColumnWidth}s", stepName)
             val message = if (milestone == MILESTONE_CALL_INITIATED) {
-                "$prefix $stepName - ${String.format("%.2f", fromStartMs.toDouble())}ms"
+                // First row: delta is "-", from_start is 0.00ms
+                val fromStartStr = String.format("%.2f", fromStartMs.toDouble())
+                "$prefix $stepPadded${String.format("%${deltaColumnWidth}s", "-")}        ${fromStartStr}ms"
             } else {
                 val deltaStr = String.format("%.2f", (deltaMs ?: 0L).toDouble())
                 val fromStartStr = String.format("%.2f", fromStartMs.toDouble())
-                "$prefix $stepName ${deltaStr}ms ${fromStartStr}ms"
+                "$prefix $stepPadded${String.format("%${deltaColumnWidth}s", "${deltaStr}ms")}        ${fromStartStr}ms"
             }
 
             entries.add(
