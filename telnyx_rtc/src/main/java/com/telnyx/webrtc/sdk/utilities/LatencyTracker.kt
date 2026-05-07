@@ -91,6 +91,10 @@ class LatencyTracker {
         const val MILESTONE_FIRST_RTP_RECEIVED = "first_rtp_received"
         const val MILESTONE_MEDIA_ACTIVE = "media_active"
         const val MILESTONE_CALL_ACTIVE = "call_active"
+        
+        // CallTimings log format column widths (must match JS SDK / portal regex)
+        private const val STEP_COLUMN_WIDTH = 40
+        private const val DELTA_COLUMN_WIDTH = 10
     }
     
     // Registration tracking
@@ -384,8 +388,8 @@ class LatencyTracker {
      * @return List of CallTimingsLogEntry objects, or empty list if no tracking data
      */
     fun generateCallTimingsLogs(callId: UUID): List<CallTimingsLogEntry> {
-        val state = callTrackers[callId] ?: return emptyList()
-        val milestones = state.milestones.toMap()
+        val state = callTrackers[callId]
+        val milestones = state?.milestones?.toMap().orEmpty()
         if (milestones.isEmpty()) return emptyList()
 
         val direction = if (state.isOutbound) "outbound" else "inbound"
@@ -400,8 +404,8 @@ class LatencyTracker {
         // portal can parse data rows with its regex:
         //   ~r/^(?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)\s+(?<from>[\d.]+)ms\s*$/
         // The key requirement is at least 2 spaces between columns.
-        val stepColumnWidth = 40  // left-padded step name column
-        val deltaColumnWidth = 10  // right-aligned delta column
+        val stepColumnWidth = STEP_COLUMN_WIDTH  // left-padded step name column
+        val deltaColumnWidth = DELTA_COLUMN_WIDTH  // right-aligned delta column
 
         // Header entries
         entries.add(
