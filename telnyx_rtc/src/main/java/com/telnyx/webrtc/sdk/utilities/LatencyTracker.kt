@@ -400,11 +400,11 @@ class LatencyTracker {
         val milestones = state?.milestones?.toMap().orEmpty()
         if (milestones.isEmpty()) return emptyList()
 
-        val direction = if (state.isOutbound) "outbound" else "inbound"
+        val direction = if (state?.isOutbound == true) "outbound" else "inbound"
         val mode = state?.iceMode ?: "trickle"
         val prefix = "[CallTimings][$direction][$mode]"
 
-        val stepMapping = if (state.isOutbound) outboundStepMapping else inboundStepMapping
+        val stepMapping = if (state?.isOutbound == true) outboundStepMapping else inboundStepMapping
         val entries = mutableListOf<CallTimingsLogEntry>()
         val timestamp = System.currentTimeMillis()
 
