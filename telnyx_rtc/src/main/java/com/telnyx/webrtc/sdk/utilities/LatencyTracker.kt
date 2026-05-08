@@ -42,13 +42,13 @@ class LatencyTracker {
     
     companion object {
         private const val TAG = "LatencyTracker"
-        
+
         // Milestone names for registration
         const val MILESTONE_LOGIN_INITIATED = "login_initiated"
         const val MILESTONE_SOCKET_CONNECTED = "socket_connected"
         const val MILESTONE_LOGIN_SENT = "login_sent"
         const val MILESTONE_CLIENT_READY = "client_ready"
-        
+
         // Milestone names for calls
         const val MILESTONE_CALL_INITIATED = "call_initiated"
         const val MILESTONE_PEER_CREATED = "peer_connection_created"
@@ -61,37 +61,37 @@ class LatencyTracker {
         const val MILESTONE_ANSWER_SENT = "answer_sent"
         const val MILESTONE_REMOTE_SDP_RECEIVED = "remote_sdp_received"
         const val MILESTONE_REMOTE_SDP_SET = "remote_sdp_set"
-        
+
         // Inbound call specific milestones
         const val MILESTONE_INVITE_RECEIVED = "invite_received"
         const val MILESTONE_ANSWER_INITIATED = "answer_initiated"
-        
+
         // Outbound call specific milestones
         const val MILESTONE_REMOTE_RINGING = "remote_side_ringing"
         const val MILESTONE_CALL_ANSWERED_REMOTE = "call_answered_by_remote"
-        
+
         // ICE gathering milestones
         const val MILESTONE_ICE_GATHERING_STARTED = "ice_gathering_started"
         const val MILESTONE_FIRST_ICE_CANDIDATE = "first_ice_candidate"
         const val MILESTONE_FIRST_SRFLX_RELAY_CANDIDATE = "first_srflx_relay_candidate"
         const val MILESTONE_ICE_GATHERING_COMPLETE = "ice_gathering_complete"
-        
+
         // ICE connection milestones
         const val MILESTONE_ICE_CHECKING = "ice_checking"
         const val MILESTONE_ICE_CONNECTED = "ice_connected"
         const val MILESTONE_ICE_COMPLETED = "ice_completed"
-        
+
         // DTLS milestones
         const val MILESTONE_DTLS_CONNECTING = "dtls_connecting"
         const val MILESTONE_DTLS_CONNECTED = "dtls_connected"
-        
+
         // Peer connection milestones
         const val MILESTONE_PEER_CONNECTED = "peer_connected"
         const val MILESTONE_FIRST_RTP_SENT = "first_rtp_sent"
         const val MILESTONE_FIRST_RTP_RECEIVED = "first_rtp_received"
         const val MILESTONE_MEDIA_ACTIVE = "media_active"
         const val MILESTONE_CALL_ACTIVE = "call_active"
-        
+
         // CallTimings log format column widths (must match JS SDK / portal regex)
         private const val STEP_COLUMN_WIDTH = 40
         private const val DELTA_COLUMN_WIDTH = 10
@@ -107,6 +107,7 @@ class LatencyTracker {
     private data class CallTrackingState(
         val startTime: Long = System.currentTimeMillis(),
         val isOutbound: Boolean = false,
+        val iceMode: String = "trickle",
         val milestones: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
     )
     private val callTrackers = ConcurrentHashMap<UUID, CallTrackingState>()
@@ -158,19 +159,19 @@ class LatencyTracker {
      */
     fun completeRegistrationTracking() {
         if (!isTrackingRegistration) return
-        
+
         markRegistrationMilestone(MILESTONE_CLIENT_READY)
         isTrackingRegistration = false
-        
+
         val registrationLatency = System.currentTimeMillis() - registrationStartTime
-        
+
         val metrics = LatencyMetrics(
             callId = null,
             isOutbound = false,
             registrationLatencyMs = registrationLatency,
             milestones = registrationMilestones.toMap()
         )
-        
+
         emitMetrics(metrics)
         Logger.i(TAG, "Registration completed in ${registrationLatency}ms")
         Logger.d(TAG, metrics.toFormattedString())
@@ -183,10 +184,11 @@ class LatencyTracker {
      * @param callId The unique identifier for the call
      * @param isOutbound True for outbound calls, false for inbound
      */
-    fun startCallTracking(callId: UUID, isOutbound: Boolean) {
+    fun startCallTracking(callId: UUID, isOutbound: Boolean, useTrickleIce: Boolean = true) {
         val state = CallTrackingState(
             startTime = System.currentTimeMillis(),
-            isOutbound = isOutbound
+            isOutbound = isOutbound,
+            iceMode = if (useTrickleIce) "trickle" else "standard"
         )
         callTrackers[callId] = state
         markCallMilestone(callId, MILESTONE_CALL_INITIATED)
@@ -294,20 +296,24 @@ class LatencyTracker {
      * Call this when the call reaches ACTIVE state.
      * @param callId The call identifier
      */
-    fun completeCallTracking(callId: UUID) {
-        val state = callTrackers[callId] ?: return
-        
+    fun completeCallTracking(callId: UUID): List<CallTimingsLogEntry> {
+        val state = callTrackers[callId] ?: return emptyList()
+
         markCallMilestone(callId, MILESTONE_CALL_ACTIVE)
-        
+
+        // Generate CallTimings logs BEFORE removing the tracker,
+        // so MILESTONE_CALL_ACTIVE is included in the output.
+        val timingsLogs = generateCallTimingsLogs(callId)
+
         val milestones = state.milestones.toMap()
         val totalTime = System.currentTimeMillis() - state.startTime
-        
+
         // Calculate derived metrics
         val iceGatheringLatency = calculateIceGatheringLatency(milestones)
         val signalingLatency = calculateSignalingLatency(milestones, state.isOutbound)
         val mediaEstablishmentLatency = calculateMediaEstablishmentLatency(milestones)
         val timeToFirstRtp = calculateTimeToFirstRtp(milestones)
-        
+
         val metrics = LatencyMetrics(
             callId = callId,
             isOutbound = state.isOutbound,
@@ -318,13 +324,15 @@ class LatencyTracker {
             mediaEstablishmentLatencyMs = mediaEstablishmentLatency,
             milestones = milestones
         )
-        
+
         emitMetrics(metrics)
         Logger.i(TAG, "Call $callId completed in ${totalTime}ms")
         Logger.d(TAG, metrics.toFormattedString())
-        
+
         // Clean up
         callTrackers.remove(callId)
+
+        return timingsLogs
     }
 
     /**
@@ -393,7 +401,7 @@ class LatencyTracker {
         if (milestones.isEmpty()) return emptyList()
 
         val direction = if (state.isOutbound) "outbound" else "inbound"
-        val mode = "trickle" // Android SDK uses trickle ICE
+        val mode = state?.iceMode ?: "trickle"
         val prefix = "[CallTimings][$direction][$mode]"
 
         val stepMapping = if (state.isOutbound) outboundStepMapping else inboundStepMapping
@@ -495,7 +503,7 @@ class LatencyTracker {
         val state = callTrackers[callId] ?: return null
         val milestones = state.milestones.toMap()
         val currentTime = System.currentTimeMillis() - state.startTime
-        
+
         return LatencyMetrics(
             callId = callId,
             isOutbound = state.isOutbound,
