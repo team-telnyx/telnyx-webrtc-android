@@ -392,9 +392,8 @@ class LatencyTracker {
      * @return List of CallTimingsLogEntry objects, or empty list if no tracking data
      */
     fun generateCallTimingsLogs(callId: UUID): List<CallTimingsLogEntry> {
-        val state = callTrackers[callId] ?: return emptyList()
-        val milestones = state.milestones.toMap().orEmpty()
-        if (milestones.isEmpty()) return emptyList()
+        val state = callTrackers[callId]?.takeIf { it.milestones.isNotEmpty() } ?: return emptyList()
+        val milestones = state.milestones.toMap()
 
         val direction = if (state.isOutbound) "outbound" else "inbound"
         val mode = state.iceMode
@@ -404,10 +403,6 @@ class LatencyTracker {
         val entries = mutableListOf<CallTimingsLogEntry>()
         val timestamp = System.currentTimeMillis()
 
-        // Column widths must match the JS SDK format so the call-report-stats
-        // portal can parse data rows with its regex:
-        //   ~r/^(?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)\s+(?<from>[\d.]+)ms\s*$/
-        // The key requirement is at least 2 spaces between columns.
         // Column separator: at least 2 spaces between columns to satisfy
         // the portal regex (?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)
         val colSep = "  "  // 2-space minimum separator between columns
