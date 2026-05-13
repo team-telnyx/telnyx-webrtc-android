@@ -91,10 +91,6 @@ class LatencyTracker {
         const val MILESTONE_FIRST_RTP_RECEIVED = "first_rtp_received"
         const val MILESTONE_MEDIA_ACTIVE = "media_active"
         const val MILESTONE_CALL_ACTIVE = "call_active"
-
-        // CallTimings log format column widths (must match JS SDK / portal regex)
-        private const val STEP_COLUMN_WIDTH = 40
-        private const val DELTA_COLUMN_WIDTH = 10
     }
     
     // Registration tracking
@@ -396,15 +392,15 @@ class LatencyTracker {
      * @return List of CallTimingsLogEntry objects, or empty list if no tracking data
      */
     fun generateCallTimingsLogs(callId: UUID): List<CallTimingsLogEntry> {
-        val state = callTrackers[callId]
-        val milestones = state?.milestones?.toMap().orEmpty()
+        val state = callTrackers[callId] ?: return emptyList()
+        val milestones = state.milestones.toMap().orEmpty()
         if (milestones.isEmpty()) return emptyList()
 
-        val direction = if (state?.isOutbound == true) "outbound" else "inbound"
-        val mode = state?.iceMode ?: "trickle"
+        val direction = if (state.isOutbound) "outbound" else "inbound"
+        val mode = state.iceMode
         val prefix = "[CallTimings][$direction][$mode]"
 
-        val stepMapping = if (state?.isOutbound == true) outboundStepMapping else inboundStepMapping
+        val stepMapping = if (state.isOutbound) outboundStepMapping else inboundStepMapping
         val entries = mutableListOf<CallTimingsLogEntry>()
         val timestamp = System.currentTimeMillis()
 
@@ -412,8 +408,9 @@ class LatencyTracker {
         // portal can parse data rows with its regex:
         //   ~r/^(?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)\s+(?<from>[\d.]+)ms\s*$/
         // The key requirement is at least 2 spaces between columns.
-        val stepColumnWidth = STEP_COLUMN_WIDTH  // left-padded step name column
-        val deltaColumnWidth = DELTA_COLUMN_WIDTH  // right-aligned delta column
+        // Column separator: at least 2 spaces between columns to satisfy
+        // the portal regex (?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)
+        val colSep = "  "  // 2-space minimum separator between columns
 
         // Header entries
         entries.add(
@@ -426,7 +423,7 @@ class LatencyTracker {
         entries.add(
             CallTimingsLogEntry(
                 level = "info",
-                message = "$prefix ${String.format(Locale.US, "%-${stepColumnWidth}s", "Step")}${String.format(Locale.US, "%${deltaColumnWidth}s", "Delta")}    From Start",
+                message = "$prefix${colSep}Step${colSep}Delta${colSep}From Start",
                 timestamp = timestamp
             )
         )
@@ -454,15 +451,17 @@ class LatencyTracker {
             val deltaMs = if (previousMs != null) fromStartMs - previousMs else null
             previousMs = fromStartMs
 
-            val stepPadded = String.format(Locale.US, "%-${stepColumnWidth}s", stepName)
+            // Use explicit 2+ space separators instead of fixed-width padding
+            // so that long step names (e.g. "First server-reflexive/relay candidate found")
+            // still produce parsable rows with \s{2,} between columns.
             val message = if (deltaMs == null) {
                 // First row (Call Start): delta is "-"
                 val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
-                "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "-")}        ${fromStartStr}ms"
+                "$prefix${colSep}$stepName${colSep}-${colSep}${fromStartStr}ms"
             } else {
                 val deltaStr = String.format(Locale.US, "%.2f", deltaMs.toDouble())
                 val fromStartStr = String.format(Locale.US, "%.2f", fromStartMs.toDouble())
-                "$prefix $stepPadded${String.format(Locale.US, "%${deltaColumnWidth}s", "${deltaStr}ms")}        ${fromStartStr}ms"
+                "$prefix${colSep}$stepName${colSep}${deltaStr}ms${colSep}${fromStartStr}ms"
             }
 
             entries.add(
