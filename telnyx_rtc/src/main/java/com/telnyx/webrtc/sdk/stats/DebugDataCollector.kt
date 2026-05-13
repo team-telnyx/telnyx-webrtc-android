@@ -15,6 +15,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
+import com.telnyx.webrtc.sdk.utilities.CallTimingsLogEntry
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
@@ -149,6 +150,22 @@ class DebugDataCollector(private val context: Context) {
     ) {
         callDebugData[callId]?.let { data ->
             data.logs.add(LogEntry(System.currentTimeMillis(), level, message, context))
+        }
+    }
+
+    /**
+     * Adds CallTimings log entries to the call's log data.
+     * These entries follow the JS SDK's CallTimings log format and are added
+     * to the 'logs' array in the JSON call report.
+     *
+     * @param callId The unique identifier for the call
+     * @param timingsLogs List of CallTimingsLogEntry objects from LatencyTracker
+     */
+    fun addCallTimingsLogs(callId: UUID, timingsLogs: List<CallTimingsLogEntry>) {
+        callDebugData[callId]?.let { data ->
+            timingsLogs.forEach { entry ->
+                data.logs.add(LogEntry(entry.timestamp, entry.level, entry.message, null))
+            }
         }
     }
 
