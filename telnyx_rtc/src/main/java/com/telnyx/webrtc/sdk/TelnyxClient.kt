@@ -1992,18 +1992,20 @@ class TelnyxClient(
                 } else if (it.getRingtoneType() == RAW) {
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
-                mediaPlayer ?: kotlin.run {
+                val player = mediaPlayer ?: kotlin.run {
                     Logger.d(message = "Ringtone not valid:: No ringtone will be played")
                     return
                 }
-                mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-                if (mediaPlayer?.isPlaying == false) {
-                    mediaPlayer!!.start()
-                    mediaPlayer!!.isLooping = true
+                player.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+                if (!player.isPlaying) {
+                    player.start()
+                    player.isLooping = true
                 }
                 Logger.d(message = "Ringtone playing")
             } catch (e: TypeCastException) {
                 Logger.e(message = "Exception: ${e.message}")
+            } catch (e: IllegalStateException) {
+                releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
             Logger.d(message = "No ringtone specified :: No ringtone will be played")
@@ -2041,15 +2043,29 @@ class TelnyxClient(
     private fun playRingBackTone() {
         rawRingbackTone?.let {
             stopMediaPlayer()
-            mediaPlayer = MediaPlayer.create(context, it)
-            mediaPlayer!!.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-            if (mediaPlayer?.isPlaying == false) {
-                mediaPlayer!!.start()
-                mediaPlayer!!.isLooping = true
+            try {
+                mediaPlayer = MediaPlayer.create(context, it)
+                val player = mediaPlayer ?: kotlin.run {
+                    Logger.d(message = "Ringback tone not valid:: No ringback tone will be played")
+                    return
+                }
+                player.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
+                if (!player.isPlaying) {
+                    player.start()
+                    player.isLooping = true
+                }
+            } catch (e: IllegalStateException) {
+                releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
             Logger.d(message = "No ringtone specified :: No ringtone will be played")
         }
+    }
+
+    private fun releaseMediaPlayerAfterPlaybackFailure(exception: Exception) {
+        Logger.e(message = "Exception: ${exception.message}")
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     /**

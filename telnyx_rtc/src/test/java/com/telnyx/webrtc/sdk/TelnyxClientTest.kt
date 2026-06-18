@@ -2,10 +2,12 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
@@ -471,11 +473,81 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `playRingtone releases media player when start throws`() {
+        val ringtoneResource = 123
+        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
+        Mockito.`when`(mockMediaPlayer.isPlaying).thenReturn(false)
+        Mockito.doThrow(IllegalStateException("start failed"))
+            .`when`(mockMediaPlayer)
+            .start()
+        setTelnyxClientField("rawRingtone", ringtoneResource)
+
+        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
+        try {
+            mediaPlayerStatic.`when`<MediaPlayer?> {
+                MediaPlayer.create(mockContext, ringtoneResource)
+            }.thenReturn(mockMediaPlayer)
+
+            assertDoesNotThrow {
+                client.playRingtone()
+            }
+        } finally {
+            mediaPlayerStatic.close()
+        }
+
+        Mockito.verify(mockMediaPlayer).release()
+    }
+
+    @Test
     fun `Test playing ringBacktone when one hasn't been set logs error and does not throw exception`() {
         assertDoesNotThrow {
             client = Mockito.spy(TelnyxClient(mockContext))
-            client.playRingtone()
+            invokePlayRingBackTone()
         }
+    }
+
+    @Test
+    fun `playRingBackTone does not throw when media player creation returns null`() {
+        val ringbackToneResource = 456
+        setTelnyxClientField("rawRingbackTone", ringbackToneResource)
+
+        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
+        try {
+            mediaPlayerStatic.`when`<MediaPlayer?> {
+                MediaPlayer.create(mockContext, ringbackToneResource)
+            }.thenReturn(null)
+
+            assertDoesNotThrow {
+                invokePlayRingBackTone()
+            }
+        } finally {
+            mediaPlayerStatic.close()
+        }
+    }
+
+    @Test
+    fun `playRingBackTone releases media player when setWakeMode throws`() {
+        val ringbackToneResource = 789
+        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
+        Mockito.doThrow(IllegalStateException("wake mode failed"))
+            .`when`(mockMediaPlayer)
+            .setWakeMode(mockContext, PowerManager.PARTIAL_WAKE_LOCK)
+        setTelnyxClientField("rawRingbackTone", ringbackToneResource)
+
+        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
+        try {
+            mediaPlayerStatic.`when`<MediaPlayer?> {
+                MediaPlayer.create(mockContext, ringbackToneResource)
+            }.thenReturn(mockMediaPlayer)
+
+            assertDoesNotThrow {
+                invokePlayRingBackTone()
+            }
+        } finally {
+            mediaPlayerStatic.close()
+        }
+
+        Mockito.verify(mockMediaPlayer).release()
     }
 
     @Test
@@ -780,5 +852,19 @@ class TelnyxClientTest : BaseTest() {
 
         @Suppress("UNCHECKED_CAST")
         return data as T
+    }
+
+    private fun setTelnyxClientField(fieldName: String, value: Any?) {
+        TelnyxClient::class.java.getDeclaredField(fieldName).apply {
+            isAccessible = true
+            set(client, value)
+        }
+    }
+
+    private fun invokePlayRingBackTone() {
+        TelnyxClient::class.java.getDeclaredMethod("playRingBackTone").apply {
+            isAccessible = true
+            invoke(client)
+        }
     }
 }
