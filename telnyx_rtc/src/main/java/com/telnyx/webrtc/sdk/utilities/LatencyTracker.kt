@@ -222,6 +222,24 @@ class LatencyTracker {
     }
     
     /**
+     * Updates the ICE mode for an existing call tracker.
+     * Use this when the actual ICE mode is determined after tracking has started
+     * (e.g., inbound calls where the mode is set in acceptCall()).
+     * @param callId The call identifier
+     * @param useTrickleIce The actual trickle ICE setting for this call
+     */
+    fun updateIceMode(callId: UUID, useTrickleIce: Boolean) {
+        val state = callTrackers[callId] ?: return
+        val newMode = CallTrackingState(
+            startTime = state.startTime,
+            isOutbound = state.isOutbound,
+            iceMode = if (useTrickleIce) "trickle" else "standard",
+            milestones = state.milestones
+        )
+        callTrackers[callId] = newMode
+    }
+
+    /**
      * Marks when the user initiates answering an inbound call.
      * Call this at the start of acceptCall().
      * @param callId The call identifier

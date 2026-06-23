@@ -398,6 +398,10 @@ class TelnyxClient(
         // Set trickle ICE for this call
         this.useTrickleIce = useTrickleIce
 
+        // Update the per-call tracker's ICE mode since the inbound tracker was
+        // started in onOfferReceived with the previous client-level value.
+        latencyTracker.updateIceMode(callId, useTrickleIce)
+
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
