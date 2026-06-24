@@ -398,6 +398,10 @@ class TelnyxClient(
         // Set trickle ICE for this call
         this.useTrickleIce = useTrickleIce
 
+        // Update the per-call tracker's ICE mode since the inbound tracker was
+        // started in onOfferReceived with the previous client-level value.
+        latencyTracker.updateIceMode(callId, useTrickleIce)
+
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
@@ -485,7 +489,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
-                    client.latencyTracker.completeCallTracking(callId)
+                    client.debugDataCollector.addCallTimingsLogs(callId, client.latencyTracker.completeCallTracking(callId))
 
                     // Start stats collection - interval is adjusted internally based on debug flags
                     if (getWebRTCReporter(callId) == null) {
@@ -586,7 +590,7 @@ class TelnyxClient(
                                 updateCallState(CallState.ACTIVE)
                                 
                                 // Complete call latency tracking
-                                client.latencyTracker.completeCallTracking(callId)
+                                client.debugDataCollector.addCallTimingsLogs(callId, client.latencyTracker.completeCallTracking(callId))
 
                                 // Start stats collection - interval is adjusted internally based on debug flags
                                 if (getWebRTCReporter(callId) == null) {
@@ -692,7 +696,7 @@ class TelnyxClient(
         this.useTrickleIce = useTrickleIce
 
         // Start latency tracking for outbound call
-        latencyTracker.startCallTracking(inviteCallId, isOutbound = true)
+        latencyTracker.startCallTracking(inviteCallId, isOutbound = true, useTrickleIce = useTrickleIce)
         
         val inviteCall = Call(
             context = context,
@@ -2526,7 +2530,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
-                    client.latencyTracker.completeCallTracking(UUID.fromString(callId))
+                    client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
 
                     val answerResponse = AnswerResponse(
                         UUID.fromString(callId),
@@ -2566,7 +2570,7 @@ class TelnyxClient(
                     updateCallState(CallState.ACTIVE)
                     
                     // Complete call latency tracking
-                    client.latencyTracker.completeCallTracking(UUID.fromString(callId))
+                    client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
                 }
 
                 else -> {
@@ -2754,7 +2758,7 @@ class TelnyxClient(
                 callId = offerCallId
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
-                client.latencyTracker.startCallTracking(offerCallId, isOutbound = false)
+                client.latencyTracker.startCallTracking(offerCallId, isOutbound = false, useTrickleIce = useTrickleIce)
                 client.latencyTracker.markInviteReceived(offerCallId)
 
                 // Notify debug data collector that a new call has started
