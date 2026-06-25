@@ -13,11 +13,13 @@ internal object Config {
     const val DEFAULT_STUN = "stun:stun.telnyx.com:3478"
     const val DEFAULT_TURN_UDP = "turn:turn.telnyx.com:3478?transport=udp"
     const val DEFAULT_TURN = "turn:turn.telnyx.com:3478?transport=tcp"
+    const val DEFAULT_TURNS_443 = "turns:turn.telnyx.com:443?transport=tcp"
 
     // Development ICE servers
     const val DEV_STUN = "stun:stundev.telnyx.com:3478"
     const val DEV_TURN_UDP = "turn:turndev.telnyx.com:3478?transport=udp"
     const val DEV_TURN = "turn:turndev.telnyx.com:3478?transport=tcp"
+    const val DEV_TURNS_443 = "turns:turndev.telnyx.com:443?transport=tcp"
 
     // Google STUN server for redundancy
     const val GOOGLE_STUN = "stun:stun.l.google.com:19302"
