@@ -1460,7 +1460,6 @@ class TelnyxClient private constructor(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
-        isDeclinePushConnection = true
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
