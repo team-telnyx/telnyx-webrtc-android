@@ -87,7 +87,13 @@ class BackgroundCallDeclineService : Service() {
 
         fun disconnectClient(reason: String) {
             val client = telnyxClient ?: return
-            telnyxClient = null
+            disconnectClient(client, reason)
+        }
+
+        fun disconnectClient(client: TelnyxClient, reason: String) {
+            if (telnyxClient === client) {
+                telnyxClient = null
+            }
             try {
                 client.disconnect()
             } catch (e: Exception) {
@@ -148,7 +154,7 @@ class BackgroundCallDeclineService : Service() {
 
                     if (!isActiveOperation(operation)) {
                         Timber.d("Disconnecting superseded background decline startId=${operation.startId}")
-                        operation.disconnectClient("Superseded after background decline client creation")
+                        operation.disconnectClient(telnyxClient, "Superseded after background decline client creation")
                         return@launch
                     }
 
@@ -189,7 +195,7 @@ class BackgroundCallDeclineService : Service() {
 
                     if (!isActiveOperation(operation)) {
                         Timber.d("Disconnecting superseded background decline startId=${operation.startId}")
-                        operation.disconnectClient("Superseded after background decline connect")
+                        operation.disconnectClient(telnyxClient, "Superseded after background decline connect")
                         return@launch
                     }
                 } ?: run {

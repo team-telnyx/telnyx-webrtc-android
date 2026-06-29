@@ -1150,6 +1150,18 @@ class TelnyxClient private constructor(
         this.useTrickleIce = enabled
     }
 
+    private fun clearTransientDeclinePushMode() {
+        if (!isDedicatedDeclinePushClient) {
+            isDeclinePushConnection = false
+        }
+    }
+
+    private fun disconnectTransientDeclinePushConnection() {
+        if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
+            disconnect()
+        }
+    }
+
     /**
      * Connects to the socket using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
@@ -1170,6 +1182,7 @@ class TelnyxClient private constructor(
         txPushMetaData: String? = null,
     ) {
 
+        clearTransientDeclinePushMode()
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1228,6 +1241,7 @@ class TelnyxClient private constructor(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
+        clearTransientDeclinePushMode()
         isSocketDebug = credentialConfig.debug
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
@@ -1292,6 +1306,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            clearTransientDeclinePushMode()
         }
     }
 
@@ -1315,6 +1330,7 @@ class TelnyxClient private constructor(
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
+        clearTransientDeclinePushMode()
         isSocketDebug = tokenConfig.debug
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
@@ -1404,6 +1420,7 @@ class TelnyxClient private constructor(
         reconnection: Boolean = false,
         logLevel: LogLevel = LogLevel.NONE,
     ) {
+        clearTransientDeclinePushMode()
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1466,64 +1483,70 @@ class TelnyxClient private constructor(
             is CredentialConfig -> config.copy(autoReconnect = false)
             is TokenConfig -> config.copy(autoReconnect = false)
         }
-        emitSocketResponse(SocketResponse.initialised())
-        waitingForReg = true
-        invalidateGatewayResponseTimer()
-        resetGatewayCounters()
+        try {
+            emitSocketResponse(SocketResponse.initialised())
+            waitingForReg = true
+            invalidateGatewayResponseTimer()
+            resetGatewayCounters()
 
-        providedHostAddress = if (txPushMetaData != null) {
-            val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-            pushMetaData = metadata
-            providedServerConfig.host
-        } else {
-            providedServerConfig.host
-        }
-
-        socket.destroy()
-        socket = TxSocket(
-            host_address = providedHostAddress!!,
-            port = providedServerConfig.port
-        )
-
-        providedPort = providedServerConfig.port
-        providedTurn = providedServerConfig.turn
-        providedStun = providedServerConfig.stun
-
-        if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
-            if (txPushMetaData != null) {
+            providedHostAddress = if (txPushMetaData != null) {
                 val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-                voiceSDKID = metadata.voiceSdkId
-            } else if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
+                pushMetaData = metadata
+                providedServerConfig.host
+            } else {
+                providedServerConfig.host
             }
-            launchSocketConnect {
-                socket.connect(
-                    listener = this@TelnyxClient,
-                    providedHostAddress = providedHostAddress,
-                    providedPort = providedPort,
-                    pushmetaData = pushMetaData
-                ) {
-                    when (declineConfig) {
-                        is CredentialConfig -> {
-                            setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
-                            credentialLoginWithDeclinePush(declineConfig)
-                        }
 
-                        is TokenConfig -> {
-                            setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
-                            tokenLoginWithDeclinePush(declineConfig)
+            socket.destroy()
+            socket = TxSocket(
+                host_address = providedHostAddress!!,
+                port = providedServerConfig.port
+            )
+
+            providedPort = providedServerConfig.port
+            providedTurn = providedServerConfig.turn
+            providedStun = providedServerConfig.stun
+
+            if (ConnectivityHelper.isNetworkEnabled(context)) {
+                Logger.d(message = "Provided Host Address: $providedHostAddress")
+                if (txPushMetaData != null) {
+                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                    voiceSDKID = metadata.voiceSdkId
+                } else if (voiceSDKID != null) {
+                    pushMetaData = PushMetaData(
+                        callerName = "",
+                        callerNumber = "",
+                        callId = "",
+                        voiceSdkId = voiceSDKID
+                    )
+                }
+                launchSocketConnect {
+                    socket.connect(
+                        listener = this@TelnyxClient,
+                        providedHostAddress = providedHostAddress,
+                        providedPort = providedPort,
+                        pushmetaData = pushMetaData
+                    ) {
+                        when (declineConfig) {
+                            is CredentialConfig -> {
+                                setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
+                                credentialLoginWithDeclinePush(declineConfig)
+                            }
+
+                            is TokenConfig -> {
+                                setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
+                                tokenLoginWithDeclinePush(declineConfig)
+                            }
                         }
                     }
                 }
+            } else {
+                emitSocketResponse(SocketResponse.error("No Network Connection", null))
+                clearTransientDeclinePushMode()
             }
-        } else {
-            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+        } catch (e: Exception) {
+            clearTransientDeclinePushMode()
+            throw e
         }
     }
 
@@ -2315,6 +2338,7 @@ class TelnyxClient private constructor(
                                     SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
                                 )
                             )
+                            disconnectTransientDeclinePushConnection()
                         }
                     },
                     GATEWAY_RESPONSE_DELAY
@@ -2367,6 +2391,7 @@ class TelnyxClient private constructor(
                         SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
                     )
                 )
+                disconnectTransientDeclinePushConnection()
             }
 
             GatewayState.FAILED.state -> {
@@ -2377,6 +2402,7 @@ class TelnyxClient private constructor(
                         SocketError.GATEWAY_FAILURE_ERROR.errorCode
                     )
                 )
+                disconnectTransientDeclinePushConnection()
             }
 
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
@@ -2397,6 +2423,7 @@ class TelnyxClient private constructor(
                             SocketError.GATEWAY_FAILURE_ERROR.errorCode
                         )
                     )
+                    disconnectTransientDeclinePushConnection()
                 }
             }
 
@@ -2408,6 +2435,7 @@ class TelnyxClient private constructor(
                         SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
                     )
                 )
+                disconnectTransientDeclinePushConnection()
             }
 
             GatewayState.UNREGED.state -> {
@@ -2559,11 +2587,13 @@ class TelnyxClient private constructor(
         if (errorCode == null && attachCallId == id) {
             Logger.d(message = "Call Failed Error Received")
             emitSocketResponse(SocketResponse.error("Call Failed", null))
+            disconnectTransientDeclinePushConnection()
             return
         }
         val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
+        disconnectTransientDeclinePushConnection()
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
@@ -3318,9 +3348,7 @@ class TelnyxClient private constructor(
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
         socket.destroy()
-        if (!isDedicatedDeclinePushClient) {
-            isDeclinePushConnection = false
-        }
+        clearTransientDeclinePushMode()
     }
 
     /**
