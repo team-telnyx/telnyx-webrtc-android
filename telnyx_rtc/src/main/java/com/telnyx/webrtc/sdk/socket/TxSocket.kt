@@ -46,6 +46,8 @@ class TxSocket(
     internal var isLoggedIn = false
     internal var isConnected = false
     internal var isPing = false
+    @Volatile
+    private var isDestroyed = false
 
     private lateinit var client: OkHttpClient
     private lateinit var webSocket: WebSocket
@@ -74,6 +76,7 @@ class TxSocket(
         pushmetaData: PushMetaData? = null,
         onConnected:(Boolean) -> Unit = {}
     ): Job = launch(Dispatchers.IO) {
+        isDestroyed = false
 
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {
@@ -132,6 +135,8 @@ class TxSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (shouldIgnoreSocketCallback()) return
+
                     Logger.v(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
@@ -142,6 +147,8 @@ class TxSocket(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (shouldIgnoreSocketCallback()) return
+
                     super.onMessage(webSocket, text)
                     Logger.v(
                         message = Logger.formatMessage("[%s] Receiving [%s]",
@@ -304,12 +311,16 @@ class TxSocket(
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback()) return
+
                     super.onClosing(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
                     listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback()) return
+
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     // Only cleanup if not already disconnected (prevents double cleanup)
@@ -320,6 +331,8 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (shouldIgnoreSocketCallback()) return
+
                     Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
 
@@ -367,6 +380,10 @@ class TxSocket(
         )
     }
 
+    private fun shouldIgnoreSocketCallback(): Boolean {
+        return isDestroyed || !job.isActive
+    }
+
     /**
      * Sets the ongoingCall boolean value to true
      */
@@ -397,6 +414,7 @@ class TxSocket(
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        isDestroyed = true
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
