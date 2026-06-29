@@ -137,8 +137,20 @@ class BackgroundCallDeclineService : Service() {
             try {
                 ProfileManager.getProfilesList(this@BackgroundCallDeclineService).lastOrNull()?.let { lastProfile ->
                     val fcmToken = lastProfile.fcmToken ?: ""
-                    val telnyxClient = TelnyxClient(applicationContext)
+
+                    if (!isActiveOperation(operation)) {
+                        Timber.d("Skipping client creation for superseded background decline startId=${operation.startId}")
+                        return@launch
+                    }
+
+                    val telnyxClient = TelnyxClient.createDeclinePushClient(applicationContext)
                     operation.telnyxClient = telnyxClient
+
+                    if (!isActiveOperation(operation)) {
+                        Timber.d("Disconnecting superseded background decline startId=${operation.startId}")
+                        operation.disconnectClient("Superseded after background decline client creation")
+                        return@launch
+                    }
 
                     // Set up timeout to ensure service doesn't run indefinitely
                     operation.timeoutJob = launch {

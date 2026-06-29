@@ -75,9 +75,10 @@ class TxSocket(
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
         onConnected:(Boolean) -> Unit = {}
-    ): Job = launch(Dispatchers.IO) {
+    ): Job {
         isDestroyed = false
 
+        return launch(Dispatchers.IO) {
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {
             if (BuildConfig.DEBUG){
@@ -131,7 +132,9 @@ class TxSocket(
 
         Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
-        webSocket = client.newWebSocket(
+        if (shouldIgnoreSocketCallback()) return@launch
+
+        val createdWebSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -378,6 +381,12 @@ class TxSocket(
                 }
             }
         )
+
+        webSocket = createdWebSocket
+        if (shouldIgnoreSocketCallback()) {
+            createdWebSocket.close(WEBSOCKET_NORMAL_CLOSURE, "Websocket connection closed")
+        }
+        }
     }
 
     private fun shouldIgnoreSocketCallback(): Boolean {

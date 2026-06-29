@@ -56,9 +56,11 @@ import kotlin.concurrent.timerTask
  *
  * @param context the Context that the application is using
  */
-class TelnyxClient(
+class TelnyxClient private constructor(
     var context: Context,
+    startsInDeclinePushMode: Boolean,
 ) : TxSocketListener {
+    constructor(context: Context) : this(context, false)
 
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
@@ -103,6 +105,9 @@ class TelnyxClient(
      * Companion object containing constant values used throughout the client.
      */
     companion object {
+        fun createDeclinePushClient(context: Context): TelnyxClient =
+            TelnyxClient(context, true)
+
         /** Number of times to retry registration */
         const val RETRY_REGISTER_TIME = 3
 
@@ -153,7 +158,7 @@ class TelnyxClient(
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
     @Volatile
-    private var isDeclinePushConnection = false
+    private var isDeclinePushConnection = startsInDeclinePushMode
     private var registrationRetryCounter = 0
     private var connectRetryCounter = 0
     private var gatewayState = "idle"
@@ -1093,7 +1098,9 @@ class TelnyxClient(
             host_address = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT
         )
-        registerNetworkCallback()
+        if (!isDeclinePushConnection) {
+            registerNetworkCallback()
+        }
     }
 
     private var rawRingtone: Any? = null
