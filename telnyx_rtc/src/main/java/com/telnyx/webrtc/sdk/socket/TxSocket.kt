@@ -74,6 +74,21 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
+        onConnected:(Boolean) -> Unit = {}
+    ): Job = connectWithConnectionGuard(
+        listener,
+        providedHostAddress,
+        providedPort,
+        pushmetaData,
+        isCurrentConnection = { true },
+        onConnected = onConnected
+    )
+
+    internal fun connectWithConnectionGuard(
+        listener: TelnyxClient,
+        providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
+        providedPort: Int? = Config.TELNYX_PORT,
+        pushmetaData: PushMetaData? = null,
         isCurrentConnection: () -> Boolean = { true },
         onConnected:(Boolean) -> Unit = {}
     ): Job {

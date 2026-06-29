@@ -153,6 +153,7 @@ class TelnyxClient private constructor(
     private var reconnectTimeOutJob: Job? = null
     private var socketConnectJob: Job? = null
     private val acceptCallJobs = ConcurrentHashMap<UUID, Job>()
+    private var reconnectJob: Job? = null
 
     // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
@@ -958,7 +959,7 @@ class TelnyxClient private constructor(
             // User has been logged in
             resetGatewayCounters()
             if (reconnecting && (credentialSessionConfig != null || tokenSessionConfig != null)) {
-                clientScope.launch { reconnectToSocket() }
+                launchReconnectJob()
             }
         }
 
@@ -992,9 +993,27 @@ class TelnyxClient private constructor(
                     startReconnectionTimer()
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
-                    clientScope.launch { reconnectToSocket() }
+                    launchReconnectJob()
                 }
             }, RECONNECT_DELAY)
+        }
+    }
+
+    private fun launchReconnectJob(delayMs: Long = 0L) {
+        reconnectJob?.cancel()
+        val job = clientScope.launch {
+            if (delayMs > 0L) {
+                delay(delayMs)
+            }
+            if (reconnecting) {
+                reconnectToSocket()
+            }
+        }
+        reconnectJob = job
+        job.invokeOnCompletion {
+            if (reconnectJob === job) {
+                reconnectJob = null
+            }
         }
     }
 
@@ -1004,7 +1023,10 @@ class TelnyxClient private constructor(
      * @see [TelnyxConfig]
      */
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
-        if (isDeclinePushConnection) {
+        val credentialConfig = credentialSessionConfig
+        val tokenConfig = tokenSessionConfig
+
+        if (isDeclinePushConnection || !reconnecting || (credentialConfig == null && tokenConfig == null)) {
             return@withContext
         }
 
@@ -1025,7 +1047,7 @@ class TelnyxClient private constructor(
 
         //Delay for network to be properly established
         delay(RECONNECT_DELAY)
-        if (isDeclinePushConnection) {
+        if (isDeclinePushConnection || !reconnecting) {
             return@withContext
         }
 
@@ -1041,7 +1063,7 @@ class TelnyxClient private constructor(
         // Destroy old socket
         socket.destroy()
         launchSocketConnect {
-            if (isDeclinePushConnection || connectionGeneration.get() != generation) {
+            if (isDeclinePushConnection || !reconnecting || connectionGeneration.get() != generation) {
                 reconnectSocket.destroy()
                 return@launchSocketConnect
             }
@@ -1066,7 +1088,7 @@ class TelnyxClient private constructor(
             }
 
             // Connect to new socket
-            reconnectSocket.connect(
+            reconnectSocket.connectWithConnectionGuard(
                 this@TelnyxClient,
                 providedHostAddress,
                 providedPort,
@@ -1079,12 +1101,14 @@ class TelnyxClient private constructor(
 
                 //We can safely assume that the socket is connected at this point
                 // Login with stored configuration
-                credentialSessionConfig?.let {
+                credentialConfig?.let {
                     credentialLogin(it, reconnectSocket) {
                         isCurrentConnectionGeneration(generation, reconnectSocket)
                     }
-                } ?: tokenLogin(tokenSessionConfig!!, reconnectSocket) {
-                    isCurrentConnectionGeneration(generation, reconnectSocket)
+                } ?: tokenConfig?.let {
+                    tokenLogin(it, reconnectSocket) {
+                        isCurrentConnectionGeneration(generation, reconnectSocket)
+                    }
                 }
 
                 // Change an ongoing call's socket to the new socket.
@@ -1180,6 +1204,21 @@ class TelnyxClient private constructor(
         }
     }
 
+    private fun shouldIgnoreDeclinePushCallEvent(methodName: String): Boolean {
+        if (!isDeclinePushConnection) {
+            return false
+        }
+
+        Logger.d(
+            message = Logger.formatMessage(
+                "[%s] :: Ignoring %s during decline push connection",
+                this@TelnyxClient.javaClass.simpleName,
+                methodName
+            )
+        )
+        return true
+    }
+
     /**
      * Connects to the socket using this client as the listener
      * Will respond with 'No Network Connection' if there is no network available
@@ -1228,7 +1267,7 @@ class TelnyxClient private constructor(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
-                connectSocket.connect(
+                connectSocket.connectWithConnectionGuard(
                     this,
                     providedHostAddress,
                     providedPort,
@@ -1331,7 +1370,7 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                connectSocket.connect(
+                connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
                     providedHostAddress,
                     providedPort,
@@ -1435,7 +1474,7 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                connectSocket.connect(
+                connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
                     providedHostAddress,
                     providedPort,
@@ -1509,7 +1548,7 @@ class TelnyxClient private constructor(
                     return@launchSocketConnect
                 }
 
-                connectSocket.connect(
+                connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
                     providedHostAddress,
                     providedPort,
@@ -1542,7 +1581,8 @@ class TelnyxClient private constructor(
     /**
      * Connects to the socket with decline_push parameter for background call decline.
      * This method is specifically designed for declining calls without launching the main app.
-     * Use [createDeclinePushClient] so decline work is isolated from the normal SDK client.
+     * Prefer [createDeclinePushClient] so decline work is isolated from the normal SDK client.
+     * Calling this method on an existing client remains supported for compatibility.
      *
      * @param providedServerConfig The server configuration for connection
      * @param config The configuration for login (either CredentialConfig or TokenConfig)
@@ -1553,16 +1593,6 @@ class TelnyxClient private constructor(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
-        if (!isDedicatedDeclinePushClient) {
-            emitSocketResponse(
-                SocketResponse.error(
-                    "connectWithDeclinePush requires a dedicated decline push client",
-                    null
-                )
-            )
-            return
-        }
-
         isDeclinePushConnection = true
         val declineConfig = when (config) {
             is CredentialConfig -> config.copy(autoReconnect = false)
@@ -1608,7 +1638,7 @@ class TelnyxClient private constructor(
                     )
                 }
                 launchSocketConnect {
-                    connectSocket.connect(
+                    connectSocket.connectWithConnectionGuard(
                         this,
                         providedHostAddress,
                         providedPort,
@@ -2590,7 +2620,7 @@ class TelnyxClient private constructor(
                             this@TelnyxClient.javaClass.simpleName
                         )
                     )
-                    clientScope.launch { reconnectToSocket() }
+                    launchReconnectJob()
                 } else {
                     invalidateGatewayResponseTimer()
                     emitSocketResponse(
@@ -2773,6 +2803,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.BYE.methodName)) {
+            return
+        }
+
         Logger.d(
             message = Logger.formatMessage(
                 "[%s] :: onByeReceived JSON: %s",
@@ -2849,6 +2883,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onAnswerReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.ANSWER.methodName)) {
+            return
+        }
+
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
         val callUuid = UUID.fromString(callId)
@@ -3030,6 +3068,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onMediaReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.MEDIA.methodName)) {
+            return
+        }
+
         val params = jsonObject.getAsJsonObject("params")
         val callId = params.get("callID").asString
         val mediaCall = calls[UUID.fromString(callId)]
@@ -3081,6 +3123,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onOfferReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.INVITE.methodName)) {
+            return
+        }
+
         if (jsonObject.has("params")) {
             Logger.d(
                 message = Logger.formatMessage(
@@ -3235,6 +3281,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {
+            return
+        }
+
         Logger.d(
             message = Logger.formatMessage(
                 "[%s] :: onRingingReceived [%s]",
@@ -3292,6 +3342,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onIceCandidateReceived(iceCandidate: IceCandidate) {
+        if (shouldIgnoreDeclinePushCallEvent("ICE_CANDIDATE")) {
+            return
+        }
+
         call?.apply {
             updateCallState(CallState.CONNECTING)
         }
@@ -3321,6 +3375,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onAttachReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.ATTACH.methodName)) {
+            return
+        }
+
         // reset reconnecting state
         reconnecting = false
         reconnectionRetryCounter.set(0)
@@ -3484,13 +3542,7 @@ class TelnyxClient private constructor(
                 socket.destroy()
                 
                 // Schedule retry with exponential backoff
-                clientScope.launch {
-                    delay(backoffDelay)
-                    // Only retry if still reconnecting (timer hasn't expired)
-                    if (reconnecting) {
-                        reconnectToSocket()
-                    }
-                }
+                launchReconnectJob(backoffDelay)
                 return
             } else {
                 Logger.d(
@@ -3514,7 +3566,10 @@ class TelnyxClient private constructor(
         
         // Reset reconnection state
         reconnecting = false
+        reconnectJob?.cancel()
+        reconnectJob = null
         reconnectionRetryCounter.set(0)
+        nextConnectionGeneration()
         socketReconnection?.destroy()
         socketReconnection = null
         
@@ -3569,6 +3624,10 @@ class TelnyxClient private constructor(
      * @param jsonObject the socket response containing modify data
      */
     override fun onModifyReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.MODIFY.methodName)) {
+            return
+        }
+
         Logger.i(message = "MODIFY RECEIVED :: $jsonObject")
 
         try {
@@ -3752,6 +3811,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onCandidateReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.CANDIDATE.methodName)) {
+            return
+        }
+
         Logger.d(tag = "onCandidateReceived", message = "ICE CANDIDATE RECEIVED :: $jsonObject")
 
         if (jsonObject.has("params")) {
@@ -3816,6 +3879,10 @@ class TelnyxClient private constructor(
     }
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
+        if (shouldIgnoreDeclinePushCallEvent(SocketMethod.END_OF_CANDIDATES.methodName)) {
+            return
+        }
+
         Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
     }
 
