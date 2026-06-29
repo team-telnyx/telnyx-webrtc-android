@@ -105,6 +105,9 @@ class TelnyxClient private constructor(
      * Companion object containing constant values used throughout the client.
      */
     companion object {
+        /**
+         * Creates a client isolated for background decline-push operations.
+         */
         fun createDeclinePushClient(context: Context): TelnyxClient =
             TelnyxClient(context, true)
 
@@ -2480,6 +2483,12 @@ class TelnyxClient private constructor(
 
         socket.isLoggedIn = true
 
+        if (reconnecting && getActiveCalls().isEmpty()) {
+            reconnecting = false
+            reconnectionRetryCounter.set(0)
+            cancelReconnectionTimer()
+        }
+
         if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
             disconnect()
             return
@@ -3527,8 +3536,12 @@ class TelnyxClient private constructor(
      * @see [TxSocket]
      */
     override fun onDisconnect() {
+        disconnectInternal(allowReconnectRetry = true)
+    }
+
+    private fun disconnectInternal(allowReconnectRetry: Boolean) {
         // Check if we should retry reconnection instead of giving up
-        if (reconnecting && getActiveCalls().isNotEmpty()) {
+        if (allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()) {
             if (reconnectionRetryCounter.get() < MAX_RECONNECTION_RETRIES) {
                 val retryCount = reconnectionRetryCounter.incrementAndGet()
                 val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (retryCount - 1))
@@ -3915,11 +3928,8 @@ class TelnyxClient private constructor(
      */
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
-        cancelSocketConnectJob()
-        cancelAcceptCallJobs()
-        reconnecting = false
         cancelReconnectionTimer()
-        onDisconnect()
+        disconnectInternal(allowReconnectRetry = false)
         // Keep clientScope reusable for later reconnects; socket.destroy() cancels socket-owned work.
         clientScope.coroutineContext.cancelChildren()
     }
