@@ -499,6 +499,31 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `playRingtone releases media player when runtime setup failure throws`() {
+        val ringtoneResource = 124
+        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
+        Mockito.doThrow(SecurityException("wake lock permission denied"))
+            .`when`(mockMediaPlayer)
+            .setWakeMode(mockContext, PowerManager.PARTIAL_WAKE_LOCK)
+        setTelnyxClientField("rawRingtone", ringtoneResource)
+
+        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
+        try {
+            mediaPlayerStatic.`when`<MediaPlayer?> {
+                MediaPlayer.create(mockContext, ringtoneResource)
+            }.thenReturn(mockMediaPlayer)
+
+            assertDoesNotThrow {
+                client.playRingtone()
+            }
+        } finally {
+            mediaPlayerStatic.close()
+        }
+
+        Mockito.verify(mockMediaPlayer).release()
+    }
+
+    @Test
     fun `Test playing ringBacktone when one hasn't been set logs error and does not throw exception`() {
         assertDoesNotThrow {
             client = Mockito.spy(TelnyxClient(mockContext))

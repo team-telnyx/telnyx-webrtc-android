@@ -2004,7 +2004,7 @@ class TelnyxClient(
                 Logger.d(message = "Ringtone playing")
             } catch (e: TypeCastException) {
                 Logger.e(message = "Exception: ${e.message}")
-            } catch (e: IllegalStateException) {
+            } catch (e: RuntimeException) {
                 releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
@@ -2054,7 +2054,7 @@ class TelnyxClient(
                     player.start()
                     player.isLooping = true
                 }
-            } catch (e: IllegalStateException) {
+            } catch (e: RuntimeException) {
                 releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
