@@ -152,6 +152,8 @@ class TelnyxClient(
     private var autoReconnectLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
+    @Volatile
+    private var isDeclinePushConnection = false
     private var registrationRetryCounter = 0
     private var connectRetryCounter = 0
     private var gatewayState = "idle"
@@ -936,6 +938,10 @@ class TelnyxClient(
     internal var isNetworkCallbackRegistered = false
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
         override fun onNetworkAvailable() {
+            if (isDeclinePushConnection) {
+                return
+            }
+
             Logger.d(
                 message = Logger.formatMessage(
                     "[%s] :: There is a network available",
@@ -950,6 +956,10 @@ class TelnyxClient(
         }
 
         override fun onNetworkUnavailable() {
+            if (isDeclinePushConnection) {
+                return
+            }
+
             Logger.d(
                 message = Logger.formatMessage(
                     "[%s] :: There is no network available",
@@ -987,6 +997,10 @@ class TelnyxClient(
      * @see [TelnyxConfig]
      */
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
+        if (isDeclinePushConnection) {
+            return@withContext
+        }
+
         // Start the reconnection timer to track timeout
         startReconnectionTimer()
 
@@ -1004,6 +1018,9 @@ class TelnyxClient(
 
         //Delay for network to be properly established
         delay(RECONNECT_DELAY)
+        if (isDeclinePushConnection) {
+            return@withContext
+        }
 
         // Create new socket connection
         socketReconnection = TxSocket(
@@ -1016,6 +1033,10 @@ class TelnyxClient(
         // Destroy old socket
         socket.destroy()
         launchSocketConnect {
+            if (isDeclinePushConnection) {
+                return@launchSocketConnect
+            }
+
             // Socket is now the reconnectionSocket
             socket = socketReconnection!!
 
@@ -1432,6 +1453,7 @@ class TelnyxClient(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
+        isDeclinePushConnection = true
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -2346,7 +2368,7 @@ class TelnyxClient(
             }
 
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
-                if (autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
+                if (!isDeclinePushConnection && autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
                     Logger.d(
                         message = Logger.formatMessage(
@@ -3275,6 +3297,8 @@ class TelnyxClient(
         // Reset reconnection state
         reconnecting = false
         reconnectionRetryCounter.set(0)
+        socketReconnection?.destroy()
+        socketReconnection = null
         
         // Clear connection metrics on disconnect
         currentSocketConnectionMetrics = null
