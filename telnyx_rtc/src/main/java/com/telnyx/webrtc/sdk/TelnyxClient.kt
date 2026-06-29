@@ -957,8 +957,8 @@ class TelnyxClient private constructor(
             )
             // User has been logged in
             resetGatewayCounters()
-            if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                runBlocking { reconnectToSocket() }
+            if (reconnecting && (credentialSessionConfig != null || tokenSessionConfig != null)) {
+                clientScope.launch { reconnectToSocket() }
             }
         }
 
@@ -992,7 +992,7 @@ class TelnyxClient private constructor(
                     startReconnectionTimer()
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
-                    runBlocking { reconnectToSocket() }
+                    clientScope.launch { reconnectToSocket() }
                 }
             }, RECONNECT_DELAY)
         }
@@ -1066,7 +1066,13 @@ class TelnyxClient private constructor(
             }
 
             // Connect to new socket
-            reconnectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+            reconnectSocket.connect(
+                this@TelnyxClient,
+                providedHostAddress,
+                providedPort,
+                pushMetaData,
+                isCurrentConnection = { isCurrentConnectionGeneration(generation, reconnectSocket) }
+            ) socketConnect@ {
                 if (!isCurrentConnectionGeneration(generation, reconnectSocket)) {
                     return@socketConnect
                 }
@@ -1074,8 +1080,12 @@ class TelnyxClient private constructor(
                 //We can safely assume that the socket is connected at this point
                 // Login with stored configuration
                 credentialSessionConfig?.let {
-                    credentialLogin(it)
-                } ?: tokenLogin(tokenSessionConfig!!)
+                    credentialLogin(it, reconnectSocket) {
+                        isCurrentConnectionGeneration(generation, reconnectSocket)
+                    }
+                } ?: tokenLogin(tokenSessionConfig!!, reconnectSocket) {
+                    isCurrentConnectionGeneration(generation, reconnectSocket)
+                }
 
                 // Change an ongoing call's socket to the new socket.
                 call?.let { call?.socket = reconnectSocket }
@@ -1218,7 +1228,13 @@ class TelnyxClient private constructor(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
-                connectSocket.connect(this, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+                connectSocket.connect(
+                    this,
+                    providedHostAddress,
+                    providedPort,
+                    pushMetaData,
+                    isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
+                ) socketConnect@ {
                     if (!isCurrentConnectionGeneration(generation, connectSocket)) {
                         return@socketConnect
                     }
@@ -1315,9 +1331,17 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                connectSocket.connect(
+                    this@TelnyxClient,
+                    providedHostAddress,
+                    providedPort,
+                    pushMetaData,
+                    isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
+                ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
-                        credentialLogin(credentialConfig)
+                        credentialLogin(credentialConfig, connectSocket) {
+                            isCurrentConnectionGeneration(generation, connectSocket)
+                        }
                     }
                 }
             }
@@ -1411,9 +1435,17 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                connectSocket.connect(
+                    this@TelnyxClient,
+                    providedHostAddress,
+                    providedPort,
+                    pushMetaData,
+                    isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
+                ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
-                        tokenLogin(tokenConfig)
+                        tokenLogin(tokenConfig, connectSocket) {
+                            isCurrentConnectionGeneration(generation, connectSocket)
+                        }
                     }
                 }
 
@@ -1477,7 +1509,13 @@ class TelnyxClient private constructor(
                     return@launchSocketConnect
                 }
 
-                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, null) socketConnect@ {
+                connectSocket.connect(
+                    this@TelnyxClient,
+                    providedHostAddress,
+                    providedPort,
+                    null,
+                    isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
+                ) socketConnect@ {
                     if (!isCurrentConnectionGeneration(generation, connectSocket)) {
                         return@socketConnect
                     }
@@ -1490,6 +1528,8 @@ class TelnyxClient private constructor(
                         conversationId = conversationId,
                         userVariables = userVariables,
                         reconnection = reconnection,
+                        targetSocket = connectSocket,
+                        canSend = { isCurrentConnectionGeneration(generation, connectSocket) },
                     )
                 }
             }
@@ -1568,7 +1608,13 @@ class TelnyxClient private constructor(
                     )
                 }
                 launchSocketConnect {
-                    connectSocket.connect(this, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+                    connectSocket.connect(
+                        this,
+                        providedHostAddress,
+                        providedPort,
+                        pushMetaData,
+                        isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
+                    ) socketConnect@ {
                         if (!isCurrentConnectionGeneration(generation, connectSocket)) {
                             return@socketConnect
                         }
@@ -1576,12 +1622,16 @@ class TelnyxClient private constructor(
                         when (declineConfig) {
                             is CredentialConfig -> {
                                 setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
-                                credentialLoginWithDeclinePush(declineConfig)
+                                credentialLoginWithDeclinePush(declineConfig, connectSocket) {
+                                    isCurrentConnectionGeneration(generation, connectSocket)
+                                }
                             }
 
                             is TokenConfig -> {
                                 setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
-                                tokenLoginWithDeclinePush(declineConfig)
+                                tokenLoginWithDeclinePush(declineConfig, connectSocket) {
+                                    isCurrentConnectionGeneration(generation, connectSocket)
+                                }
                             }
                         }
                     }
@@ -1689,6 +1739,17 @@ class TelnyxClient private constructor(
      */
     @Deprecated("telnyxclient.credentialLogin is deprecated. Use telnyxclient.connect(..) instead.")
     fun credentialLogin(config: CredentialConfig) {
+        credentialLogin(config, socket) { true }
+    }
+
+    private fun credentialLogin(
+        config: CredentialConfig,
+        targetSocket: TxSocket,
+        canSend: () -> Boolean,
+    ) {
+        if (!canSend()) {
+            return
+        }
 
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
@@ -1741,7 +1802,10 @@ class TelnyxClient private constructor(
         latencyTracker.startRegistrationTracking()
         latencyTracker.markRegistrationMilestone(LatencyTracker.MILESTONE_LOGIN_SENT)
 
-        socket.send(loginMessage)
+        if (!canSend()) {
+            return
+        }
+        targetSocket.send(loginMessage)
     }
 
 
@@ -1819,6 +1883,18 @@ class TelnyxClient private constructor(
                 "with autoLogin set to true instead."
     )
     fun tokenLogin(config: TokenConfig) {
+        tokenLogin(config, socket) { true }
+    }
+
+    private fun tokenLogin(
+        config: TokenConfig,
+        targetSocket: TxSocket,
+        canSend: () -> Boolean,
+    ) {
+        if (!canSend()) {
+            return
+        }
+
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
         val fcmToken = config.fcmToken
@@ -1861,7 +1937,10 @@ class TelnyxClient private constructor(
         latencyTracker.startRegistrationTracking()
         latencyTracker.markRegistrationMilestone(LatencyTracker.MILESTONE_LOGIN_SENT)
         
-        socket.send(loginMessage)
+        if (!canSend()) {
+            return
+        }
+        targetSocket.send(loginMessage)
     }
 
     /**
@@ -1883,6 +1962,32 @@ class TelnyxClient private constructor(
         userVariables: Map<String, Any>? = null,
         reconnection: Boolean = false,
     ) {
+        anonymousLogin(
+            targetId = targetId,
+            targetType = targetType,
+            targetVersionId = targetVersionId,
+            conversationId = conversationId,
+            userVariables = userVariables,
+            reconnection = reconnection,
+            targetSocket = socket,
+            canSend = { true },
+        )
+    }
+
+    private fun anonymousLogin(
+        targetId: String,
+        targetType: String = "ai_assistant",
+        targetVersionId: String? = null,
+        conversationId: String? = null,
+        userVariables: Map<String, Any>? = null,
+        reconnection: Boolean = false,
+        targetSocket: TxSocket,
+        canSend: () -> Boolean,
+    ) {
+        if (!canSend()) {
+            return
+        }
+
         val uuid: String = UUID.randomUUID().toString()
 
         val userAgent = UserAgent(
@@ -1908,7 +2013,10 @@ class TelnyxClient private constructor(
         )
 
         Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
-        socket.send(loginMessage)
+        if (!canSend()) {
+            return
+        }
+        targetSocket.send(loginMessage)
     }
 
     fun sendAIAssistantMessage(
@@ -1989,7 +2097,15 @@ class TelnyxClient private constructor(
      *
      * @param config The credential configuration for login
      */
-    private fun credentialLoginWithDeclinePush(config: CredentialConfig) {
+    private fun credentialLoginWithDeclinePush(
+        config: CredentialConfig,
+        targetSocket: TxSocket = socket,
+        canSend: () -> Boolean = { true },
+    ) {
+        if (!canSend()) {
+            return
+        }
+
         val uuid: String = UUID.randomUUID().toString()
         val user = config.sipUser
         val password = config.sipPassword
@@ -2037,7 +2153,10 @@ class TelnyxClient private constructor(
         )
         Logger.d(message = "Auto login with credentialConfig for decline push")
 
-        socket.send(loginMessage)
+        if (!canSend()) {
+            return
+        }
+        targetSocket.send(loginMessage)
     }
 
     /**
@@ -2046,7 +2165,15 @@ class TelnyxClient private constructor(
      *
      * @param config The token configuration for login
      */
-    private fun tokenLoginWithDeclinePush(config: TokenConfig) {
+    private fun tokenLoginWithDeclinePush(
+        config: TokenConfig,
+        targetSocket: TxSocket = socket,
+        canSend: () -> Boolean = { true },
+    ) {
+        if (!canSend()) {
+            return
+        }
+
         val uuid: String = UUID.randomUUID().toString()
         val token = config.sipToken
         val fcmToken = config.fcmToken
@@ -2086,7 +2213,10 @@ class TelnyxClient private constructor(
         )
         Logger.d(message = "Auto login with tokenConfig for decline push")
 
-        socket.send(loginMessage)
+        if (!canSend()) {
+            return
+        }
+        targetSocket.send(loginMessage)
     }
 
 
@@ -2460,7 +2590,7 @@ class TelnyxClient private constructor(
                             this@TelnyxClient.javaClass.simpleName
                         )
                     )
-                    runBlocking { reconnectToSocket() }
+                    clientScope.launch { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
                     emitSocketResponse(

@@ -74,6 +74,7 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
+        isCurrentConnection: () -> Boolean = { true },
         onConnected:(Boolean) -> Unit = {}
     ): Job {
         isDestroyed = false
@@ -132,13 +133,13 @@ class TxSocket(
 
         Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
-        if (shouldIgnoreSocketCallback()) return@launch
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) return@launch
 
         val createdWebSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    if (shouldIgnoreSocketCallback()) return
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     Logger.v(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
@@ -150,7 +151,7 @@ class TxSocket(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    if (shouldIgnoreSocketCallback()) return
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     super.onMessage(webSocket, text)
                     Logger.v(
@@ -314,7 +315,7 @@ class TxSocket(
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                    if (shouldIgnoreSocketCallback()) return
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     super.onClosing(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
@@ -322,7 +323,7 @@ class TxSocket(
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    if (shouldIgnoreSocketCallback()) return
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
@@ -334,7 +335,7 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    if (shouldIgnoreSocketCallback()) return
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
@@ -383,14 +384,14 @@ class TxSocket(
         )
 
         webSocket = createdWebSocket
-        if (shouldIgnoreSocketCallback()) {
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) {
             createdWebSocket.close(WEBSOCKET_NORMAL_CLOSURE, "Websocket connection closed")
         }
         }
     }
 
-    private fun shouldIgnoreSocketCallback(): Boolean {
-        return isDestroyed || !job.isActive
+    private fun shouldIgnoreSocketCallback(isCurrentConnection: () -> Boolean = { true }): Boolean {
+        return isDestroyed || !job.isActive || !isCurrentConnection()
     }
 
     /**
