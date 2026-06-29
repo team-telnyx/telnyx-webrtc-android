@@ -1196,6 +1196,7 @@ class TelnyxClient private constructor(
             providedServerConfig.host
         }
 
+        socket.destroy()
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -1262,6 +1263,7 @@ class TelnyxClient private constructor(
         if (credentialConfig.region != Region.AUTO)
             providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
 
+        socket.destroy()
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -1350,6 +1352,7 @@ class TelnyxClient private constructor(
         if (tokenConfig.region != Region.AUTO)
             providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
 
+        socket.destroy()
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -1395,6 +1398,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            clearTransientDeclinePushMode()
         }
     }
 
@@ -1430,6 +1434,7 @@ class TelnyxClient private constructor(
 
         providedHostAddress = providedServerConfig.host
 
+        socket.destroy()
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
@@ -1462,12 +1467,14 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            clearTransientDeclinePushMode()
         }
     }
 
     /**
      * Connects to the socket with decline_push parameter for background call decline.
      * This method is specifically designed for declining calls without launching the main app.
+     * Use [createDeclinePushClient] so decline work is isolated from the normal SDK client.
      *
      * @param providedServerConfig The server configuration for connection
      * @param config The configuration for login (either CredentialConfig or TokenConfig)
@@ -1478,6 +1485,16 @@ class TelnyxClient private constructor(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
+        if (!isDedicatedDeclinePushClient) {
+            emitSocketResponse(
+                SocketResponse.error(
+                    "connectWithDeclinePush requires a dedicated decline push client",
+                    null
+                )
+            )
+            return
+        }
+
         isDeclinePushConnection = true
         val declineConfig = when (config) {
             is CredentialConfig -> config.copy(autoReconnect = false)
