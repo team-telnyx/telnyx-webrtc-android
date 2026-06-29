@@ -144,6 +144,7 @@ class TelnyxClient private constructor(
 
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
+    private val connectionGeneration = AtomicInteger(0)
 
     // Owns TelnyxClient-level async work; TxSocket owns its socket connection scope.
     private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -1028,23 +1029,25 @@ class TelnyxClient private constructor(
             return@withContext
         }
 
-        // Create new socket connection
-        socketReconnection = TxSocket(
+        val generation = nextConnectionGeneration()
+        val reconnectSocket = TxSocket(
             socket.host_address,
             socket.port
         )
         cancelSocketConnectJob()
+        socketReconnection = reconnectSocket
         // Cancel old socket coroutines
         socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
         launchSocketConnect {
-            if (isDeclinePushConnection) {
+            if (isDeclinePushConnection || connectionGeneration.get() != generation) {
+                reconnectSocket.destroy()
                 return@launchSocketConnect
             }
 
             // Socket is now the reconnectionSocket
-            socket = socketReconnection!!
+            socket = reconnectSocket
 
             if (providedHostAddress == null) {
                 providedHostAddress =
@@ -1063,12 +1066,11 @@ class TelnyxClient private constructor(
             }
 
             // Connect to new socket
-            socket.connect(
-                listener = this@TelnyxClient,
-                providedHostAddress = providedHostAddress,
-                providedPort = providedPort,
-                pushmetaData = pushMetaData
-            ) {
+            reconnectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+                if (!isCurrentConnectionGeneration(generation, reconnectSocket)) {
+                    return@socketConnect
+                }
+
                 //We can safely assume that the socket is connected at this point
                 // Login with stored configuration
                 credentialSessionConfig?.let {
@@ -1076,7 +1078,7 @@ class TelnyxClient private constructor(
                 } ?: tokenLogin(tokenSessionConfig!!)
 
                 // Change an ongoing call's socket to the new socket.
-                call?.let { call?.socket = socket }
+                call?.let { call?.socket = reconnectSocket }
             }
         }
     }
@@ -1156,6 +1158,12 @@ class TelnyxClient private constructor(
         }
     }
 
+    private fun nextConnectionGeneration(): Int = connectionGeneration.incrementAndGet()
+
+    private fun isCurrentConnectionGeneration(generation: Int, txSocket: TxSocket): Boolean {
+        return connectionGeneration.get() == generation && socket === txSocket
+    }
+
     private fun disconnectTransientDeclinePushConnection() {
         if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
             disconnect()
@@ -1196,11 +1204,13 @@ class TelnyxClient private constructor(
             providedServerConfig.host
         }
 
+        val generation = nextConnectionGeneration()
         socket.destroy()
-        socket = TxSocket(
+        val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
+        socket = connectSocket
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -1208,12 +1218,10 @@ class TelnyxClient private constructor(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
-                socket.connect(
-                    listener = this@TelnyxClient,
-                    providedHostAddress = providedHostAddress,
-                    providedPort = providedPort,
-                    pushmetaData = pushMetaData
-                ) {
+                connectSocket.connect(this, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+                    if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                        return@socketConnect
+                    }
                 }
             }
         } else {
@@ -1263,11 +1271,13 @@ class TelnyxClient private constructor(
         if (credentialConfig.region != Region.AUTO)
             providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
 
+        val generation = nextConnectionGeneration()
         socket.destroy()
-        socket = TxSocket(
+        val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
+        socket = connectSocket
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -1276,12 +1286,22 @@ class TelnyxClient private constructor(
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
+                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                    connectSocket.destroy()
+                    return@launchSocketConnect
+                }
+
                 if (credentialConfig.fallbackOnRegionFailure) {
                     providedHostAddress = ConnectivityHelper.resolveReachableHost(
                         providedHostAddress!!,
                         providedPort!!
                     )
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
+                }
+
+                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                    connectSocket.destroy()
+                    return@launchSocketConnect
                 }
 
                 if (txPushMetaData != null) {
@@ -1295,13 +1315,8 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                socket.connect(
-                    listener = this@TelnyxClient,
-                    providedHostAddress = providedHostAddress,
-                    providedPort = providedPort,
-                    pushmetaData = pushMetaData
-                ) {
-                    if (autoLogin) {
+                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
                         credentialLogin(credentialConfig)
                     }
                 }
@@ -1352,11 +1367,13 @@ class TelnyxClient private constructor(
         if (tokenConfig.region != Region.AUTO)
             providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
 
+        val generation = nextConnectionGeneration()
         socket.destroy()
-        socket = TxSocket(
+        val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
+        socket = connectSocket
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -1365,12 +1382,22 @@ class TelnyxClient private constructor(
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
+                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                    connectSocket.destroy()
+                    return@launchSocketConnect
+                }
+
                 if (tokenConfig.fallbackOnRegionFailure) {
                     providedHostAddress = ConnectivityHelper.resolveReachableHost(
                         providedHostAddress!!,
                         providedPort!!
                     )
                     Logger.d(message = "Verified Host Address: $providedHostAddress")
+                }
+
+                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                    connectSocket.destroy()
+                    return@launchSocketConnect
                 }
 
                 if (txPushMetaData != null) {
@@ -1384,13 +1411,8 @@ class TelnyxClient private constructor(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                socket.connect(
-                    listener = this@TelnyxClient,
-                    providedHostAddress = providedHostAddress,
-                    providedPort = providedPort,
-                    pushmetaData = pushMetaData
-                ) {
-                    if (autoLogin) {
+                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                    if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
                         tokenLogin(tokenConfig)
                     }
                 }
@@ -1434,11 +1456,13 @@ class TelnyxClient private constructor(
 
         providedHostAddress = providedServerConfig.host
 
+        val generation = nextConnectionGeneration()
         socket.destroy()
-        socket = TxSocket(
+        val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
+        socket = connectSocket
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
@@ -1448,12 +1472,16 @@ class TelnyxClient private constructor(
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
-                socket.connect(
-                    listener = this@TelnyxClient,
-                    providedHostAddress = providedHostAddress,
-                    providedPort = providedPort,
-                    pushmetaData = null
-                ) {
+                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                    connectSocket.destroy()
+                    return@launchSocketConnect
+                }
+
+                connectSocket.connect(this@TelnyxClient, providedHostAddress, providedPort, null) socketConnect@ {
+                    if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                        return@socketConnect
+                    }
+
                     // Perform anonymous login after socket is connected
                     anonymousLogin(
                         targetId = targetId,
@@ -1514,11 +1542,13 @@ class TelnyxClient private constructor(
                 providedServerConfig.host
             }
 
+            val generation = nextConnectionGeneration()
             socket.destroy()
-            socket = TxSocket(
+            val connectSocket = TxSocket(
                 host_address = providedHostAddress!!,
                 port = providedServerConfig.port
             )
+            socket = connectSocket
 
             providedPort = providedServerConfig.port
             providedTurn = providedServerConfig.turn
@@ -1538,12 +1568,11 @@ class TelnyxClient private constructor(
                     )
                 }
                 launchSocketConnect {
-                    socket.connect(
-                        listener = this@TelnyxClient,
-                        providedHostAddress = providedHostAddress,
-                        providedPort = providedPort,
-                        pushmetaData = pushMetaData
-                    ) {
+                    connectSocket.connect(this, providedHostAddress, providedPort, pushMetaData) socketConnect@ {
+                        if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                            return@socketConnect
+                        }
+
                         when (declineConfig) {
                             is CredentialConfig -> {
                                 setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
