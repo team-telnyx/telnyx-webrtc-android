@@ -2480,6 +2480,11 @@ class TelnyxClient private constructor(
 
         socket.isLoggedIn = true
 
+        if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
+            disconnect()
+            return
+        }
+
         Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
         //if there is a call pending from push, attach it
         if (!isDeclinePushConnection && isCallPendingFromPush) {
