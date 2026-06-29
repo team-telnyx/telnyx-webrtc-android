@@ -1461,7 +1461,7 @@ class TelnyxClient(
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-            processCallFromPush(metadata)
+            pushMetaData = metadata
             providedServerConfig.host
         } else {
             providedServerConfig.host
@@ -2241,7 +2241,7 @@ class TelnyxClient(
 
         Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
         //if there is a call pending from push, attach it
-        if (isCallPendingFromPush) {
+        if (!isDeclinePushConnection && isCallPendingFromPush) {
             attachCall()
         }
         
