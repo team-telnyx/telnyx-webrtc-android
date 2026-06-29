@@ -157,6 +157,7 @@ class TelnyxClient private constructor(
     private var autoReconnectLogin: Boolean = true
     private var gatewayResponseTimer: Timer? = null
     private var waitingForReg = true
+    private val isDedicatedDeclinePushClient = startsInDeclinePushMode
     @Volatile
     private var isDeclinePushConnection = startsInDeclinePushMode
     private var registrationRetryCounter = 0
@@ -1460,6 +1461,11 @@ class TelnyxClient private constructor(
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
+        isDeclinePushConnection = true
+        val declineConfig = when (config) {
+            is CredentialConfig -> config.copy(autoReconnect = false)
+            is TokenConfig -> config.copy(autoReconnect = false)
+        }
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1503,15 +1509,15 @@ class TelnyxClient private constructor(
                     providedPort = providedPort,
                     pushmetaData = pushMetaData
                 ) {
-                    when (config) {
+                    when (declineConfig) {
                         is CredentialConfig -> {
-                            setSDKLogLevel(config.logLevel, config.customLogger)
-                            credentialLoginWithDeclinePush(config)
+                            setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
+                            credentialLoginWithDeclinePush(declineConfig)
                         }
 
                         is TokenConfig -> {
-                            setSDKLogLevel(config.logLevel, config.customLogger)
-                            tokenLoginWithDeclinePush(config)
+                            setSDKLogLevel(declineConfig.logLevel, declineConfig.customLogger)
+                            tokenLoginWithDeclinePush(declineConfig)
                         }
                     }
                 }
@@ -3312,6 +3318,9 @@ class TelnyxClient private constructor(
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
         socket.destroy()
+        if (!isDedicatedDeclinePushClient) {
+            isDeclinePushConnection = false
+        }
     }
 
     /**
