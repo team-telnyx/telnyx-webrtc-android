@@ -10,9 +10,9 @@ import android.content.Intent
 import android.os.IBinder
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.ProfileManager
-import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -66,6 +66,7 @@ class BackgroundCallDeclineService : Service() {
         var timeoutJob: Job? = null
         var socketStatusJob: Job? = null
         var disconnectJob: Job? = null
+        var telnyxClient: TelnyxClient? = null
         private var isCompleting = false
 
         fun markCompleting(): Boolean = synchronized(this) {
@@ -83,6 +84,14 @@ class BackgroundCallDeclineService : Service() {
             timeoutJob?.cancel(cancellation)
             socketStatusJob?.cancel(cancellation)
             disconnectJob?.cancel(cancellation)
+        }
+
+        fun disconnectClient(reason: String) {
+            try {
+                telnyxClient?.disconnect()
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to disconnect background decline client: $reason")
+            }
         }
     }
 
@@ -125,7 +134,8 @@ class BackgroundCallDeclineService : Service() {
 
         operation.operationJob = serviceScope.launch {
             try {
-                val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
+                val telnyxClient = TelnyxClient(applicationContext)
+                operation.telnyxClient = telnyxClient
 
                 ProfileManager.getProfilesList(this@BackgroundCallDeclineService).lastOrNull()?.let { lastProfile ->
                     val fcmToken = lastProfile.fcmToken ?: ""
@@ -145,6 +155,11 @@ class BackgroundCallDeclineService : Service() {
                             .collectLatest { response ->
                                 handleSocketResponse(response, operation)
                             }
+                    }
+
+                    if (!isActiveOperation(operation)) {
+                        Timber.d("Skipping connect for superseded background decline startId=${operation.startId}")
+                        return@launch
                     }
 
                     // Connect with decline_push parameter
@@ -184,11 +199,7 @@ class BackgroundCallDeclineService : Service() {
                 "Superseding background decline startId=${previous.startId} with startId=${operation.startId}"
             )
             previous.cancel("Superseded by newer background decline startId=${operation.startId}")
-            try {
-                TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService).disconnect()
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to disconnect superseded background decline socket")
-            }
+            previous.disconnectClient("Superseded by newer background decline")
             stopServiceForStart(previous.startId, "Superseded by newer background decline")
         }
     }
@@ -241,8 +252,7 @@ class BackgroundCallDeclineService : Service() {
                 operation.socketStatusJob?.cancel()
 
                 if (disconnect && isActiveOperation(operation)) {
-                    val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
-                    telnyxClient.disconnect()
+                    operation.disconnectClient(reason)
                 } else if (disconnect) {
                     Timber.d("Skipping disconnect for superseded background decline startId=${operation.startId}")
                 }
@@ -288,7 +298,10 @@ class BackgroundCallDeclineService : Service() {
         super.onDestroy()
         synchronized(operationLock) {
             activeOperation.also { activeOperation = null }
-        }?.cancel("BackgroundCallDeclineService onDestroy")
+        }?.let { operation ->
+            operation.cancel("BackgroundCallDeclineService onDestroy")
+            operation.disconnectClient("BackgroundCallDeclineService onDestroy")
+        }
         serviceScope.cancel(CancellationException("BackgroundCallDeclineService onDestroy"))
 
         Timber.d("BackgroundCallDeclineService destroyed")

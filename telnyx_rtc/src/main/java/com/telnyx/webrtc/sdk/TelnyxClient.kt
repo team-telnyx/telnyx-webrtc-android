@@ -1445,6 +1445,7 @@ class TelnyxClient(
             providedServerConfig.host
         }
 
+        socket.destroy()
         socket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
