@@ -28,6 +28,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -138,9 +139,12 @@ class BackgroundCallDeclineService : Service() {
 
                     // Observe socket responses to handle login success - must be done on main thread
                     operation.socketStatusJob = launch(Dispatchers.Main) {
-                        telnyxClient.socketResponseFlow.collectLatest { response ->
-                            handleSocketResponse(response, operation)
-                        }
+                        val replayedResponseCount = telnyxClient.socketResponseFlow.replayCache.size
+                        telnyxClient.socketResponseFlow
+                            .drop(replayedResponseCount)
+                            .collectLatest { response ->
+                                handleSocketResponse(response, operation)
+                            }
                     }
 
                     // Connect with decline_push parameter
