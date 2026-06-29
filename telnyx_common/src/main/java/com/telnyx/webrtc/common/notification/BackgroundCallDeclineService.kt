@@ -184,6 +184,11 @@ class BackgroundCallDeclineService : Service() {
                 "Superseding background decline startId=${previous.startId} with startId=${operation.startId}"
             )
             previous.cancel("Superseded by newer background decline startId=${operation.startId}")
+            try {
+                TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService).disconnect()
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to disconnect superseded background decline socket")
+            }
             stopServiceForStart(previous.startId, "Superseded by newer background decline")
         }
     }
