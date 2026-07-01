@@ -248,8 +248,17 @@ class TelnyxClient(
         socketResponseLiveData.postValue(response)
     }
 
-    // Keeps track of all the created calls by theirs UUIDs
-    internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+    // Keeps track of all the created calls by theirs UUIDs.
+    // Backed by a [ConcurrentHashMap] because this map is accessed concurrently from
+    // multiple threads (OkHttp socket dispatcher, the public API surface, and call
+    // state callbacks). A plain [LinkedHashMap] is not thread-safe and can throw
+    // [ConcurrentModificationException] when iterated while being mutated, or
+    // silently lose/corrupt entries under write contention. [ConcurrentHashMap]
+    // provides lock-free, weakly-consistent iterators and atomic put/remove/get,
+    // which is sufficient for the access patterns used in this class (single-key
+    // reads, single-key writes, and snapshot reads via [getActiveCalls]). The
+    // declared type remains [MutableMap] to preserve the existing public API.
+    internal val calls: MutableMap<UUID, Call> = ConcurrentHashMap()
 
     // Keeps track of pending ICE candidates that arrive before remote description is set
     private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> =

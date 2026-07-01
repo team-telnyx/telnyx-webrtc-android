@@ -44,6 +44,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class TelnyxClientTest : BaseTest() {
@@ -754,6 +755,67 @@ class TelnyxClientTest : BaseTest() {
     fun `Test getting active calls returns empty mutable map`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         assertEquals(client.getActiveCalls(), mutableMapOf())
+    }
+
+    @Test
+    fun `Test calls map is thread-safe under concurrent put remove and iteration`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+
+        // Reset the calls map so this test is independent of other test ordering.
+        val underlyingCalls = client.calls
+        underlyingCalls.clear()
+
+        val writerCount = 4
+        val iterations = 200
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(writerCount + 1)
+        val latch = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(writerCount + 1)
+        val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+
+        // Writer threads: add/remove entries concurrently.
+        for (w in 0 until writerCount) {
+            executor.submit {
+                try {
+                    latch.await()
+                    repeat(iterations) { i ->
+                        val id = UUID.randomUUID()
+                        val fakeCall = Mockito.mock(Call::class.java)
+                        underlyingCalls[id] = fakeCall
+                        underlyingCalls.remove(id)
+                    }
+                } catch (t: Throwable) {
+                    errors.add(t)
+                } finally {
+                    done.countDown()
+                }
+            }
+        }
+
+        // Reader thread: iterate the map and snapshot via getActiveCalls() repeatedly.
+        executor.submit {
+            try {
+                latch.await()
+                repeat(iterations) {
+                    // Snapshot via toMap() — must not throw ConcurrentModificationException
+                    // and must reflect a consistent view of the entries present at the time.
+                    val snapshot = client.getActiveCalls()
+                    // Touch each entry to make sure iteration did not throw.
+                    snapshot.forEach { _, _ -> }
+                    assertTrue(snapshot.size <= writerCount * iterations)
+                }
+            } catch (t: Throwable) {
+                errors.add(t)
+            } finally {
+                done.countDown()
+            }
+        }
+
+        latch.countDown()
+        assertTrue(done.await(30, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
+        executor.shutdown()
+        executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
+
+        assertTrue(errors.isEmpty(), "Concurrent operations threw: $errors")
     }
 
     // Extension function for getOrAwaitValue for unit tests
