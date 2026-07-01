@@ -900,7 +900,7 @@ class TelnyxClient(
             // User has been logged in
             resetGatewayCounters()
             if (reconnecting && credentialSessionConfig != null || tokenSessionConfig != null) {
-                runBlocking { reconnectToSocket() }
+                clientScope.launch { reconnectToSocket() }
             }
         }
 
@@ -930,7 +930,7 @@ class TelnyxClient(
                     startReconnectionTimer()
                 } else {
                     //Network is switched here. Either from Wifi to LTE or vice-versa
-                    runBlocking { reconnectToSocket() }
+                    clientScope.launch { reconnectToSocket() }
                 }
             }, RECONNECT_DELAY)
         }
@@ -2248,7 +2248,7 @@ class TelnyxClient(
                             this@TelnyxClient.javaClass.simpleName
                         )
                     )
-                    runBlocking { reconnectToSocket() }
+                    clientScope.launch { reconnectToSocket() }
                 } else {
                     invalidateGatewayResponseTimer()
                     emitSocketResponse(
@@ -3456,6 +3456,9 @@ class TelnyxClient(
      */
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
+        // Cancel any pending clientScope-launched reconnects before tearing down so we don't
+        // race a background reconnectToSocket() against the disconnect cleanup.
+        clientScope.coroutineContext.cancelChildren()
         onDisconnect()
     }
 
