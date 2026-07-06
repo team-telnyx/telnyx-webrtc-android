@@ -58,6 +58,21 @@ class TelnyxClientCoroutineScopeTest {
         client.disconnect()
     }
 
+    @Test
+    fun `explicit disconnect clears reconnect state with active calls`() {
+        val context = Mockito.mock(Context::class.java)
+        val client = TelnyxClient(context)
+        val callId = UUID.randomUUID()
+        val call = Mockito.mock(Call::class.java)
+
+        client.calls[callId] = call
+        setReconnecting(client, true)
+
+        client.disconnect()
+
+        assertFalse(isReconnecting(client))
+    }
+
     private fun telnyxClientSource(): File = sourceFile(
         "src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt",
         "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt"
@@ -87,5 +102,18 @@ class TelnyxClientCoroutineScopeTest {
         return TelnyxClient::class.java.getDeclaredField("acceptCallJobs").apply {
             isAccessible = true
         }.get(client) as ConcurrentHashMap<UUID, Job>
+    }
+
+    private fun setReconnecting(client: TelnyxClient, value: Boolean) {
+        TelnyxClient::class.java.getDeclaredField("reconnecting").apply {
+            isAccessible = true
+            setBoolean(client, value)
+        }
+    }
+
+    private fun isReconnecting(client: TelnyxClient): Boolean {
+        return TelnyxClient::class.java.getDeclaredField("reconnecting").apply {
+            isAccessible = true
+        }.getBoolean(client)
     }
 }

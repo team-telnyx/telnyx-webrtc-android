@@ -3533,6 +3533,8 @@ class TelnyxClient(
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
+        reconnecting = false
+        cancelReconnectionTimer()
         onDisconnect()
         // Keep clientScope reusable for later reconnects; socket.destroy() cancels socket-owned work.
         clientScope.coroutineContext.cancelChildren()
