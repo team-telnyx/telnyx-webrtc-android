@@ -140,7 +140,7 @@ class TelnyxClient(
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
 
-    // Coroutine scope tied to client lifecycle for retry operations
+    // Owns TelnyxClient-level async work; TxSocket owns its socket connection scope.
     private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Reconnection timeout timer
@@ -1000,8 +1000,7 @@ class TelnyxClient(
                 listener = this@TelnyxClient,
                 providedHostAddress = providedHostAddress,
                 providedPort = providedPort,
-                pushmetaData = pushMetaData,
-                parentScope = this
+                pushmetaData = pushMetaData
             ) {
                 //We can safely assume that the socket is connected at this point
                 // Login with stored configuration
@@ -1130,8 +1129,7 @@ class TelnyxClient(
                     listener = this@TelnyxClient,
                     providedHostAddress = providedHostAddress,
                     providedPort = providedPort,
-                    pushmetaData = pushMetaData,
-                    parentScope = this
+                    pushmetaData = pushMetaData
                 ) {
                 }
             }
@@ -1216,8 +1214,7 @@ class TelnyxClient(
                     listener = this@TelnyxClient,
                     providedHostAddress = providedHostAddress,
                     providedPort = providedPort,
-                    pushmetaData = pushMetaData,
-                    parentScope = this
+                    pushmetaData = pushMetaData
                 ) {
                     if (autoLogin) {
                         credentialLogin(credentialConfig)
@@ -1303,8 +1300,7 @@ class TelnyxClient(
                     listener = this@TelnyxClient,
                     providedHostAddress = providedHostAddress,
                     providedPort = providedPort,
-                    pushmetaData = pushMetaData,
-                    parentScope = this
+                    pushmetaData = pushMetaData
                 ) {
                     if (autoLogin) {
                         tokenLogin(tokenConfig)
@@ -1365,8 +1361,7 @@ class TelnyxClient(
                     listener = this@TelnyxClient,
                     providedHostAddress = providedHostAddress,
                     providedPort = providedPort,
-                    pushmetaData = null,
-                    parentScope = this
+                    pushmetaData = null
                 ) {
                     // Perform anonymous login after socket is connected
                     anonymousLogin(
@@ -1437,8 +1432,7 @@ class TelnyxClient(
                     listener = this@TelnyxClient,
                     providedHostAddress = providedHostAddress,
                     providedPort = providedPort,
-                    pushmetaData = pushMetaData,
-                    parentScope = this
+                    pushmetaData = pushMetaData
                 ) {
                     when (config) {
                         is CredentialConfig -> {
@@ -3540,6 +3534,7 @@ class TelnyxClient(
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
         onDisconnect()
+        // Keep clientScope reusable for later reconnects; socket.destroy() cancels socket-owned work.
         clientScope.coroutineContext.cancelChildren()
     }
 

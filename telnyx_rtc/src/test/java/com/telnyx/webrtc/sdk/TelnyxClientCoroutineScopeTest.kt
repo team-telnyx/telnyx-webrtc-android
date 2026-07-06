@@ -30,10 +30,17 @@ class TelnyxClientCoroutineScopeTest {
         assertTrue(source.contains("private fun launchSocketConnect"))
         assertTrue(source.contains("private fun launchAcceptCallJob"))
 
-        val callerOwnedSocketConnects = Regex("""parentScope\s*=\s*this""")
-            .findAll(source)
-            .count()
-        assertEquals(6, callerOwnedSocketConnects)
+        assertFalse(
+            Regex("""parentScope\s*=""").containsMatchIn(source),
+            "TelnyxClient should not pass clientScope into TxSocket.connect()."
+        )
+
+        val socketSource = txSocketSource().readText()
+        assertFalse(
+            socketSource.contains("parentScope"),
+            "TxSocket should own its connect coroutine scope."
+        )
+        assertTrue(socketSource.contains("): Job = launch(Dispatchers.IO)"))
     }
 
     @Test
@@ -51,12 +58,17 @@ class TelnyxClientCoroutineScopeTest {
         client.disconnect()
     }
 
-    private fun telnyxClientSource(): File {
-        val sourcePaths = listOf(
-            "src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt",
-            "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt"
-        )
+    private fun telnyxClientSource(): File = sourceFile(
+        "src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt",
+        "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt"
+    )
 
+    private fun txSocketSource(): File = sourceFile(
+        "src/main/java/com/telnyx/webrtc/sdk/socket/TxSocket.kt",
+        "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/socket/TxSocket.kt"
+    )
+
+    private fun sourceFile(vararg sourcePaths: String): File {
         val userDirectory = System.getProperty("user.dir") ?: error("user.dir is not set")
         var directory: File? = File(userDirectory).absoluteFile
         while (directory != null) {
@@ -67,7 +79,7 @@ class TelnyxClientCoroutineScopeTest {
             directory = directory.parentFile
         }
 
-        error("Unable to locate TelnyxClient.kt from $userDirectory")
+        error("Unable to locate source file from $userDirectory")
     }
 
     @Suppress("UNCHECKED_CAST")
