@@ -1,0 +1,119 @@
+package com.telnyx.webrtc.sdk
+
+import android.content.Context
+import kotlinx.coroutines.Job
+import org.mockito.Mockito
+import org.junit.Test
+import java.io.File
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class TelnyxClientCoroutineScopeTest {
+
+    @Test
+    fun `io coroutine work is owned by client lifecycle scope`() {
+        val source = telnyxClientSource().readText()
+
+        val standaloneIoScope = Regex("""CoroutineScope\s*\(\s*Dispatchers\.IO\s*\)\s*\.launch""")
+        assertFalse(
+            standaloneIoScope.containsMatchIn(source),
+            "TelnyxClient should use clientScope.launch(Dispatchers.IO) for IO work."
+        )
+
+        val directClientIoLaunches = Regex("""clientScope\s*\.\s*launch\s*\(\s*Dispatchers\.IO\s*\)""")
+            .findAll(source)
+            .count()
+        assertEquals(0, directClientIoLaunches)
+        assertTrue(source.contains("private fun launchSocketConnect"))
+        assertTrue(source.contains("private fun launchAcceptCallJob"))
+
+        assertFalse(
+            Regex("""parentScope\s*=""").containsMatchIn(source),
+            "TelnyxClient should not pass clientScope into TxSocket.connect()."
+        )
+
+        val socketSource = txSocketSource().readText()
+        assertFalse(
+            socketSource.contains("parentScope"),
+            "TxSocket should own its connect coroutine scope."
+        )
+        assertTrue(socketSource.contains("): Job = launch(Dispatchers.IO)"))
+    }
+
+    @Test
+    fun `removing call cancels pending accept job`() {
+        val client = TelnyxClient(Mockito.mock(Context::class.java))
+        val callId = UUID.randomUUID()
+        val acceptJob = Job()
+
+        acceptCallJobs(client)[callId] = acceptJob
+
+        client.removeFromCalls(callId)
+
+        assertTrue(acceptJob.isCancelled)
+        assertFalse(acceptCallJobs(client).containsKey(callId))
+        client.disconnect()
+    }
+
+    @Test
+    fun `explicit disconnect clears reconnect state with active calls`() {
+        val context = Mockito.mock(Context::class.java)
+        val client = TelnyxClient(context)
+        val callId = UUID.randomUUID()
+        val call = Mockito.mock(Call::class.java)
+
+        client.calls[callId] = call
+        setReconnecting(client, true)
+
+        client.disconnect()
+
+        assertFalse(isReconnecting(client))
+    }
+
+    private fun telnyxClientSource(): File = sourceFile(
+        "src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt",
+        "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/TelnyxClient.kt"
+    )
+
+    private fun txSocketSource(): File = sourceFile(
+        "src/main/java/com/telnyx/webrtc/sdk/socket/TxSocket.kt",
+        "telnyx_rtc/src/main/java/com/telnyx/webrtc/sdk/socket/TxSocket.kt"
+    )
+
+    private fun sourceFile(vararg sourcePaths: String): File {
+        val userDirectory = System.getProperty("user.dir") ?: error("user.dir is not set")
+        var directory: File? = File(userDirectory).absoluteFile
+        while (directory != null) {
+            sourcePaths
+                .map { path -> File(directory, path) }
+                .firstOrNull { it.isFile }
+                ?.let { return it }
+            directory = directory.parentFile
+        }
+
+        error("Unable to locate source file from $userDirectory")
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun acceptCallJobs(client: TelnyxClient): ConcurrentHashMap<UUID, Job> {
+        return TelnyxClient::class.java.getDeclaredField("acceptCallJobs").apply {
+            isAccessible = true
+        }.get(client) as ConcurrentHashMap<UUID, Job>
+    }
+
+    private fun setReconnecting(client: TelnyxClient, value: Boolean) {
+        TelnyxClient::class.java.getDeclaredField("reconnecting").apply {
+            isAccessible = true
+            setBoolean(client, value)
+        }
+    }
+
+    private fun isReconnecting(client: TelnyxClient): Boolean {
+        return TelnyxClient::class.java.getDeclaredField("reconnecting").apply {
+            isAccessible = true
+        }.getBoolean(client)
+    }
+}

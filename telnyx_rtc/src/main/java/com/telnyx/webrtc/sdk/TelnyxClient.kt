@@ -140,11 +140,13 @@ class TelnyxClient(
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
 
-    // Coroutine scope tied to client lifecycle for retry operations
+    // Owns TelnyxClient-level async work; TxSocket owns its socket connection scope.
     private val clientScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Reconnection timeout timer
     private var reconnectTimeOutJob: Job? = null
+    private var socketConnectJob: Job? = null
+    private val acceptCallJobs = ConcurrentHashMap<UUID, Job>()
 
     // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
@@ -516,7 +518,7 @@ class TelnyxClient(
                 }
             }
 
-            CoroutineScope(Dispatchers.IO).launch {
+            launchAcceptCallJob(callId) {
                 try {
                     if (useTrickleIce) {
                         // For trickle ICE, send ANSWER immediately without waiting for candidates
@@ -617,6 +619,12 @@ class TelnyxClient(
                             }
                         }
                     }
+                } catch (e: CancellationException) {
+                    Logger.d(
+                        tag = "AcceptCall",
+                        message = "Async accept process cancelled for call $callId",
+                        throwable = e
+                    )
                 } catch (e: Exception) {
                     Logger.e(
                         tag = "AcceptCall",
@@ -869,6 +877,7 @@ class TelnyxClient(
      * @param callId, the UUID used to identify a specific
      */
     internal fun removeFromCalls(callId: UUID) {
+        cancelAcceptCallJob(callId)
         calls.remove(callId)
         
         // Clean up latency tracking for this call
@@ -965,11 +974,12 @@ class TelnyxClient(
             socket.host_address,
             socket.port
         )
+        cancelSocketConnectJob()
         // Cancel old socket coroutines
         socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
         // Destroy old socket
         socket.destroy()
-        launch {
+        launchSocketConnect {
             // Socket is now the reconnectionSocket
             socket = socketReconnection!!
 
@@ -990,8 +1000,12 @@ class TelnyxClient(
             }
 
             // Connect to new socket
-            socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
-
+            socket.connect(
+                listener = this@TelnyxClient,
+                providedHostAddress = providedHostAddress,
+                providedPort = providedPort,
+                pushmetaData = pushMetaData
+            ) {
                 //We can safely assume that the socket is connected at this point
                 // Login with stored configuration
                 credentialSessionConfig?.let {
@@ -1001,7 +1015,6 @@ class TelnyxClient(
                 // Change an ongoing call's socket to the new socket.
                 call?.let { call?.socket = socket }
             }
-
         }
     }
 
@@ -1115,8 +1128,14 @@ class TelnyxClient(
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-
+            launchSocketConnect {
+                socket.connect(
+                    listener = this@TelnyxClient,
+                    providedHostAddress = providedHostAddress,
+                    providedPort = providedPort,
+                    pushmetaData = pushMetaData
+                ) {
+                }
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
@@ -1175,7 +1194,7 @@ class TelnyxClient(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
-            CoroutineScope(Dispatchers.IO).launch {
+            launchSocketConnect {
                 if (credentialConfig.fallbackOnRegionFailure) {
                     providedHostAddress = ConnectivityHelper.resolveReachableHost(
                         providedHostAddress!!,
@@ -1195,7 +1214,12 @@ class TelnyxClient(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                socket.connect(
+                    listener = this@TelnyxClient,
+                    providedHostAddress = providedHostAddress,
+                    providedPort = providedPort,
+                    pushmetaData = pushMetaData
+                ) {
                     if (autoLogin) {
                         credentialLogin(credentialConfig)
                     }
@@ -1256,7 +1280,7 @@ class TelnyxClient(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
-            CoroutineScope(Dispatchers.IO).launch {
+            launchSocketConnect {
                 if (tokenConfig.fallbackOnRegionFailure) {
                     providedHostAddress = ConnectivityHelper.resolveReachableHost(
                         providedHostAddress!!,
@@ -1276,7 +1300,12 @@ class TelnyxClient(
                         voiceSdkId = voiceSDKID
                     )
                 }
-                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, pushMetaData) {
+                socket.connect(
+                    listener = this@TelnyxClient,
+                    providedHostAddress = providedHostAddress,
+                    providedPort = providedPort,
+                    pushmetaData = pushMetaData
+                ) {
                     if (autoLogin) {
                         tokenLogin(tokenConfig)
                     }
@@ -1331,8 +1360,13 @@ class TelnyxClient(
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
-            CoroutineScope(Dispatchers.IO).launch {
-                socket.connect(this@TelnyxClient, providedHostAddress, providedPort, null) {
+            launchSocketConnect {
+                socket.connect(
+                    listener = this@TelnyxClient,
+                    providedHostAddress = providedHostAddress,
+                    providedPort = providedPort,
+                    pushmetaData = null
+                ) {
                     // Perform anonymous login after socket is connected
                     anonymousLogin(
                         targetId = targetId,
@@ -1397,16 +1431,23 @@ class TelnyxClient(
                     voiceSdkId = voiceSDKID
                 )
             }
-            socket.connect(this, providedHostAddress, providedPort, pushMetaData) {
-                when (config) {
-                    is CredentialConfig -> {
-                        setSDKLogLevel(config.logLevel, config.customLogger)
-                        credentialLoginWithDeclinePush(config)
-                    }
+            launchSocketConnect {
+                socket.connect(
+                    listener = this@TelnyxClient,
+                    providedHostAddress = providedHostAddress,
+                    providedPort = providedPort,
+                    pushmetaData = pushMetaData
+                ) {
+                    when (config) {
+                        is CredentialConfig -> {
+                            setSDKLogLevel(config.logLevel, config.customLogger)
+                            credentialLoginWithDeclinePush(config)
+                        }
 
-                    is TokenConfig -> {
-                        setSDKLogLevel(config.logLevel, config.customLogger)
-                        tokenLoginWithDeclinePush(config)
+                        is TokenConfig -> {
+                            setSDKLogLevel(config.logLevel, config.customLogger)
+                            tokenLoginWithDeclinePush(config)
+                        }
                     }
                 }
             }
@@ -2309,6 +2350,42 @@ class TelnyxClient(
         connectRetryCounter = 0
     }
 
+    private fun launchSocketConnect(block: suspend CoroutineScope.() -> Unit) {
+        cancelSocketConnectJob()
+        val job = clientScope.launch(Dispatchers.IO, block = block)
+        socketConnectJob = job
+        job.invokeOnCompletion {
+            if (socketConnectJob == job) {
+                socketConnectJob = null
+            }
+        }
+    }
+
+    private fun cancelSocketConnectJob() {
+        socketConnectJob?.cancel()
+        socketConnectJob = null
+    }
+
+    private fun launchAcceptCallJob(callId: UUID, block: suspend CoroutineScope.() -> Unit) {
+        cancelAcceptCallJob(callId)
+        val job = clientScope.launch(Dispatchers.IO, block = block)
+        acceptCallJobs[callId] = job
+        job.invokeOnCompletion {
+            acceptCallJobs.remove(callId, job)
+        }
+    }
+
+    private fun cancelAcceptCallJob(callId: UUID) {
+        acceptCallJobs.remove(callId)?.cancel()
+    }
+
+    private fun cancelAcceptCallJobs() {
+        acceptCallJobs.values.forEach { job ->
+            job.cancel()
+        }
+        acceptCallJobs.clear()
+    }
+
     /**
      * Starts the reconnection timer to track reconnection attempts.
      * If reconnection takes longer than RECONNECT_TIMEOUT, it will trigger an error.
@@ -3137,6 +3214,8 @@ class TelnyxClient(
         // Clear connection metrics on disconnect
         currentSocketConnectionMetrics = null
         
+        cancelSocketConnectJob()
+        cancelAcceptCallJobs()
         socket.destroy()
     }
 
@@ -3456,7 +3535,13 @@ class TelnyxClient(
      */
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
+        cancelSocketConnectJob()
+        cancelAcceptCallJobs()
+        reconnecting = false
+        cancelReconnectionTimer()
         onDisconnect()
+        // Keep clientScope reusable for later reconnects; socket.destroy() cancels socket-owned work.
+        clientScope.coroutineContext.cancelChildren()
     }
 
     private fun addWebRTCReporter(callId: UUID, webRTCReporter: WebRTCReporter) {

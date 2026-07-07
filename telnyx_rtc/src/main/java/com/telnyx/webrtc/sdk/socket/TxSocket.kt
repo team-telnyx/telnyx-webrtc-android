@@ -73,7 +73,7 @@ class TxSocket(
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
         onConnected:(Boolean) -> Unit = {}
-    ) = launch {
+    ): Job = launch(Dispatchers.IO) {
 
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {

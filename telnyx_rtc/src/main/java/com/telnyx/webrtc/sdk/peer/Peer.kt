@@ -44,6 +44,7 @@ import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.RtpCapabilities
 import com.telnyx.webrtc.sdk.model.AudioCodec
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -984,6 +985,7 @@ internal class Peer(
      */
     fun disconnect() {
         try {
+            cancelFirstCandidateAwaiter()
             // Mark as disposed BEFORE closing/disposing to prevent the stats timer
             // from calling getStats() on a freed native PeerConnection (SIGSEGV).
             // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
@@ -1464,6 +1466,7 @@ internal class Peer(
      */
     fun release() {
         Logger.d(message = "Releasing Peer resources...")
+        cancelFirstCandidateAwaiter()
         stopNegotiationTimer()
         stopEndOfCandidatesTimer()
         // Clear queued candidates and reset flags
@@ -1472,6 +1475,14 @@ internal class Peer(
         endOfCandidatesSent = false
         if (peerConnection != null) {
             disconnect()
+        }
+    }
+
+    private fun cancelFirstCandidateAwaiter() {
+        if (!firstCandidateDeferred.isCompleted) {
+            firstCandidateDeferred.cancel(
+                CancellationException("Peer disposed before first ICE candidate")
+            )
         }
     }
 
