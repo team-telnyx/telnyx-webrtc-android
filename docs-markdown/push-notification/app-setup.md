@@ -153,7 +153,11 @@ telnyxClient = TelnyxClient(context)
 val credentialConfig = CredentialConfig(
     sipUser = username,
     sipPassword = password,
-    fcmToken = fcmToken
+    sipCallerIDName = null,
+    sipCallerIDNumber = null,
+    fcmToken = fcmToken,
+    ringtone = null,
+    ringBackTone = null
 )
 
 telnyxClient.connect(

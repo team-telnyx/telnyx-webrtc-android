@@ -56,6 +56,7 @@ import kotlin.concurrent.timerTask
  *
  * @param context the Context that the application is using
  */
+@Suppress("LargeClass")
 class TelnyxClient private constructor(
     var context: Context,
     startsInDeclinePushMode: Boolean,
@@ -1025,11 +1026,13 @@ class TelnyxClient private constructor(
      * @see [TxSocket]
      * @see [TelnyxConfig]
      */
+    @Suppress("ComplexMethod")
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
         val credentialConfig = credentialSessionConfig
         val tokenConfig = tokenSessionConfig
+        val hasReconnectConfig = credentialConfig != null || tokenConfig != null
 
-        if (isDeclinePushConnection || !reconnecting || (credentialConfig == null && tokenConfig == null)) {
+        if (isDeclinePushConnection || !reconnecting || !hasReconnectConfig) {
             return@withContext
         }
 
@@ -1271,7 +1274,7 @@ class TelnyxClient private constructor(
             Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
                 connectSocket.connectWithConnectionGuard(
-                    this,
+                    this@TelnyxClient,
                     providedHostAddress,
                     providedPort,
                     pushMetaData,
@@ -1642,7 +1645,7 @@ class TelnyxClient private constructor(
                 }
                 launchSocketConnect {
                     connectSocket.connectWithConnectionGuard(
-                        this,
+                        this@TelnyxClient,
                         providedHostAddress,
                         providedPort,
                         pushMetaData,
