@@ -14,6 +14,8 @@ import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
 import com.telnyx.webrtc.sdk.stats.ICECandidate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +58,7 @@ class TelnyxCommon private constructor() {
      */
     private val _connectionMetrics = MutableStateFlow<SocketConnectionMetrics?>(null)
     val connectionMetrics: StateFlow<SocketConnectionMetrics?> = _connectionMetrics.asStateFlow()
+    private var connectionMetricsScope: CoroutineScope? = null
 
     private val holdStatusObservers: MutableMap<Call, Observer<Boolean>> = mutableMapOf()
 
@@ -187,20 +190,23 @@ class TelnyxCommon private constructor() {
      */
     internal fun getTelnyxClient(context: Context): TelnyxClient {
         return _telnyxClient ?: synchronized(this) {
-            _telnyxClient ?: TelnyxClient(context.applicationContext).also { 
+            _telnyxClient ?: TelnyxClient(context.applicationContext).also {
                 _telnyxClient = it
                 observeConnectionMetrics(it)
             }
         }
     }
-    
+
     /**
      * Observes connection metrics from the TelnyxClient and updates the state flow.
      *
      * @param client The TelnyxClient instance to observe
      */
     private fun observeConnectionMetrics(client: TelnyxClient) {
-        CoroutineScope(Dispatchers.Main).launch {
+        cancelConnectionMetricsObserver()
+        val metricsScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        connectionMetricsScope = metricsScope
+        metricsScope.launch {
             client.socketConnectionMetricsFlow.collect { metrics ->
                 _connectionMetrics.value = metrics
                 Timber.d("Connection Quality: ${metrics.quality}, Interval: ${metrics.averageIntervalMs}ms, Jitter: ${metrics.jitterMs}ms")
@@ -208,11 +214,18 @@ class TelnyxCommon private constructor() {
         }
     }
 
+    private fun cancelConnectionMetricsObserver() {
+        connectionMetricsScope?.cancel()
+        connectionMetricsScope = null
+    }
+
     /**
      * Resets the singleton `TelnyxClient` instance to null.
      * This forces the client to be re-initialized on the next call to `getTelnyxClient`.
      */
     internal fun resetTelnyxClient() {
+        cancelConnectionMetricsObserver()
+        _connectionMetrics.value = null
         _telnyxClient = null
     }
 
