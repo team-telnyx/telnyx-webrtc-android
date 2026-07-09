@@ -47,8 +47,11 @@ subprojects {
         version.set("1.3.1")
         android.set(true)
         outputToConsole.set(true)
-        // Don't fail the build on existing code — tooling-only for now
+        // Transitional: keep ignoreFailures until ktlint-baseline.xml is generated.
+        // To migrate: run ./gradlew ktlintBaseline, then uncomment the baseline line below
+        // and remove ignoreFailures.
         ignoreFailures.set(true)
+        // baseline.set(file("ktlint-baseline.xml"))
     }
 }
 
