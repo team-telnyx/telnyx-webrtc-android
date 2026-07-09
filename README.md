@@ -8,6 +8,7 @@ Enable Telnyx real-time communication services on Android
 
 - [Project structure](#project-structure)
 - [Project Setup](#project-setup)
+- [Local Setup (local.properties)](#local-setup-localproperties)
 - [SIP Credentials](#sip-credentials)
 - [Usage](#usage)
   - [Telnyx Client](#telnyx-client)
@@ -60,6 +61,43 @@ Enable Telnyx real-time communication services on Android
                <img align="center" width="33%" height="33%" src="https://user-images.githubusercontent.com/9112652/114009688-4448ce00-985b-11eb-9e0e-226ba6fab481.gif" />
             </p>
             
+
+## Local Setup (local.properties)
+
+The sample apps read SIP credentials and test configuration from a `local.properties` file at the **root of the project**. This file is git-ignored (see `.gitignore`) and must be created manually.
+
+### What goes in `local.properties`
+
+| Property | Description |
+|---|---|
+| `TEST_SIP_USERNAME` | SIP username for the sample apps |
+| `TEST_SIP_PASSWORD` | SIP password for the sample apps |
+| `TEST_SIP_CALLER_NAME` | Caller ID name used by the sample apps |
+| `TEST_SIP_CALLER_NUMBER` | Caller ID number used by the sample apps |
+| `TEST_SIP_DEST_NUMBER` | Destination number for test calls |
+| `PRECALL_DIAGNOSIS_NUMBER` | Number used for pre-call diagnostics |
+| `MOCK_USERNAME` | Mock username (used by `connection_service_app`) |
+| `MOCK_PASSWORD` | Mock password (used by `connection_service_app`) |
+
+### Example
+
+Create `local.properties` in the project root:
+
+```properties
+# SIP test credentials for sample apps
+TEST_SIP_USERNAME=your_sip_username
+TEST_SIP_PASSWORD=your_sip_password
+TEST_SIP_CALLER_NAME=Test User
+TEST_SIP_CALLER_NUMBER=+10000000000
+TEST_SIP_DEST_NUMBER=+10000000001
+PRECALL_DIAGNOSIS_NUMBER=+10000000002
+
+# Mock credentials for connection_service_app
+MOCK_USERNAME=mock_user
+MOCK_PASSWORD=mock_pass
+```
+
+> **Note:** If `local.properties` is missing, the sample apps fall back to default placeholder values. However, the `connection_service_app` requires the file to exist and will fail the build without it.
 
 ## SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
