@@ -17,6 +17,7 @@ buildscript {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlinx:kover:0.5.1")
         classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.21.0")
+        classpath("org.jlleitschuh.gradle.ktlint:org.jlleitschuh.gradle.ktlint.gradle.plugin:12.1.2")
         classpath("org.jetbrains.dokka:dokka-gradle-plugin:1.9.20")
         classpath("com.android.tools.build:gradle:$androidGradlePluginVersion")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
@@ -35,6 +36,19 @@ allprojects {
 
     configurations.all {
         resolutionStrategy.force("org.objenesis:objenesis:3.3")
+    }
+}
+
+// ktlint configuration applied to all subprojects
+subprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        version.set("1.3.1")
+        android.set(true)
+        outputToConsole.set(true)
+        // Don't fail the build on existing code — tooling-only for now
+        ignoreFailures.set(true)
     }
 }
 

@@ -1,0 +1,39 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 120
+
+[*.{kt,kts}]
+indent_size = 4
+continuation_indent_size = 4
+max_line_length = 120
+
+# Kotlin-specific: disable some ktlint rules that are too noisy for existing codebases
+[*.{kt,kts}]
+ktlint_disabled_rules = no-wildcard-imports,import-ordering
+
+[*.{xml,gradle,gradle.kts}]
+indent_size = 2
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.{json,md}]
+indent_size = 2
+
+# Gradle files
+[*.gradle]
+indent_size = 2
+
+[*.gradle.kts]
+indent_size = 4
+
+# Android XML resources
+[*.{xml,html}]
+indent_size = 2
