@@ -16,7 +16,7 @@ Quick reference for build, test, and quality tasks in the Telnyx Android WebRTC 
 
 - JDK 17+ (Android Gradle Plugin 8.6.1)
 - Android SDK with `compileSdk 35`
-- Copy `local.properties.example` → `local.properties` and fill in SIP test credentials (sample apps need them at build time)
+- Create a `local.properties` file at the project root and fill in SIP test credentials (sample apps need them at build time)
 
 ## Root-Level Tasks
 
@@ -126,7 +126,14 @@ Output AARs land in `telnyx_rtc/build/outputs/aar/` and `telnyx_common/build/out
 # Generate KDoc / Javadoc via Dokka (telnyx_rtc module)
 ./gradlew :telnyx_rtc:dokkaHtml
 
-# Output: telnyx_rtc/build/dokka/html/
+# Output: <project-root>/docs/
+```
+
+### ktlint (code style — all modules)
+
+```bash
+# Run ktlint on all modules
+./gradlew ktlintCheck
 ```
 
 ## Publishing
@@ -142,8 +149,9 @@ Output AARs land in `telnyx_rtc/build/outputs/aar/` and `telnyx_common/build/out
 ## Coverage
 
 ```bash
-# Generate Kover coverage report (root project)
-./gradlew koverReport
+# Generate Kover coverage reports (root project)
+./gradlew koverHtmlReport   # HTML report
+./gradlew koverXmlReport     # XML report
 ```
 
 ## Common Combinations
