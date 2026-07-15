@@ -22,12 +22,15 @@
 package com.telnyx.webrtc.sdk
 
 import android.content.Context
+import android.media.AudioManager
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import io.mockk.MockKAnnotations
+import io.mockk.every
 import io.mockk.impl.annotations.MockK
+import io.mockk.mockk
 import org.junit.Before
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.Test
@@ -45,6 +48,7 @@ class TelnyxClientAnsweredDeviceTokenTest : BaseTest() {
     @Before
     fun setUp() {
         MockKAnnotations.init(this, true, true, true)
+        every { mockContext.getSystemService(Context.AUDIO_SERVICE) } returns mockk<AudioManager>(relaxed = true)
         // The helper only reads the credential/token session configs; it does not touch
         // the socket or the peer-connection machinery. Construct a bare client and
         // skip the connectivity callback setup that other TelnyxClient tests need.

@@ -68,16 +68,8 @@ class LegacyCallNotificationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val stopAction = intent?.action
         if (stopAction != null && stopAction == STOP_ACTION) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                ringtone?.stop()
-            } else {
-                stopForeground(true)
-            }
-
-            // Also cancel any CallNotificationService notifications
-            callNotificationService?.cancelNotification()
-
+            cleanupCallNotification()
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -128,6 +120,24 @@ class LegacyCallNotificationService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
+    }
+
+    override fun onDestroy() {
+        cleanupCallNotification()
+        super.onDestroy()
+    }
+
+    private fun cleanupCallNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            stopForeground(true)
+        }
+
+        ringtone?.stop()
+        ringtone = null
+        callNotificationService?.cancelNotification()
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFICATION_ID)
     }
 
     private fun createNotificationChannel() {
