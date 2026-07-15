@@ -1615,6 +1615,9 @@ class TelnyxClient(
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
         notificationJsonObject.addProperty("push_notification_provider", "android")
+        if (config.pushWhenActive) {
+            notificationJsonObject.addProperty("push_when_active", true)
+        }
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -1733,6 +1736,9 @@ class TelnyxClient(
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
         notificationJsonObject.addProperty("push_notification_provider", "android")
+        if (config.pushWhenActive) {
+            notificationJsonObject.addProperty("push_when_active", true)
+        }
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -1909,6 +1915,9 @@ class TelnyxClient(
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
         notificationJsonObject.addProperty("push_notification_provider", "android")
+        if (config.pushWhenActive) {
+            notificationJsonObject.addProperty("push_when_active", true)
+        }
 
         val loginMessage = SendingMessageBody(
             id = uuid,
@@ -1955,6 +1964,9 @@ class TelnyxClient(
         val notificationJsonObject = JsonObject()
         notificationJsonObject.addProperty("push_device_token", firebaseToken)
         notificationJsonObject.addProperty("push_notification_provider", "android")
+        if (config.pushWhenActive) {
+            notificationJsonObject.addProperty("push_when_active", true)
+        }
 
         val loginMessage = SendingMessageBody(
             id = uuid,

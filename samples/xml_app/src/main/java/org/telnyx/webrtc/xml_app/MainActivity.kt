@@ -613,7 +613,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         }
 
         bottomSheetView.findViewById<View>(R.id.devEnvironmentButton).setOnClickListener {
-            telnyxViewModel.changeServerConfigEnvironment(true)
+            telnyxViewModel.changeServerConfigEnvironment(this, true)
             Toast.makeText(
                 this,
                 R.string.switched_to_development,
@@ -624,7 +624,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         }
 
         bottomSheetView.findViewById<View>(R.id.prodEnvironmentButton).setOnClickListener {
-            telnyxViewModel.changeServerConfigEnvironment(false)
+            telnyxViewModel.changeServerConfigEnvironment(this, false)
             Toast.makeText(
                 this,
                 R.string.switched_to_production,

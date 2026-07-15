@@ -115,13 +115,13 @@ class BackgroundCallDeclineService : Service() {
                     // Connect with decline_push parameter
                     if (!lastProfile.sipToken.isNullOrEmpty()) {
                         telnyxClient.connectWithDeclinePush(
-                            TxServerConfiguration(),
+                            serverConfigurationFor(lastProfile.isDev),
                             lastProfile.toTokenConfig(fcmToken),
                             txPushMetaData
                         )
                     } else {
                         telnyxClient.connectWithDeclinePush(
-                            TxServerConfiguration(),
+                            serverConfigurationFor(lastProfile.isDev),
                             lastProfile.toCredentialConfig(fcmToken),
                             txPushMetaData
                         )
@@ -182,6 +182,14 @@ class BackgroundCallDeclineService : Service() {
             } finally {
                 stopSelf()
             }
+        }
+    }
+
+    private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        return if (isDev) {
+            TxServerConfiguration.development()
+        } else {
+            TxServerConfiguration.production()
         }
     }
 

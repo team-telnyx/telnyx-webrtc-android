@@ -354,10 +354,21 @@ class TelnyxViewModel : ViewModel() {
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
         serverConfigurationIsDev = isDev
-        serverConfiguration = if (isDev) {
-            TxServerConfiguration.development()
-        } else {
-            TxServerConfiguration.production()
+        serverConfiguration = serverConfigurationFor(isDev)
+    }
+
+    /**
+     * Changes and persists the server configuration environment for the current profile.
+     *
+     * @param context The application context.
+     * @param isDev If true, uses the development environment; otherwise, uses production.
+     */
+    fun changeServerConfigEnvironment(context: Context, isDev: Boolean) {
+        changeServerConfigEnvironment(isDev)
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.applySelectedEnvironment()
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
         }
     }
 
@@ -368,8 +379,9 @@ class TelnyxViewModel : ViewModel() {
      * @param profile The user profile to set as current.
      */
     fun setCurrentConfig(context: Context, profile: Profile) {
-        _currentProfile.value = profile
-        ProfileManager.saveProfile(context, profile)
+        val updatedProfile = profile.applySelectedEnvironment()
+        _currentProfile.value = updatedProfile
+        ProfileManager.saveProfile(context, updatedProfile)
         loadCallHistoryForCurrentProfile()
     }
 
@@ -471,7 +483,7 @@ class TelnyxViewModel : ViewModel() {
      * @param profile The user profile to add.
      */
     fun addProfile(context: Context, profile: Profile) {
-        ProfileManager.saveProfile(context, profile)
+        ProfileManager.saveProfile(context, profile.applySelectedEnvironment())
         refreshProfileList(context)
     }
 
@@ -604,7 +616,21 @@ class TelnyxViewModel : ViewModel() {
         }
         ProfileManager.getLoggedProfile(context)?.let { profile ->
             _currentProfile.value = profile
+            changeServerConfigEnvironment(profile.isDev)
             loadCallHistoryForCurrentProfile()
+        }
+    }
+
+    private fun Profile.applySelectedEnvironment(): Profile {
+        isDev = serverConfigurationIsDev
+        return this
+    }
+
+    private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        return if (isDev) {
+            TxServerConfiguration.development()
+        } else {
+            TxServerConfiguration.production()
         }
     }
 

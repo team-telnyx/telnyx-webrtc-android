@@ -50,6 +50,7 @@ class AuthenticateBySIPCredentials(private val context: Context) {
                 callerIdName = credentialConfig.sipCallerIDName,
                 callerIdNumber = credentialConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
+                isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = credentialConfig.fcmToken,
                 region = credentialConfig.region,
                 forceRelayCandidate = credentialConfig.forceRelayCandidate
@@ -86,6 +87,7 @@ class AuthenticateBySIPCredentials(private val context: Context) {
                 callerIdName = credentialConfig.sipCallerIDName,
                 callerIdNumber = credentialConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
+                isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = credentialConfig.fcmToken,
                 region = credentialConfig.region,
                 forceRelayCandidate = credentialConfig.forceRelayCandidate

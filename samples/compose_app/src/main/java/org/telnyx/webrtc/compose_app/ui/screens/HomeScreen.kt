@@ -901,7 +901,7 @@ fun HomeScreen(
                                 textSize = 14.sp,
                                 backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
-                                telnyxViewModel.changeServerConfigEnvironment(isDev = true)
+                                telnyxViewModel.changeServerConfigEnvironment(context, isDev = true)
                                 Toast.makeText(
                                     context,
                                     R.string.switched_to_development,
@@ -916,7 +916,7 @@ fun HomeScreen(
                                 textSize = 14.sp,
                                 backgroundColor = MaterialTheme.colorScheme.secondary
                             ) {
-                                telnyxViewModel.changeServerConfigEnvironment(isDev = false)
+                                telnyxViewModel.changeServerConfigEnvironment(context, isDev = false)
                                 Toast.makeText(
                                     context,
                                     R.string.switched_to_production,
