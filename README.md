@@ -371,6 +371,34 @@ telnyxClient.connect(
 )
 ```
 
+#### Automatic `answered_device_token` for push-when-active flows
+
+For push-when-active multi-device flows, the backend needs to know which device
+answered so it can exclude that device and send the correct
+"answered elsewhere" / "picked off" result to the remaining devices. When you
+configure the SDK with a non-blank `fcmToken` (as shown above), the Android SDK
+will automatically include the same `fcmToken` value as the
+`answered_device_token` field of the `telnyx_rtc.answer` verto payload — you do
+not need to plumb the token through `acceptCall(...)` yourself.
+
+Behavior:
+
+- **Push-when-active disabled** (no `fcmToken` configured, or the configured
+  token is blank): the `answered_device_token` field is omitted from
+  `telnyx_rtc.answer`. This preserves the previous wire shape for apps that
+  don't use push notifications.
+- **Push-when-active enabled** with a non-blank configured `fcmToken`: the SDK
+  populates `answered_device_token` with the same value, so the backend can
+  identify the answering device without any extra work in the app.
+- **Explicit override**: if you pass a non-blank `answeredDeviceToken` argument
+  to `acceptCall(callId, destinationNumber, …)`, that explicit value always
+  takes precedence. Blank values are ignored and fall back to the configured
+  `fcmToken`.
+
+The `acceptCall(...)` `answeredDeviceToken` parameter is therefore optional for
+the common push-when-active path. You can continue to pass it explicitly if you
+manage a custom device-token source separate from the configured `fcmToken`.
+
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup)
 
 ## Custom Logging

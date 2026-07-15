@@ -382,6 +382,13 @@ class TelnyxClient(
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
+     * @param answeredDeviceToken Optional device token to identify which device answered a push call.
+     * When null (the default), the SDK reuses the FCM push token configured on the active session
+     * (via [CredentialConfig.fcmToken] / [TokenConfig.fcmToken]) so apps do not need to plumb the
+     * device token through `acceptCall` for the common push-when-active flow. An explicit non-blank
+     * value passed by the app always takes precedence. Blank or empty values are ignored. When no
+     * usable token is available (no explicit value and no configured FCM token, or only a blank
+     * value), the field is omitted from the `telnyx_rtc.answer` payload.
      * @return The [Call] instance representing the accepted call
      */
     fun acceptCall(
@@ -394,6 +401,12 @@ class TelnyxClient(
         mutedMicOnStart: Boolean = false,
         answeredDeviceToken: String? = null
     ): Call {
+        // VSDK-431: reuse the configured FCM push token for push-when-active flows so apps
+        // don't have to thread `answeredDeviceToken` through `acceptCall`. Explicit non-blank
+        // caller-provided values still win; null/blank inputs fall back to the session's
+        // configured push token, and only the resulting non-blank value is sent.
+        val resolvedAnsweredDeviceToken = resolveAnsweredDeviceToken(answeredDeviceToken)
+
         val callDebug = debug
         val socketPortalDebug = isSocketDebug
 
@@ -472,7 +485,7 @@ class TelnyxClient(
                         CallParams(
                             sessid = sessionId,
                             sdp = finalAnswerSdp,
-                            answeredDeviceToken = answeredDeviceToken,
+                            answeredDeviceToken = resolvedAnsweredDeviceToken,
                             dialogParams = CallDialogParams(
                                 callId = callId,
                                 destinationNumber = destinationNumber,
@@ -576,7 +589,7 @@ class TelnyxClient(
                                     CallParams(
                                         sessid = sessionId,
                                         sdp = finalAnswerSdp,
-                                        answeredDeviceToken = answeredDeviceToken,
+                                        answeredDeviceToken = resolvedAnsweredDeviceToken,
                                         dialogParams = CallDialogParams(
                                             callId = callId,
                                             destinationNumber = destinationNumber,
@@ -638,6 +651,29 @@ class TelnyxClient(
         this.addToCalls(acceptCall) // Keep this outside apply if needed, or it's implicitly done
         // Return the call object immediately (non-blocking)
         return acceptCall
+    }
+
+    /**
+     * Resolves the device token to include in `telnyx_rtc.answer` for push-when-active flows.
+     *
+     * Preference order (each step returns the first non-blank value):
+     *  1. An explicit non-blank `explicit` value supplied by the caller.
+     *  2. The FCM push token configured on the active session via
+     *     [CredentialConfig.fcmToken] or [TokenConfig.fcmToken].
+     *
+     * Returns `null` when neither source yields a non-blank value. Callers should only
+     * include the resulting token in the verto payload; a `null` result omits
+     * `answered_device_token` entirely (Gson drops null fields) so the answer JSON
+     * stays clean for the push-when-active-disabled case.
+     *
+     * Marked `internal` (not `private`) so unit tests in the same module can exercise
+     * the resolution rules without standing up the full `acceptCall` peer-connection
+     * machinery.
+     */
+    internal fun resolveAnsweredDeviceToken(explicit: String?): String? {
+        explicit?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        val configured = (credentialSessionConfig?.fcmToken ?: tokenSessionConfig?.fcmToken)
+        return configured?.trim()?.takeIf { it.isNotEmpty() }
     }
 
 
