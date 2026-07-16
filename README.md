@@ -371,6 +371,34 @@ telnyxClient.connect(
 )
 ```
 
+#### Automatic `answered_device_token` for push-when-active flows
+
+For push-when-active multi-device flows, the backend needs to know which device
+answered so it can exclude that device and send the correct
+"answered elsewhere" / "picked off" result to the remaining devices. When you
+configure the SDK with a non-blank `fcmToken` (as shown above), the Android SDK
+will automatically include the same `fcmToken` value as the
+`answered_device_token` field of the `telnyx_rtc.answer` verto payload — you do
+not need to plumb the token through `acceptCall(...)` yourself.
+
+Behavior:
+
+- **Push-when-active disabled** (no `fcmToken` configured, or the configured
+  token is blank): the `answered_device_token` field is omitted from
+  `telnyx_rtc.answer`. This preserves the previous wire shape for apps that
+  don't use push notifications.
+- **Push-when-active enabled** with a non-blank configured `fcmToken`: the SDK
+  populates `answered_device_token` with the same value, so the backend can
+  identify the answering device without any extra work in the app.
+- **Explicit override**: if you pass a non-blank `answeredDeviceToken` argument
+  to `acceptCall(callId, destinationNumber, …)`, that explicit value always
+  takes precedence. Blank values are ignored and fall back to the configured
+  `fcmToken`.
+
+The `acceptCall(...)` `answeredDeviceToken` parameter is therefore optional for
+the common push-when-active path. You can continue to pass it explicitly if you
+manage a custom device-token source separate from the configured `fcmToken`.
+
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup)
 
 ## Custom Logging
@@ -497,17 +525,25 @@ In order to receive push notifications on Android 14, you will need to add  the 
     android:foregroundServiceType="phoneCall"
     android:exported="true" />
 ```
-### Handling Missed Call Notifications
-The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
+### Handling Missed Call and Answered Elsewhere Notifications
+The backend sends cleanup push notifications when an incoming call should no longer ring on the device. A call that timed out or ended before the socket connected comes with the `Missed call!` message. A call that was picked up on another registered device comes with the `Answered Elsewhere` message.
+
+Handle both messages by dismissing the incoming call notification and stopping any ringing foreground service. Only `Missed call!` should be treated as a missed call in your UI or analytics; `Answered Elsewhere` should be handled as a call picked up on another device.
+
+You can use the following code snippet in the FirebaseMessagingService class:
 ```kotlin
-const val Missed_Call = "Missed call!"
+const val MISSED_CALL = "Missed call!"
+const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
+
 val params = remoteMessage.data
 val objects = JSONObject(params as Map<*, *>)
 val metadata = objects.getString("metadata")
-val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
+val message = objects.getString("message")
+val isMissedCall = message == MISSED_CALL
+val isAnsweredElsewhere = message == ANSWERED_ELSEWHERE
 
-if(isMissedCall){
-    Timber.d("Missed Call")
+if (isMissedCall || isAnsweredElsewhere) {
+    Timber.d("Call notification cleanup message received: $message")
     val serviceIntent = Intent(this, NotificationsService::class.java).apply {
         putExtra("action", NotificationsService.STOP_ACTION)
     }
@@ -695,4 +731,3 @@ Questions? Comments? Building something rad? <a href="https://joinslack.telnyx.c
 ## License
 
 [`MIT Licence`](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/LICENSE) © [Telnyx](https://github.com/team-telnyx)
-

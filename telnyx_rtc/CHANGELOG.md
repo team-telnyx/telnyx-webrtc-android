@@ -1,3 +1,8 @@
+## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
+
+### Enhancement
+- Auto-include `answered_device_token` in `telnyx_rtc.answer` from the configured `fcmToken` for push-when-active flows (VSDK-431)
+
 ## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
 
 ### Enhancement

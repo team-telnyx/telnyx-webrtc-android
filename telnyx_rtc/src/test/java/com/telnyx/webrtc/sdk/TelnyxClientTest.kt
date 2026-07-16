@@ -25,6 +25,7 @@ import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
+import com.telnyx.webrtc.sdk.verto.send.LoginParam
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
@@ -37,6 +38,7 @@ import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.rules.TestRule
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
@@ -310,6 +312,57 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket, Mockito.times(1))
             .send(dataObject = any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onClientReady(jsonMock)
+    }
+
+    @Test
+    fun `credential login sends push when active in user variables`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+            pushWhenActive = true
+        )
+
+        client.credentialLogin(config)
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val loginParam = captor.value.params as LoginParam
+        assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
+        assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
+        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
+    }
+
+    @Test
+    fun `token login sends push when active in user variables`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val config = TokenConfig(
+            sipToken = MOCK_TOKEN,
+            sipCallerIDName = "test",
+            sipCallerIDNumber = "000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+            pushWhenActive = true
+        )
+
+        client.tokenLogin(config)
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val loginParam = captor.value.params as LoginParam
+        assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
+        assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
+        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
     }
 
     @Test
