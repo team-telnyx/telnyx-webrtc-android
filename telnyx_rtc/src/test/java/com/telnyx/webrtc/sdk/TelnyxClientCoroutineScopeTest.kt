@@ -40,7 +40,11 @@ class TelnyxClientCoroutineScopeTest {
             socketSource.contains("parentScope"),
             "TxSocket should own its connect coroutine scope."
         )
-        assertTrue(socketSource.contains("): Job = launch(Dispatchers.IO)"))
+        assertTrue(
+            Regex("""\):\s*Job\s*\{\s*isDestroyed\s*=\s*false\s*return\s+launch\s*\(\s*Dispatchers\.IO\s*\)""")
+                .containsMatchIn(socketSource),
+            "TxSocket connect should return the owned Dispatchers.IO launch job."
+        )
     }
 
     @Test
