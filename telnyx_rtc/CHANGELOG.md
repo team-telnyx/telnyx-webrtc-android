@@ -2,6 +2,11 @@
 
 ### Enhancement
 - Auto-include `answered_device_token` in `telnyx_rtc.answer` from the configured `fcmToken` for push-when-active flows (VSDK-431)
+- Add `pushWhenActive` support to `CredentialConfig` and `TokenConfig` so apps can opt in to receiving push notifications while a client is active.
+- Add `Answered Elsewhere` push cleanup handling to dismiss incoming call notifications and stop ringing services when a call is picked up on another device.
+- Persist the selected environment for push answer and decline flows.
+- Keep `telnyx_common` profile config helpers opted out of push-when-active by default.
+- Add guidance for push-when-active multi-device flows, answered-elsewhere cleanup, and missed-call notification handling in the push notification docs and sample READMEs.
 
 ## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
 
