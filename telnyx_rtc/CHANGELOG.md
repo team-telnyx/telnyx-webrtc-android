@@ -3,6 +3,9 @@
 ### Enhancement
 - Auto-include `pn_late_fanout` alongside `push_when_active` in login `userVariables` for push-when-active multi-device routing
 
+### Bug Fixing
+- Use the push payload `call_id` as the stable app-facing ID for push-when-active remaps while keeping the socket `callID` for answer/end signaling.
+
 ## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
 
 ### Enhancement

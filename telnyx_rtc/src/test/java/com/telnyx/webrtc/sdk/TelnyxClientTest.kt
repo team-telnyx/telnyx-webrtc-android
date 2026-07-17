@@ -908,6 +908,29 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.getActiveCalls(), mutableMapOf())
     }
 
+    @Test
+    fun `call id alias resolves app id to socket id`() {
+        val appCallId = UUID.randomUUID()
+        val socketCallId = UUID.randomUUID()
+
+        client.registerCallIdAlias(appCallId, socketCallId)
+
+        assertEquals(socketCallId, client.signalingCallId(appCallId))
+        assertEquals(appCallId, client.appCallId(socketCallId))
+    }
+
+    @Test
+    fun `remove from calls clears call id alias`() {
+        val appCallId = UUID.randomUUID()
+        val socketCallId = UUID.randomUUID()
+
+        client.registerCallIdAlias(appCallId, socketCallId)
+        client.removeFromCalls(socketCallId)
+
+        assertEquals(appCallId, client.signalingCallId(appCallId))
+        assertEquals(socketCallId, client.appCallId(socketCallId))
+    }
+
     // Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,
