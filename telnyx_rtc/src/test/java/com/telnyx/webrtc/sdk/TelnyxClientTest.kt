@@ -931,6 +931,62 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(socketCallId, client.appCallId(socketCallId))
     }
 
+    @Test
+    fun `remove from calls clears call id alias when app id is removed`() {
+        val appCallId = UUID.randomUUID()
+        val socketCallId = UUID.randomUUID()
+
+        client.registerCallIdAlias(appCallId, socketCallId)
+        client.removeFromCalls(appCallId)
+
+        assertEquals(appCallId, client.signalingCallId(appCallId))
+        assertEquals(socketCallId, client.appCallId(socketCallId))
+    }
+
+    @Test
+    fun `invite app call id ignores stale pending push id when push is not pending`() {
+        val stalePendingPushCallId = UUID.randomUUID()
+        val socketCallId = UUID.randomUUID()
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+            pushWhenActive = true
+        )
+
+        setPrivateField("credentialSessionConfig", config)
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("pendingPushAppCallId", stalePendingPushCallId)
+        setPrivateField("isCallPendingFromPush", false)
+
+        val resolved = invokeInviteAppCallId(emptyMap(), socketCallId)
+
+        assertEquals(null, resolved)
+    }
+
+    private fun setPrivateField(name: String, value: Any?) {
+        val field = TelnyxClient::class.java.getDeclaredField(name)
+        field.isAccessible = true
+        field.set(client, value)
+    }
+
+    private fun invokeInviteAppCallId(
+        variables: Map<String, String>,
+        socketCallId: UUID
+    ): UUID? {
+        val method = TelnyxClient::class.java.getDeclaredMethod(
+            "inviteAppCallId",
+            Map::class.java,
+            UUID::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(client, variables, socketCallId) as UUID?
+    }
+
     // Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,

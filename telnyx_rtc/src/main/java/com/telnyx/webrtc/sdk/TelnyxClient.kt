@@ -266,8 +266,8 @@ class TelnyxClient private constructor(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
-    private val socketCallIdByAppCallId: MutableMap<UUID, UUID> = mutableMapOf()
-    private val appCallIdBySocketCallId: MutableMap<UUID, UUID> = mutableMapOf()
+    private val socketCallIdByAppCallId: ConcurrentHashMap<UUID, UUID> = ConcurrentHashMap()
+    private val appCallIdBySocketCallId: ConcurrentHashMap<UUID, UUID> = ConcurrentHashMap()
 
     // Keeps track of pending ICE candidates that arrive before remote description is set
     private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> =
@@ -732,7 +732,7 @@ class TelnyxClient private constructor(
         if (!pushWhenActiveEnabled()) return null
         // Socket path: already-connected clients get the parent ID from INVITE variables instead of push metadata.
         return variables["telnyx_rtc_svar_parent_call_id"].toUuidOrNull()
-            ?: pendingPushAppCallId
+            ?: pendingPushAppCallId.takeIf { isCallPendingFromPush }
             ?: appCallIdBySocketCallId[socketCallId]
     }
 
@@ -992,6 +992,10 @@ class TelnyxClient private constructor(
         cancelAcceptCallJob(callId)
         calls.remove(callId)
         appCallIdBySocketCallId.remove(callId)?.let { socketCallIdByAppCallId.remove(it) }
+        socketCallIdByAppCallId.remove(callId)?.let { appCallIdBySocketCallId.remove(it) }
+        if (calls.isEmpty()) {
+            clearPendingPushCall()
+        }
         
         // Clean up latency tracking for this call
         latencyTracker.cancelCallTracking(callId)
@@ -3672,7 +3676,14 @@ class TelnyxClient private constructor(
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
         socket.destroy()
+        clearPendingPushCall()
         clearTransientDeclinePushMode()
+    }
+
+    private fun clearPendingPushCall() {
+        isCallPendingFromPush = false
+        pendingPushAppCallId = null
+        pushMetaData = null
     }
 
     /**
