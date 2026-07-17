@@ -348,7 +348,7 @@ class TelnyxClient private constructor(
         Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
-        // Push path: app-provided FCM metadata can seed UI with parent_call_id before the INVITE arrives.
+        // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
         pendingPushAppCallId = pushAppCallId(metaData)
     }
 
@@ -716,7 +716,7 @@ class TelnyxClient private constructor(
 
     private fun pushAppCallId(metaData: PushMetaData): UUID? {
         if (!pushWhenActiveEnabled()) return null
-        return metaData.parentCallId.toUuidOrNull() ?: metaData.callId.toUuidOrNull()
+        return metaData.callId.toUuidOrNull()
     }
 
     private fun inviteVariables(params: JsonObject): Map<String, String> {

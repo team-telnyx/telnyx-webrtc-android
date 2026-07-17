@@ -17,6 +17,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
+import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -944,6 +945,37 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `push app call id uses push call id instead of parent call id`() {
+        val parentCallId = UUID.randomUUID()
+        val pushCallId = UUID.randomUUID()
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+            pushWhenActive = true
+        )
+
+        setPrivateField("credentialSessionConfig", config)
+        setPrivateField("tokenSessionConfig", null)
+
+        val resolved = invokePushAppCallId(
+            PushMetaData(
+                callerName = "Alice",
+                callerNumber = "1001",
+                callId = pushCallId.toString(),
+                voiceSdkId = "voice-sdk-id",
+                parentCallId = parentCallId.toString()
+            )
+        )
+
+        assertEquals(pushCallId, resolved)
+    }
+
+    @Test
     fun `invite app call id ignores stale pending push id when push is not pending`() {
         val stalePendingPushCallId = UUID.randomUUID()
         val socketCallId = UUID.randomUUID()
@@ -972,6 +1004,15 @@ class TelnyxClientTest : BaseTest() {
         val field = TelnyxClient::class.java.getDeclaredField(name)
         field.isAccessible = true
         field.set(client, value)
+    }
+
+    private fun invokePushAppCallId(metaData: PushMetaData): UUID? {
+        val method = TelnyxClient::class.java.getDeclaredMethod(
+            "pushAppCallId",
+            PushMetaData::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(client, metaData) as UUID?
     }
 
     private fun invokeInviteAppCallId(
