@@ -1818,6 +1818,7 @@ class TelnyxClient private constructor(
         notificationJsonObject.addProperty("push_notification_provider", "android")
         if (config.pushWhenActive) {
             notificationJsonObject.addProperty("push_when_active", true)
+            notificationJsonObject.addProperty("pn_late_fanout", true)
         }
 
         val loginMessage = SendingMessageBody(
@@ -1954,6 +1955,7 @@ class TelnyxClient private constructor(
         notificationJsonObject.addProperty("push_notification_provider", "android")
         if (config.pushWhenActive) {
             notificationJsonObject.addProperty("push_when_active", true)
+            notificationJsonObject.addProperty("pn_late_fanout", true)
         }
 
         val loginMessage = SendingMessageBody(
@@ -2173,6 +2175,7 @@ class TelnyxClient private constructor(
         notificationJsonObject.addProperty("push_notification_provider", "android")
         if (config.pushWhenActive) {
             notificationJsonObject.addProperty("push_when_active", true)
+            notificationJsonObject.addProperty("pn_late_fanout", true)
         }
 
         val loginMessage = SendingMessageBody(
@@ -2233,6 +2236,7 @@ class TelnyxClient private constructor(
         notificationJsonObject.addProperty("push_notification_provider", "android")
         if (config.pushWhenActive) {
             notificationJsonObject.addProperty("push_when_active", true)
+            notificationJsonObject.addProperty("pn_late_fanout", true)
         }
 
         val loginMessage = SendingMessageBody(

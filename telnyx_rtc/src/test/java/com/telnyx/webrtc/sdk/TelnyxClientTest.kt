@@ -336,6 +336,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
         assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
+        assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
         assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
         assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
     }
@@ -361,6 +362,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
         assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
+        assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
         assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
         assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
     }
