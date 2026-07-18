@@ -16,6 +16,8 @@ data class PushMetaData(
     val rtcIP: String? = null,
     @SerializedName("rtc_port")
     val rtcPort: Int? = null,
+    @SerializedName("parent_call_id")
+    val parentCallId: String? = null,
     ) {
     fun toJson() : String {
       return   Gson() .toJson(this)

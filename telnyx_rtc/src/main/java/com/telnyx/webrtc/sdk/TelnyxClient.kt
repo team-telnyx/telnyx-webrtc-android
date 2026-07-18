@@ -32,8 +32,6 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.CandidateUtils
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
-import com.telnyx.webrtc.sdk.model.LatencyMetrics
-import com.telnyx.webrtc.sdk.model.LatencyMetricsListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
@@ -266,6 +264,8 @@ class TelnyxClient private constructor(
 
     // Keeps track of all the created calls by theirs UUIDs
     internal val calls: MutableMap<UUID, Call> = mutableMapOf()
+    private val socketCallIdByAppCallId: ConcurrentHashMap<UUID, UUID> = ConcurrentHashMap()
+    private val appCallIdBySocketCallId: ConcurrentHashMap<UUID, UUID> = ConcurrentHashMap()
 
     // Keeps track of pending ICE candidates that arrive before remote description is set
     private val pendingIceCandidates: MutableMap<UUID, MutableList<PendingIceCandidate>> =
@@ -335,6 +335,7 @@ class TelnyxClient private constructor(
 
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
+    private var pendingPushAppCallId: UUID? = null
 
     /**
      * Processes an incoming call notification from a push message.
@@ -345,6 +346,8 @@ class TelnyxClient private constructor(
         Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
+        // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
+        pendingPushAppCallId = pushAppCallId(metaData)
     }
 
     /**
@@ -420,8 +423,20 @@ class TelnyxClient private constructor(
         // caller-provided values still win; null/blank inputs fall back to the session's
         // configured push token, and only the resulting non-blank value is sent.
         val resolvedAnsweredDeviceToken = resolveAnsweredDeviceToken(answeredDeviceToken)
+        val signalingCallId = signalingCallId(callId)
+        if (signalingCallId != callId) {
+            return acceptCall(
+                callId = signalingCallId,
+                destinationNumber = destinationNumber,
+                customHeaders = customHeaders,
+                debug = debug,
+                useTrickleIce = useTrickleIce,
+                audioConstraints = audioConstraints,
+                mutedMicOnStart = mutedMicOnStart,
+                answeredDeviceToken = answeredDeviceToken
+            )
+        }
 
-        val callDebug = debug
         val socketPortalDebug = isSocketDebug
 
         // Set trickle ICE for this call
@@ -527,7 +542,7 @@ class TelnyxClient private constructor(
                             callId,
                             getTelnyxLegId()?.toString(),
                             peerConnection!!,
-                            callDebug,
+                            debug,
                             socketPortalDebug,
                             debugDataCollector
                         )
@@ -628,7 +643,7 @@ class TelnyxClient private constructor(
                                         callId,
                                         getTelnyxLegId()?.toString(),
                                         peerConnection!!,
-                                        callDebug,
+                                        debug,
                                         socketPortalDebug,
                                         debugDataCollector
                                     )
@@ -688,6 +703,33 @@ class TelnyxClient private constructor(
         explicit?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
         val configured = (credentialSessionConfig?.fcmToken ?: tokenSessionConfig?.fcmToken)
         return configured?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun pushWhenActiveEnabled(): Boolean =
+        credentialSessionConfig?.pushWhenActive == true || tokenSessionConfig?.pushWhenActive == true
+
+    private fun String?.toUuidOrNull(): UUID? =
+        this?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+
+    private fun pushAppCallId(metaData: PushMetaData): UUID? {
+        if (!pushWhenActiveEnabled()) return null
+        return metaData.callId.toUuidOrNull()
+    }
+
+    private fun inviteVariables(params: JsonObject): Map<String, String> {
+        val variablesElement = params.get("variables")
+        if (variablesElement?.isJsonObject != true) return emptyMap()
+        val variables = variablesElement.asJsonObject
+        return variables.entrySet().mapNotNull { (key, value) ->
+            value.takeIf { !it.isJsonNull }?.asString?.let { key to it }
+        }.toMap()
+    }
+
+    private fun inviteAppCallId(socketCallId: UUID): UUID? {
+        if (!pushWhenActiveEnabled()) return null
+        // Only remap when the SDK already learned the app-facing ID from the push path.
+        return pendingPushAppCallId.takeIf { isCallPendingFromPush }
+            ?: appCallIdBySocketCallId[socketCallId]
     }
 
 
@@ -846,7 +888,9 @@ class TelnyxClient private constructor(
      * @see [Call]
      */
     fun endCall(callId: UUID) {
-        val endCall = calls[callId]
+        val signalingCallId = signalingCallId(callId)
+        val appFacingCallId = appCallId(signalingCallId)
+        val endCall = calls[signalingCallId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
             // Determine cause code and name based on call state
@@ -862,7 +906,7 @@ class TelnyxClient private constructor(
 
             Logger.d(
                 tag = "EndCall",
-                message = "Ending call with ID: $callId, current state: ${callStateFlow.value}, cause: $causeName ($causeCode)"
+                message = "Ending call with ID: $signalingCallId, current state: ${callStateFlow.value}, cause: $causeName ($causeCode)"
             )
 
             val byeMessageBody = SendingMessageBody(
@@ -872,13 +916,13 @@ class TelnyxClient private constructor(
                     causeCode,
                     causeName,
                     ByeDialogParams(
-                        callId
+                        signalingCallId
                     )
                 )
             )
 
             val byeResponseForUi = ByeResponse(
-                callId = callId,
+                callId = appFacingCallId,
                 cause = causeName,
                 causeCode = causeCode
                 // sipCode and sipReason are null here
@@ -895,12 +939,12 @@ class TelnyxClient private constructor(
             updateCallState(CallState.DONE(terminationReason))
 
             // Stop reporter before releasing the peer connection
-            removeWebRTCReporter(callId)?.stopStats()
+            removeWebRTCReporter(signalingCallId)?.stopStats()
 
             // Log debug data for the ended call
-            client.debugDataCollector.onCallEnded(callId, causeName)
+            client.debugDataCollector.onCallEnded(signalingCallId, causeName)
 
-            client.removeFromCalls(callId)
+            client.removeFromCalls(signalingCallId)
             client.callNotOngoing()
             socket.send(byeMessageBody)
             resetCallOptions()
@@ -919,8 +963,22 @@ class TelnyxClient private constructor(
      * @param call, and instance of [Call]
      */
     internal fun addToCalls(call: Call) {
-        calls[call.callId] = call
+        calls[call.currentSignalingCallId()] = call
     }
+
+    internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
+        if (appCallId == socketCallId) {
+            pendingPushAppCallId = null
+            return
+        }
+        socketCallIdByAppCallId[appCallId] = socketCallId
+        appCallIdBySocketCallId[socketCallId] = appCallId
+        pendingPushAppCallId = null
+    }
+
+    internal fun signalingCallId(appCallId: UUID): UUID = socketCallIdByAppCallId[appCallId] ?: appCallId
+
+    internal fun appCallId(socketCallId: UUID): UUID = appCallIdBySocketCallId[socketCallId] ?: socketCallId
 
     /**
      * Remove specified call from the calls MutableMap
@@ -929,6 +987,11 @@ class TelnyxClient private constructor(
     internal fun removeFromCalls(callId: UUID) {
         cancelAcceptCallJob(callId)
         calls.remove(callId)
+        appCallIdBySocketCallId.remove(callId)?.let { socketCallIdByAppCallId.remove(it) }
+        socketCallIdByAppCallId.remove(callId)?.let { appCallIdBySocketCallId.remove(it) }
+        if (calls.isEmpty()) {
+            clearPendingPushCall()
+        }
         
         // Clean up latency tracking for this call
         latencyTracker.cancelCallTracking(callId)
@@ -2851,6 +2914,7 @@ class TelnyxClient private constructor(
             val sipCode = params.get("sipCode")?.asInt
             val sipReason = params.get("sipReason")?.asString
 
+            val appFacingCallId = appCallId(callId)
             val byeCall = calls[callId]
             byeCall?.apply {
                 val terminationReason = CallTerminationReason(
@@ -2863,7 +2927,7 @@ class TelnyxClient private constructor(
 
                 // Create the rich ByeResponse to be sent to the UI/ViewModel
                 val byeResponseForUi = ByeResponse(
-                    callId = callId,
+                    callId = appFacingCallId,
                     cause = cause,
                     causeCode = causeCode,
                     sipCode = sipCode,
@@ -2974,7 +3038,7 @@ class TelnyxClient private constructor(
                     client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
 
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        appCallId(UUID.fromString(callId)),
                         stringSdp,
                         customHeaders?.toCustomHeaders() ?: arrayListOf(),
                         callControlId
@@ -2994,7 +3058,7 @@ class TelnyxClient private constructor(
                     updateCallState(CallState.CONNECTING)
                     val stringSdp = peerConnection?.getLocalDescription()?.description
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        appCallId(UUID.fromString(callId)),
                         stringSdp!!,
                         customHeaders?.toCustomHeaders() ?: arrayListOf(),
                         callControlId
@@ -3112,7 +3176,7 @@ class TelnyxClient private constructor(
                     if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
 
                 val mediaResponse = MediaResponse(
-                    UUID.fromString(callId),
+                    appCallId(UUID.fromString(callId)),
                     callerIDName,
                     callerNumber,
                     sessionId,
@@ -3167,6 +3231,9 @@ class TelnyxClient private constructor(
             ).apply {
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
+                val variables = inviteVariables(params)
+                val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
+                registerCallIdAlias(appCallId, offerCallId)
                 val remoteSdp = params.get("sdp").asString
 
                 // Check if remote party supports trickle ICE
@@ -3203,8 +3270,9 @@ class TelnyxClient private constructor(
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
                 telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-                // Set global callID
-                callId = offerCallId
+                // Expose the app-facing ID while keeping the signaling ID for socket operations.
+                callId = appCallId
+                signalingCallId = offerCallId
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
                 client.latencyTracker.startCallTracking(offerCallId, isOutbound = false, useTrickleIce = useTrickleIce)
@@ -3266,12 +3334,13 @@ class TelnyxClient private constructor(
                 )
 
                 val inviteResponse = InviteResponse(
-                    callId,
+                    appCallId,
                     remoteSdp,
                     callerName,
                     callerNumber,
                     sessionId,
-                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf()
+                    customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                    variables = variables
                 )
                 this.inviteResponse = inviteResponse
 
@@ -3345,7 +3414,7 @@ class TelnyxClient private constructor(
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
             val ringingResponse = RingingResponse(
-                UUID.fromString(callId),
+                appCallId(callUuid),
                 params.get("caller_id_name").asString,
                 params.get("caller_id_number").asString,
                 sessionId,
@@ -3432,8 +3501,9 @@ class TelnyxClient private constructor(
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-            // Set global callID
-            callId = offerCallId
+            // Preserve the app-facing ID across reattach while continuing to signal with callID.
+            callId = appCallId(offerCallId)
+            signalingCallId = offerCallId
 
             // Notify debug data collector that a new call has started (push notification reattach)
             client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
@@ -3604,7 +3674,14 @@ class TelnyxClient private constructor(
         cancelSocketConnectJob()
         cancelAcceptCallJobs()
         socket.destroy()
+        clearPendingPushCall()
         clearTransientDeclinePushMode()
+    }
+
+    private fun clearPendingPushCall() {
+        isCallPendingFromPush = false
+        pendingPushAppCallId = null
+        pushMetaData = null
     }
 
     /**
