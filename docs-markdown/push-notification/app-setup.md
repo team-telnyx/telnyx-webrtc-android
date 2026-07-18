@@ -30,8 +30,8 @@ When `pushWhenActive` is `true`:
 
 1. The login payload includes `push_when_active = true` and `pn_late_fanout = true` in `userVariables` so the backend keeps the push-when-active call on the push/on-hold route and allows late fan-out to additional active sockets.
 2. When `acceptCall(...)` is invoked, the SDK sends `answered_device_token` inside the `telnyx_rtc.answer` payload. The value is the same FCM token supplied through `CredentialConfig(fcmToken = ...)` or `TokenConfig(fcmToken = ...)`, so apps do not need to pass it again at answer time.
-3. If push metadata includes `parent_call_id`, apps can use it as the notification/UI call ID and fall back to `call_id` when it is missing. The SDK maps that app-facing ID to the socket `callID` internally after the INVITE arrives.
-4. If the socket is already connected and the INVITE arrives without a push, the SDK uses the INVITE variable `telnyx_rtc_svar_parent_call_id` for the same app-ID-to-socket-callID mapping.
+3. When your app passes the full push metadata to `connect(txPushMetaData = ...)`, the SDK uses the push payload `call_id` as the app-facing call ID and maps it internally to the socket `callID` used for signaling.
+4. If there is no pending push remap for the incoming INVITE, the SDK keeps the socket `callID` as the app-facing ID. INVITE variables such as `telnyx_rtc_svar_parent_call_id` are surfaced to the app, but are not used for SDK call-ID remapping.
 5. If no `fcmToken` is configured, or it is empty or whitespace-only, the `answered_device_token` field is omitted.
 
 The default value of `pushWhenActive` is `false`, which preserves the existing single-device behavior.
@@ -182,7 +182,7 @@ You are now ready to receive push notifications via Firebase Messaging Service.
 ### Handling Push Notifications once received - TxPushMetaData
 The Telnyx SDK provides a `TxPushMetaData` object that can be used to handle push notifications when a call is received. You can parse the `TxPushMetaData` object to get the call details that then need to be provided to the `connect` method when reconnecting to the socket as a result of reacting to a push notification.
 
-For push-when-active multi-device calls, prefer `parent_call_id` from the push metadata as the notification/UI call ID and fall back to `call_id`. Continue passing the full metadata JSON to `connect(txPushMetaData = ...)`; the SDK uses it to map the app-facing ID back to the socket `callID` used for signaling.
+For push-when-active multi-device calls, continue passing the full metadata JSON to `connect(txPushMetaData = ...)`. The SDK uses the push payload `call_id` as the app-facing ID when it needs to remap that call to the socket `callID` used for signaling.
 
 ```kotlin
     private const val MISSED_CALL = "Missed call!"
