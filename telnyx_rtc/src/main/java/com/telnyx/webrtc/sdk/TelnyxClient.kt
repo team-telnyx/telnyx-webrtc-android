@@ -174,6 +174,7 @@ class TelnyxClient private constructor(
     private var providedPort: Int? = null
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
+    private var providedCanary: Boolean? = null
     private var voiceSDKID: String? = null
     private var callReportId: String? = null
 
@@ -1162,6 +1163,7 @@ class TelnyxClient private constructor(
                 providedHostAddress,
                 providedPort,
                 pushMetaData,
+                providedCanary,
                 isCurrentConnection = { isCurrentConnectionGeneration(generation, reconnectSocket) }
             ) socketConnect@ {
                 if (!isCurrentConnectionGeneration(generation, reconnectSocket)) {
@@ -1333,6 +1335,7 @@ class TelnyxClient private constructor(
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
+        providedCanary = providedServerConfig.canary
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
@@ -1341,6 +1344,7 @@ class TelnyxClient private constructor(
                     providedHostAddress,
                     providedPort,
                     pushMetaData,
+                    providedServerConfig.canary,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) socketConnect@ {
                     if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1406,6 +1410,7 @@ class TelnyxClient private constructor(
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
+        providedCanary = providedServerConfig.canary
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
 
@@ -1444,6 +1449,7 @@ class TelnyxClient private constructor(
                     providedHostAddress,
                     providedPort,
                     pushMetaData,
+                    providedServerConfig.canary,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1548,6 +1554,7 @@ class TelnyxClient private constructor(
                     providedHostAddress,
                     providedPort,
                     pushMetaData,
+                    providedServerConfig.canary,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1607,6 +1614,7 @@ class TelnyxClient private constructor(
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
+        providedCanary = providedServerConfig.canary
 
         if (ConnectivityHelper.isNetworkEnabled(context)) {
             Logger.d(message = "Provided Host Address: $providedHostAddress")
@@ -1622,6 +1630,7 @@ class TelnyxClient private constructor(
                     providedHostAddress,
                     providedPort,
                     null,
+                    providedServerConfig.canary,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) socketConnect@ {
                     if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1692,6 +1701,7 @@ class TelnyxClient private constructor(
             providedPort = providedServerConfig.port
             providedTurn = providedServerConfig.turn
             providedStun = providedServerConfig.stun
+            providedCanary = providedServerConfig.canary
 
             if (ConnectivityHelper.isNetworkEnabled(context)) {
                 Logger.d(message = "Provided Host Address: $providedHostAddress")
@@ -1712,6 +1722,7 @@ class TelnyxClient private constructor(
                         providedHostAddress,
                         providedPort,
                         pushMetaData,
+                        providedServerConfig.canary,
                         isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                     ) socketConnect@ {
                         if (!isCurrentConnectionGeneration(generation, connectSocket)) {

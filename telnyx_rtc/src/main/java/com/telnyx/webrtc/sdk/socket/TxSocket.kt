@@ -74,12 +74,14 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
+        canary: Boolean? = null,
         onConnected:(Boolean) -> Unit = {}
     ): Job = connectWithConnectionGuard(
         listener,
         providedHostAddress,
         providedPort,
         pushmetaData,
+        canary,
         isCurrentConnection = { true },
         onConnected = onConnected
     )
@@ -89,6 +91,7 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
+        canary: Boolean? = null,
         isCurrentConnection: () -> Boolean = { true },
         onConnected:(Boolean) -> Unit = {}
     ): Job {
@@ -127,19 +130,7 @@ class TxSocket(
             port = it
         }
 
-        val requestUrl = if (pushmetaData != null) {
-            HttpUrl.Builder()
-                .scheme("https")
-                .host(host_address)
-                .addQueryParameter("voice_sdk_id", pushmetaData.voiceSdkId ?: "")
-                .build()
-        } else {
-            HttpUrl.Builder()
-                .scheme("https")
-                .port(port)
-                .host(host_address)
-                .build()
-        }
+        val requestUrl = buildRequestUrl(host_address, port, pushmetaData, canary)
         Logger.d(message = "request: $client.")
 
         val request: Request =
@@ -403,6 +394,27 @@ class TxSocket(
             createdWebSocket.close(WEBSOCKET_NORMAL_CLOSURE, "Websocket connection closed")
         }
         }
+    }
+
+    internal fun buildRequestUrl(
+        hostAddress: String,
+        port: Int,
+        pushmetaData: PushMetaData? = null,
+        canary: Boolean? = null
+    ): HttpUrl {
+        val builder = HttpUrl.Builder()
+            .scheme("https")
+            .host(hostAddress)
+
+        if (pushmetaData != null) {
+            builder.addQueryParameter("voice_sdk_id", pushmetaData.voiceSdkId ?: "")
+        } else {
+            builder.port(port)
+        }
+
+        canary?.let { builder.addQueryParameter("canary", it.toString()) }
+
+        return builder.build()
     }
 
     private fun shouldIgnoreSocketCallback(isCurrentConnection: () -> Boolean = { true }): Boolean {

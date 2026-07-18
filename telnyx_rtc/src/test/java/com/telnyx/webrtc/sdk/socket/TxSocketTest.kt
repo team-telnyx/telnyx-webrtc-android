@@ -9,6 +9,7 @@ import android.net.NetworkRequest
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
@@ -149,6 +150,60 @@ class TxSocketTest : BaseTest() {
         client.onDisconnect()
         Thread.sleep(1000)
         verify(atLeast = 1) { testSocket.destroy() }
+    }
+
+    @Test
+    fun `build request url omits canary query by default`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+
+        val requestUrl = socket.buildRequestUrl(
+            hostAddress = "rtc.telnyx.com",
+            port = 14938,
+        )
+
+        assertEquals(null, requestUrl.queryParameter("canary"))
+    }
+
+    @Test
+    fun `build request url includes canary query when enabled`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+
+        val requestUrl = socket.buildRequestUrl(
+            hostAddress = "rtc.telnyx.com",
+            port = 14938,
+            canary = true,
+        )
+
+        assertEquals("true", requestUrl.queryParameter("canary"))
+    }
+
+    @Test
+    fun `build request url includes push voice sdk id and canary query`() {
+        socket = TxSocket(
+            host_address = "rtc.telnyx.com",
+            port = 14938,
+        )
+
+        val requestUrl = socket.buildRequestUrl(
+            hostAddress = "rtc.telnyx.com",
+            port = 14938,
+            pushmetaData = PushMetaData(
+                callerName = "",
+                callerNumber = "",
+                callId = "",
+                voiceSdkId = "voice-sdk-id",
+            ),
+            canary = false,
+        )
+
+        assertEquals("voice-sdk-id", requestUrl.queryParameter("voice_sdk_id"))
+        assertEquals("false", requestUrl.queryParameter("canary"))
     }
 
     @Test

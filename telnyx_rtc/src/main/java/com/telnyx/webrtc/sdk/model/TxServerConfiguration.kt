@@ -6,7 +6,8 @@ data class TxServerConfiguration(
     val host: String = Config.TELNYX_PROD_HOST_ADDRESS,
     val port: Int = Config.TELNYX_PORT,
     val turn: String = Config.DEFAULT_TURN,
-    val stun: String = Config.DEFAULT_STUN
+    val stun: String = Config.DEFAULT_STUN,
+    val canary: Boolean? = null
 ) {
     companion object {
         /**
@@ -16,7 +17,8 @@ data class TxServerConfiguration(
             host = Config.TELNYX_PROD_HOST_ADDRESS,
             port = Config.TELNYX_PORT,
             turn = Config.DEFAULT_TURN,
-            stun = Config.DEFAULT_STUN
+            stun = Config.DEFAULT_STUN,
+            canary = null
         )
 
         /**
@@ -26,7 +28,8 @@ data class TxServerConfiguration(
             host = Config.TELNYX_DEV_HOST_ADDRESS,
             port = Config.TELNYX_PORT,
             turn = Config.DEV_TURN,
-            stun = Config.DEV_STUN
+            stun = Config.DEV_STUN,
+            canary = null
         )
     }
 }
