@@ -28,7 +28,7 @@ telnyxClient.connect(
 
 When `pushWhenActive` is `true`:
 
-1. The login payload includes `push_when_active = true` in `userVariables` so the backend treats this device as active for push routing.
+1. The login payload includes `push_when_active = true` and `pn_late_fanout = true` in `userVariables` so the backend keeps the push-when-active call on the push/on-hold route and allows late fan-out to additional active sockets.
 2. When `acceptCall(...)` is invoked, the SDK sends `answered_device_token` inside the `telnyx_rtc.answer` payload. The value is the same FCM token supplied through `CredentialConfig(fcmToken = ...)` or `TokenConfig(fcmToken = ...)`, so apps do not need to pass it again at answer time.
 3. If no `fcmToken` is configured, or it is empty or whitespace-only, the `answered_device_token` field is omitted.
 

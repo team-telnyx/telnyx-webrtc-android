@@ -1,3 +1,8 @@
+## [3.6.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.1) (2026-07-17)
+
+### Enhancement
+- Auto-include `pn_late_fanout` alongside `push_when_active` in login `userVariables` for push-when-active multi-device routing
+
 ## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
 
 ### Enhancement
