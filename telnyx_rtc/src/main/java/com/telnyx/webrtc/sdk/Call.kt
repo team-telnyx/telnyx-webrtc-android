@@ -82,6 +82,7 @@ data class Call(
     var inviteResponse: InviteResponse? = null
     var answerResponse: AnswerResponse? = null
     lateinit var callId: UUID
+    internal var signalingCallId: UUID? = null
 
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
@@ -183,6 +184,8 @@ data class Call(
         client.acceptCall(callId, destinationNumber, customHeaders, debug)
     }
 
+    internal fun currentSignalingCallId(): UUID = signalingCallId ?: callId
+
     /**
      * Accepts an attach invitation
      * Functions the same as the acceptCall but changes the attach param to true
@@ -242,7 +245,7 @@ data class Call(
 
         // Track mute/unmute state change
         val state = if (muted) "muted" else "unmuted"
-        client.debugDataCollector.onTrackStateChange(callId, "audio", state)
+        client.debugDataCollector.onTrackStateChange(currentSignalingCallId(), "audio", state)
     }
 
     /**
@@ -254,14 +257,14 @@ data class Call(
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true
             // Track speaker output change
-            client.debugDataCollector.onSpeakerOutputChange(callId, "LOUDSPEAKER", true)
-            client.debugDataCollector.onAudioDeviceChange(callId, "Speaker enabled")
+            client.debugDataCollector.onSpeakerOutputChange(currentSignalingCallId(), "LOUDSPEAKER", true)
+            client.debugDataCollector.onAudioDeviceChange(currentSignalingCallId(), "Speaker enabled")
         } else {
             loudSpeakerLiveData.postValue(false)
             audioManager.isSpeakerphoneOn = false
             // Track speaker output change
-            client.debugDataCollector.onSpeakerOutputChange(callId, "LOUDSPEAKER", false)
-            client.debugDataCollector.onAudioDeviceChange(callId, "Speaker disabled")
+            client.debugDataCollector.onSpeakerOutputChange(currentSignalingCallId(), "LOUDSPEAKER", false)
+            client.debugDataCollector.onAudioDeviceChange(currentSignalingCallId(), "Speaker disabled")
         }
         Timber.e("audioManager.isSpeakerphoneOn ${audioManager.isSpeakerphoneOn}")
     }
@@ -298,6 +301,7 @@ data class Call(
      * @param holdAction, the modification action to perform
      */
     private fun sendHoldModifier(callId: UUID, holdAction: String) {
+        val signalingCallId = client.signalingCallId(callId)
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
@@ -306,7 +310,7 @@ data class Call(
                 sessid = sessionId,
                 action = holdAction,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = signalingCallId,
                 )
             )
         )
@@ -321,6 +325,7 @@ data class Call(
      */
 
     fun dtmf(callId: UUID, tone: String) {
+        val signalingCallId = client.signalingCallId(callId)
         val uuid: String = UUID.randomUUID().toString()
         val infoMessageBody = SendingMessageBody(
             id = uuid,
@@ -329,7 +334,7 @@ data class Call(
                 sessid = sessionId,
                 dtmf = tone,
                 dialogParams = CallDialogParams(
-                    callId = callId,
+                    callId = signalingCallId,
                 )
             )
         )
@@ -487,7 +492,7 @@ data class Call(
         // Potentially add logic here if needed when a candidate is received,
         // but the primary action is adding it to the list for the timer.
         iceCandidateList.add(candidate)
-        Logger.d(message = "Call [$callId] received ICE candidate. List size: ${iceCandidateList.size}")
+        Logger.d(message = "Call [${currentSignalingCallId()}] received ICE candidate. List size: ${iceCandidateList.size}")
     }
 
     /**
@@ -504,7 +509,7 @@ data class Call(
     ) {
         // Ensure peerConnection is initialized for this Call instance before proceeding
         if (peerConnection == null) {
-            Logger.e(message = "PeerConnection not initialized for Call [$callId] before starting outgoing call.")
+            Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
             updateCallState(CallState.ERROR)
             return
         }
@@ -516,7 +521,7 @@ data class Call(
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
                 if (client.getUseTrickleIce()) {
                     // For trickle ICE, send INVITE immediately without waiting for candidates
-                    Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [$callId]")
+                    Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [${currentSignalingCallId()}]")
 
                     sendInviteImmediately(
                         callerName,
@@ -540,7 +545,7 @@ data class Call(
             }
 
             override fun onCreateFailure(p0: String?) {
-                 Logger.e(message = "Failed to create SDP offer for Call [$callId]: $p0")
+                 Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
                  updateCallState(CallState.ERROR)
             }
         })
@@ -562,7 +567,7 @@ data class Call(
             // Add trickle ICE capability to SDP
             sdpDescription = SdpUtils.addTrickleIceCapability(sdpDescription)
             
-            Logger.d(message = "Sending INVITE immediately with trickle ICE for Call [$callId]")
+            Logger.d(message = "Sending INVITE immediately with trickle ICE for Call [${currentSignalingCallId()}]")
             
             val inviteMessageBody = SendingMessageBody(
                 id = outgoingInviteUUID!!,
@@ -584,10 +589,10 @@ data class Call(
             )
             socket.send(inviteMessageBody)
             // Track invite sent milestone
-            client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_INVITE_SENT)
+            client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
         } else {
-            if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")
-            if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [$callId]. Cannot send invite.")
+            if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
+            if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
             updateCallState(CallState.ERROR)
         }
     }
@@ -637,16 +642,16 @@ data class Call(
                         )
                         socket.send(inviteMessageBody)
                         // Track invite sent milestone
-                        client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_INVITE_SENT)
+                        client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
                         resetIceCandidateTimer() // Stop timer after sending
                     } else {
-                         if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [$callId]. Cannot send invite.")
-                         if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [$callId]. Cannot send invite.")
+                         if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
+                         if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          resetIceCandidateTimer() // Reset timer even on failure
                          updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
                     }
                 } else {
-                    Logger.d(message = "Call [$callId] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                    Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
                 }
             },
             ICE_CANDIDATE_DELAY, ICE_CANDIDATE_PERIOD
@@ -662,7 +667,7 @@ data class Call(
         iceCandidateTimer?.purge()
         iceCandidateTimer = null
         iceCandidateList.clear()
-        Logger.d(message =  "Call [${this.callId}] ICE candidate timer reset.")
+        Logger.d(message =  "Call [${currentSignalingCallId()}] ICE candidate timer reset.")
     }
 
     /**
@@ -672,13 +677,13 @@ data class Call(
      * @return true if the renegotiation was successfully triggered, false otherwise
      */
     fun forceIceRenegotiationForTesting(): Boolean {
-        Logger.w(tag = "Call:IceRenegotiationTest", message = "Forcing ICE renegotiation for testing in Call [${this.callId}]")
+        Logger.w(tag = "Call:IceRenegotiationTest", message = "Forcing ICE renegotiation for testing in Call [${currentSignalingCallId()}]")
         
         return peerConnection?.let { peer ->
             peer.forceIceRenegotiationForTesting()
             true
         } ?: run {
-            Logger.e(tag = "Call:IceRenegotiationTest", message = "Cannot force ICE renegotiation - peerConnection is null in Call [${this.callId}]")
+            Logger.e(tag = "Call:IceRenegotiationTest", message = "Cannot force ICE renegotiation - peerConnection is null in Call [${currentSignalingCallId()}]")
             false
         }
     }

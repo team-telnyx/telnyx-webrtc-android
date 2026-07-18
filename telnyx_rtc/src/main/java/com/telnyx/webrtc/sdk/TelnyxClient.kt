@@ -32,8 +32,6 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.CandidateUtils
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
-import com.telnyx.webrtc.sdk.model.LatencyMetrics
-import com.telnyx.webrtc.sdk.model.LatencyMetricsListener
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.sdk.utilities.TxLogger
@@ -439,7 +437,6 @@ class TelnyxClient private constructor(
             )
         }
 
-        val callDebug = debug
         val socketPortalDebug = isSocketDebug
 
         // Set trickle ICE for this call
@@ -545,7 +542,7 @@ class TelnyxClient private constructor(
                             callId,
                             getTelnyxLegId()?.toString(),
                             peerConnection!!,
-                            callDebug,
+                            debug,
                             socketPortalDebug,
                             debugDataCollector
                         )
@@ -646,7 +643,7 @@ class TelnyxClient private constructor(
                                         callId,
                                         getTelnyxLegId()?.toString(),
                                         peerConnection!!,
-                                        callDebug,
+                                        debug,
                                         socketPortalDebug,
                                         debugDataCollector
                                     )
@@ -728,11 +725,10 @@ class TelnyxClient private constructor(
         }.toMap()
     }
 
-    private fun inviteAppCallId(variables: Map<String, String>, socketCallId: UUID): UUID? {
+    private fun inviteAppCallId(socketCallId: UUID): UUID? {
         if (!pushWhenActiveEnabled()) return null
-        // Socket path: already-connected clients get the parent ID from INVITE variables instead of push metadata.
-        return variables["telnyx_rtc_svar_parent_call_id"].toUuidOrNull()
-            ?: pendingPushAppCallId.takeIf { isCallPendingFromPush }
+        // Only remap when the SDK already learned the app-facing ID from the push path.
+        return pendingPushAppCallId.takeIf { isCallPendingFromPush }
             ?: appCallIdBySocketCallId[socketCallId]
     }
 
@@ -967,7 +963,7 @@ class TelnyxClient private constructor(
      * @param call, and instance of [Call]
      */
     internal fun addToCalls(call: Call) {
-        calls[call.callId] = call
+        calls[call.currentSignalingCallId()] = call
     }
 
     internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
@@ -3042,7 +3038,7 @@ class TelnyxClient private constructor(
                     client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
 
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        appCallId(UUID.fromString(callId)),
                         stringSdp,
                         customHeaders?.toCustomHeaders() ?: arrayListOf(),
                         callControlId
@@ -3062,7 +3058,7 @@ class TelnyxClient private constructor(
                     updateCallState(CallState.CONNECTING)
                     val stringSdp = peerConnection?.getLocalDescription()?.description
                     val answerResponse = AnswerResponse(
-                        UUID.fromString(callId),
+                        appCallId(UUID.fromString(callId)),
                         stringSdp!!,
                         customHeaders?.toCustomHeaders() ?: arrayListOf(),
                         callControlId
@@ -3180,7 +3176,7 @@ class TelnyxClient private constructor(
                     if (params.has("caller_id_number")) params.get("caller_id_number").asString else ""
 
                 val mediaResponse = MediaResponse(
-                    UUID.fromString(callId),
+                    appCallId(UUID.fromString(callId)),
                     callerIDName,
                     callerNumber,
                     sessionId,
@@ -3236,7 +3232,7 @@ class TelnyxClient private constructor(
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val variables = inviteVariables(params)
-                val appCallId = inviteAppCallId(variables, offerCallId) ?: offerCallId
+                val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
                 registerCallIdAlias(appCallId, offerCallId)
                 val remoteSdp = params.get("sdp").asString
 
@@ -3274,8 +3270,9 @@ class TelnyxClient private constructor(
                 telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
                 telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-                // Set global callID
-                callId = offerCallId
+                // Expose the app-facing ID while keeping the signaling ID for socket operations.
+                callId = appCallId
+                signalingCallId = offerCallId
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
                 client.latencyTracker.startCallTracking(offerCallId, isOutbound = false, useTrickleIce = useTrickleIce)
@@ -3417,7 +3414,7 @@ class TelnyxClient private constructor(
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
             val ringingResponse = RingingResponse(
-                UUID.fromString(callId),
+                appCallId(callUuid),
                 params.get("caller_id_name").asString,
                 params.get("caller_id_number").asString,
                 sessionId,
@@ -3504,8 +3501,9 @@ class TelnyxClient private constructor(
             telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
             telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
 
-            // Set global callID
-            callId = offerCallId
+            // Preserve the app-facing ID across reattach while continuing to signal with callID.
+            callId = appCallId(offerCallId)
+            signalingCallId = offerCallId
 
             // Notify debug data collector that a new call has started (push notification reattach)
             client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
