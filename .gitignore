@@ -62,7 +62,10 @@ captures/
 .cxx/
 
 # Google Services (e.g. APIs or Firebase)
-# google-services.json
+# google-services.json is untracked to prevent leaking Firebase credentials.
+# Copy google-services.json.template to google-services.json and fill in your
+# project's Firebase configuration before building the sample apps.
+**/google-services.json
 
 # Freeline
 freeline.py
@@ -85,10 +88,6 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
-app/google-services.json
-xmlapp/google-services.json
-compose_app/google-services.json
-connection_service_app/google-services.json
 
 # system
 .DS_Store
