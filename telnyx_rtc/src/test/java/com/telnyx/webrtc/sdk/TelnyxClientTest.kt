@@ -927,7 +927,7 @@ class TelnyxClientTest : BaseTest() {
         val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
 
         // Writer threads: add/remove entries concurrently.
-        for (@Suppress("UnusedPrivateProperty") w in 0 until writerCount) {
+        for (_i in 0 until writerCount) {
             executor.submit {
                 try {
                     latch.await()
