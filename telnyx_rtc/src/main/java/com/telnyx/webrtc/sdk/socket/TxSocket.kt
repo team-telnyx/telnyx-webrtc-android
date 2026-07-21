@@ -192,7 +192,8 @@ class TxSocket(
                         // stale heartbeat, or error string). Log the raw bytes so we can
                         // diagnose the issue, then emit an error instead of crashing the
                         // WebSocket callback.
-                        val preview = if (text.length > 500) text.substring(0, 500) + "..." else text
+                        val previewLength = 500
+                        val preview = if (text.length > previewLength) text.substring(0, previewLength) + "..." else text
                         Logger.e(
                             tag = "TxSocket",
                             message = "Failed to parse WebSocket message as JsonObject: $preview"

@@ -122,6 +122,12 @@ class TelnyxClient private constructor(
         /** Delay in milliseconds before attempting to reconnect */
         const val RECONNECT_DELAY: Long = 1000
 
+        /** Minimum delay in ms before retrying after a WebSocket parse error */
+        private const val RECONNECT_AFTER_PARSE_ERROR_MIN_MS: Long = 500
+
+        /** Jitter range in ms added to [RECONNECT_AFTER_PARSE_ERROR_MIN_MS] for parse-error retries */
+        private const val RECONNECT_AFTER_PARSE_ERROR_JITTER_MS: Long = 1500
+
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
         const val RECONNECT_TIMEOUT: Long = 60000
 
@@ -2873,13 +2879,20 @@ class TelnyxClient private constructor(
     }
 
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
-        val id = try { jsonObject.get("id")?.asString } catch (e: Exception) { null }
-        if (errorCode == null && id != null && attachCallId == id) {
+        @Suppress("SwallowedException")
+        val id = try {
+            jsonObject.get("id")?.asString
+        } catch (e: Exception) {
+            null
+        }
+        val isAttachCallError = errorCode == null && id != null && attachCallId == id
+        if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
             emitSocketResponse(SocketResponse.error("Call Failed", null))
             disconnectTransientDeclinePushConnection()
             return
         }
+        @Suppress("SwallowedException")
         val errorMessage = try {
             jsonObject.get("error")?.asJsonObject?.get("message")?.asString
         } catch (e: Exception) {
@@ -2894,9 +2907,14 @@ class TelnyxClient private constructor(
         // WebSocket payload (e.g. duplicate login response) caused a parse error
         // during the initial connect phase — instead of hanging until the 36s
         // socket timeout, the SDK reconnects automatically.
-        if (!socket.isLoggedIn && !reconnecting && !isDeclinePushConnection &&
-            (credentialSessionConfig != null || tokenSessionConfig != null)) {
-            val jitteredDelay = (500L + (Math.random() * 1500L)).toLong() // 500ms–2s
+        val canRetryAfterParseError = !socket.isLoggedIn &&
+            !reconnecting &&
+            !isDeclinePushConnection &&
+            (credentialSessionConfig != null || tokenSessionConfig != null)
+
+        if (canRetryAfterParseError) {
+            val jitteredDelay = RECONNECT_AFTER_PARSE_ERROR_MIN_MS +
+                (Math.random() * RECONNECT_AFTER_PARSE_ERROR_JITTER_MS).toLong()
             Logger.d(message = "Scheduling reconnect after parse error in ${jitteredDelay}ms")
             reconnecting = true
             launchReconnectJob(jitteredDelay)
