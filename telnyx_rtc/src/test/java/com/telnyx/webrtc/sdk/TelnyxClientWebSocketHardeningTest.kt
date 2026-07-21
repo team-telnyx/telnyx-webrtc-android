@@ -31,6 +31,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class TelnyxClientWebSocketHardeningTest : BaseTest() {
 
