@@ -192,7 +192,7 @@ class TxSocket(
                         // stale heartbeat, or error string). Log the raw bytes so we can
                         // diagnose the issue, then emit an error instead of crashing the
                         // WebSocket callback.
-                        val previewLength = 500
+                        val previewLength = PAYLOAD_PREVIEW_LENGTH
                         val preview = if (text.length > previewLength) text.substring(0, previewLength) + "..." else text
                         Logger.e(
                             tag = "TxSocket",
@@ -601,6 +601,7 @@ class TxSocket(
 
         // WebSocket constants
         private const val WEBSOCKET_NORMAL_CLOSURE = 1000
+        private const val PAYLOAD_PREVIEW_LENGTH = 500
 
         // Ping tracking constants
         private const val MAX_PING_HISTORY_SIZE_VALUE = 30
