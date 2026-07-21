@@ -46,6 +46,8 @@ class TxSocket(
     internal var isLoggedIn = false
     internal var isConnected = false
     internal var isPing = false
+    @Volatile
+    private var isDestroyed = false
 
     private lateinit var client: OkHttpClient
     private lateinit var webSocket: WebSocket
@@ -73,8 +75,26 @@ class TxSocket(
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
         onConnected:(Boolean) -> Unit = {}
-    ) = launch {
+    ): Job = connectWithConnectionGuard(
+        listener,
+        providedHostAddress,
+        providedPort,
+        pushmetaData,
+        isCurrentConnection = { true },
+        onConnected = onConnected
+    )
 
+    internal fun connectWithConnectionGuard(
+        listener: TelnyxClient,
+        providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
+        providedPort: Int? = Config.TELNYX_PORT,
+        pushmetaData: PushMetaData? = null,
+        isCurrentConnection: () -> Boolean = { true },
+        onConnected:(Boolean) -> Unit = {}
+    ): Job {
+        isDestroyed = false
+
+        return launch(Dispatchers.IO) {
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {
             if (BuildConfig.DEBUG){
@@ -128,10 +148,14 @@ class TxSocket(
 
         Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
-        webSocket = client.newWebSocket(
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) return@launch
+
+        val createdWebSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     Logger.v(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
@@ -142,6 +166,8 @@ class TxSocket(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onMessage(webSocket, text)
                     Logger.v(
                         message = Logger.formatMessage("[%s] Receiving [%s]",
@@ -304,12 +330,16 @@ class TxSocket(
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onClosing(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
                     listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     // Only cleanup if not already disconnected (prevents double cleanup)
@@ -320,6 +350,8 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
 
@@ -365,6 +397,16 @@ class TxSocket(
                 }
             }
         )
+
+        webSocket = createdWebSocket
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) {
+            createdWebSocket.close(WEBSOCKET_NORMAL_CLOSURE, "Websocket connection closed")
+        }
+        }
+    }
+
+    private fun shouldIgnoreSocketCallback(isCurrentConnection: () -> Boolean = { true }): Boolean {
+        return isDestroyed || !job.isActive || !isCurrentConnection()
     }
 
     /**
@@ -397,6 +439,7 @@ class TxSocket(
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        isDestroyed = true
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
