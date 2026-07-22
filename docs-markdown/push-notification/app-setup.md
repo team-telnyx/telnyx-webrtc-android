@@ -4,7 +4,121 @@
 
 Telnyx WebRTC supports multidevice push notifications. A single user can have up to 5 device tokens (either iOS - APNS or Android - FCM). 
 When a user logs into the socket and provides a push token, our services will register this token to that user - allowing it to receive push notifications for incoming calls. If a 6th registration is made, the least recently used token will be removed.
-This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
+This effectively means that you can have up to 5 devices that can receive push notifications for the same incoming call.
+
+### Push-when-active multi-device flows
+
+For multi-device setups where a single incoming call is delivered to several devices, the SDK can request push notifications even while the client is active. When one device answers, the backend uses the answering device token to exclude that device from the answered-elsewhere cleanup notification sent to the remaining devices.
+
+Enable the flow by setting `pushWhenActive = true` and providing a non-blank `fcmToken` on `CredentialConfig` or `TokenConfig`.
+
+```kotlin
+val credentialConfig = CredentialConfig(
+    sipUser = username,
+    sipPassword = password,
+    fcmToken = fcmToken,
+    pushWhenActive = true
+)
+
+telnyxClient.connect(
+   txPushMetaData = txPushMetaData,
+   credentialConfig = credentialConfig,
+)
+```
+
+When `pushWhenActive` is `true`:
+
+1. The login payload includes `push_when_active = true` and `pn_late_fanout = true` in `userVariables` so the backend keeps the push-when-active call on the push/on-hold route and allows late fan-out to additional active sockets.
+2. When `acceptCall(...)` is invoked, the SDK sends `answered_device_token` inside the `telnyx_rtc.answer` payload. The value is the same FCM token supplied through `CredentialConfig(fcmToken = ...)` or `TokenConfig(fcmToken = ...)`, so apps do not need to pass it again at answer time.
+3. When your app passes the full push metadata to `connect(txPushMetaData = ...)`, the SDK uses the push payload `call_id` as the app-facing call ID and maps it internally to the socket `callID` used for signaling.
+4. If there is no pending push remap for the incoming INVITE, the SDK keeps the socket `callID` as the app-facing ID. INVITE variables such as `telnyx_rtc_svar_parent_call_id` are surfaced to the app, but are not used for SDK call-ID remapping.
+5. If no `fcmToken` is configured, or it is empty or whitespace-only, the `answered_device_token` field is omitted.
+
+The default value of `pushWhenActive` is `false`, which preserves the existing single-device behavior.
+
+`acceptCall(...)` is unchanged for the common push-when-active path:
+
+```kotlin
+telnyxClient.acceptCall(
+    callId = callId,
+    callerIdNumber = callerIdNumber
+)
+```
+
+You can still pass `answeredDeviceToken` explicitly to `acceptCall(...)` if your app manages a custom device-token source separate from the configured `fcmToken`.
+
+### Handling calls answered on another device
+
+When `pushWhenActive` is enabled, an incoming call can be delivered to more than one client or device. A web client may receive the call over an active WebSocket while Android devices receive FCM pushes. When one device answers, the Telnyx backend ends the call attempts on the remaining devices.
+
+Android apps should treat this as a normal answered-elsewhere outcome, not as a call failure. From the app's perspective, the incoming call is no longer available because it was picked up somewhere else.
+
+Your app should:
+
+- dismiss the incoming-call UI
+- cancel the incoming-call notification
+- stop any ringtone or vibration
+- stop any ringing foreground service
+- mark the call as ended, or as answered elsewhere, in your own state
+- avoid showing an error to the user
+
+For active socket calls, the SDK exposes call termination through `CallState.DONE(reason)` on the call's `callStateFlow`, and through the BYE payload emitted on `socketResponseFlow`. Use the termination reason for diagnostics only; answered-elsewhere is an expected outcome and should not surface as an error.
+
+```kotlin
+call.callStateFlow.collect { state ->
+    when (state) {
+        is CallState.DONE -> {
+            incomingCallUi.dismiss()
+            ringtone?.stop()
+            stopForegroundService()
+
+            state.reason?.let { reason ->
+                Timber.d(
+                    "Call ended: cause=${reason.cause}, " +
+                        "causeCode=${reason.causeCode}, " +
+                        "sipCode=${reason.sipCode}"
+                )
+            }
+        }
+        else -> Unit
+    }
+}
+```
+
+Some answered-elsewhere and missed-call outcomes can arrive as FCM pushes instead of, or in addition to, a socket BYE. These pushes are cleanup signals, not new incoming calls. Handle both cleanup messages before processing the payload as a normal incoming call:
+
+```kotlin
+private const val MISSED_CALL = "Missed call!"
+private const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
+
+override fun onMessageReceived(remoteMessage: RemoteMessage) {
+    super.onMessageReceived(remoteMessage)
+
+    val params = remoteMessage.data
+    val objects = JSONObject(params as Map<*, *>)
+    val metadata = objects.getString("metadata")
+    val message = objects.getString("message")
+
+    when (message) {
+        MISSED_CALL -> {
+            dismissIncomingCallNotification()
+            stopRingingForegroundService()
+            showMissedCallIfNeeded(metadata)
+            return
+        }
+        ANSWERED_ELSEWHERE -> {
+            dismissIncomingCallNotification()
+            stopRingingForegroundService()
+            markCallAnsweredElsewhere(metadata)
+            return
+        }
+    }
+
+    handleIncomingCallPush(metadata)
+}
+```
+
+Use `Missed call!` for missed-call UI or analytics. Use `Answered Elsewhere` only to clean up the incoming-call experience for a call that was picked up on another device.
 
 ### Retrieving a Firebase Cloud Messaging Token
 
@@ -41,7 +155,11 @@ telnyxClient = TelnyxClient(context)
 val credentialConfig = CredentialConfig(
     sipUser = username,
     sipPassword = password,
-    fcmToken = fcmToken
+    sipCallerIDName = null,
+    sipCallerIDNumber = null,
+    fcmToken = fcmToken,
+    ringtone = null,
+    ringBackTone = null
 )
 
 telnyxClient.connect(
@@ -64,7 +182,12 @@ You are now ready to receive push notifications via Firebase Messaging Service.
 ### Handling Push Notifications once received - TxPushMetaData
 The Telnyx SDK provides a `TxPushMetaData` object that can be used to handle push notifications when a call is received. You can parse the `TxPushMetaData` object to get the call details that then need to be provided to the `connect` method when reconnecting to the socket as a result of reacting to a push notification.
 
+For push-when-active multi-device calls, continue passing the full metadata JSON to `connect(txPushMetaData = ...)`. The SDK uses the push payload `call_id` as the app-facing ID when it needs to remap that call to the socket `callID` used for signaling.
+
 ```kotlin
+    private const val MISSED_CALL = "Missed call!"
+    private const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
+
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         Timber.d("Message Received From Firebase: ${remoteMessage.data}")
@@ -74,10 +197,12 @@ The Telnyx SDK provides a `TxPushMetaData` object that can be used to handle pus
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
+        val message = objects.getString("message")
+        val isMissedCall = message == MISSED_CALL
+        val isAnsweredElsewhere = message == ANSWERED_ELSEWHERE
 
-        if(isMissedCall){
-            Timber.d("Missed Call")
+        if (isMissedCall || isAnsweredElsewhere) {
+            Timber.d("Call notification cleanup message received: $message")
             val serviceIntent = Intent(this, NotificationsService::class.java).apply {
                 putExtra("action", NotificationsService.STOP_ACTION)
             }
@@ -374,17 +499,25 @@ In order to properly handle push notifications, we recommend using a call type (
            android:foregroundServiceType="phoneCall"
            android:exported="true" />
    ```
-   ### Handling Missed Call Notifications
-   The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
+   ### Handling Missed Call and Answered Elsewhere Notifications
+   The backend sends cleanup push notifications when an incoming call should no longer ring on the device. A call that timed out or ended before the socket connected comes with the `Missed call!` message. A call that was picked up on another registered device comes with the `Answered Elsewhere` message.
+
+   Handle both messages by dismissing the incoming call notification and stopping any ringing foreground service. Only `Missed call!` should be treated as a missed call in your UI or analytics; `Answered Elsewhere` should be handled as a call picked up on another device.
+
+   You can use the following code snippet in the FirebaseMessagingService class:
    ``` kotlin
-        const val Missed_Call = "Missed call!"
+        const val MISSED_CALL = "Missed call!"
+        const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
+
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call) // 
+        val message = objects.getString("message")
+        val isMissedCall = message == MISSED_CALL
+        val isAnsweredElsewhere = message == ANSWERED_ELSEWHERE
 
-        if(isMissedCall){
-            Timber.d("Missed Call")
+        if (isMissedCall || isAnsweredElsewhere) {
+            Timber.d("Call notification cleanup message received: $message")
             val serviceIntent = Intent(this, NotificationsService::class.java).apply {
                 putExtra("action", NotificationsService.STOP_ACTION)
             }
