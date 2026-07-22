@@ -12,6 +12,7 @@
 
 ### Enhancement
 - Auto-include `answered_device_token` in `telnyx_rtc.answer` from the configured `fcmToken` for push-when-active flows (VSDK-431)
+- Add missing latency measurement milestones (WEBRTC-3426)
 
 ### Bug Fixing
 - Store parent scope for discarded coroutine jobs in TelnyxClient to prevent coroutine leaks (VSDK-333)
@@ -27,7 +28,6 @@
 - Add transport stats (dtlsState, iceState, srtpCipher, tlsVersion) to call report intervals (WEBRTC-3415)
 - Add audioLevelAvg for inbound/outbound audio per stats interval (WEBRTC-3414)
 - Add SDK latency measurement for WebRTC call establishment with milestone tracking (WEBRTC-3276)
-- Add missing latency measurement milestones (WEBRTC-3426)
 - Handle telnyx_call_control_id in answer for Call Control integration (WEBRTC-3341)
 
 ### Bug Fixing
