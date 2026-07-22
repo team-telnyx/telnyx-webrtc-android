@@ -1,3 +1,7 @@
+// Copy this file to google-services.json and replace the empty API key with your Firebase project's API key.
+// See: https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup
+
+// Note the contents of this file are intentially invalid and should not be used in a production environment
 {
   "project_info": {
     "project_number": "894569387136",
@@ -20,7 +24,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA90_8C7Yv5JGxNOqKdQo242Y2XLfm_sb8"
+          "current_key": ""
         }
       ],
       "services": {
@@ -49,7 +53,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA90_8C7Yv5JGxNOqKdQo242Y2XLfm_sb8"
+          "current_key": ""
         }
       ],
       "services": {
@@ -78,7 +82,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA90_8C7Yv5JGxNOqKdQo242Y2XLfm_sb8"
+          "current_key": ""
         }
       ],
       "services": {
@@ -107,7 +111,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyA90_8C7Yv5JGxNOqKdQo242Y2XLfm_sb8"
+          "current_key": ""
         }
       ],
       "services": {
@@ -122,5 +126,5 @@
       }
     }
   ],
-  "configuration_version": "1"
+  "configuration_version": "2"
 }
