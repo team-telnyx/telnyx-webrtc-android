@@ -155,6 +155,17 @@ class TxSocket(
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+                    // Guard against duplicate onOpen callbacks — if already connected,
+                    // don't fire onConnectionEstablished again (prevents duplicate login).
+                    if (isConnected) {
+                        Logger.w(
+                            message = Logger.formatMessage(
+                                "[%s] onOpen fired but already connected — ignoring duplicate",
+                                this@TxSocket.javaClass.simpleName
+                            )
+                        )
+                        return
+                    }
 
                     Logger.v(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
@@ -174,7 +185,31 @@ class TxSocket(
                         this@TxSocket.javaClass.simpleName,
                         text)
                     )
-                    val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    val jsonObject = try {
+                        gson.fromJson(text, JsonObject::class.java)
+                    } catch (e: com.google.gson.JsonSyntaxException) {
+                        // The server sent a non-JSON-object payload (e.g. a JSON primitive,
+                        // stale heartbeat, or error string). Log the raw bytes so we can
+                        // diagnose the issue, then emit an error instead of crashing the
+                        // WebSocket callback.
+                        val previewLength = PAYLOAD_PREVIEW_LENGTH
+                        val preview = if (text.length > previewLength) text.substring(0, previewLength) + "..." else text
+                        Logger.e(
+                            tag = "TxSocket",
+                            message = "Failed to parse WebSocket message as JsonObject: $preview"
+                        )
+                        // Construct an error JsonObject so the listener can handle it
+                        val errorPayload = JsonObject().apply {
+                            addProperty("message", "Invalid WebSocket payload: $preview")
+                        }
+                        val fullJson = JsonObject().apply {
+                            add("error", errorPayload)
+                            addProperty("jsonrpc", "2.0")
+                            addProperty("id", UUID.randomUUID().toString())
+                        }
+                        listener.onErrorReceived(fullJson, null)
+                        return
+                    }
                     listener.emitWsMessage(jsonObject)
 
                     var params: JsonObject? = null
@@ -428,6 +463,15 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
+        if (isDestroyed) {
+            Logger.w(
+                message = Logger.formatMessage(
+                    "[%s] Attempted to send on destroyed socket — ignoring",
+                    this@TxSocket.javaClass.simpleName
+                )
+            )
+            return@runBlocking
+        }
         Logger.v(
             message = Logger.formatMessage("[%s] Sending [%s]", 
             this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
@@ -557,6 +601,7 @@ class TxSocket(
 
         // WebSocket constants
         private const val WEBSOCKET_NORMAL_CLOSURE = 1000
+        private const val PAYLOAD_PREVIEW_LENGTH = 500
 
         // Ping tracking constants
         private const val MAX_PING_HISTORY_SIZE_VALUE = 30

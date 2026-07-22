@@ -122,6 +122,12 @@ class TelnyxClient private constructor(
         /** Delay in milliseconds before attempting to reconnect */
         const val RECONNECT_DELAY: Long = 1000
 
+        /** Minimum delay in ms before retrying after a WebSocket parse error */
+        private const val RECONNECT_AFTER_PARSE_ERROR_MIN_MS: Long = 500
+
+        /** Jitter range in ms added to [RECONNECT_AFTER_PARSE_ERROR_MIN_MS] for parse-error retries */
+        private const val RECONNECT_AFTER_PARSE_ERROR_JITTER_MS: Long = 1500
+
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
         const val RECONNECT_TIMEOUT: Long = 60000
 
@@ -2873,17 +2879,46 @@ class TelnyxClient private constructor(
     }
 
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
-        val id = jsonObject.get("id").asString
-        if (errorCode == null && attachCallId == id) {
+        @Suppress("SwallowedException")
+        val id = try {
+            jsonObject.get("id")?.asString
+        } catch (e: Exception) {
+            null
+        }
+        val isAttachCallError = errorCode == null && id != null && attachCallId == id
+        if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
             emitSocketResponse(SocketResponse.error("Call Failed", null))
             disconnectTransientDeclinePushConnection()
             return
         }
-        val errorMessage = jsonObject.get("error").asJsonObject.get("message").asString
+        @Suppress("SwallowedException")
+        val errorMessage = try {
+            jsonObject.get("error")?.asJsonObject?.get("message")?.asString
+        } catch (e: Exception) {
+            "Unknown error"
+        } ?: "Unknown error"
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
         disconnectTransientDeclinePushConnection()
+
+        // If we're not logged in yet and not already reconnecting, schedule a single
+        // retry with a jittered delay. This handles the case where a non-JSON-object
+        // WebSocket payload (e.g. duplicate login response) caused a parse error
+        // during the initial connect phase — instead of hanging until the 36s
+        // socket timeout, the SDK reconnects automatically.
+        val canRetryAfterParseError = !socket.isLoggedIn &&
+            !reconnecting &&
+            !isDeclinePushConnection &&
+            (credentialSessionConfig != null || tokenSessionConfig != null)
+
+        if (canRetryAfterParseError) {
+            val jitteredDelay = RECONNECT_AFTER_PARSE_ERROR_MIN_MS +
+                (Math.random() * RECONNECT_AFTER_PARSE_ERROR_JITTER_MS).toLong()
+            Logger.d(message = "Scheduling reconnect after parse error in ${jitteredDelay}ms")
+            reconnecting = true
+            launchReconnectJob(jitteredDelay)
+        }
     }
 
     override fun onByeReceived(jsonObject: JsonObject) {
