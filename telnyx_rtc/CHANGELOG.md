@@ -7,14 +7,23 @@
 
 ### Enhancement
 - Auto-include `pn_late_fanout` alongside `push_when_active` in login `userVariables` for push-when-active multi-device routing
+- Expose Compose test tags as resource IDs for Maestro/UiAutomator E2E test automation
 
 ### Bug Fixing
 - Use the push payload `call_id` as the stable app-facing ID for push-when-active remaps while keeping the socket `callID` for answer/end signaling.
+- Cancel decline service scope per startId and isolate decline-push client from main SDK client (VSDK-332)
 
 ## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
 
 ### Enhancement
 - Auto-include `answered_device_token` in `telnyx_rtc.answer` from the configured `fcmToken` for push-when-active flows (VSDK-431)
+- Add missing latency measurement milestones (WEBRTC-3426)
+
+### Bug Fixing
+- Store parent scope for discarded coroutine jobs in TelnyxClient to prevent coroutine leaks (VSDK-333)
+- Bound cancellable scope in TelnyxCommon.observeConnectionMetrics to prevent connectivity subscription leak (VSDK-331)
+- Fix MediaPlayer leak in playRingtone and uncaught NPE in playRingBackTone (VSDK-330)
+- Fix CallTimings portal parsing (VSDK-170)
 
 ## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
 
