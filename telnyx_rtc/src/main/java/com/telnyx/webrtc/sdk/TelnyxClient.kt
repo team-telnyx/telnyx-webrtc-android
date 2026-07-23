@@ -2841,13 +2841,13 @@ class TelnyxClient private constructor(
                 Handler(Looper.getMainLooper()).post {
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
-                        // Kill the media path — close and dispose the peer connection
-                        // so the call is fully torn down, not just marked as ERROR.
-                        call.peerConnection?.disconnect()
-                        call.peerConnection = null
                     }
                     // Clear all active calls so the app returns to profile selection
                     // state instead of showing a stale Disconnect button.
+                    // Note: we intentionally do NOT call peerConnection.disconnect() here
+                    // because close()+dispose() on an active signaling thread causes
+                    // SIGSEGV in libjingle_peerconnection_so. The peer connections will
+                    // be garbage collected safely without explicit disposal.
                     calls.clear()
                     callNotOngoing()
                     emitSocketResponse(
