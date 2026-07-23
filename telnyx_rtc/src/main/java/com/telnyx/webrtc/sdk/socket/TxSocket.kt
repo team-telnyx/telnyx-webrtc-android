@@ -46,6 +46,8 @@ class TxSocket(
     internal var isLoggedIn = false
     internal var isConnected = false
     internal var isPing = false
+    @Volatile
+    private var isDestroyed = false
 
     private lateinit var client: OkHttpClient
     private lateinit var webSocket: WebSocket
@@ -73,8 +75,26 @@ class TxSocket(
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
         onConnected:(Boolean) -> Unit = {}
-    ): Job = launch(Dispatchers.IO) {
+    ): Job = connectWithConnectionGuard(
+        listener,
+        providedHostAddress,
+        providedPort,
+        pushmetaData,
+        isCurrentConnection = { true },
+        onConnected = onConnected
+    )
 
+    internal fun connectWithConnectionGuard(
+        listener: TelnyxClient,
+        providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
+        providedPort: Int? = Config.TELNYX_PORT,
+        pushmetaData: PushMetaData? = null,
+        isCurrentConnection: () -> Boolean = { true },
+        onConnected:(Boolean) -> Unit = {}
+    ): Job {
+        isDestroyed = false
+
+        return launch(Dispatchers.IO) {
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {
             if (BuildConfig.DEBUG){
@@ -128,10 +148,25 @@ class TxSocket(
 
         Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
-        webSocket = client.newWebSocket(
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) return@launch
+
+        val createdWebSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+                    // Guard against duplicate onOpen callbacks — if already connected,
+                    // don't fire onConnectionEstablished again (prevents duplicate login).
+                    if (isConnected) {
+                        Logger.w(
+                            message = Logger.formatMessage(
+                                "[%s] onOpen fired but already connected — ignoring duplicate",
+                                this@TxSocket.javaClass.simpleName
+                            )
+                        )
+                        return
+                    }
+
                     Logger.v(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
@@ -142,13 +177,39 @@ class TxSocket(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onMessage(webSocket, text)
                     Logger.v(
                         message = Logger.formatMessage("[%s] Receiving [%s]",
                         this@TxSocket.javaClass.simpleName,
                         text)
                     )
-                    val jsonObject = gson.fromJson(text, JsonObject::class.java)
+                    val jsonObject = try {
+                        gson.fromJson(text, JsonObject::class.java)
+                    } catch (e: com.google.gson.JsonSyntaxException) {
+                        // The server sent a non-JSON-object payload (e.g. a JSON primitive,
+                        // stale heartbeat, or error string). Log the raw bytes so we can
+                        // diagnose the issue, then emit an error instead of crashing the
+                        // WebSocket callback.
+                        val previewLength = PAYLOAD_PREVIEW_LENGTH
+                        val preview = if (text.length > previewLength) text.substring(0, previewLength) + "..." else text
+                        Logger.e(
+                            tag = "TxSocket",
+                            message = "Failed to parse WebSocket message as JsonObject: $preview"
+                        )
+                        // Construct an error JsonObject so the listener can handle it
+                        val errorPayload = JsonObject().apply {
+                            addProperty("message", "Invalid WebSocket payload: $preview")
+                        }
+                        val fullJson = JsonObject().apply {
+                            add("error", errorPayload)
+                            addProperty("jsonrpc", "2.0")
+                            addProperty("id", UUID.randomUUID().toString())
+                        }
+                        listener.onErrorReceived(fullJson, null)
+                        return
+                    }
                     listener.emitWsMessage(jsonObject)
 
                     var params: JsonObject? = null
@@ -304,12 +365,16 @@ class TxSocket(
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onClosing(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
                     listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     // Only cleanup if not already disconnected (prevents double cleanup)
@@ -320,6 +385,8 @@ class TxSocket(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+
                     Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
 
@@ -365,6 +432,16 @@ class TxSocket(
                 }
             }
         )
+
+        webSocket = createdWebSocket
+        if (shouldIgnoreSocketCallback(isCurrentConnection)) {
+            createdWebSocket.close(WEBSOCKET_NORMAL_CLOSURE, "Websocket connection closed")
+        }
+        }
+    }
+
+    private fun shouldIgnoreSocketCallback(isCurrentConnection: () -> Boolean = { true }): Boolean {
+        return isDestroyed || !job.isActive || !isCurrentConnection()
     }
 
     /**
@@ -386,6 +463,15 @@ class TxSocket(
      * @param dataObject, the data to be send to our subscriber
      */
     internal fun send(dataObject: Any?) = runBlocking {
+        if (isDestroyed) {
+            Logger.w(
+                message = Logger.formatMessage(
+                    "[%s] Attempted to send on destroyed socket — ignoring",
+                    this@TxSocket.javaClass.simpleName
+                )
+            )
+            return@runBlocking
+        }
         Logger.v(
             message = Logger.formatMessage("[%s] Sending [%s]", 
             this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
@@ -397,6 +483,7 @@ class TxSocket(
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        isDestroyed = true
         isConnected = false
         isLoggedIn = false
         ongoingCall = false
@@ -514,6 +601,7 @@ class TxSocket(
 
         // WebSocket constants
         private const val WEBSOCKET_NORMAL_CLOSURE = 1000
+        private const val PAYLOAD_PREVIEW_LENGTH = 500
 
         // Ping tracking constants
         private const val MAX_PING_HISTORY_SIZE_VALUE = 30

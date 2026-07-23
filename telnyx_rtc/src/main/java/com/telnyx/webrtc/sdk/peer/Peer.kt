@@ -8,8 +8,10 @@ import android.content.Context
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.DEFAULT_TURNS_443
 import com.telnyx.webrtc.sdk.Config.DEV_TURN
 import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
+import com.telnyx.webrtc.sdk.Config.DEV_TURNS_443
 import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
 import com.telnyx.webrtc.sdk.Config.USERNAME
@@ -211,6 +213,7 @@ internal class Peer(
      * 2. Google STUN - Redundancy fallback
      * 3. TURN UDP - Lower latency, preferred for real-time media
      * 4. TURN TCP - Fallback for restrictive firewalls
+     * 5. TURNS 443 - Last-resort fallback for highly restrictive firewalls
      *
      * @see [TxSocket]
      * @see [PeerConnection.IceServer]
@@ -221,12 +224,16 @@ internal class Peer(
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
         Logger.d(message = "Start collection of ice servers")
 
-        // Determine UDP and TCP TURN URLs
+        // Determine UDP, TCP and TURNS 443 URLs
         // Use predefined constants for default Telnyx servers, derive for custom servers
-        val (turnUdp, turnTcp) = when (providedTurn) {
-            DEFAULT_TURN -> Pair(DEFAULT_TURN_UDP, DEFAULT_TURN)
-            DEV_TURN -> Pair(DEV_TURN_UDP, DEV_TURN)
-            else -> Pair(deriveUdpTurnUrl(providedTurn), ensureTcpTransport(providedTurn))
+        val (turnUdp, turnTcp, turns443) = when (providedTurn) {
+            DEFAULT_TURN -> Triple(DEFAULT_TURN_UDP, DEFAULT_TURN, DEFAULT_TURNS_443)
+            DEV_TURN -> Triple(DEV_TURN_UDP, DEV_TURN, DEV_TURNS_443)
+            else -> Triple(
+                deriveUdpTurnUrl(providedTurn),
+                ensureTcpTransport(providedTurn),
+                deriveTurns443Url(providedTurn)
+            )
         }
 
         // 1. Telnyx STUN (primary)
@@ -259,7 +266,15 @@ internal class Peer(
                 .createIceServer()
         )
 
-        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp)")
+        // 5. TURNS 443 (last-resort fallback for highly restrictive firewalls)
+        iceServers.add(
+            PeerConnection.IceServer.builder(turns443)
+                .setUsername(USERNAME)
+                .setPassword(PASSWORD)
+                .createIceServer()
+        )
+
+        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp, TURNS: $turns443)")
         return iceServers
     }
 
@@ -286,6 +301,34 @@ internal class Peer(
             turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
             else -> "$turnUrl?transport=tcp" // No params, add
         }
+    }
+
+    /**
+     * Derives a TURNS 443 URL from a given TURN URL.
+     *
+     * Maps `turn:` to `turns:`, replaces any port with 443, and ensures
+     * `transport=tcp` is set. The result is the last-resort fallback for
+     * restrictive firewalls that only allow outbound HTTPS traffic.
+     */
+    private fun deriveTurns443Url(turnUrl: String): String {
+        var derived = turnUrl
+
+        // Upgrade `turn:` scheme to `turns:` (TLS)
+        derived = derived.replaceFirst("turn:", "turns:")
+
+        // Replace any explicit port with 443
+        derived = Regex(":\\d+").replace(derived, ":443")
+
+        // Ensure transport=tcp
+        if (!derived.contains("transport=")) {
+            derived = if (derived.contains("?")) {
+                "$derived&transport=tcp"
+            } else {
+                "$derived?transport=tcp"
+            }
+        }
+
+        return derived
     }
 
     val iceCandidatePoolSize = getIceCandidatePool()

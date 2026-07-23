@@ -95,7 +95,9 @@ data class InviteResponse(
     @SerializedName("sessid")
     val sessid: String,
     @SerializedName("custom_headers")
-    val customHeaders: ArrayList<CustomHeaders> = arrayListOf()
+    val customHeaders: ArrayList<CustomHeaders> = arrayListOf(),
+    @SerializedName("variables")
+    val variables: Map<String, String> = emptyMap()
 ) : ReceivedResult()
 
 data class RingingResponse(

@@ -390,6 +390,9 @@ Behavior:
 - **Push-when-active enabled** with a non-blank configured `fcmToken`: the SDK
   populates `answered_device_token` with the same value, so the backend can
   identify the answering device without any extra work in the app.
+- **Push call ID mapping**: pass the full push metadata to the SDK. The SDK maps
+  the app-visible push `call_id` back to the socket `callID` for answer/end
+  signaling.
 - **Explicit override**: if you pass a non-blank `answeredDeviceToken` argument
   to `acceptCall(callId, destinationNumber, …)`, that explicit value always
   takes precedence. Blank values are ignored and fall back to the configured

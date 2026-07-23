@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Bug Fixing
+- Harden WebSocket login against connect/disconnect race condition: guard duplicate `onOpen` callbacks, wrap GSON parse in try-catch with raw payload logging, and schedule automatic jittered retry on parse failure during initial connect (VSDK-441)
+
+## [3.6.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.1) (2026-07-17)
+
+### Enhancement
+- Auto-include `pn_late_fanout` alongside `push_when_active` in login `userVariables` for push-when-active multi-device routing
+- Expose Compose test tags as resource IDs for Maestro/UiAutomator E2E test automation
+
+### Bug Fixing
+- Use the push payload `call_id` as the stable app-facing ID for push-when-active remaps while keeping the socket `callID` for answer/end signaling.
+- Cancel decline service scope per startId and isolate decline-push client from main SDK client (VSDK-332)
+
 ## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
 
 ### Enhancement
@@ -7,6 +22,13 @@
 - Persist the selected environment for push answer and decline flows.
 - Keep `telnyx_common` profile config helpers opted out of push-when-active by default.
 - Add guidance for push-when-active multi-device flows, answered-elsewhere cleanup, and missed-call notification handling in the push notification docs and sample READMEs.
+- Add missing latency measurement milestones (WEBRTC-3426)
+
+### Bug Fixing
+- Store parent scope for discarded coroutine jobs in TelnyxClient to prevent coroutine leaks (VSDK-333)
+- Bound cancellable scope in TelnyxCommon.observeConnectionMetrics to prevent connectivity subscription leak (VSDK-331)
+- Fix MediaPlayer leak in playRingtone and uncaught NPE in playRingBackTone (VSDK-330)
+- Fix CallTimings portal parsing (VSDK-170)
 
 ## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
 

@@ -83,9 +83,6 @@ class CallNotificationReceiver : BroadcastReceiver() {
 
     private fun handleRejectCall(context: Context, txPushMetadata: PushMetaData?) {
         txPushMetadata?.let {
-            // Set handling push to true to prevent disconnect
-            TelnyxCommon.getInstance().setHandlingPush(true)
-
             // Use background service to decline the call without launching the app
             BackgroundCallDeclineService.startService(context, txPushMetadata)
             
