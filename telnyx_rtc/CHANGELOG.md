@@ -1,7 +1,13 @@
-## [Unreleased]
+## [3.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.0) (2026-07-24)
+
+### Enhancement
+- Add TURNS port 443 as default ICE server fallback for networks that block non-standard ports (VSDK-281)
 
 ### Bug Fixing
 - Harden WebSocket login against connect/disconnect race condition: guard duplicate `onOpen` callbacks, wrap GSON parse in try-catch with raw payload logging, and schedule automatic jittered retry on parse failure during initial connect (VSDK-441)
+- Back `TelnyxClient.calls` with `ConcurrentHashMap` for thread safety under concurrent access from OkHttp socket dispatcher, public API, and call state callbacks (VSDK-335)
+- Untrack `google-services.json` from sample apps to prevent leaking Firebase credentials; add templates with empty API keys (VSDK-349)
+- Show disconnect button during connecting phase in Android demo app so users can cancel outbound calls before they ring (VSDK-352)
 
 ## [3.6.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.1) (2026-07-17)
 
