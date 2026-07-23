@@ -255,13 +255,7 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(
-            TxSocket(
-                host_address = "rtc.telnyx.com",
-                port = 14938,
-            )
-        )
-
+        client.socket = Mockito.mock(TxSocket::class.java)
 
         val config = TokenConfig(
             MOCK_TOKEN,
@@ -272,15 +266,11 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
-        client.socket.connect(client)
 
-        // Sleep to give time to connect
-        Thread.sleep(3000)
         client.tokenLogin(config)
 
-        Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1))
-            .send(dataObject = any(SendingMessageBody::class.java))
+            .send(any(SendingMessageBody::class.java))
     }
 
     @Test
