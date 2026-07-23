@@ -26,6 +26,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Restore google-services.json from templates
+        run: |
+          for app in compose_app xml_app connection_service_app; do
+            if [ ! -f "samples/$app/google-services.json" ] && [ -f "samples/$app/google-services.json.template" ]; then
+              cp "samples/$app/google-services.json.template" "samples/$app/google-services.json"
+              echo "Restored samples/$app/google-services.json from template"
+            fi
+          done
+
       - name: Update Username from Secrets
         env:
           MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
