@@ -2841,7 +2841,15 @@ class TelnyxClient private constructor(
                 Handler(Looper.getMainLooper()).post {
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
+                        // Kill the media path — close and dispose the peer connection
+                        // so the call is fully torn down, not just marked as ERROR.
+                        call.peerConnection?.disconnect()
+                        call.peerConnection = null
                     }
+                    // Clear all active calls so the app returns to profile selection
+                    // state instead of showing a stale Disconnect button.
+                    calls.clear()
+                    callNotOngoing()
                     emitSocketResponse(
                         SocketResponse.error(
                             "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds",
