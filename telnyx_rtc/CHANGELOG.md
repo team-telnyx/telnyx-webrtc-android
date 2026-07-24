@@ -2,6 +2,7 @@
 
 ### Enhancement
 - Add TURNS port 443 as default ICE server fallback for networks that block non-standard ports (VSDK-281)
+- Expose active calls by app-facing call ID for remapped push calls so `getActiveCalls()` returns the call ID the app sees, not the internal signaling ID
 
 ### Bug Fixing
 - Harden WebSocket login against connect/disconnect race condition: guard duplicate `onOpen` callbacks, wrap GSON parse in try-catch with raw payload logging, and schedule automatic jittered retry on parse failure during initial connect (VSDK-441)
