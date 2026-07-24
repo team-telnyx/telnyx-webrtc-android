@@ -6,6 +6,7 @@
 
 ### Bug Fixing
 - Harden WebSocket login against connect/disconnect race condition: guard duplicate `onOpen` callbacks, wrap GSON parse in try-catch with raw payload logging, and schedule automatic jittered retry on parse failure during initial connect (VSDK-441)
+- Fix trickle ICE race in Peer.kt: guard `queuedCandidates` and `answerSent` with a `ReentrantLock` so ICE candidates generated during ANSWER flush are not lost, preventing `ConcurrentModificationException` and incomplete media negotiation (VSUP-148)
 - Back `TelnyxClient.calls` with `ConcurrentHashMap` for thread safety under concurrent access from OkHttp socket dispatcher, public API, and call state callbacks (VSDK-335)
 - Untrack `google-services.json` from sample apps to prevent leaking Firebase credentials; add templates with empty API keys (VSDK-349)
 - Show disconnect button during connecting phase in Android demo app so users can cancel outbound calls before they ring (VSDK-352)
