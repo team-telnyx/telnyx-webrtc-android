@@ -2839,14 +2839,14 @@ class TelnyxClient private constructor(
                 reconnectionRetryCounter.set(0)
                 // Handle the timeout by updating call states and notifying the user
                 Handler(Looper.getMainLooper()).post {
-                    getActiveCalls().forEach { (callId, call) ->
+                    getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
-                        // Proper per-call teardown: stop stats reporter, clean up
-                        // aliases, pending ICE candidates, latency tracking, and
-                        // accept call jobs via removeFromCalls(). This mirrors the
-                        // normal BYE/endCall cleanup path.
-                        removeWebRTCReporter(callId)?.stopStats()
-                        removeFromCalls(callId)
+                        // Use the signaling call ID (not the app-facing ID from
+                        // getActiveCalls keys) for teardown — calls map and
+                        // webRTCReportersMap are both keyed by signaling ID.
+                        val signalingCallId = call.currentSignalingCallId()
+                        removeWebRTCReporter(signalingCallId)?.stopStats()
+                        removeFromCalls(signalingCallId)
                     }
                     // Reset the ongoing call flag so the app returns to profile
                     // selection state instead of showing a stale Disconnect button.
