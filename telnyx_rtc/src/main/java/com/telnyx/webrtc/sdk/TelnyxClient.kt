@@ -2839,16 +2839,21 @@ class TelnyxClient private constructor(
                 reconnectionRetryCounter.set(0)
                 // Handle the timeout by updating call states and notifying the user
                 Handler(Looper.getMainLooper()).post {
-                    getActiveCalls().forEach { (_, call) ->
+                    getActiveCalls().forEach { (callId, call) ->
                         call.setReconnectionTimeout()
+                        // Proper per-call teardown: stop stats reporter, clean up
+                        // aliases, pending ICE candidates, latency tracking, and
+                        // accept call jobs via removeFromCalls(). This mirrors the
+                        // normal BYE/endCall cleanup path.
+                        removeWebRTCReporter(callId)?.stopStats()
+                        removeFromCalls(callId)
                     }
-                    // Clear all active calls so the app returns to profile selection
-                    // state instead of showing a stale Disconnect button.
-                    // Note: we intentionally do NOT call peerConnection.disconnect() here
+                    // Reset the ongoing call flag so the app returns to profile
+                    // selection state instead of showing a stale Disconnect button.
+                    // Note: we intentionally do NOT call peerConnection.disconnect()
                     // because close()+dispose() on an active signaling thread causes
-                    // SIGSEGV in libjingle_peerconnection_so. The peer connections will
-                    // be garbage collected safely without explicit disposal.
-                    calls.clear()
+                    // SIGSEGV in libjingle_peerconnection_so. The peer connections
+                    // will be garbage collected safely without explicit disposal.
                     callNotOngoing()
                     emitSocketResponse(
                         SocketResponse.error(
