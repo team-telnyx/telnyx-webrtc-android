@@ -2841,7 +2841,20 @@ class TelnyxClient private constructor(
                 Handler(Looper.getMainLooper()).post {
                     getActiveCalls().forEach { (_, call) ->
                         call.setReconnectionTimeout()
+                        // Use the signaling call ID (not the app-facing ID from
+                        // getActiveCalls keys) for teardown — calls map and
+                        // webRTCReportersMap are both keyed by signaling ID.
+                        val signalingCallId = call.currentSignalingCallId()
+                        removeWebRTCReporter(signalingCallId)?.stopStats()
+                        removeFromCalls(signalingCallId)
                     }
+                    // Reset the ongoing call flag so the app returns to profile
+                    // selection state instead of showing a stale Disconnect button.
+                    // Note: we intentionally do NOT call peerConnection.disconnect()
+                    // because close()+dispose() on an active signaling thread causes
+                    // SIGSEGV in libjingle_peerconnection_so. The peer connections
+                    // will be garbage collected safely without explicit disposal.
+                    callNotOngoing()
                     emitSocketResponse(
                         SocketResponse.error(
                             "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds",
