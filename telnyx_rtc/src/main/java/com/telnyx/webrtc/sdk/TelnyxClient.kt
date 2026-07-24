@@ -1826,7 +1826,7 @@ class TelnyxClient private constructor(
      * @see [calls]
      */
     fun getActiveCalls(): Map<UUID, Call> {
-        return calls.toMap()
+        return calls.values.associateBy { it.callId }
     }
     
     /**

@@ -1121,6 +1121,25 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `get active calls exposes app facing call id keys`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val appCallId = UUID.randomUUID()
+        val socketCallId = UUID.randomUUID()
+        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
+        fakeCall.callId = appCallId
+        fakeCall.signalingCallId = socketCallId
+
+        client.addToCalls(fakeCall)
+
+        val activeCalls = client.getActiveCalls()
+
+        assertEquals(fakeCall, activeCalls[appCallId])
+        assertEquals(null, activeCalls[socketCallId])
+    }
+
+    @Test
     fun `on bye received emits app facing call id for aliased call`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.socket = Mockito.mock(TxSocket::class.java)
