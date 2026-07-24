@@ -49,6 +49,7 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.timerTask
 
@@ -187,8 +188,12 @@ internal class Peer(
     internal val firstCandidateDeferred = CompletableDeferred<Unit>()
     private var firstCandidateReceived = false // Flag to ensure deferred completes only once
 
-    // Selective candidate queuing for answering side (until ANSWER is sent)
-    private val queuedCandidates = mutableListOf<IceCandidate>()
+    // Selective candidate queuing for answering side (until ANSWER is sent).
+    // CopyOnWriteArrayList is thread-safe: the WebRTC observer thread adds candidates
+    // while the main thread flushes them during accept. A plain mutableListOf throws
+    // ConcurrentModificationException when iterated (forEach) while being mutated,
+    // leaving the SIP ANSWER incomplete and trickled ICE candidates unsent.
+    private val queuedCandidates = CopyOnWriteArrayList<IceCandidate>()
     private var answerSent = false
 
     // End-of-candidates timer management
