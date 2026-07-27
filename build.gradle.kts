@@ -45,16 +45,17 @@ tasks.register("clean", Delete::class) {
 // Copy google-services.json from templates if missing (e.g. JitPack build).
 // The file is untracked to prevent leaking Firebase credentials, but the
 // google-services Gradle plugin requires it at build time.
-tasks.register<Copy>("restoreGoogleServicesTemplates") {
+tasks.register("restoreGoogleServicesTemplates") {
     description = "Restores google-services.json from templates if the file is missing."
-    val sampleApps = listOf("compose_app", "xml_app", "connection_service_app")
-    sampleApps.forEach { app ->
-        val target = file("samples/$app/google-services.json")
-        val template = file("samples/$app/google-services.json.template")
-        if (!target.exists() && template.exists()) {
-            from(template)
-            into("samples/$app")
-            rename { "google-services.json" }
+    doLast {
+        val sampleApps = listOf("compose_app", "xml_app", "connection_service_app")
+        sampleApps.forEach { app ->
+            val target = file("samples/$app/google-services.json")
+            val template = file("samples/$app/google-services.json.template")
+            if (!target.exists() && template.exists()) {
+                template.copyTo(target)
+                logger.lifecycle("Restored samples/$app/google-services.json from template")
+            }
         }
     }
 }
