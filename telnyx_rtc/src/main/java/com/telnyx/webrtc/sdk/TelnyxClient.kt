@@ -357,12 +357,14 @@ class TelnyxClient private constructor(
      *
      * @param metaData The push notification metadata containing call information
      */
-    private fun processCallFromPush(metaData: PushMetaData) {
+    private fun processCallFromPush(metaData: PushMetaData, pushWhenActive: Boolean = false) {
         Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         isCallPendingFromPush = true
         this.pushMetaData = metaData
         // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
-        pendingPushAppCallId = pushAppCallId(metaData)
+        // Pass the config's pushWhenActive directly because the session config may not be saved yet
+        // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
+        pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
     }
 
     /**
@@ -726,8 +728,8 @@ class TelnyxClient private constructor(
     private fun String?.toUuidOrNull(): UUID? =
         this?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
-    private fun pushAppCallId(metaData: PushMetaData): UUID? {
-        if (!pushWhenActiveEnabled()) return null
+    private fun pushAppCallId(metaData: PushMetaData, pushWhenActive: Boolean = false): UUID? {
+        if (!pushWhenActive && !pushWhenActiveEnabled()) return null
         return metaData.callId.toUuidOrNull()
     }
 
@@ -1401,7 +1403,7 @@ class TelnyxClient private constructor(
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-            processCallFromPush(metadata)
+            processCallFromPush(metadata, credentialConfig.pushWhenActive)
             providedServerConfig.host
         } else {
             providedServerConfig.host
@@ -1505,7 +1507,7 @@ class TelnyxClient private constructor(
 
         providedHostAddress = if (txPushMetaData != null) {
             val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-            processCallFromPush(metadata)
+            processCallFromPush(metadata, tokenConfig.pushWhenActive)
             providedServerConfig.host
         } else {
             providedServerConfig.host
