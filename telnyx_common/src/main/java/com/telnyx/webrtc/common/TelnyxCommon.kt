@@ -297,7 +297,7 @@ class TelnyxCommon private constructor() {
             editor.apply()
 
             // Delete the legacy plaintext preferences file
-            val legacyFile = context.deleteSharedPreferences(legacySharedPreferencesKey)
+            context.deleteSharedPreferences(legacySharedPreferencesKey)
             Timber.i("Migrated ${allEntries.size} entries from legacy plaintext SharedPreferences to encrypted store")
         } else {
             // No legacy data — just mark migration as complete
