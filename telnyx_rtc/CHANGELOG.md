@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Security
+- Migrate SharedPreferences to EncryptedSharedPreferences (AES-256) to protect SIP credentials at rest. Includes one-time migration from legacy plaintext store for existing installs. Disable `allowBackup` in all sample app manifests to prevent credential extraction via `adb backup` (SEC-279)
+
 ## [3.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.0) (2026-07-24)
 
 ### Enhancement

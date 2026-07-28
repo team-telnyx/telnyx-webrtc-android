@@ -3,6 +3,8 @@ package com.telnyx.webrtc.common
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.Observer
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.telnyx.webrtc.common.service.CallForegroundService
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -31,7 +33,9 @@ import java.util.*
  */
 class TelnyxCommon private constructor() {
     private var sharedPreferences: SharedPreferences? = null
-    private val sharedPreferencesKey = "TelnyxCommonSharedPreferences"
+    private val sharedPreferencesKey = "telnyx_prefs_v2"
+    private val legacySharedPreferencesKey = "TelnyxCommonSharedPreferences"
+    private val migrationCompleteKey = "migrated_to_encrypted"
 
     private var _telnyxClient: TelnyxClient? = null
     val telnyxClient
@@ -231,17 +235,73 @@ class TelnyxCommon private constructor() {
 
 
     /**
-     * Retrieves the singleton `SharedPreferences` instance for TelnyxCommon, creating it if necessary.
+     * Retrieves the singleton encrypted `SharedPreferences` instance for TelnyxCommon.
+     * Uses EncryptedSharedPreferences (AES-256) to protect SIP credentials at rest.
+     *
+     * On first call after upgrade from a previous version, migrates any existing
+     * plaintext preferences to the encrypted store and deletes the old file.
      *
      * @param context The application context, needed for accessing SharedPreferences.
-     * @return The singleton `SharedPreferences` instance.
+     * @return The singleton encrypted `SharedPreferences` instance.
      */
     internal fun getSharedPreferences(context: Context): SharedPreferences {
         return sharedPreferences ?: synchronized(this) {
-            sharedPreferences ?: context.getSharedPreferences(
-                sharedPreferencesKey,
-                Context.MODE_PRIVATE
-            ).also { sharedPreferences = it }
+            sharedPreferences ?: buildEncryptedPrefs(context).also { prefs ->
+                sharedPreferences = prefs
+                migrateFromLegacyPrefs(context, prefs)
+            }
+        }
+    }
+
+    /**
+     * Creates an EncryptedSharedPreferences instance backed by the Android Keystore.
+     */
+    private fun buildEncryptedPrefs(context: Context): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return EncryptedSharedPreferences.create(
+            context,
+            sharedPreferencesKey,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    /**
+     * One-time migration from the old plaintext SharedPreferences to the new encrypted store.
+     * Reads all key-value pairs from the legacy store, writes them to the encrypted store,
+     * then deletes the legacy file so the data only exists in encrypted form.
+     */
+    private fun migrateFromLegacyPrefs(context: Context, encryptedPrefs: SharedPreferences) {
+        if (encryptedPrefs.getBoolean(migrationCompleteKey, false)) return
+
+        val legacyPrefs = context.getSharedPreferences(legacySharedPreferencesKey, Context.MODE_PRIVATE)
+        val allEntries = legacyPrefs.all
+
+        if (allEntries.isNotEmpty()) {
+            val editor = encryptedPrefs.edit()
+            for ((key, value) in allEntries) {
+                when (value) {
+                    is String -> editor.putString(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Set<*> -> @Suppress("UNCHECKED_CAST")
+                    (value as Set<String>).let { editor.putStringSet(key, it) }
+                }
+            }
+            editor.putBoolean(migrationCompleteKey, true)
+            editor.apply()
+
+            // Delete the legacy plaintext preferences file
+            val legacyFile = context.deleteSharedPreferences(legacySharedPreferencesKey)
+            Timber.i("Migrated ${allEntries.size} entries from legacy plaintext SharedPreferences to encrypted store")
+        } else {
+            // No legacy data — just mark migration as complete
+            encryptedPrefs.edit().putBoolean(migrationCompleteKey, true).apply()
         }
     }
 
