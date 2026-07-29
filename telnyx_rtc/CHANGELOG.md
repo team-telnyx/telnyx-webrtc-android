@@ -1,7 +1,7 @@
-## [Unreleased]
+## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
 
-### Security
-- Migrate SharedPreferences to EncryptedSharedPreferences (AES-256) to protect SIP credentials at rest. Includes one-time migration from legacy plaintext store for existing installs. Disable `allowBackup` in all sample app manifests to prevent credential extraction via `adb backup` (SEC-279)
+### Bug Fixing
+- Fix pushWhenActive timing race: pass config's `pushWhenActive` directly to `processCallFromPush()` instead of relying on session config that hasn't been saved yet, so call ID remapping works on the push-when-active path
 
 ## [3.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.0) (2026-07-24)
 
