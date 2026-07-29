@@ -1,3 +1,8 @@
+## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
+
+### Bug Fixing
+- Fix pushWhenActive timing race: pass config's `pushWhenActive` directly to `processCallFromPush()` instead of relying on session config that hasn't been saved yet, so call ID remapping works on the push-when-active path
+
 ## [3.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.0) (2026-07-24)
 
 ### Enhancement
