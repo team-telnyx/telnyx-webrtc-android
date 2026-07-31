@@ -10,14 +10,14 @@ plugins {
 
 android {
     namespace = "org.telnyx.webrtc.compose_app"
-    compileSdk = 35
+    compileSdk = 36
 
     buildFeatures.buildConfig  = true
 
     defaultConfig {
         applicationId = "org.telnyx.webrtc.compose_app"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 21
         versionName = "21"
 

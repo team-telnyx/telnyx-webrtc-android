@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Enhancement
+- Upgrade `compileSdk` to 36 (Android 16) and `targetSdk` to 36 for all sample apps to meet Google Play deadline (31 August 2026). Update AGP from 8.6.1 to 8.7.3 (VSDK-469)
+
 ## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
 
 ### Bug Fixing
