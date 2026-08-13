@@ -1166,13 +1166,14 @@ class TelnyxClientTest : BaseTest() {
         field.set(client, value)
     }
 
-    private fun invokePushAppCallId(metaData: PushMetaData): UUID? {
+    private fun invokePushAppCallId(metaData: PushMetaData, pushWhenActive: Boolean = true): UUID? {
         val method = TelnyxClient::class.java.getDeclaredMethod(
             "pushAppCallId",
-            PushMetaData::class.java
+            PushMetaData::class.java,
+            Boolean::class.javaPrimitiveType
         )
         method.isAccessible = true
-        return method.invoke(client, metaData) as UUID?
+        return method.invoke(client, metaData, pushWhenActive) as UUID?
     }
 
     private fun invokeInviteAppCallId(

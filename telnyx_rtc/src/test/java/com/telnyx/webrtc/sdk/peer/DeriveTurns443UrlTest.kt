@@ -1,6 +1,6 @@
 package com.telnyx.webrtc.sdk.peer
 
-import org.junit.jupiter.api.Test
+import org.junit.Test
 import kotlin.test.assertEquals
 
 /**

@@ -109,7 +109,6 @@ android {
         unitTests.includeAndroidResources = true
         unitTests.returnDefaultValues = true
         unitTests.all {
-            useJUnitPlatform()
             if (name == "testDebugUnitTest" || name == "testReleaseUnitTest") {
                 kover {
                     excludes = ["com\\.telnyx\\.webrtc\\.sdk\\.peer\\..*"]
