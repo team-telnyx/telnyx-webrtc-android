@@ -13,6 +13,15 @@ internal object Config {
     const val DEFAULT_STUN = "stun:stun.telnyx.com:3478"
     const val DEFAULT_TURN_UDP = "turn:turn.telnyx.com:3478?transport=udp"
     const val DEFAULT_TURN = "turn:turn.telnyx.com:3478?transport=tcp"
+    /**
+     * Production TURNS server (TLS over TCP on port 443).
+     * Last-resort fallback for restrictive firewalls that block non-443 traffic.
+     *
+     * Note: The JS SDK uses `turn2.telnyx.com` for TURNS 443. Android and Flutter
+     * use `turn.telnyx.com`. This is intentional — the TURNS endpoint is
+     * served by different infrastructure. If alignment is needed, coordinate
+     * with the platform team.
+     */
     const val DEFAULT_TURNS_443 = "turns:turn.telnyx.com:443?transport=tcp"
 
     // Development ICE servers
