@@ -178,6 +178,40 @@ internal class Peer(
                 emptyList()
             }
         }
+
+        /**
+         * Derives a TURNS 443 URL from a given TURN URL.
+         *
+         * Maps `turn:` to `turns:`, replaces any port with 443, and ensures
+         * `transport=tcp` is set. The result is the last-resort fallback for
+         * restrictive firewalls that only allow outbound HTTPS traffic.
+         */
+        internal fun deriveTurns443Url(turnUrl: String): String {
+            var derived = turnUrl
+
+            // Upgrade `turn:` scheme to `turns:` (TLS) — guard against double prefix
+            // when the input is already a `turns:` URL.
+            if (!derived.startsWith("turns:")) {
+                derived = derived.replaceFirst("turn:", "turns:")
+            }
+
+            // Replace any explicit port with 443
+            derived = Regex(":\\d+").replace(derived, ":443")
+
+            // TURNS (TURN over TLS) only supports TCP; override UDP if present.
+            derived = derived.replace("transport=udp", "transport=tcp")
+
+            // Ensure transport=tcp is set if no transport param exists
+            if (!derived.contains("transport=")) {
+                derived = if (derived.contains("?")) {
+                    "$derived&transport=tcp"
+                } else {
+                    "$derived?transport=tcp"
+                }
+            }
+
+            return derived
+        }
     }
 
     private var lastCandidateTime = System.currentTimeMillis()
@@ -308,34 +342,6 @@ internal class Peer(
             turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
             else -> "$turnUrl?transport=tcp" // No params, add
         }
-    }
-
-    /**
-     * Derives a TURNS 443 URL from a given TURN URL.
-     *
-     * Maps `turn:` to `turns:`, replaces any port with 443, and ensures
-     * `transport=tcp` is set. The result is the last-resort fallback for
-     * restrictive firewalls that only allow outbound HTTPS traffic.
-     */
-    private fun deriveTurns443Url(turnUrl: String): String {
-        var derived = turnUrl
-
-        // Upgrade `turn:` scheme to `turns:` (TLS)
-        derived = derived.replaceFirst("turn:", "turns:")
-
-        // Replace any explicit port with 443
-        derived = Regex(":\\d+").replace(derived, ":443")
-
-        // Ensure transport=tcp
-        if (!derived.contains("transport=")) {
-            derived = if (derived.contains("?")) {
-                "$derived&transport=tcp"
-            } else {
-                "$derived?transport=tcp"
-            }
-        }
-
-        return derived
     }
 
     val iceCandidatePoolSize = getIceCandidatePool()
