@@ -14,6 +14,7 @@ import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
 import com.telnyx.webrtc.sdk.Config.DEV_TURNS_443
 import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
+import com.telnyx.webrtc.sdk.Config.SECONDARY_TURNS_443
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
@@ -254,7 +255,8 @@ internal class Peer(
      * 2. Google STUN - Redundancy fallback
      * 3. TURN UDP - Lower latency, preferred for real-time media
      * 4. TURN TCP - Fallback for restrictive firewalls
-     * 5. TURNS 443 - Last-resort fallback for highly restrictive firewalls
+     * 5. Primary TURNS 443 - Last-resort fallback for restrictive firewalls
+     * 6. Secondary production TURNS 443 - DNS migration fallback
      *
      * @see [TxSocket]
      * @see [PeerConnection.IceServer]
@@ -314,6 +316,16 @@ internal class Peer(
                 .setPassword(PASSWORD)
                 .createIceServer()
         )
+
+        // 6. Secondary production TURNS endpoint retained during DNS migration.
+        if (providedTurn == DEFAULT_TURN) {
+            iceServers.add(
+                PeerConnection.IceServer.builder(SECONDARY_TURNS_443)
+                    .setUsername(USERNAME)
+                    .setPassword(PASSWORD)
+                    .createIceServer()
+            )
+        }
 
         Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp, TURNS: $turns443)")
         return iceServers

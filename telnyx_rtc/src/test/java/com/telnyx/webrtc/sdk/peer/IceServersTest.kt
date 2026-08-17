@@ -56,11 +56,11 @@ class IceServersTest : BaseTest() {
     }
 
     @Test
-    fun `default production config exposes 5 ICE servers with the documented first four`() {
+    fun `default production config exposes 6 ICE servers with the documented first four`() {
         val peer = newPeer()
         val servers = peer.iceServer
 
-        assertEquals(5, servers.size, "Expected 5 ICE servers (STUN x2, TURN UDP, TURN TCP, TURNS 443)")
+        assertEquals(6, servers.size, "Expected 6 ICE servers including both production TURNS endpoints")
 
         // The existing four servers remain in their original order ahead of the
         // new TURNS 443 fallback.
@@ -71,12 +71,20 @@ class IceServersTest : BaseTest() {
     }
 
     @Test
-    fun `default production config appends production TURNS 443 as the last server`() {
+    fun `default production config places primary TURNS 443 fifth`() {
         val peer = newPeer()
-        val last = peer.iceServer.last()
+        val primary = peer.iceServer[4]
 
-        assertEquals(listOf(Config.DEFAULT_TURNS_443), last.urls)
+        assertEquals(listOf(Config.DEFAULT_TURNS_443), primary.urls)
         // TURN credentials are propagated to the derived TURNS entry.
+        assertEquals(Config.USERNAME, primary.username)
+        assertEquals(Config.PASSWORD, primary.password)
+    }
+
+    @Test
+    fun `default production config appends secondary TURNS endpoint last`() {
+        val last = newPeer().iceServer.last()
+        assertEquals(listOf(Config.SECONDARY_TURNS_443), last.urls)
         assertEquals(Config.USERNAME, last.username)
         assertEquals(Config.PASSWORD, last.password)
     }
@@ -119,7 +127,7 @@ class IceServersTest : BaseTest() {
     fun `TURNS 443 entry is always the last server regardless of input`() {
         // Default production
         val production = newPeer(turn = Config.DEFAULT_TURN).iceServer
-        assertEquals(Config.DEFAULT_TURNS_443, production.last().urls.single())
+        assertEquals(Config.SECONDARY_TURNS_443, production.last().urls.single())
 
         // Default development
         val development = newPeer(turn = Config.DEV_TURN).iceServer

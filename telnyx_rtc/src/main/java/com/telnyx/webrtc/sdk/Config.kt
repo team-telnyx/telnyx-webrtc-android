@@ -17,18 +17,16 @@ internal object Config {
      * Production TURNS server (TLS over TCP on port 443).
      * Last-resort fallback for restrictive firewalls that block non-443 traffic.
      *
-     * Note: The JS SDK uses `turn2.telnyx.com` for TURNS 443. Android and Flutter
-     * use `turn.telnyx.com`. This is intentional — the TURNS endpoint is
-     * served by different infrastructure. If alignment is needed, coordinate
-     * with the platform team.
+     * TURNS URLs intentionally omit the transport parameter, matching the JS SDK.
      */
-    const val DEFAULT_TURNS_443 = "turns:turn.telnyx.com:443?transport=tcp"
+    const val DEFAULT_TURNS_443 = "turns:turn.telnyx.com:443"
+    const val SECONDARY_TURNS_443 = "turns:turn2.telnyx.com:443"
 
     // Development ICE servers
     const val DEV_STUN = "stun:stundev.telnyx.com:3478"
     const val DEV_TURN_UDP = "turn:turndev.telnyx.com:3478?transport=udp"
     const val DEV_TURN = "turn:turndev.telnyx.com:3478?transport=tcp"
-    const val DEV_TURNS_443 = "turns:turndev.telnyx.com:443?transport=tcp"
+    const val DEV_TURNS_443 = "turns:turndev.telnyx.com:443"
 
     // Google STUN server for redundancy
     const val GOOGLE_STUN = "stun:stun.l.google.com:19302"
