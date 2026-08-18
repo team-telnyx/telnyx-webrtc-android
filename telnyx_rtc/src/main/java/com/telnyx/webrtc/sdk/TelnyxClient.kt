@@ -130,6 +130,7 @@ class TelnyxClient private constructor(
 
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
         const val RECONNECT_TIMEOUT: Long = 60000
+        internal const val PUSH_INVITE_TIMEOUT_MS: Long = 10000
 
         /** Maximum number of reconnection retries when server closes connection during reconnection */
         const val MAX_RECONNECTION_RETRIES = 3
@@ -351,6 +352,7 @@ class TelnyxClient private constructor(
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
     private var pendingPushAppCallId: UUID? = null
+    private var pushInviteTimeoutJob: Job? = null
 
     /**
      * Processes an incoming call notification from a push message.
@@ -1983,9 +1985,54 @@ class TelnyxClient private constructor(
         )
         Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
-        //reset push params
-        pushMetaData = null
-        isCallPendingFromPush = false
+        startPushInviteTimeout()
+    }
+
+    private fun startPushInviteTimeout() {
+        pushInviteTimeoutJob?.cancel()
+        val pendingCallId = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
+        if (pendingCallId == null) {
+            Logger.w(message = "Cannot start push INVITE timeout without a valid push call_id")
+            return
+        }
+
+        Logger.d(message = "Starting post-attach INVITE timeout for push call $pendingCallId")
+        pushInviteTimeoutJob = clientScope.launch {
+            delay(PUSH_INVITE_TIMEOUT_MS)
+            if (!isCallPendingFromPush) return@launch
+
+            val terminationReason = CallTerminationReason(
+                cause = "ORIGINATOR_CANCEL",
+                causeCode = 487,
+                sipCode = 487,
+                sipReason = "Request Terminated"
+            )
+            emitPendingPushBye(
+                appCallId = pendingCallId,
+                cause = terminationReason.cause,
+                causeCode = terminationReason.causeCode,
+                sipCode = terminationReason.sipCode,
+                sipReason = terminationReason.sipReason
+            )
+            clearPendingPushCall()
+        }
+    }
+
+    private fun emitPendingPushBye(
+        appCallId: UUID,
+        cause: String?,
+        causeCode: Int?,
+        sipCode: Int?,
+        sipReason: String?,
+    ) {
+        emitSocketResponse(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.BYE.methodName,
+                    ByeResponse(appCallId, cause, causeCode, sipCode, sipReason)
+                )
+            )
+        )
     }
 
 
@@ -2046,7 +2093,7 @@ class TelnyxClient private constructor(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = mapOf("attach_calls" to "true"),
+                loginParams = mapOf("attach_call" to "true"),
                 sessid = sessid
             )
         )
@@ -3019,7 +3066,14 @@ class TelnyxClient private constructor(
                 _transcript.clear()
                 _transcriptUpdateFlow.tryEmit(emptyList())
             } ?: run {
-                Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                val pendingCallId = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
+                if (isCallPendingFromPush && pendingCallId == callId) {
+                    Logger.d(message = "Received BYE for pending push call before INVITE: $callId")
+                    emitPendingPushBye(appFacingCallId, cause, causeCode, sipCode, sipReason)
+                    clearPendingPushCall()
+                } else {
+                    Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                }
             }
         } catch (e: Exception) {
             Logger.e(message = "Error processing onByeReceived: ${e.message}")
@@ -3293,6 +3347,7 @@ class TelnyxClient private constructor(
                 val variables = inviteVariables(params)
                 val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
                 registerCallIdAlias(appCallId, offerCallId)
+                clearPendingPushCall()
                 val remoteSdp = params.get("sdp").asString
 
                 // Check if remote party supports trickle ICE
@@ -3738,6 +3793,8 @@ class TelnyxClient private constructor(
     }
 
     private fun clearPendingPushCall() {
+        pushInviteTimeoutJob?.cancel()
+        pushInviteTimeoutJob = null
         isCallPendingFromPush = false
         pendingPushAppCallId = null
         pushMetaData = null

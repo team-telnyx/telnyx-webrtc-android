@@ -1160,6 +1160,35 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(appCallId, bye.callId)
     }
 
+    @Test
+    fun `on bye received emits terminal event for pending push call before invite`() {
+        val pushCallId = UUID.randomUUID()
+        setPrivateField("isCallPendingFromPush", true)
+        setPrivateField(
+            "pushMetaData",
+            PushMetaData(
+                callerName = "Alice",
+                callerNumber = "1001",
+                callId = pushCallId.toString(),
+                voiceSdkId = "voice-sdk-id"
+            )
+        )
+
+        val byeJsonObject = JsonObject()
+        byeJsonObject.add("params", JsonObject().apply {
+            addProperty("callID", pushCallId.toString())
+            addProperty("cause", "PICKED_OFF")
+        })
+
+        client.onByeReceived(byeJsonObject)
+
+        val message = client.socketResponseLiveData.getOrAwaitValue()
+        val body = message.data as ReceivedMessageBody
+        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+        assertEquals(pushCallId, bye.callId)
+        assertEquals("PICKED_OFF", bye.cause)
+    }
+
     private fun setPrivateField(name: String, value: Any?) {
         val field = TelnyxClient::class.java.getDeclaredField(name)
         field.isAccessible = true
