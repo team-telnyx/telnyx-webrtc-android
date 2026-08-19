@@ -50,6 +50,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -1163,6 +1164,7 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `on bye received emits terminal event for pending push call before invite`() {
         val pushCallId = UUID.randomUUID()
+        val signalingCallId = UUID.randomUUID()
         setPrivateField("isCallPendingFromPush", true)
         setPrivateField(
             "pushMetaData",
@@ -1176,7 +1178,7 @@ class TelnyxClientTest : BaseTest() {
 
         val byeJsonObject = JsonObject()
         byeJsonObject.add("params", JsonObject().apply {
-            addProperty("callID", pushCallId.toString())
+            addProperty("callID", signalingCallId.toString())
             addProperty("cause", "PICKED_OFF")
         })
 
@@ -1187,12 +1189,76 @@ class TelnyxClientTest : BaseTest() {
         val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
         assertEquals(pushCallId, bye.callId)
         assertEquals("PICKED_OFF", bye.cause)
+        assertFalse(getPrivateField("isCallPendingFromPush"))
+    }
+
+    @Test
+    fun `attach error clears pending push and emits correlated terminal bye`() {
+        val pushCallId = UUID.randomUUID()
+        val attachId = UUID.randomUUID().toString()
+        setPrivateField("isCallPendingFromPush", true)
+        setPrivateField("attachCallId", attachId)
+        setPrivateField(
+            "pushMetaData",
+            PushMetaData(
+                callerName = "Alice",
+                callerNumber = "1001",
+                callId = pushCallId.toString(),
+                voiceSdkId = "voice-sdk-id"
+            )
+        )
+
+        client.onErrorReceived(JsonObject().apply { addProperty("id", attachId) }, null)
+
+        val message = client.socketResponseLiveData.getOrAwaitValue()
+        val body = message.data as ReceivedMessageBody
+        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+        assertEquals(pushCallId, bye.callId)
+        assertEquals("REMOTE_ERROR", bye.cause)
+        assertFalse(getPrivateField("isCallPendingFromPush"))
+    }
+
+    @Test
+    fun `push invite watchdog emits one terminal bye and clears pending state`() {
+        val pushCallId = UUID.randomUUID()
+        client.pushInviteTimeoutMs = 10
+        setPrivateField("isCallPendingFromPush", true)
+        setPrivateField(
+            "pushMetaData",
+            PushMetaData(
+                callerName = "Alice",
+                callerNumber = "1001",
+                callId = pushCallId.toString(),
+                voiceSdkId = "voice-sdk-id"
+            )
+        )
+        client.socketResponseLiveData.value = null
+
+        TelnyxClient::class.java.getDeclaredMethod("startPushInviteTimeout").apply {
+            isAccessible = true
+            invoke(client)
+        }
+
+        Thread.sleep(100)
+        val message = requireNotNull(client.socketResponseLiveData.value)
+        val body = message.data as ReceivedMessageBody
+        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
+        assertEquals(pushCallId, bye.callId)
+        assertEquals("ORIGINATOR_CANCEL", bye.cause)
+        assertFalse(getPrivateField("isCallPendingFromPush"))
     }
 
     private fun setPrivateField(name: String, value: Any?) {
         val field = TelnyxClient::class.java.getDeclaredField(name)
         field.isAccessible = true
         field.set(client, value)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> getPrivateField(name: String): T {
+        val field = TelnyxClient::class.java.getDeclaredField(name)
+        field.isAccessible = true
+        return field.get(client) as T
     }
 
     private fun invokePushAppCallId(metaData: PushMetaData, pushWhenActive: Boolean = true): UUID? {
