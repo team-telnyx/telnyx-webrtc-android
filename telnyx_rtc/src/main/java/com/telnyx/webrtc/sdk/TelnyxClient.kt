@@ -3361,6 +3361,10 @@ class TelnyxClient private constructor(
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val variables = inviteVariables(params)
                 val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
+                // IMPORTANT: inviteAppCallId() MUST be evaluated before claimPendingPushCall().
+                // inviteAppCallId() reads pendingPushAppCallId without the lock; claimPendingPushCall()
+                // clears it. If the read is moved after the claim, the push app call ID is lost and
+                // the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
                 // INVITE atomically wins against BYE/timeout before the call is exposed.
                 claimPendingPushCall()
                 registerCallIdAlias(appCallId, offerCallId)

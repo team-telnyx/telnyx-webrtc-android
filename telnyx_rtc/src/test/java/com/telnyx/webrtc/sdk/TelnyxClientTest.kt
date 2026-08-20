@@ -1239,8 +1239,10 @@ class TelnyxClientTest : BaseTest() {
             invoke(client)
         }
 
-        Thread.sleep(100)
-        val message = requireNotNull(client.socketResponseLiveData.value)
+        // Use getOrAwaitValue instead of Thread.sleep — postValue from the
+        // background coroutine is asynchronous, so a fixed sleep can race the
+        // main-thread post. getOrAwaitValue blocks until the value is posted.
+        val message = client.socketResponseLiveData.getOrAwaitValue()
         val body = message.data as ReceivedMessageBody
         val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
         assertEquals(pushCallId, bye.callId)
