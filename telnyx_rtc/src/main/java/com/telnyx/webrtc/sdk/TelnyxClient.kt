@@ -362,12 +362,18 @@ class TelnyxClient private constructor(
      */
     private fun processCallFromPush(metaData: PushMetaData, pushWhenActive: Boolean = false) {
         Logger.d("processCallFromPush PushMetaData", metaData.toJson())
-        isCallPendingFromPush = true
-        this.pushMetaData = metaData
-        // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
-        // Pass the config's pushWhenActive directly because the session config may not be saved yet
-        // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
-        pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
+        // Write pending push state under the same synchronized(this) lock used by
+        // claimPendingPushCall(), clearPendingPushCall(), inviteAppCallId(), and
+        // startPushInviteTimeout() so the compound invariant across these fields
+        // is preserved atomically.
+        synchronized(this) {
+            isCallPendingFromPush = true
+            this.pushMetaData = metaData
+            // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
+            // Pass the config's pushWhenActive directly because the session config may not be saved yet
+            // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
+            pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
+        }
     }
 
     /**
@@ -991,13 +997,15 @@ class TelnyxClient private constructor(
     }
 
     internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
-        if (appCallId == socketCallId) {
+        synchronized(this) {
+            if (appCallId == socketCallId) {
+                pendingPushAppCallId = null
+                return
+            }
+            socketCallIdByAppCallId[appCallId] = socketCallId
+            appCallIdBySocketCallId[socketCallId] = appCallId
             pendingPushAppCallId = null
-            return
         }
-        socketCallIdByAppCallId[appCallId] = socketCallId
-        appCallIdBySocketCallId[socketCallId] = appCallId
-        pendingPushAppCallId = null
     }
 
     internal fun signalingCallId(appCallId: UUID): UUID = socketCallIdByAppCallId[appCallId] ?: appCallId
@@ -3371,9 +3379,10 @@ class TelnyxClient private constructor(
                 val variables = inviteVariables(params)
                 val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
                 // IMPORTANT: inviteAppCallId() MUST be evaluated before claimPendingPushCall().
-                // inviteAppCallId() reads pendingPushAppCallId without the lock; claimPendingPushCall()
-                // clears it. If the read is moved after the claim, the push app call ID is lost and
-                // the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
+                // inviteAppCallId() reads pendingPushAppCallId under synchronized(this); claimPendingPushCall()
+                // then clears it under the same lock. The order matters because the claim nulls the field
+                // the alias read depends on. If the read is moved after the claim, the push app call ID is
+                // lost and the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
                 // INVITE atomically wins against BYE/timeout before the call is exposed.
                 claimPendingPushCall()
                 registerCallIdAlias(appCallId, offerCallId)
