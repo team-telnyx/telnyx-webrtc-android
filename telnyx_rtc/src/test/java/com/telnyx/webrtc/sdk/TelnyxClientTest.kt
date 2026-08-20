@@ -1210,7 +1210,11 @@ class TelnyxClientTest : BaseTest() {
 
         client.onErrorReceived(JsonObject().apply { addProperty("id", attachId) }, null)
 
-        val message = client.socketResponseLiveData.getOrAwaitValue()
+        // onErrorReceived emits SocketResponse.error first, then the BYE.
+        // With InstantTaskExecutorRule, getOrAwaitValue captures the first
+        // emission (the error), so we drain it before reading the BYE.
+        client.socketResponseLiveData.getOrAwaitValue() // discard SocketResponse.error
+        val message = client.socketResponseLiveData.getOrAwaitValue() // BYE
         val body = message.data as ReceivedMessageBody
         val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
         assertEquals(pushCallId, bye.callId)
