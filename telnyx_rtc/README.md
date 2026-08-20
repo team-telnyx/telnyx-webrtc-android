@@ -118,6 +118,41 @@ call.getCallState().observe(lifecycleOwner) { state ->
 }
 ```
 
+### Relay-only media
+
+Enable `forceRelayCandidate` in the credential or token configuration when
+all media must traverse TURN, or while diagnosing restrictive NAT/firewall
+behavior:
+
+```kotlin
+val config = TokenConfig(
+    sipToken = token,
+    sipCallerIDName = "Caller",
+    sipCallerIDNumber = "15551234567",
+    fcmToken = null,
+    ringtone = null,
+    ringBackTone = null,
+    forceRelayCandidate = true
+)
+```
+
+Relay-only mode sets WebRTC's ICE transport policy to `RELAY` for outbound,
+inbound, reconnection, and reattachment peer creation. STUN entries may remain
+configured, but they cannot become the selected media path. A reachable TURN
+server and valid credentials are mandatory. Production defaults include TURN
+over UDP and TCP on port 3478, followed by TURNS on port 443 at
+`turn.telnyx.com` and `turn2.telnyx.com`.
+
+Use this setting selectively. Relaying all media can add connection time,
+latency, relay bandwidth/cost, and may reduce quality for devices that could
+otherwise use a shorter path. ICE server array order does not guarantee
+sequential fallback; WebRTC prioritizes gathered candidate pairs.
+
+To verify relay-only behavior, enable SDK debug reporting, place a call, and
+inspect the selected ICE candidate pair in the WebRTC statistics. Its local
+candidate type must be `relay`; `host` or `srflx` indicates that
+relay-only policy was not applied.
+
 ## Network Requirements
 - WebSocket connectivity to Telnyx servers
 - UDP ports open for WebRTC media
