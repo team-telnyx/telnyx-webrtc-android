@@ -748,8 +748,12 @@ class TelnyxClient private constructor(
     private fun inviteAppCallId(socketCallId: UUID): UUID? {
         if (!pushWhenActiveEnabled()) return null
         // Only remap when the SDK already learned the app-facing ID from the push path.
-        return pendingPushAppCallId.takeIf { isCallPendingFromPush }
-            ?: appCallIdBySocketCallId[socketCallId]
+        // Read under synchronized to avoid a TOCTOU race with claimPendingPushCall()
+        // or clearPendingPushCall() which mutate these fields under the same lock.
+        return synchronized(this) {
+            pendingPushAppCallId.takeIf { isCallPendingFromPush }
+                ?: appCallIdBySocketCallId[socketCallId]
+        }
     }
 
 
@@ -1991,7 +1995,12 @@ class TelnyxClient private constructor(
 
     private fun startPushInviteTimeout() {
         pushInviteTimeoutJob?.cancel()
-        val pendingCallId = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
+        // Read pending callId under the same lock used by claimPendingPushCall()
+        // and clearPendingPushCall() to avoid a TOCTOU race where the pending
+        // state is cleared between this read and the coroutine's claim.
+        val pendingCallId = synchronized(this) {
+            pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
+        }
         if (pendingCallId == null) {
             Logger.w(message = "Cannot start push INVITE timeout without a valid push call_id")
             return
