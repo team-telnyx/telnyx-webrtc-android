@@ -130,6 +130,7 @@ class TelnyxClient private constructor(
 
         /** Timeout in milliseconds for reconnection attempts (60 seconds) */
         const val RECONNECT_TIMEOUT: Long = 60000
+        internal const val PUSH_INVITE_TIMEOUT_MS: Long = 10000
 
         /** Maximum number of reconnection retries when server closes connection during reconnection */
         const val MAX_RECONNECTION_RETRIES = 3
@@ -351,6 +352,8 @@ class TelnyxClient private constructor(
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
     private var pendingPushAppCallId: UUID? = null
+    private var pushInviteTimeoutJob: Job? = null
+    internal var pushInviteTimeoutMs: Long = PUSH_INVITE_TIMEOUT_MS
 
     /**
      * Processes an incoming call notification from a push message.
@@ -359,12 +362,18 @@ class TelnyxClient private constructor(
      */
     private fun processCallFromPush(metaData: PushMetaData, pushWhenActive: Boolean = false) {
         Logger.d("processCallFromPush PushMetaData", metaData.toJson())
-        isCallPendingFromPush = true
-        this.pushMetaData = metaData
-        // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
-        // Pass the config's pushWhenActive directly because the session config may not be saved yet
-        // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
-        pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
+        // Write pending push state under the same synchronized(this) lock used by
+        // claimPendingPushCall(), clearPendingPushCall(), inviteAppCallId(), and
+        // startPushInviteTimeout() so the compound invariant across these fields
+        // is preserved atomically.
+        synchronized(this) {
+            isCallPendingFromPush = true
+            this.pushMetaData = metaData
+            // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
+            // Pass the config's pushWhenActive directly because the session config may not be saved yet
+            // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
+            pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
+        }
     }
 
     /**
@@ -745,8 +754,12 @@ class TelnyxClient private constructor(
     private fun inviteAppCallId(socketCallId: UUID): UUID? {
         if (!pushWhenActiveEnabled()) return null
         // Only remap when the SDK already learned the app-facing ID from the push path.
-        return pendingPushAppCallId.takeIf { isCallPendingFromPush }
-            ?: appCallIdBySocketCallId[socketCallId]
+        // Read under synchronized to avoid a TOCTOU race with claimPendingPushCall()
+        // or clearPendingPushCall() which mutate these fields under the same lock.
+        return synchronized(this) {
+            pendingPushAppCallId.takeIf { isCallPendingFromPush }
+                ?: appCallIdBySocketCallId[socketCallId]
+        }
     }
 
 
@@ -984,13 +997,15 @@ class TelnyxClient private constructor(
     }
 
     internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
-        if (appCallId == socketCallId) {
+        synchronized(this) {
+            if (appCallId == socketCallId) {
+                pendingPushAppCallId = null
+                return
+            }
+            socketCallIdByAppCallId[appCallId] = socketCallId
+            appCallIdBySocketCallId[socketCallId] = appCallId
             pendingPushAppCallId = null
-            return
         }
-        socketCallIdByAppCallId[appCallId] = socketCallId
-        appCallIdBySocketCallId[socketCallId] = appCallId
-        pendingPushAppCallId = null
     }
 
     internal fun signalingCallId(appCallId: UUID): UUID = socketCallIdByAppCallId[appCallId] ?: appCallId
@@ -1983,9 +1998,70 @@ class TelnyxClient private constructor(
         )
         Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
-        //reset push params
-        pushMetaData = null
+        startPushInviteTimeout()
+    }
+
+    private fun startPushInviteTimeout() {
+        pushInviteTimeoutJob?.cancel()
+        // Read pending callId under the same lock used by claimPendingPushCall()
+        // and clearPendingPushCall() to avoid a TOCTOU race where the pending
+        // state is cleared between this read and the coroutine's claim.
+        val pendingCallId = synchronized(this) {
+            pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
+        }
+        if (pendingCallId == null) {
+            Logger.w(message = "Cannot start push INVITE timeout without a valid push call_id")
+            return
+        }
+
+        Logger.d(message = "Starting post-attach INVITE timeout for push call $pendingCallId")
+        pushInviteTimeoutJob = clientScope.launch {
+            delay(pushInviteTimeoutMs)
+            val claimedCallId = claimPendingPushCall() ?: return@launch
+
+            val terminationReason = CallTerminationReason(
+                cause = "ORIGINATOR_CANCEL",
+                causeCode = 487,
+                sipCode = 487,
+                sipReason = "Request Terminated"
+            )
+            emitPendingPushBye(
+                appCallId = claimedCallId,
+                cause = terminationReason.cause,
+                causeCode = terminationReason.causeCode,
+                sipCode = terminationReason.sipCode,
+                sipReason = terminationReason.sipReason
+            )
+        }
+    }
+
+    /** Atomically takes ownership of pending push cleanup for INVITE/BYE/timeout races. */
+    private fun claimPendingPushCall(): UUID? = synchronized(this) {
+        if (!isCallPendingFromPush) return@synchronized null
+        val callId = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
         isCallPendingFromPush = false
+        pendingPushAppCallId = null
+        pushMetaData = null
+        pushInviteTimeoutJob?.cancel()
+        pushInviteTimeoutJob = null
+        callId
+    }
+
+    private fun emitPendingPushBye(
+        appCallId: UUID,
+        cause: String?,
+        causeCode: Int?,
+        sipCode: Int?,
+        sipReason: String?,
+    ) {
+        emitSocketResponse(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.BYE.methodName,
+                    ByeResponse(appCallId, cause, causeCode, sipCode, sipReason)
+                )
+            )
+        )
     }
 
 
@@ -2046,7 +2122,7 @@ class TelnyxClient private constructor(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = mapOf("attach_calls" to "true"),
+                loginParams = mapOf("attach_call" to "true"),
                 sessid = sessid
             )
         )
@@ -2912,7 +2988,11 @@ class TelnyxClient private constructor(
         val isAttachCallError = errorCode == null && id != null && attachCallId == id
         if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
+            val pendingCallId = claimPendingPushCall()
             emitSocketResponse(SocketResponse.error("Call Failed", null))
+            pendingCallId?.let {
+                emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
+            }
             disconnectTransientDeclinePushConnection()
             return
         }
@@ -3019,7 +3099,13 @@ class TelnyxClient private constructor(
                 _transcript.clear()
                 _transcriptUpdateFlow.tryEmit(emptyList())
             } ?: run {
-                Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                val pendingCallId = claimPendingPushCall()
+                if (pendingCallId != null) {
+                    Logger.d(message = "Received BYE for pending push call before INVITE: signaling=$callId push=$pendingCallId")
+                    emitPendingPushBye(pendingCallId, cause, causeCode, sipCode, sipReason)
+                } else {
+                    Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                }
             }
         } catch (e: Exception) {
             Logger.e(message = "Error processing onByeReceived: ${e.message}")
@@ -3292,6 +3378,13 @@ class TelnyxClient private constructor(
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val variables = inviteVariables(params)
                 val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
+                // IMPORTANT: inviteAppCallId() MUST be evaluated before claimPendingPushCall().
+                // inviteAppCallId() reads pendingPushAppCallId under synchronized(this); claimPendingPushCall()
+                // then clears it under the same lock. The order matters because the claim nulls the field
+                // the alias read depends on. If the read is moved after the claim, the push app call ID is
+                // lost and the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
+                // INVITE atomically wins against BYE/timeout before the call is exposed.
+                claimPendingPushCall()
                 registerCallIdAlias(appCallId, offerCallId)
                 val remoteSdp = params.get("sdp").asString
 
@@ -3738,9 +3831,13 @@ class TelnyxClient private constructor(
     }
 
     private fun clearPendingPushCall() {
-        isCallPendingFromPush = false
-        pendingPushAppCallId = null
-        pushMetaData = null
+        synchronized(this) {
+            pushInviteTimeoutJob?.cancel()
+            pushInviteTimeoutJob = null
+            isCallPendingFromPush = false
+            pendingPushAppCallId = null
+            pushMetaData = null
+        }
     }
 
     /**

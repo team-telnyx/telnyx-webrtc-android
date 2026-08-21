@@ -309,6 +309,7 @@ fun <T> LiveData<T>.getOrAwaitValue(
     val latch = CountDownLatch(1)
     val observer = object : Observer<T> {
         override fun onChanged(value: T) {
+            if (value == null) return  // Skip null values — wait for a real emission
             data = value
             latch.countDown()
             this@getOrAwaitValue.removeObserver(this)
