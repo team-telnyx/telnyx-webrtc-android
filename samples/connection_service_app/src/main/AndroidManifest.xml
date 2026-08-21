@@ -74,10 +74,15 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="telnyx_call_notification_channel" />
 
+        <!-- TelecomCallService does not call startForeground() — it relies on
+             Telecom/CallStyle notification delegation. foregroundServiceType is
+             declared declaratively so that if the service is ever promoted to a
+             real FGS, the type is already configured. A future startForeground()
+             call must pass FOREGROUND_SERVICE_TYPE_PHONE_CALL | FOREGROUND_SERVICE_TYPE_MICROPHONE
+             matching this declaration, or it will throw ForegroundServiceTypeNotAllowed. -->
         <service android:name=".utility.telecom.call.TelecomCallService"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone"
-            android:permission="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+            android:foregroundServiceType="phoneCall|microphone"/>
 
         <receiver android:name=".utility.telecom.call.TelecomCallBroadcast"
             android:exported="true"/>
