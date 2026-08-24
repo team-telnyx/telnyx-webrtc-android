@@ -78,8 +78,11 @@
              Telecom/CallStyle notification delegation. foregroundServiceType is
              declared declaratively so that if the service is ever promoted to a
              real FGS, the type is already configured. A future startForeground()
-             call must pass FOREGROUND_SERVICE_TYPE_PHONE_CALL | FOREGROUND_SERVICE_TYPE_MICROPHONE
-             matching this declaration, or it will throw ForegroundServiceTypeNotAllowed. -->
+             call must use the typed ServiceCompat.startForeground(id, notification,
+             foregroundServiceType) overload with FOREGROUND_SERVICE_TYPE_PHONE_CALL
+             | FOREGROUND_SERVICE_TYPE_MICROPHONE matching this declaration. The
+             legacy no-type overload will throw ForegroundServiceTypeNotAllowed
+             on API 35+ when a foregroundServiceType is declared in the manifest. -->
         <service android:name=".utility.telecom.call.TelecomCallService"
             android:exported="false"
             android:foregroundServiceType="phoneCall|microphone"/>
