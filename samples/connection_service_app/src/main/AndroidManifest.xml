@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -73,8 +74,18 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="telnyx_call_notification_channel" />
 
+        <!-- TelecomCallService does not call startForeground() — it relies on
+             Telecom/CallStyle notification delegation. foregroundServiceType is
+             declared declaratively so that if the service is ever promoted to a
+             real FGS, the type is already configured. A future startForeground()
+             call must use the typed ServiceCompat.startForeground(id, notification,
+             foregroundServiceType) overload with FOREGROUND_SERVICE_TYPE_PHONE_CALL
+             | FOREGROUND_SERVICE_TYPE_MICROPHONE matching this declaration. The
+             legacy no-type overload will throw ForegroundServiceTypeNotAllowed
+             on API 35+ when a foregroundServiceType is declared in the manifest. -->
         <service android:name=".utility.telecom.call.TelecomCallService"
-            android:exported="false"/>
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone"/>
 
         <receiver android:name=".utility.telecom.call.TelecomCallBroadcast"
             android:exported="true"/>
