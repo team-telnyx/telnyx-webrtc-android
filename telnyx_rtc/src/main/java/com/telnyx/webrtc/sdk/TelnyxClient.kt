@@ -210,6 +210,20 @@ class TelnyxClient private constructor(
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
 
+    // Structured error flow — emits TelnyxError events with code, description, causes, solutions
+    private val _errorFlow = MutableSharedFlow<TelnyxError>(
+        replay = 0,
+        extraBufferCapacity = 32
+    )
+    val errorFlow: SharedFlow<TelnyxError> = _errorFlow.asSharedFlow()
+
+    // Structured warning flow — emits TelnyxWarning events
+    private val _warningFlow = MutableSharedFlow<TelnyxWarning>(
+        replay = 0,
+        extraBufferCapacity = 32
+    )
+    val warningFlow: SharedFlow<TelnyxWarning> = _warningFlow.asSharedFlow()
+
     // SharedFlow for ws messages responses (replaces LiveData)
     private val _wsMessagesResponseFlow = MutableSharedFlow<JsonObject>(
         replay = 1,
@@ -267,6 +281,54 @@ class TelnyxClient private constructor(
 
         // Emit to LiveData (deprecated, for backward compatibility)
         socketResponseLiveData.postValue(response)
+    }
+
+    /**
+     * Emits a structured SDK error event on [errorFlow].
+     * Looks up the error definition from [SdkErrorRegistry] and attaches call/session context.
+     *
+     * @param code The numeric error code from [TelnyxErrorCodes]
+     * @param callId Optional call identifier
+     * @param fatalOverride Override the registry's fatal flag (e.g. media recovery sets false)
+     */
+    internal fun emitTelnyxError(
+        code: Int,
+        callId: java.util.UUID? = null,
+        fatalOverride: Boolean? = null
+    ) {
+        val error = SdkErrorRegistry.create(code, callId, sessid.toString(), fatalOverride)
+        Logger.e(message = "[TelnyxError] ${error.name} (${error.code}): ${error.message} — fatal=${error.fatal}")
+        _errorFlow.tryEmit(error)
+    }
+
+    /**
+     * Emits a structured SDK error with fatal=false for media recovery scenarios.
+     * The SDK handles recovery; the error is informational, not terminal.
+     *
+     * @param code The numeric error code from [TelnyxErrorCodes]
+     * @param callId Optional call identifier
+     */
+    internal fun emitTelnyxMediaRecoveryError(
+        code: Int,
+        callId: java.util.UUID? = null
+    ) {
+        emitTelnyxError(code, callId, fatalOverride = false)
+    }
+
+    /**
+     * Emits a structured SDK warning event on [warningFlow].
+     * Looks up the warning definition from [SdkWarningRegistry] and attaches call/session context.
+     *
+     * @param code The numeric warning code from [TelnyxWarningCodes]
+     * @param callId Optional call identifier
+     */
+    internal fun emitTelnyxWarning(
+        code: Int,
+        callId: java.util.UUID? = null
+    ) {
+        val warning = SdkWarningRegistry.create(code, callId, sessid.toString())
+        Logger.w(message = "[TelnyxWarning] ${warning.name} (${warning.code}): ${warning.message}")
+        _warningFlow.tryEmit(warning)
     }
 
     // Keeps track of all the created calls by theirs UUIDs.
