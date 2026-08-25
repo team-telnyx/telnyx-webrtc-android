@@ -18,6 +18,7 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCodes
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.CallQualityMetrics
@@ -223,6 +224,7 @@ data class Call(
      * @see [Call]
      */
     fun endCall(callId: UUID) {
+        // TODO: emit TelnyxError(BYE_SEND_FAILED, callId) if socket.send fails — currently handled in TelnyxClient.endCall()
         client.endCall(callId)
     }
 
@@ -302,6 +304,11 @@ data class Call(
      */
     private fun sendHoldModifier(callId: UUID, holdAction: String) {
         val signalingCallId = client.signalingCallId(callId)
+        if (signalingCallId == callId && client.getActiveCalls().containsKey(callId).not()) {
+            // Call not found in active calls — can't send hold
+            client.emitTelnyxError(TelnyxErrorCodes.HOLD_FAILED, callId)
+            return
+        }
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
             id = uuid,
@@ -593,6 +600,7 @@ data class Call(
         } else {
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
+            client.emitTelnyxError(TelnyxErrorCodes.INVALID_CALL_PARAMETERS, currentSignalingCallId())
             updateCallState(CallState.ERROR)
         }
     }

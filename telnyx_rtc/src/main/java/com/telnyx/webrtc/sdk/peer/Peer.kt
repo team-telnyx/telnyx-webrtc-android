@@ -47,6 +47,7 @@ import com.telnyx.webrtc.lib.RtpTransceiver
 import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.RtpCapabilities
 import com.telnyx.webrtc.sdk.model.AudioCodec
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCodes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
@@ -693,6 +694,11 @@ internal class Peer(
             Logger.e(tag = "Peer:Audio", message = "Failed to create local audio track.")
             // Track getUserMedia failure
             client.debugDataCollector.onMicrophoneAccessError(callId, "Failed to create local audio track")
+            // Emit structured error — MEDIA_GET_USER_MEDIA_FAILED is the catch-all for
+            // audio capture failure. With more granular detection we could also emit:
+            //   - TelnyxErrorCodes.MEDIA_MICROPHONE_PERMISSION_DENIED (42001)
+            //   - TelnyxErrorCodes.MEDIA_DEVICE_NOT_FOUND (42002)
+            client.emitTelnyxError(TelnyxErrorCodes.MEDIA_GET_USER_MEDIA_FAILED, callId)
             return
         }
 
@@ -753,6 +759,7 @@ internal class Peer(
                                     tag = "Call",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
+                                client.emitTelnyxError(TelnyxErrorCodes.SDP_SET_LOCAL_DESCRIPTION_FAILED, callId)
                             }
 
                             override fun onSetSuccess() {
@@ -778,6 +785,7 @@ internal class Peer(
 
                 override fun onCreateFailure(p0: String?) {
                     Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
+                    client.emitTelnyxError(TelnyxErrorCodes.SDP_CREATE_OFFER_FAILED, callId)
                     sdpObserver.onCreateFailure(p0)
                 }
             },
@@ -858,6 +866,7 @@ internal class Peer(
                                     tag = "Answer",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
+                                client.emitTelnyxError(TelnyxErrorCodes.SDP_SET_LOCAL_DESCRIPTION_FAILED, callId)
                             }
 
                             override fun onSetSuccess() {
@@ -885,6 +894,7 @@ internal class Peer(
 
                 override fun onCreateFailure(p0: String?) {
                     Logger.e(tag = "Answer", message = "createAnswer onCreateFailure $p0")
+                    client.emitTelnyxError(TelnyxErrorCodes.SDP_CREATE_ANSWER_FAILED, callId)
                     sdpObserver.onCreateFailure(p0)
                 }
             },
@@ -938,6 +948,7 @@ internal class Peer(
                         tag = "RemoteSessionReceived",
                         message = "Set Remote Description Failed: $p0"
                     )
+                    client.emitTelnyxError(TelnyxErrorCodes.SDP_SET_REMOTE_DESCRIPTION_FAILED, callId)
                 }
 
                 override fun onSetSuccess() {
@@ -1641,6 +1652,10 @@ internal class Peer(
         // Ensure WebRTC is initialized using companion's method
         initPeerConnectionFactory(context)
         peerConnection = buildPeerConnection()
+        if (peerConnection == null) {
+            Logger.e(tag = "Peer", message = "PeerConnection is null after buildPeerConnection — peer closed during init")
+            client.emitTelnyxError(TelnyxErrorCodes.PEER_CLOSED_DURING_INIT, callId)
+        }
         CallTimingBenchmark.mark("peer_connection_created")
         // Track peer connection created milestone
         client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_PEER_CREATED)

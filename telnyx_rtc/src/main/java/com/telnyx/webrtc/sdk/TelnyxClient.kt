@@ -1149,6 +1149,7 @@ class TelnyxClient private constructor(
                             null
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
 
                     // Start the reconnection timer to track timeout
                     startReconnectionTimer()
@@ -1444,6 +1445,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
         }
     }
 
@@ -1549,6 +1551,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
             clearTransientDeclinePushMode()
         }
     }
@@ -1654,6 +1657,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
             clearTransientDeclinePushMode()
         }
     }
@@ -2868,6 +2872,7 @@ class TelnyxClient private constructor(
                             SocketError.GATEWAY_FAILURE_ERROR.errorCode
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.GATEWAY_FAILED)
                     disconnectTransientDeclinePushConnection()
                 }
             }
@@ -3001,6 +3006,7 @@ class TelnyxClient private constructor(
                             null
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.RECONNECTION_EXHAUSTED)
 
                     // Reset reconnection state
                     reconnecting = false
@@ -3052,6 +3058,7 @@ class TelnyxClient private constructor(
             Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
             emitSocketResponse(SocketResponse.error("Call Failed", null))
+            emitTelnyxError(TelnyxErrorCodes.SESSION_NOT_REATTACHED)
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
             }
@@ -3067,6 +3074,26 @@ class TelnyxClient private constructor(
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
         disconnectTransientDeclinePushConnection()
+
+        // Emit structured error alongside the legacy SocketResponse.error() for
+        // backward compatibility. Map known error codes to structured TelnyxErrorCodes.
+        when (errorCode) {
+            SocketError.TOKEN_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.AUTHENTICATION_REQUIRED)
+            SocketError.CREDENTIAL_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.INVALID_CREDENTIALS)
+            SocketError.GATEWAY_TIMEOUT_ERROR.errorCode,
+            SocketError.GATEWAY_FAILURE_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.WEBSOCKET_CONNECTION_FAILED)
+            else -> {
+                // Generic WebSocket error or catch-all for unknown error codes
+                if (!socket.isLoggedIn) {
+                    emitTelnyxError(TelnyxErrorCodes.LOGIN_FAILED)
+                } else {
+                    emitTelnyxError(TelnyxErrorCodes.WEBSOCKET_ERROR)
+                }
+            }
+        }
 
         // If we're not logged in yet and not already reconnecting, schedule a single
         // retry with a jittered delay. This handles the case where a non-JSON-object
