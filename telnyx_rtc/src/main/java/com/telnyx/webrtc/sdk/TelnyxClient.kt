@@ -54,7 +54,7 @@ import kotlin.concurrent.timerTask
  *
  * @param context the Context that the application is using
  */
-@Suppress("LargeClass")
+@Suppress("LargeClass", "DEPRECATION")
 class TelnyxClient private constructor(
     var context: Context,
     startsInDeclinePushMode: Boolean,
