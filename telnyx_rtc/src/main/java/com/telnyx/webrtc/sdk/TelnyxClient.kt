@@ -1056,6 +1056,11 @@ class TelnyxClient private constructor(
      */
     internal fun addToCalls(call: Call) {
         calls[call.currentSignalingCallId()] = call
+
+        // Emit structured warning if multiple active calls are detected
+        if (calls.size > 1) {
+            this.emitTelnyxWarning(TelnyxWarningCodes.MULTIPLE_ACTIVE_CALLS_DETECTED, call.currentSignalingCallId())
+        }
     }
 
     internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
@@ -3008,6 +3013,12 @@ class TelnyxClient private constructor(
                     )
                     emitTelnyxError(TelnyxErrorCodes.RECONNECTION_EXHAUSTED)
 
+                    // Emit structured warning if auto-reconnect is disabled — manual
+                    // reconnection is required.
+                    if (!autoReconnectLogin) {
+                        this.emitTelnyxWarning(TelnyxWarningCodes.RECONNECTION_FAILED_WITH_NO_AUTO_RECONNECT)
+                    }
+
                     // Reset reconnection state
                     reconnecting = false
                     reconnectionRetryCounter.set(0)
@@ -3214,6 +3225,12 @@ class TelnyxClient private constructor(
         latencyTracker.markCallAnsweredByRemote(callUuid)
         
         val answeredCall = calls[callUuid]
+
+        // Emit structured warning if an answer is received while a call is already active
+        if (answeredCall != null && answeredCall.callStateFlow.value == CallState.ACTIVE) {
+            this.emitTelnyxWarning(TelnyxWarningCodes.ANSWER_WHILE_PEER_ACTIVE, callUuid)
+        }
+
         answeredCall?.apply {
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray

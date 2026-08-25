@@ -48,6 +48,7 @@ import com.telnyx.webrtc.lib.MediaStreamTrack
 import com.telnyx.webrtc.lib.RtpCapabilities
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.TelnyxErrorCodes
+import com.telnyx.webrtc.sdk.model.TelnyxWarningCodes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
@@ -388,6 +389,9 @@ internal class Peer(
     private var localAudioTrack: AudioTrack? = null
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
 
+    // Track gathered ICE candidate types for ONLY_HOST_ICE_CANDIDATES / ICE_GATHERING_EMPTY warnings
+    private val gatheredCandidateTypes = mutableSetOf<String>()
+
     /**
      * Gets the supported audio codec capabilities from the shared factory.
      * This method is kept for backward compatibility with existing code.
@@ -470,6 +474,13 @@ internal class Peer(
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
 
+            // Emit structured warning when ICE connectivity is lost (DISCONNECTED or FAILED)
+            if (newState == PeerConnection.IceConnectionState.DISCONNECTED ||
+                newState == PeerConnection.IceConnectionState.FAILED
+            ) {
+                client.emitTelnyxWarning(TelnyxWarningCodes.ICE_CONNECTIVITY_LOST, callId)
+            }
+
             // Update previous state
             previousIceConnectionState = newState
         }
@@ -499,7 +510,22 @@ internal class Peer(
             if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
                 sendEndOfCandidates()
                 Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+
+                // Emit structured warnings based on gathered candidates
+                if (gatheredCandidateTypes.isEmpty()) {
+                    // ICE_GATHERING_EMPTY: no candidates were gathered at all
+                    client.emitTelnyxWarning(TelnyxWarningCodes.ICE_GATHERING_EMPTY, callId)
+                } else if (gatheredCandidateTypes.all { it == "host" }) {
+                    // ONLY_HOST_ICE_CANDIDATES: only host candidates found (no srflx/relay)
+                    client.emitTelnyxWarning(TelnyxWarningCodes.ONLY_HOST_ICE_CANDIDATES, callId)
+                }
             }
+
+            // TODO: ICE_GATHERING_TIMEOUT (33002) — no explicit ICE gathering timeout handler
+            // exists. The end-of-candidates timer (startEndOfCandidatesTimer) fires after
+            // END_OF_CANDIDATES_TIMEOUT but sends end-of-candidates rather than timing out
+            // gathering. When a dedicated gathering timeout is added, emit:
+            // client.emitTelnyxWarning(TelnyxWarningCodes.ICE_GATHERING_TIMEOUT, callId)
 
             peerConnectionObserver?.onIceGatheringChange(p0)
             // Notify debug data collector
@@ -557,6 +583,7 @@ internal class Peer(
                     // Notify debug data collector about ICE candidate
                     val candidateType = extractCandidateType(it.sdp)
                     val protocol = extractProtocol(it.sdp)
+                    gatheredCandidateTypes.add(candidateType)
                     client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
                     
                     // Track first server-reflexive or relay candidate
@@ -615,6 +642,11 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Peer Connection State Change: $newState")
             peerConnectionObserver?.onConnectionChange(newState)
 
+            // Emit structured warning when peer connection fails
+            if (newState == PeerConnection.PeerConnectionState.FAILED) {
+                client.emitTelnyxWarning(TelnyxWarningCodes.PEER_CONNECTION_FAILED, callId)
+            }
+
             // Mark benchmark milestone for peer connection state changes
             newState?.let {
                 CallTimingBenchmark.mark("peer_state_${it.name}")
@@ -628,6 +660,11 @@ internal class Peer(
             }
         }
     }
+
+    // TODO: ICE_CANDIDATE_PAIR_CHANGED (33008) — PeerConnection.Observer does not expose
+    // an onIceCandidatePairChanged callback in this WebRTC build. When getStats() detects
+    // a selectedCandidatePairChanges transition, or a callback becomes available, emit:
+    // client.emitTelnyxWarning(TelnyxWarningCodes.ICE_CANDIDATE_PAIR_CHANGED, callId)
 
     /**
      * Builds the PeerConnection with the provided IceServers from the getIceServers method
