@@ -172,6 +172,51 @@ data class TokenConfig(
 
 ```
 
+### Relay-only media
+
+Set `forceRelayCandidate = true` when every media path must use TURN, or while
+diagnosing restrictive NAT/firewall behavior:
+
+```kotlin
+val credentialConfig = CredentialConfig(
+    sipUser = sipUser,
+    sipPassword = sipPassword,
+    sipCallerIDName = callerIdName,
+    sipCallerIDNumber = callerIdNumber,
+    fcmToken = fcmToken,
+    ringtone = null,
+    ringBackTone = null,
+    forceRelayCandidate = true,
+    logLevel = LogLevel.ALL
+)
+```
+
+Relay-only mode sets WebRTC's ICE transport policy to `RELAY`. STUN entries
+remain in the ICE catalog, but they cannot become the selected media path. A
+reachable TURN server and valid credentials are mandatory. The production
+defaults are:
+
+1. `stun:stun.telnyx.com:3478`
+2. `stun:stun.l.google.com:19302`
+3. `turn:turn.telnyx.com:3478?transport=udp`
+4. `turn:turn.telnyx.com:3478?transport=tcp`
+5. `turns:turn.telnyx.com:443`
+6. `turns:turn2.telnyx.com:443`
+
+Development uses the equivalent `stundev`, `turndev`, and
+`turns:turndev.telnyx.com:443` endpoints. TURNS URLs intentionally omit the
+transport query because TLS implies TCP. ICE server array order does not
+guarantee sequential fallback; WebRTC prioritizes the candidate pairs it
+gathers.
+
+Use relay-only mode selectively. Relaying all media can add connection time,
+latency, and relay bandwidth, and can reduce quality where a direct path would
+otherwise work. To validate it, place a call with SDK logging/call reporting
+enabled and inspect the selected ICE candidate pair. Its local candidate type
+must be `relay`; `host` or `srflx` means relay-only policy was not applied. A
+successful DNS lookup or TCP connection to port 443 alone does not prove that
+the call's media used TURNS.
+
 ### Creating a call invitation
 In order to make a call invitation, you need to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
 
