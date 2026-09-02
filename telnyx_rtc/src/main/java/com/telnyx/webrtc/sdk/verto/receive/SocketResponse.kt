@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.verto.receive
 
 import com.telnyx.webrtc.sdk.model.SocketStatus
+import com.telnyx.webrtc.sdk.model.TelnyxError
 
 data class SocketResponse<out T>(
     var status: SocketStatus,
@@ -40,8 +41,17 @@ data class SocketResponse<out T>(
             )
         }
 
+        @Deprecated("Use error(TelnyxError) instead. This overload will be removed in a future release.")
         fun <T> error(msg: String, errorCode: Int? = null): SocketResponse<T> {
             return SocketResponse(SocketStatus.ERROR, null, msg, errorCode)
+        }
+
+        /**
+         * Creates an error SocketResponse from a structured TelnyxError.
+         * Use this alongside [TelnyxClient.errorFlow] for structured error handling.
+         */
+        fun <T> error(telnyxError: TelnyxError): SocketResponse<T> {
+            return SocketResponse(SocketStatus.ERROR, null, telnyxError.message, telnyxError.code)
         }
         fun <T> disconnect(): SocketResponse<T> {
             return SocketResponse(SocketStatus.DISCONNECT, null, null, null)

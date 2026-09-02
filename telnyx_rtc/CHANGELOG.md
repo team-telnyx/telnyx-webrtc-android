@@ -2,6 +2,7 @@
 
 ### Enhancement
 - Upgrade `compileSdk` to 36 (Android 16) and `targetSdk` to 36 for all sample apps to meet Google Play deadline (31 August 2026). Update AGP from 8.6.1 to 8.7.3 (VSDK-469). Library modules (`telnyx_rtc`, `telnyx_common`) intentionally keep `targetSdkVersion 34` so SDK consumers are not forced onto the API 36 behavior band.
+- **Structured Error & Warning System**: Add `errorFlow` and `warningFlow` on `TelnyxClient` for structured SDK error and warning events. 24 error codes (40001-49001) and 26 warning codes (31001-36005) with descriptions, causes, solutions, and fatal flag. Matches JS SDK and Flutter SDK parity. Legacy `SocketError` enum and `SocketResponse.error()` deprecated but still functional.
 
 ## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
 

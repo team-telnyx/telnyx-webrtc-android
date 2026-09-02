@@ -98,6 +98,7 @@ sealed class TelnyxPrecallDiagnosisState {
  * incoming calls. It exposes state flows for observing socket events, session state,
  * and loading state.
  */
+@Suppress("DEPRECATION")
 class TelnyxViewModel : ViewModel() {
 
     /**

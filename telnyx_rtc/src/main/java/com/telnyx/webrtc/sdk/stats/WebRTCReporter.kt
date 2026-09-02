@@ -21,6 +21,7 @@ import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.RTCStats
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.Logger
+import com.telnyx.webrtc.sdk.model.TelnyxWarningCodes
 import timber.log.Timber
 import java.util.*
 
@@ -578,6 +579,53 @@ internal class WebRTCReporter(
                             outboundAudioLevel = outboundAudioLevel,
                             iceCandidates = iceCandidates
                         )
+
+                        // Emit structured quality warnings based on thresholds.
+                        // WebRTCReporter has access to TelnyxClient via peer.client.
+                        val rttMs = metrics.rtt * MS_IN_SECONDS
+                        val jitterMs = metrics.jitter * MS_IN_SECONDS
+                        val packetsReceived = (inboundAudioMap["packetsReceived"] as? Number)?.toLong() ?: 0L
+                        val packetsLost = (inboundAudioMap["packetsLost"] as? Number)?.toLong() ?: 0L
+                        val packetLossPct = if (packetsReceived + packetsLost > 0) {
+                            (packetsLost.toDouble() / (packetsReceived + packetsLost)) * 100.0
+                        } else 0.0
+                        val inboundBytes = (inboundAudioMap["bytesReceived"] as? Number)?.toLong() ?: 0L
+                        val outboundBytes = (outboundAudioMap["bytesSent"] as? Number)?.toLong() ?: 0L
+
+                        // HIGH_RTT — RTT above 300ms is considered high
+                        if (rttMs > 300.0 && rttMs.isFinite()) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.HIGH_RTT, peerId)
+                        }
+
+                        // HIGH_JITTER — jitter above 30ms is considered high
+                        if (jitterMs > 30.0 && jitterMs.isFinite()) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.HIGH_JITTER, peerId)
+                        }
+
+                        // HIGH_PACKET_LOSS — packet loss above 5% is considered high
+                        if (packetLossPct > 5.0) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.HIGH_PACKET_LOSS, peerId)
+                        }
+
+                        // LOW_LOCAL_AUDIO — outbound audio level below 0.01 is considered low
+                        if (outboundAudioLevel > 0f && outboundAudioLevel < 0.01f) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.LOW_LOCAL_AUDIO, peerId)
+                        }
+
+                        // LOW_INBOUND_AUDIO — inbound audio level below 0.01 is considered low
+                        if (inboundAudioLevel > 0f && inboundAudioLevel < 0.01f) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.LOW_INBOUND_AUDIO, peerId)
+                        }
+
+                        // LOW_BYTES_RECEIVED — inbound bytes below threshold (100 bytes) during active call
+                        if (inboundBytes in 1L..100L) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.LOW_BYTES_RECEIVED, peerId)
+                        }
+
+                        // LOW_BYTES_SENT — outbound bytes below threshold (100 bytes) during active call
+                        if (outboundBytes in 1L..100L) {
+                            peer.client.emitTelnyxWarning(TelnyxWarningCodes.LOW_BYTES_SENT, peerId)
+                        }
 
                         if (callDebug) {
                             // Emit metrics through callback
