@@ -82,9 +82,11 @@ class IceServersTest : BaseTest() {
     }
 
     @Test
-    fun `default production config appends secondary TURNS endpoint last`() {
-        val last = newPeer().iceServer.last()
-        assertEquals(listOf(Config.SECONDARY_TURNS_443), last.urls)
+    fun `default production config has TURNS 443 as the last server`() {
+        val servers = newPeer().iceServer
+        assertEquals(5, servers.size)
+        val last = servers.last()
+        assertEquals(listOf(Config.DEFAULT_TURNS_443), last.urls)
         assertEquals(Config.USERNAME, last.username)
         assertEquals(Config.PASSWORD, last.password)
     }
@@ -127,7 +129,7 @@ class IceServersTest : BaseTest() {
     fun `TURNS 443 entry is always the last server regardless of input`() {
         // Default production
         val production = newPeer(turn = Config.DEFAULT_TURN).iceServer
-        assertEquals(Config.SECONDARY_TURNS_443, production.last().urls.single())
+        assertEquals(Config.DEFAULT_TURNS_443, production.last().urls.single())
 
         // Default development
         val development = newPeer(turn = Config.DEV_TURN).iceServer

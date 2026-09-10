@@ -20,7 +20,6 @@ internal object Config {
      * TURNS URLs intentionally omit the transport parameter, matching the JS SDK.
      */
     const val DEFAULT_TURNS_443 = "turns:turn.telnyx.com:443"
-    const val SECONDARY_TURNS_443 = "turns:turn2.telnyx.com:443"
 
     // Development ICE servers
     const val DEV_STUN = "stun:stundev.telnyx.com:3478"
