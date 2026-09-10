@@ -198,7 +198,6 @@ defaults are:
 3. `turn:turn.telnyx.com:3478?transport=udp`
 4. `turn:turn.telnyx.com:3478?transport=tcp`
 5. `turns:turn.telnyx.com:443`
-6. `turns:turn2.telnyx.com:443`
 
 Development uses the equivalent `stundev`, `turndev`, and
 `turns:turndev.telnyx.com:443` endpoints. TURNS URLs intentionally omit the

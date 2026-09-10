@@ -14,7 +14,6 @@ import com.telnyx.webrtc.sdk.Config.DEV_TURN_UDP
 import com.telnyx.webrtc.sdk.Config.DEV_TURNS_443
 import com.telnyx.webrtc.sdk.Config.GOOGLE_STUN
 import com.telnyx.webrtc.sdk.Config.PASSWORD
-import com.telnyx.webrtc.sdk.Config.SECONDARY_TURNS_443
 import com.telnyx.webrtc.sdk.Config.USERNAME
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
@@ -316,16 +315,6 @@ internal class Peer(
                 .setPassword(PASSWORD)
                 .createIceServer()
         )
-
-        // 6. Secondary production TURNS endpoint retained during DNS migration.
-        if (providedTurn == DEFAULT_TURN) {
-            iceServers.add(
-                PeerConnection.IceServer.builder(SECONDARY_TURNS_443)
-                    .setUsername(USERNAME)
-                    .setPassword(PASSWORD)
-                    .createIceServer()
-            )
-        }
 
         Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp, TURNS: $turns443)")
         return iceServers
