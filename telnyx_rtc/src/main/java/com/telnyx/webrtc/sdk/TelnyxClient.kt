@@ -54,7 +54,7 @@ import kotlin.concurrent.timerTask
  *
  * @param context the Context that the application is using
  */
-@Suppress("LargeClass")
+@Suppress("LargeClass", "DEPRECATION")
 class TelnyxClient private constructor(
     var context: Context,
     startsInDeclinePushMode: Boolean,
@@ -210,6 +210,20 @@ class TelnyxClient private constructor(
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
 
+    // Structured error flow — emits TelnyxError events with code, description, causes, solutions
+    private val _errorFlow = MutableSharedFlow<TelnyxError>(
+        replay = 0,
+        extraBufferCapacity = 32
+    )
+    val errorFlow: SharedFlow<TelnyxError> = _errorFlow.asSharedFlow()
+
+    // Structured warning flow — emits TelnyxWarning events
+    private val _warningFlow = MutableSharedFlow<TelnyxWarning>(
+        replay = 0,
+        extraBufferCapacity = 32
+    )
+    val warningFlow: SharedFlow<TelnyxWarning> = _warningFlow.asSharedFlow()
+
     // SharedFlow for ws messages responses (replaces LiveData)
     private val _wsMessagesResponseFlow = MutableSharedFlow<JsonObject>(
         replay = 1,
@@ -267,6 +281,54 @@ class TelnyxClient private constructor(
 
         // Emit to LiveData (deprecated, for backward compatibility)
         socketResponseLiveData.postValue(response)
+    }
+
+    /**
+     * Emits a structured SDK error event on [errorFlow].
+     * Looks up the error definition from [SdkErrorRegistry] and attaches call/session context.
+     *
+     * @param code The numeric error code from [TelnyxErrorCodes]
+     * @param callId Optional call identifier
+     * @param fatalOverride Override the registry's fatal flag (e.g. media recovery sets false)
+     */
+    internal fun emitTelnyxError(
+        code: Int,
+        callId: java.util.UUID? = null,
+        fatalOverride: Boolean? = null
+    ) {
+        val error = SdkErrorRegistry.create(code, callId, sessid.toString(), fatalOverride)
+        Logger.e(message = "[TelnyxError] ${error.name} (${error.code}): ${error.message} — fatal=${error.fatal}")
+        _errorFlow.tryEmit(error)
+    }
+
+    /**
+     * Emits a structured SDK error with fatal=false for media recovery scenarios.
+     * The SDK handles recovery; the error is informational, not terminal.
+     *
+     * @param code The numeric error code from [TelnyxErrorCodes]
+     * @param callId Optional call identifier
+     */
+    internal fun emitTelnyxMediaRecoveryError(
+        code: Int,
+        callId: java.util.UUID? = null
+    ) {
+        emitTelnyxError(code, callId, fatalOverride = false)
+    }
+
+    /**
+     * Emits a structured SDK warning event on [warningFlow].
+     * Looks up the warning definition from [SdkWarningRegistry] and attaches call/session context.
+     *
+     * @param code The numeric warning code from [TelnyxWarningCodes]
+     * @param callId Optional call identifier
+     */
+    internal fun emitTelnyxWarning(
+        code: Int,
+        callId: java.util.UUID? = null
+    ) {
+        val warning = SdkWarningRegistry.create(code, callId, sessid.toString())
+        Logger.w(message = "[TelnyxWarning] ${warning.name} (${warning.code}): ${warning.message}")
+        _warningFlow.tryEmit(warning)
     }
 
     // Keeps track of all the created calls by theirs UUIDs.
@@ -994,6 +1056,11 @@ class TelnyxClient private constructor(
      */
     internal fun addToCalls(call: Call) {
         calls[call.currentSignalingCallId()] = call
+
+        // Emit structured warning if multiple active calls are detected
+        if (calls.size > 1) {
+            this.emitTelnyxWarning(TelnyxWarningCodes.MULTIPLE_ACTIVE_CALLS_DETECTED, call.currentSignalingCallId())
+        }
     }
 
     internal fun registerCallIdAlias(appCallId: UUID, socketCallId: UUID) {
@@ -1087,6 +1154,7 @@ class TelnyxClient private constructor(
                             null
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
 
                     // Start the reconnection timer to track timeout
                     startReconnectionTimer()
@@ -1382,6 +1450,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
         }
     }
 
@@ -1487,6 +1556,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
             clearTransientDeclinePushMode()
         }
     }
@@ -1592,6 +1662,7 @@ class TelnyxClient private constructor(
             }
         } else {
             emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitTelnyxError(TelnyxErrorCodes.NETWORK_OFFLINE)
             clearTransientDeclinePushMode()
         }
     }
@@ -2806,6 +2877,7 @@ class TelnyxClient private constructor(
                             SocketError.GATEWAY_FAILURE_ERROR.errorCode
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.GATEWAY_FAILED)
                     disconnectTransientDeclinePushConnection()
                 }
             }
@@ -2939,6 +3011,13 @@ class TelnyxClient private constructor(
                             null
                         )
                     )
+                    emitTelnyxError(TelnyxErrorCodes.RECONNECTION_EXHAUSTED)
+
+                    // Emit structured warning if auto-reconnect is disabled — manual
+                    // reconnection is required.
+                    if (!autoReconnectLogin) {
+                        this.emitTelnyxWarning(TelnyxWarningCodes.RECONNECTION_FAILED_WITH_NO_AUTO_RECONNECT)
+                    }
 
                     // Reset reconnection state
                     reconnecting = false
@@ -2990,6 +3069,7 @@ class TelnyxClient private constructor(
             Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
             emitSocketResponse(SocketResponse.error("Call Failed", null))
+            emitTelnyxError(TelnyxErrorCodes.SESSION_NOT_REATTACHED)
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
             }
@@ -3005,6 +3085,26 @@ class TelnyxClient private constructor(
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
         disconnectTransientDeclinePushConnection()
+
+        // Emit structured error alongside the legacy SocketResponse.error() for
+        // backward compatibility. Map known error codes to structured TelnyxErrorCodes.
+        when (errorCode) {
+            SocketError.TOKEN_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.AUTHENTICATION_REQUIRED)
+            SocketError.CREDENTIAL_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.INVALID_CREDENTIALS)
+            SocketError.GATEWAY_TIMEOUT_ERROR.errorCode,
+            SocketError.GATEWAY_FAILURE_ERROR.errorCode ->
+                emitTelnyxError(TelnyxErrorCodes.WEBSOCKET_CONNECTION_FAILED)
+            else -> {
+                // Generic WebSocket error or catch-all for unknown error codes
+                if (!socket.isLoggedIn) {
+                    emitTelnyxError(TelnyxErrorCodes.LOGIN_FAILED)
+                } else {
+                    emitTelnyxError(TelnyxErrorCodes.WEBSOCKET_ERROR)
+                }
+            }
+        }
 
         // If we're not logged in yet and not already reconnecting, schedule a single
         // retry with a jittered delay. This handles the case where a non-JSON-object
@@ -3125,6 +3225,12 @@ class TelnyxClient private constructor(
         latencyTracker.markCallAnsweredByRemote(callUuid)
         
         val answeredCall = calls[callUuid]
+
+        // Emit structured warning if an answer is received while a call is already active
+        if (answeredCall != null && answeredCall.callStateFlow.value == CallState.ACTIVE) {
+            this.emitTelnyxWarning(TelnyxWarningCodes.ANSWER_WHILE_PEER_ACTIVE, callUuid)
+        }
+
         answeredCall?.apply {
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray

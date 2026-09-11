@@ -32,6 +32,7 @@ import kotlin.math.sqrt
  * @param host_address the host address for the websocket to connect to
  * @param port the port that the websocket connection should use
  */
+@Suppress("DEPRECATION")
 class TxSocket(
     internal var host_address: String,
     internal var port: Int

@@ -15,7 +15,11 @@ package com.telnyx.webrtc.sdk.model
  * @property CODEC_ERROR there was an issue with the SDP handshake, likely due to codec issues.
  * @property GATEWAY_TIMEOUT_ERROR Gateway registration timed out.
  * @property GATEWAY_FAILURE_ERROR Gateway registration failed after multiple retries.
+ *
+ * @deprecated Use [TelnyxErrorCodes] and [TelnyxError] via [TelnyxClient.errorFlow] instead.
+ * This enum is retained for backward compatibility and will be removed in a future release.
  */
+@Deprecated("Use TelnyxErrorCodes and TelnyxError via TelnyxClient.errorFlow instead. This enum will be removed in a future release.")
 enum class SocketError(var errorCode: Int) {
     TOKEN_ERROR(-32000),
     CREDENTIAL_ERROR(-32001),
