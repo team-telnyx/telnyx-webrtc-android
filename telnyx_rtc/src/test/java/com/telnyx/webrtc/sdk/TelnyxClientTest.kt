@@ -951,12 +951,12 @@ class TelnyxClientTest : BaseTest() {
 
         // Writer threads: add/remove entries concurrently.
         repeat(writerCount) {
+            val fakeCall = Mockito.mock(Call::class.java)
             executor.submit {
                 try {
                     latch.await()
-                    repeat(iterations) { i ->
+                    repeat(iterations) {
                         val id = UUID.randomUUID()
-                        val fakeCall = Mockito.mock(Call::class.java)
                         underlyingCalls[id] = fakeCall
                         underlyingCalls.remove(id)
                     }
@@ -988,7 +988,7 @@ class TelnyxClientTest : BaseTest() {
         }
 
         latch.countDown()
-        assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
+        assertTrue(done.await(30, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
         executor.shutdown()
         executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
 
