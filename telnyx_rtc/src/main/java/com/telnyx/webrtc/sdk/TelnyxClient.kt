@@ -737,6 +737,22 @@ class TelnyxClient private constructor(
     private fun String?.toUuidOrNull(): UUID? =
         this?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
+    private fun optionalUuid(params: JsonObject, key: String): UUID? =
+        params.get(key)
+            ?.takeIf { !it.isJsonNull }
+            ?.asString
+            .toUuidOrNull()
+
+    internal fun reattachIdentifiers(
+        params: JsonObject,
+        existingSessionId: UUID?,
+        existingLegId: UUID?
+    ): Pair<UUID?, UUID?> =
+        Pair(
+            optionalUuid(params, "telnyx_session_id") ?: existingSessionId,
+            optionalUuid(params, "telnyx_leg_id") ?: existingLegId
+        )
+
     private fun pushAppCallId(metaData: PushMetaData, pushWhenActive: Boolean = false): UUID? {
         if (!pushWhenActive && !pushWhenActiveEnabled()) return null
         return metaData.callId.toUuidOrNull()
@@ -3650,8 +3666,13 @@ class TelnyxClient private constructor(
 
             // val callerName = params.get("caller_id_name").asString
             val callerNumber = params.get("caller_id_number").asString
-            telnyxSessionId = UUID.fromString(params.get("telnyx_session_id").asString)
-            telnyxLegId = UUID.fromString(params.get("telnyx_leg_id").asString)
+            val (reattachedSessionId, reattachedLegId) = reattachIdentifiers(
+                params,
+                telnyxSessionId,
+                telnyxLegId
+            )
+            telnyxSessionId = reattachedSessionId
+            telnyxLegId = reattachedLegId
 
             // Preserve the app-facing ID across reattach while continuing to signal with callID.
             callId = appCallId(offerCallId)

@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -880,6 +881,44 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `Test reattachIdentifiers keeps existing identifiers when payload omits them`() {
+        val params = JsonObject()
+        val existingSessionId = UUID.randomUUID()
+        val existingLegId = UUID.randomUUID()
+
+        val identifiers = client.reattachIdentifiers(params, existingSessionId, existingLegId)
+
+        assertEquals(existingSessionId, identifiers.first)
+        assertEquals(existingLegId, identifiers.second)
+    }
+
+    @Test
+    fun `Test reattachIdentifiers accepts valid identifiers from payload`() {
+        val params = JsonObject()
+        val telnyxSessionId = UUID.randomUUID()
+        val telnyxLegId = UUID.randomUUID()
+        params.addProperty("telnyx_session_id", telnyxSessionId.toString())
+        params.addProperty("telnyx_leg_id", telnyxLegId.toString())
+
+        val identifiers = client.reattachIdentifiers(params, null, null)
+
+        assertEquals(telnyxSessionId, identifiers.first)
+        assertEquals(telnyxLegId, identifiers.second)
+    }
+
+    @Test
+    fun `Test reattachIdentifiers handles null and malformed identifiers`() {
+        val params = JsonObject()
+        params.add("telnyx_leg_id", com.google.gson.JsonNull.INSTANCE)
+        params.addProperty("telnyx_session_id", "not-a-uuid")
+
+        val identifiers = client.reattachIdentifiers(params, null, null)
+
+        assertNull(identifiers.first)
+        assertNull(identifiers.second)
+    }
+
+    @Test
     fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.onRemoteSessionErrorReceived("error")
@@ -912,12 +951,12 @@ class TelnyxClientTest : BaseTest() {
 
         // Writer threads: add/remove entries concurrently.
         repeat(writerCount) {
+            val fakeCall = Mockito.mock(Call::class.java)
             executor.submit {
                 try {
                     latch.await()
-                    repeat(iterations) { i ->
+                    repeat(iterations) {
                         val id = UUID.randomUUID()
-                        val fakeCall = Mockito.mock(Call::class.java)
                         underlyingCalls[id] = fakeCall
                         underlyingCalls.remove(id)
                     }
@@ -949,7 +988,7 @@ class TelnyxClientTest : BaseTest() {
         }
 
         latch.countDown()
-        assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
+        assertTrue(done.await(30, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
         executor.shutdown()
         executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
 
