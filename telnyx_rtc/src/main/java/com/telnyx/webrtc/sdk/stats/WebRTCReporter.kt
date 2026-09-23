@@ -61,6 +61,8 @@ internal class WebRTCReporter(
     val peer: Peer,
     val callDebug: Boolean,
     val socketDebug: Boolean,
+    val enableCallQualityReports: Boolean = true,
+    val callQualityReportInterval: Long = 5000L,
     val debugDataCollector: DebugDataCollector? = null
 ) {
 
@@ -74,9 +76,11 @@ internal class WebRTCReporter(
         private const val MAX_LOG_ENTRIES = 1000
     }
 
-    // Dynamic stats interval based on debug flags
+    // Dynamic stats interval: debug mode uses 100ms; quality reports use the configured interval; otherwise 10s
     private val statsInterval: Long = if (callDebug || socketDebug) {
         STATS_INTERVAL_DEBUG
+    } else if (enableCallQualityReports) {
+        callQualityReportInterval
     } else {
         STATS_INTERVAL_NORMAL
     }
@@ -579,7 +583,7 @@ internal class WebRTCReporter(
                             iceCandidates = iceCandidates
                         )
 
-                        if (callDebug) {
+                        if (callDebug || enableCallQualityReports) {
                             // Emit metrics through callback
                             onCallQualityChange?.invoke(metrics)
 
