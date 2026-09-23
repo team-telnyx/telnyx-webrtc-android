@@ -65,7 +65,7 @@ data class CredentialConfig(
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
-        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = true
+        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
     }
 }
@@ -110,7 +110,7 @@ data class TokenConfig(
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
-        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = true
+        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
     }
 }

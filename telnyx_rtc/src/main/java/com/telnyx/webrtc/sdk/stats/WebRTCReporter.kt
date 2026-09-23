@@ -61,7 +61,7 @@ internal class WebRTCReporter(
     val peer: Peer,
     val callDebug: Boolean,
     val socketDebug: Boolean,
-    val enableCallQualityReports: Boolean = true,
+    val enableCallQualityReports: Boolean = false,
     val callQualityReportInterval: Long = 5000L,
     val debugDataCollector: DebugDataCollector? = null
 ) {

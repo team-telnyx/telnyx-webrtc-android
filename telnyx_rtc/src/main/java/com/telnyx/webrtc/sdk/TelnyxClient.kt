@@ -185,7 +185,7 @@ class TelnyxClient private constructor(
     private var callReportId: String? = null
 
     private var isSocketDebug = false
-    private var enableCallQualityReports = true
+    private var enableCallQualityReports = false
     private var callQualityReportInterval: Long = 5000L
 
     // MediaPlayer for ringtone / ringbacktone
