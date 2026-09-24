@@ -47,8 +47,8 @@ class AcceptCall(private val context: Context) {
         val telnyxCommon = TelnyxCommon.getInstance()
         val incomingCall = telnyxCommon.getTelnyxClient(context).acceptCall(callId, callerIdNumber, customHeaders, debug, useTrickleIce, audioConstraints, mutedMicOnStart, answeredDeviceToken)
         
-        // Set the call quality change callback if provided
-        if (debug && onCallQualityChange != null) {
+        // Set the call quality change callback if provided (independent of debug flag since VSDK-608)
+        if (onCallQualityChange != null) {
             incomingCall.onCallQualityChange = onCallQualityChange
         }
         

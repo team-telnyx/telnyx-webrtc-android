@@ -35,9 +35,11 @@ sealed class TelnyxConfig
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property debug whether or not to send client debug reports
+ * @property enableCallQualityReports whether to deliver real-time call quality metrics via onCallQualityChange. Defaults to true. This is independent of the debug flag — use debug for portal troubleshooting, enableCallQualityReports for production quality UI.
+ * @property callQualityReportInterval the interval in milliseconds at which call quality metrics are delivered. Defaults to 5000 (5 seconds). Only applies when enableCallQualityReports is true.
  * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
  * @property region the region to use for the connection
- * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
+ * @property fallbackOnRegionFailure whether or not connect to default region if the selected region is not reachable
  * @property forceRelayCandidate whether to force TURN relay for peer connections. Note that this may cause issues with some networks that do not allow TURN connections. Enabling this may affect the quality of calls when devices are on the same local network, as all media will be relayed through TURN servers.
  * @property pushWhenActive whether to request push notifications while the client is active
  */
@@ -53,6 +55,8 @@ data class CredentialConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = false,
     val debug: Boolean = DEFAULT_DEBUG,
+    val enableCallQualityReports: Boolean = DEFAULT_ENABLE_CALL_QUALITY_REPORTS,
+    val callQualityReportInterval: Long = DEFAULT_CALL_QUALITY_INTERVAL,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
@@ -61,6 +65,8 @@ data class CredentialConfig(
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
+        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
+        const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
     }
 }
 
@@ -94,6 +100,8 @@ data class TokenConfig(
     val customLogger: TxLogger? = null,
     val autoReconnect: Boolean = true,
     val debug: Boolean = DEFAULT_DEBUG,
+    val enableCallQualityReports: Boolean = DEFAULT_ENABLE_CALL_QUALITY_REPORTS,
+    val callQualityReportInterval: Long = DEFAULT_CALL_QUALITY_INTERVAL,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
@@ -102,5 +110,7 @@ data class TokenConfig(
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
+        const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
+        const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
     }
 }

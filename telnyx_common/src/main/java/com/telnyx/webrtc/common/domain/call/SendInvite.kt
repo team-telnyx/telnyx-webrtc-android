@@ -53,8 +53,8 @@ class SendInvite(private val context: Context) {
 
         val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, debug, preferredCodecs, useTrickleIce, audioConstraints, mutedMicOnStart)
         
-        // Set the call quality change callback if provided
-        if (debug && onCallQualityChange != null) {
+        // Set the call quality change callback if provided (independent of debug flag since VSDK-608)
+        if (onCallQualityChange != null) {
             outgoingCall.onCallQualityChange = onCallQualityChange
         }
         
