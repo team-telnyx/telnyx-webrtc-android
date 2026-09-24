@@ -2117,6 +2117,13 @@ class TelnyxClient private constructor(
 
         setSDKLogLevel(logLevel, customLogger)
 
+        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingbackTone = it
+        }
+
         var firebaseToken = ""
         if (fcmToken != null) {
             firebaseToken = fcmToken
@@ -2397,6 +2404,13 @@ class TelnyxClient private constructor(
         isSocketDebug = config.debug
 
         setSDKLogLevel(logLevel, customLogger)
+
+        config.ringtone?.let {
+            rawRingtone = it
+        }
+        config.ringBackTone?.let {
+            rawRingbackTone = it
+        }
 
         var firebaseToken = ""
         if (fcmToken != null) {
