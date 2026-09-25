@@ -1,7 +1,17 @@
-## [Unreleased]
+## [3.7.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.2) (2026-09-25)
+
+### Bug Fixing
+- Tolerate missing identifiers (`telnyx_session_id`, `telnyx_leg_id`) during call reattachment after network interruption (VSUP-238)
+- Preserve pending push calls until INVITE cleanup (VSUP-205)
+- Fix `deriveTurns443Url` edge cases and align TURNS host with JS SDK (VSUP-184)
+- Align production TURNS defaults with JS SDK (VSDK-502)
+- Fix token login ignoring configured `ringBackTone` (VSUP-243)
 
 ### Enhancement
+- Decouple call quality metrics from debug flag — new `enableCallQualityReports` and `callQualityReportInterval` config options (VSDK-608)
+- Remove `turn2.telnyx.com` from default ICE servers (VSDK-630)
 - Upgrade `compileSdk` to 36 (Android 16) and `targetSdk` to 36 for all sample apps to meet Google Play deadline (31 August 2026). Update AGP from 8.6.1 to 8.7.3 (VSDK-469). Library modules (`telnyx_rtc`, `telnyx_common`) intentionally keep `targetSdkVersion 34` so SDK consumers are not forced onto the API 36 behavior band.
+- Migrate to `EncryptedSharedPreferences` and restrict backup extraction (SEC-279)
 
 ## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
 
