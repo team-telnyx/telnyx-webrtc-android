@@ -89,6 +89,9 @@ internal class Peer(
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
 
+        // Recovery coordinator cadence
+        private const val RECOVERY_TICK_MS = 250L
+
 
         // ICE candidate parsing constants
         private const val TYP_PREFIX = "typ "
@@ -377,6 +380,17 @@ internal class Peer(
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
 
     /**
+     * Per-call ICE-restart and peer-connection recovery coordinator. The
+     * coordinator owns the state machine, debouncing, and one-at-a-time
+     * decisions; the [Peer] still owns the actual SDP offer creation, the
+     * updateMedia exchange, and the answer application. Construction is
+     * deferred until [init] runs so the underlying [peerConnection] is
+     * available for the Actions adapter.
+     */
+    internal lateinit var recoveryCoordinator: RecoveryCoordinator
+    private var recoveryTickTimer: Timer? = null
+
+    /**
      * Gets the supported audio codec capabilities from the shared factory.
      * This method is kept for backward compatibility with existing code.
      *
@@ -457,6 +471,11 @@ internal class Peer(
 
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
+
+            // Drive the recovery coordinator. Duplicate callbacks against a
+            // current recovery generation are no-ops at the coordinator.
+            recoveryCoordinator.onIceConnectionChange(newState)
+            scheduleRecoveryTickIfNeeded()
 
             // Update previous state
             previousIceConnectionState = newState
@@ -602,6 +621,10 @@ internal class Peer(
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
             Logger.d(tag = "Observer", message = "Peer Connection State Change: $newState")
             peerConnectionObserver?.onConnectionChange(newState)
+
+            // Drive the recovery coordinator on peer-connection FAILED.
+            recoveryCoordinator.onConnectionChange(newState)
+            scheduleRecoveryTickIfNeeded()
 
             // Mark benchmark milestone for peer connection state changes
             newState?.let {
@@ -1057,6 +1080,13 @@ internal class Peer(
             // from calling getStats() on a freed native PeerConnection (SIGSEGV).
             // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
             isDisposed.set(true)
+            // Tear down the recovery coordinator first so no in-flight timer
+            // can reach into a disposed peer.
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            if (::recoveryCoordinator.isInitialized) {
+                recoveryCoordinator.cancel("peer_disconnect")
+            }
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
@@ -1351,6 +1381,13 @@ internal class Peer(
                 )
                 // Ensure call state is reset to ACTIVE on successful completion
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                // Signal the recovery coordinator that the updateMedia answer
+                // is applied. The coordinator advances from ICE_RESTARTING
+                // into VERIFYING_MEDIA (or returns to IDLE if recovery is no
+                // longer the current generation).
+                val gen = recoveryCoordinator.generation()
+                recoveryCoordinator.onUpdateMediaAnswerApplied(generationAtSend = gen)
+                scheduleRecoveryTickIfNeeded()
             }
 
             override fun onSetFailure(error: String?) {
@@ -1642,6 +1679,110 @@ internal class Peer(
             queuedCandidates.clear()
         } finally {
             candidateLock.unlock()
+        }
+        // Construct the recovery coordinator. The adapter bridges the
+        // coordinator's policy decisions onto this Peer's existing
+        // startIceRenegotiation primitive without duplicating any SDP or
+        // socket logic.
+        recoveryCoordinator = RecoveryCoordinator(
+            callId = callId,
+            actions = peerRecoveryActions(),
+        )
+        scheduleRecoveryTickIfNeeded()
+    }
+
+    /**
+     * Adapts this [Peer] to the [RecoveryCoordinator.Actions] surface. Every
+     * call is best-effort: if the underlying peer has been disposed or the
+     * call is no longer active, the action is a no-op.
+     */
+    private fun peerRecoveryActions(): RecoveryCoordinator.Actions =
+        object : RecoveryCoordinator.Actions {
+            override fun isCallActive(): Boolean {
+                if (isDisposed.get()) return false
+                val call = client.calls[callId] ?: return false
+                val state = call.callStateFlow.value
+                return state is CallState.ACTIVE || state is CallState.RENEGOTIATING
+            }
+
+            override fun isPeerConnectedOrCompleted(): Boolean {
+                if (isDisposed.get()) return false
+                val pc = peerConnection ?: return false
+                return pc.iceConnectionState() == PeerConnection.IceConnectionState.CONNECTED ||
+                    pc.iceConnectionState() == PeerConnection.IceConnectionState.COMPLETED
+            }
+
+            override fun isSignalingHealthy(): Boolean {
+                // iOS PR #380 correlation: treat the socket as healthy when
+                // the client reports it connected. A liveness probe lands in
+                // a follow-up; for now the coordinator's signaling-healthy
+                // branch defaults to same-peer ICE restart.
+                return client.isSocketConnected()
+            }
+
+            override fun startIceRestart() {
+                if (isDisposed.get()) return
+                startIceRenegotiation()
+            }
+
+            override fun sendProbePing(probeId: String) {
+                // Single ping with a unique id. The actual signaling-health
+                // probe implementation lives in TelnyxClient (parity with
+                // iOS PR #380) and is wired in a follow-up. Until then the
+                // coordinator's probe-timeout path escalates to reattach.
+                Logger.d(
+                    tag = "RecoveryCoordinator",
+                    message = "probe requested probeId=$probeId (no-op until ping primitive lands)",
+                )
+            }
+
+            override fun requestReattach() {
+                Logger.w(
+                    tag = "RecoveryCoordinator",
+                    message = "reattach requested (handled by client reconnection path)",
+                )
+            }
+
+            override fun snapshotForLog(): Map<String, String> {
+                val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")
+                return mapOf("iceState" to iceState)
+            }
+        }
+
+    /**
+     * Starts the recovery tick timer if the coordinator is in a watchable
+     * state. Idempotent and safe to call from any state. The timer drives
+     * the coordinator's onTick() on a steady cadence while recovery is in
+     * flight, and tears itself down when the coordinator returns to IDLE.
+     */
+    private fun scheduleRecoveryTickIfNeeded() {
+        if (isDisposed.get()) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            return
+        }
+        val inWatchableState = recoveryCoordinator.state() != RecoveryCoordinator.State.IDLE
+        if (inWatchableState && recoveryTickTimer == null) {
+            recoveryTickTimer = Timer()
+            recoveryTickTimer?.schedule(
+                timerTask {
+                    try {
+                        if (!isDisposed.get()) {
+                            recoveryCoordinator.onTick()
+                            scheduleRecoveryTickIfNeeded()
+                        }
+                    } catch (e: Exception) {
+                        Logger.e(
+                            tag = "RecoveryCoordinator",
+                            message = "tick error: ${e.message}",
+                        )
+                    }
+                },
+                RECOVERY_TICK_MS,
+            )
+        } else if (!inWatchableState && recoveryTickTimer != null) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
         }
     }
 }
