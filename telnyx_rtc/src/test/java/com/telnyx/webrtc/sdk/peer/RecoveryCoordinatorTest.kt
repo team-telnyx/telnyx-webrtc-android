@@ -70,7 +70,9 @@ class RecoveryCoordinatorTest : BaseTest() {
             restartCalls += 1
             Unit
         }
-        io.mockk.every { actions.sendProbePing(any()) } answers {
+        // any<String>() pins the parameter type so firstArg() is inferred as
+        // String and the += overload on MutableList<String> resolves cleanly.
+        io.mockk.every { actions.sendProbePing(any<String>()) } answers {
             pingCalls += firstArg()
             Unit
         }
