@@ -60,7 +60,7 @@ class RecoveryCoordinatorTest : BaseTest() {
     fun setup() {
         flags = ActionFlags()
         restartCalls = 0
-        pingCalls = mutableListOf()
+        pingCalls = mutableListOf<String>()
         reattachCalls = 0
 
         io.mockk.every { actions.isCallActive() } answers { flags.callActiveValue }
