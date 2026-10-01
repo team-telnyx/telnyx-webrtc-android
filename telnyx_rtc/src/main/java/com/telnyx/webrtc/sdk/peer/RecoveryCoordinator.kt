@@ -6,7 +6,7 @@ package com.telnyx.webrtc.sdk.peer
 
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.utilities.Logger
-import org.webrtc.PeerConnection
+import com.telnyx.webrtc.lib.PeerConnection
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
@@ -121,9 +121,8 @@ internal class RecoveryCoordinator(
         when (newState) {
             PeerConnection.IceConnectionState.FAILED -> onFailureObserved(
                 trigger = "ice_failed",
-                previous = previous,
             )
-            PeerConnection.IceConnectionState.DISCONNECTED -> onDisconnectedObserved(previous)
+            PeerConnection.IceConnectionState.DISCONNECTED -> onDisconnectedObserved()
             PeerConnection.IceConnectionState.CONNECTED,
             PeerConnection.IceConnectionState.COMPLETED -> onRecoveredObserved(newState)
             else -> {
@@ -149,7 +148,6 @@ internal class RecoveryCoordinator(
         if (newState == PeerConnection.PeerConnectionState.FAILED) {
             onFailureObserved(
                 trigger = "peer_connection_failed",
-                previous = null,
             )
         }
     }
@@ -160,8 +158,7 @@ internal class RecoveryCoordinator(
      * with a bounded 5 second window.
      */
     fun onUpdateMediaAnswerApplied(generationAtSend: Long) {
-        if (generationAtSend != generation.get()) return
-        if (currentState != State.ICE_RESTARTING) return
+        if (generationAtSend != generation.get() || currentState != State.ICE_RESTARTING) return
         if (!actions.isCallActive()) {
             cancelInternal(reason = "call_no_longer_active")
             return
@@ -229,7 +226,7 @@ internal class RecoveryCoordinator(
         cancelInternal(reason)
     }
 
-    private fun onFailureObserved(trigger: String, previous: PeerConnection.IceConnectionState?) {
+    private fun onFailureObserved(trigger: String) {
         if (!actions.isCallActive()) return
         if (actions.isPeerConnectedOrCompleted()) {
             Logger.d(
@@ -267,7 +264,7 @@ internal class RecoveryCoordinator(
         }
     }
 
-    private fun onDisconnectedObserved(previous: PeerConnection.IceConnectionState?) {
+    private fun onDisconnectedObserved() {
         if (currentState != State.IDLE) return
         if (!actions.isCallActive()) return
         bumpGeneration()
@@ -341,7 +338,7 @@ internal class RecoveryCoordinator(
     }
 
     private fun startProbe(trigger: String) {
-        val probeId = "rcv-${generation.get()}-${random.nextInt(0, Int.MAX_VALUE).toString(16)}"
+        val probeId = "$PROBE_ID_PREFIX-${generation.get()}-${random.nextInt(0, PROBE_ID_RANDOM_BOUND).toString(16)}"
         pendingProbeId = probeId
         transitionTo(State.PROBING, "probe_started_$trigger")
         probeStartedAtMs = clock()
@@ -418,7 +415,7 @@ internal class RecoveryCoordinator(
         val base = buildString {
             append("event=").append(event)
             append(" gen=").append(generation.get())
-            append(" call=").append(callId.toString().take(8))
+            append(" call=").append(callId.toString().take(LOG_CALL_ID_PREFIX_LENGTH))
             for ((k, v) in fields) {
                 append(' ').append(k).append('=').append(v)
             }
@@ -431,5 +428,8 @@ internal class RecoveryCoordinator(
 
     companion object {
         private const val TAG = "RecoveryCoordinator"
+        private const val PROBE_ID_PREFIX = "rcv"
+        private val PROBE_ID_RANDOM_BOUND: Int = Int.MAX_VALUE
+        private const val LOG_CALL_ID_PREFIX_LENGTH = 8
     }
 }
