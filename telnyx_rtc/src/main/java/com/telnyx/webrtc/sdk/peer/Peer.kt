@@ -1763,13 +1763,18 @@ internal class Peer(
         }
         val inWatchableState = recoveryCoordinator.state() != RecoveryCoordinator.State.IDLE
         if (inWatchableState && recoveryTickTimer == null) {
+            // Repeating timer so the coordinator's debounce / restart-timeout /
+            // media-verify deadlines elapse without depending on external
+            // scheduleRecoveryTickIfNeeded() calls. Cancellation is handled by
+            // the !inWatchableState branch below and the isDisposed guard above.
             recoveryTickTimer = Timer()
             recoveryTickTimer?.schedule(
                 timerTask {
                     try {
-                        if (!isDisposed.get()) {
+                        if (!isDisposed.get() &&
+                            recoveryCoordinator.state() != RecoveryCoordinator.State.IDLE
+                        ) {
                             recoveryCoordinator.onTick()
-                            scheduleRecoveryTickIfNeeded()
                         }
                     } catch (e: Exception) {
                         Logger.e(
@@ -1778,6 +1783,7 @@ internal class Peer(
                         )
                     }
                 },
+                RECOVERY_TICK_MS,
                 RECOVERY_TICK_MS,
             )
         } else if (!inWatchableState && recoveryTickTimer != null) {
