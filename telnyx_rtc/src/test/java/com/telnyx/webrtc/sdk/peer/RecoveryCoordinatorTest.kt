@@ -63,9 +63,9 @@ class RecoveryCoordinatorTest : BaseTest() {
         pingCalls = mutableListOf()
         reattachCalls = 0
 
-        io.mockk.every { actions.isCallActive() } answers { flags.callActive.get() }
-        io.mockk.every { actions.isPeerConnectedOrCompleted() } answers { flags.peerConnected.get() }
-        io.mockk.every { actions.isSignalingHealthy() } answers { flags.signalingHealthy.get() }
+        io.mockk.every { actions.isCallActive() } answers { flags.callActiveValue }
+        io.mockk.every { actions.isPeerConnectedOrCompleted() } answers { flags.peerConnectedValue }
+        io.mockk.every { actions.isSignalingHealthy() } answers { flags.signalingHealthyValue }
         io.mockk.every { actions.startIceRestart() } answers {
             restartCalls += 1
             Unit
@@ -107,7 +107,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `ICE FAILED with healthy signaling immediately triggers ice restart`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.ICE_RESTARTING, coord.state())
@@ -117,7 +117,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `ICE FAILED with stale signaling starts probe instead`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.PROBING, coord.state())
@@ -127,7 +127,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `peer connection FAILED triggers same recovery as ICE FAILED`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.ICE_RESTARTING, coord.state())
@@ -136,8 +136,8 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `already-connected guard prevents recovery re-entry`() {
-        flags.signalingHealthy.set(true)
-        flags.peerConnected.set(true)
+        flags.signalingHealthyValue = true
+        flags.peerConnectedValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.IDLE, coord.state())
@@ -146,8 +146,8 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `call no longer active guard prevents recovery re-entry`() {
-        flags.signalingHealthy.set(true)
-        flags.callActive.set(false)
+        flags.signalingHealthyValue = true
+        flags.callActiveValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.IDLE, coord.state())
@@ -156,7 +156,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `duplicate ICE FAILED while restarting is a no-op`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val generationAfterFirst = coord.generation()
@@ -178,7 +178,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `disconnected debounce elapses and starts a probe when signaling unhealthy`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
         assertEquals(RecoveryCoordinator.State.PROBING, coord.state())
@@ -191,7 +191,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `disconnected debounce elapses and restarts when signaling healthy`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
         assertEquals(RecoveryCoordinator.State.PROBING, coord.state())
@@ -203,7 +203,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `exact probe correlation only resolves matching id`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val probeId = pingCalls.single()
@@ -218,12 +218,12 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `probe success that finds peer already connected cancels cleanly`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val probeId = pingCalls.single()
         // Between probe start and result the peer re-connected.
-        flags.peerConnected.set(true)
+        flags.peerConnectedValue = true
         coord.onProbeResult(probeId = probeId, success = true)
         assertEquals(RecoveryCoordinator.State.IDLE, coord.state())
         assertEquals(0, restartCalls)
@@ -231,7 +231,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `probe failure escalates to reattach`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val probeId = pingCalls.single()
@@ -242,7 +242,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `probe timeout escalates to reattach`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         // debounce (3s) + ping timeout (5s) = 8s total before reattach.
@@ -254,7 +254,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `15 second restart timeout escalates to reattach`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         assertEquals(RecoveryCoordinator.State.ICE_RESTARTING, coord.state())
@@ -266,7 +266,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `answer applied moves to verifying media`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val gen = coord.generation()
@@ -276,7 +276,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `late answer callback against stale generation is dropped`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val gen = coord.generation()
@@ -289,7 +289,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `inbound RTP growth returns to idle from verifying media`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         coord.onUpdateMediaAnswerApplied(generationAtSend = coord.generation())
@@ -299,7 +299,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `media verify timeout escalates to reattach`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         coord.onUpdateMediaAnswerApplied(generationAtSend = coord.generation())
@@ -311,7 +311,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `cancel from any state returns to idle and bumps generation`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val beforeGen = coord.generation()
@@ -322,7 +322,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `cancel after reattach clears pending reattach flag`() {
-        flags.signalingHealthy.set(false)
+        flags.signalingHealthyValue = false
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val probeId = pingCalls.single()
@@ -336,7 +336,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `stale generation callbacks are dropped`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val staleGen = coord.generation()
@@ -352,7 +352,7 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `reattach performed exactly once across multiple escalation triggers`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         fakeClock.advance(15_001L)
@@ -383,11 +383,11 @@ class RecoveryCoordinatorTest : BaseTest() {
 
     @Test
     fun `RESTARTING transition that finds call no longer active cancels cleanly`() {
-        flags.signalingHealthy.set(true)
+        flags.signalingHealthyValue = true
         val coord = newCoordinator()
         coord.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val gen = coord.generation()
-        flags.callActive.set(false)
+        flags.callActiveValue = false
         coord.onUpdateMediaAnswerApplied(generationAtSend = gen)
         assertEquals(RecoveryCoordinator.State.IDLE, coord.state())
     }
