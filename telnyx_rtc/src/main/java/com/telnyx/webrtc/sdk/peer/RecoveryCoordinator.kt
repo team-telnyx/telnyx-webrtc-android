@@ -338,7 +338,9 @@ internal class RecoveryCoordinator(
     }
 
     private fun startProbe(trigger: String) {
-        val probeId = "$PROBE_ID_PREFIX-${generation.get()}-${random.nextInt(0, PROBE_ID_RANDOM_BOUND).toString(16)}"
+        val probeId = "$PROBE_ID_PREFIX-${generation.get()}-${
+            random.nextInt(0, PROBE_ID_RANDOM_BOUND).toString(PROBE_ID_RANDOM_RADIX)
+        }"
         pendingProbeId = probeId
         transitionTo(State.PROBING, "probe_started_$trigger")
         probeStartedAtMs = clock()
@@ -430,6 +432,7 @@ internal class RecoveryCoordinator(
         private const val TAG = "RecoveryCoordinator"
         private const val PROBE_ID_PREFIX = "rcv"
         private val PROBE_ID_RANDOM_BOUND: Int = Int.MAX_VALUE
+        private const val PROBE_ID_RANDOM_RADIX = 16
         private const val LOG_CALL_ID_PREFIX_LENGTH = 8
     }
 }
