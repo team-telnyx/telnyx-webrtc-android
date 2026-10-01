@@ -1700,16 +1700,17 @@ internal class Peer(
         object : RecoveryCoordinator.Actions {
             override fun isCallActive(): Boolean {
                 if (isDisposed.get()) return false
-                val call = client.calls[callId] ?: return false
-                val state = call.callStateFlow.value
-                return state is CallState.ACTIVE || state is CallState.RENEGOTIATING
+                return client.calls[callId]?.callStateFlow.value?.let {
+                    it is CallState.ACTIVE || it is CallState.RENEGOTIATING
+                } ?: false
             }
 
             override fun isPeerConnectedOrCompleted(): Boolean {
                 if (isDisposed.get()) return false
                 val pc = peerConnection ?: return false
-                return pc.iceConnectionState() == PeerConnection.IceConnectionState.CONNECTED ||
-                    pc.iceConnectionState() == PeerConnection.IceConnectionState.COMPLETED
+                val state = pc.iceConnectionState()
+                return state == PeerConnection.IceConnectionState.CONNECTED ||
+                    state == PeerConnection.IceConnectionState.COMPLETED
             }
 
             override fun isSignalingHealthy(): Boolean {

@@ -12,7 +12,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.webrtc.PeerConnection
+import com.telnyx.webrtc.lib.PeerConnection
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
