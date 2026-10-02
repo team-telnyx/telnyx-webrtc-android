@@ -70,10 +70,12 @@ class RecoveryCoordinatorTest : BaseTest() {
             restartCalls += 1
             Unit
         }
-        // any<String>() pins the parameter type so firstArg() is inferred as
-        // String and the += overload on MutableList<String> resolves cleanly.
-        io.mockk.every { actions.sendProbePing(any<String>()) } answers {
-            pingCalls += firstArg()
+        // any() leaves firstArg() inferred as Any?, which can't += into
+        // MutableList<String>. Explicit type pin on firstArg<String>() is the
+        // canonical MockK fix; mirrors firstArg<SdpObserver>() at
+        // IceRenegotiationTest.kt:119.
+        io.mockk.every { actions.sendProbePing(any()) } answers {
+            pingCalls += firstArg<String>()
             Unit
         }
         io.mockk.every { actions.requestReattach() } answers {
