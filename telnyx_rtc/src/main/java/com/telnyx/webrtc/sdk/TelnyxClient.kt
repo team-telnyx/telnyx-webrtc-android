@@ -187,6 +187,7 @@ class TelnyxClient private constructor(
     private var isSocketDebug = false
     private var enableCallQualityReports = false
     private var callQualityReportInterval: Long = 5000L
+    private var sendWebRTCStatsViaSocket = false
 
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
@@ -574,6 +575,7 @@ class TelnyxClient private constructor(
                             socketPortalDebug,
                             enableCallQualityReports,
                             callQualityReportInterval,
+                            sendWebRTCStatsViaSocket,
                             debugDataCollector
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
@@ -677,6 +679,7 @@ class TelnyxClient private constructor(
                                         socketPortalDebug,
                                         enableCallQualityReports,
                                         callQualityReportInterval,
+                            sendWebRTCStatsViaSocket,
                                         debugDataCollector
                                     )
                                     webRTCReporter.onCallQualityChange = { metrics ->
@@ -897,6 +900,7 @@ class TelnyxClient private constructor(
                         socketPortalDebug,
                         enableCallQualityReports,
                         callQualityReportInterval,
+                            sendWebRTCStatsViaSocket,
                         client.debugDataCollector
                     )
                 webRTCReporter.onCallQualityChange = { metrics ->
@@ -1432,6 +1436,7 @@ class TelnyxClient private constructor(
         isSocketDebug = credentialConfig.debug
         enableCallQualityReports = credentialConfig.enableCallQualityReports
         callQualityReportInterval = credentialConfig.callQualityReportInterval
+        sendWebRTCStatsViaSocket = credentialConfig.sendWebRTCStatsViaSocket
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1539,6 +1544,7 @@ class TelnyxClient private constructor(
         isSocketDebug = tokenConfig.debug
         enableCallQualityReports = tokenConfig.enableCallQualityReports
         callQualityReportInterval = tokenConfig.callQualityReportInterval
+        sendWebRTCStatsViaSocket = tokenConfig.sendWebRTCStatsViaSocket
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1921,6 +1927,7 @@ class TelnyxClient private constructor(
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
+        sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2128,6 +2135,7 @@ class TelnyxClient private constructor(
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
+        sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2350,6 +2358,7 @@ class TelnyxClient private constructor(
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
+        sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2420,6 +2429,7 @@ class TelnyxClient private constructor(
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
+        sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -3517,6 +3527,7 @@ class TelnyxClient private constructor(
                             isSocketDebug,
                             enableCallQualityReports,
                             callQualityReportInterval,
+                            sendWebRTCStatsViaSocket,
                             debugDataCollector
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
@@ -3746,6 +3757,7 @@ class TelnyxClient private constructor(
                         isSocketDebug,
                         enableCallQualityReports,
                         callQualityReportInterval,
+                            sendWebRTCStatsViaSocket,
                         debugDataCollector
                     )
                     webRTCReporter.onCallQualityChange = { metrics ->
