@@ -81,7 +81,7 @@ internal class WebRTCReporter(
     // interval (clamped to a safe minimum); otherwise 10s
     private val statsInterval: Long = if (callDebug || socketDebug) {
         STATS_INTERVAL_DEBUG
-    } else if (enableCallQualityReports) {
+    } else if (enableCallQualityReports || sendWebRTCStatsViaSocket) {
         callQualityReportInterval.coerceAtLeast(1000L)
     } else {
         STATS_INTERVAL_NORMAL
