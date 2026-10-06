@@ -1,3 +1,8 @@
+## [3.7.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.3) (2026-10-02)
+
+### Enhancement
+- Add `sendWebRTCStatsViaSocket` config option to `CredentialConfig` and `TokenConfig`, enabling WebRTC debug report frames (`debug_report_start`, `debug_report_data`, `debug_report_stop`) to be sent via socket without requiring `debug = true` (VSDK-728)
+
 ## [3.7.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.2) (2026-09-25)
 
 ### Bug Fixing
