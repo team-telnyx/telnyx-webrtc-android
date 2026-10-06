@@ -63,6 +63,7 @@ internal class WebRTCReporter(
     val socketDebug: Boolean,
     val enableCallQualityReports: Boolean = false,
     val callQualityReportInterval: Long = 5000L,
+    val sendWebRTCStatsViaSocket: Boolean = false,
     val debugDataCollector: DebugDataCollector? = null
 ) {
 
@@ -80,7 +81,7 @@ internal class WebRTCReporter(
     // interval (clamped to a safe minimum); otherwise 10s
     private val statsInterval: Long = if (callDebug || socketDebug) {
         STATS_INTERVAL_DEBUG
-    } else if (enableCallQualityReports) {
+    } else if (enableCallQualityReports || sendWebRTCStatsViaSocket) {
         callQualityReportInterval.coerceAtLeast(1000L)
     } else {
         STATS_INTERVAL_NORMAL
@@ -151,7 +152,7 @@ internal class WebRTCReporter(
             debugReportId = debugStatsId.toString(),
         )
 
-        if (socketDebug)
+        if (socketDebug || sendWebRTCStatsViaSocket)
             socket.send(debugStartMessage)
 
         peer.peerConnectionObserver = PeerConnectionObserver(this)
@@ -173,7 +174,7 @@ internal class WebRTCReporter(
             debugReportId = debugStatsId.toString(),
         )
 
-        if (socketDebug)
+        if (socketDebug || sendWebRTCStatsViaSocket)
             socket.send(debugStopMessage)
 
         debugStatsId = null
@@ -884,7 +885,7 @@ internal class WebRTCReporter(
     }
 
     private fun sendStats(data: JsonObject) {
-        if (socketDebug) {
+        if (socketDebug || sendWebRTCStatsViaSocket) {
             debugStatsId?.let {
                 val statsMessage = StatPrams(
                     debugReportId = debugStatsId.toString(),

@@ -35,8 +35,9 @@ sealed class TelnyxConfig
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with valid credentials
  * @property debug whether or not to send client debug reports
- * @property enableCallQualityReports whether to deliver real-time call quality metrics via onCallQualityChange. Defaults to true. This is independent of the debug flag — use debug for portal troubleshooting, enableCallQualityReports for production quality UI.
+ * @property enableCallQualityReports whether to deliver real-time call quality metrics via onCallQualityChange. Defaults to false. This is independent of the debug flag — use debug for portal troubleshooting, enableCallQualityReports for production quality UI.
  * @property callQualityReportInterval the interval in milliseconds at which call quality metrics are delivered. Defaults to 5000 (5 seconds). Only applies when enableCallQualityReports is true.
+ * @property sendWebRTCStatsViaSocket whether to send WebRTC statistics via socket to Telnyx servers. Defaults to false. Independent of debug — use debug for portal stats collection, sendWebRTCStatsViaSocket for socket-based debug reports without the overhead of debug mode.
  * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the selected region is not reachable
@@ -57,6 +58,7 @@ data class CredentialConfig(
     val debug: Boolean = DEFAULT_DEBUG,
     val enableCallQualityReports: Boolean = DEFAULT_ENABLE_CALL_QUALITY_REPORTS,
     val callQualityReportInterval: Long = DEFAULT_CALL_QUALITY_INTERVAL,
+    val sendWebRTCStatsViaSocket: Boolean = DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
@@ -67,6 +69,7 @@ data class CredentialConfig(
         const val DEFAULT_DEBUG = false
         const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
+        const val DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET = false
     }
 }
 
@@ -83,6 +86,7 @@ data class CredentialConfig(
  * @property customLogger Optional custom logger implementation to handle SDK logs
  * @property autoReconnect whether or not to reattempt (3 times) the login in the instance of a failure to connect and register to the gateway with a valid token
  * @property debug whether or not to send client debug reports
+ * @property sendWebRTCStatsViaSocket whether to send WebRTC statistics via socket to Telnyx servers. Defaults to false. Independent of debug.
  * @property reconnectionTimeout how long the app should try to reconnect to the socket server before giving up
  * @property region the region to use for the connection
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
@@ -102,6 +106,7 @@ data class TokenConfig(
     val debug: Boolean = DEFAULT_DEBUG,
     val enableCallQualityReports: Boolean = DEFAULT_ENABLE_CALL_QUALITY_REPORTS,
     val callQualityReportInterval: Long = DEFAULT_CALL_QUALITY_INTERVAL,
+    val sendWebRTCStatsViaSocket: Boolean = DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
@@ -112,5 +117,6 @@ data class TokenConfig(
         const val DEFAULT_DEBUG = false
         const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
+        const val DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET = false
     }
 }
