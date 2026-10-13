@@ -1,67 +1,13 @@
-## [3.7.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.3) (2026-10-02)
+## Unreleased
 
 ### Enhancement
-- Add `sendWebRTCStatsViaSocket` config option to `CredentialConfig` and `TokenConfig`, enabling WebRTC debug report frames (`debug_report_start`, `debug_report_data`, `debug_report_stop`) to be sent via socket without requiring `debug = true` (VSDK-728)
-
-## [3.7.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.2) (2026-09-25)
-
-### Bug Fixing
-- Tolerate missing identifiers (`telnyx_session_id`, `telnyx_leg_id`) during call reattachment after network interruption (VSUP-238)
-- Preserve pending push calls until INVITE cleanup (VSUP-205)
-- Fix `deriveTurns443Url` edge cases and align TURNS host with JS SDK (VSUP-184)
-- Align production TURNS defaults with JS SDK (VSDK-502)
-- Fix token login ignoring configured `ringBackTone` (VSUP-243)
-
-### Enhancement
-- Decouple call quality metrics from debug flag — new `enableCallQualityReports` and `callQualityReportInterval` config options (VSDK-608)
-- Remove `turn2.telnyx.com` from default ICE servers (VSDK-630)
-- Upgrade `compileSdk` to 36 (Android 16) and `targetSdk` to 36 for all sample apps to meet Google Play deadline (31 August 2026). Update AGP from 8.6.1 to 8.7.3 (VSDK-469). Library modules (`telnyx_rtc`, `telnyx_common`) intentionally keep `targetSdkVersion 34` so SDK consumers are not forced onto the API 36 behavior band.
-- Migrate to `EncryptedSharedPreferences` and restrict backup extraction (SEC-279)
-
-## [3.7.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.1) (2026-07-28)
-
-### Bug Fixing
-- Fix pushWhenActive timing race: pass config's `pushWhenActive` directly to `processCallFromPush()` instead of relying on session config that hasn't been saved yet, so call ID remapping works on the push-when-active path
-
-## [3.7.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.0) (2026-07-24)
-
-### Enhancement
-- Add TURNS port 443 as default ICE server fallback for networks that block non-standard ports (VSDK-281)
-- Expose active calls by app-facing call ID for remapped push calls so `getActiveCalls()` returns the call ID the app sees, not the internal signaling ID
-
-### Bug Fixing
-- Harden WebSocket login against connect/disconnect race condition: guard duplicate `onOpen` callbacks, wrap GSON parse in try-catch with raw payload logging, and schedule automatic jittered retry on parse failure during initial connect (VSDK-441)
-- Fix trickle ICE race in Peer.kt: guard `queuedCandidates` and `answerSent` with a `ReentrantLock` so ICE candidates generated during ANSWER flush are not lost, preventing `ConcurrentModificationException` and incomplete media negotiation (VSUP-148)
-- Back `TelnyxClient.calls` with `ConcurrentHashMap` for thread safety under concurrent access from OkHttp socket dispatcher, public API, and call state callbacks (VSDK-335)
-- Untrack `google-services.json` from sample apps to prevent leaking Firebase credentials; add templates with empty API keys (VSDK-349)
-- Show disconnect button during connecting phase in Android demo app so users can cancel outbound calls before they ring (VSDK-352)
-- Tear down active calls through proper per-call cleanup (stats reporter, call ID aliases, pending ICE candidates, latency tracking) when reconnection timeout fires after 60 seconds, so the app returns to profile selection state instead of leaving a stale call with a Disconnect button
-
-## [3.6.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.1) (2026-07-17)
-
-### Enhancement
-- Auto-include `pn_late_fanout` alongside `push_when_active` in login `userVariables` for push-when-active multi-device routing
-- Expose Compose test tags as resource IDs for Maestro/UiAutomator E2E test automation
-
-### Bug Fixing
-- Use the push payload `call_id` as the stable app-facing ID for push-when-active remaps while keeping the socket `callID` for answer/end signaling.
-- Cancel decline service scope per startId and isolate decline-push client from main SDK client (VSDK-332)
-
-## [3.6.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.6.0) (2026-07-16)
-
-### Enhancement
-- Auto-include `answered_device_token` in `telnyx_rtc.answer` from the configured `fcmToken` for push-when-active flows (VSDK-431)
-- Add `pushWhenActive` support to `CredentialConfig` and `TokenConfig` so apps can opt in to receiving push notifications while a client is active. Default behavior is unchanged for existing users.
-- Add `Answered Elsewhere` push cleanup handling to dismiss incoming call notifications and stop ringing services when a call is picked up on another device.
-- Push answer and decline flows now correctly preserve the user-selected environment (production vs development) across app restarts and config recreations.
-- Add guidance for push-when-active multi-device flows, answered-elsewhere cleanup, and missed-call notification handling in the push notification docs and sample READMEs.
-- Add missing latency measurement milestones (WEBRTC-3426)
-
-### Bug Fixing
-- Store parent scope for discarded coroutine jobs in TelnyxClient to prevent coroutine leaks (VSDK-333)
-- Bound cancellable scope in TelnyxCommon.observeConnectionMetrics to prevent connectivity subscription leak (VSDK-331)
-- Fix MediaPlayer leak in playRingtone and uncaught NPE in playRingBackTone (VSDK-330)
-- Fix CallTimings portal parsing (VSDK-170)
+- Structured error and warning taxonomy (VSDK-393): add `TelnyxError` and `TelnyxWarning` models with code, name, message, description, causes, solutions, and fatal flag
+- Add `errorFlow: SharedFlow<TelnyxError>` and `warningFlow: SharedFlow<TelnyxWarning>` to `TelnyxClient` for structured error/warning handling
+- Port JS SDK error registry (25 error codes across 9 categories) and warning registry (17 warning codes across 6 categories)
+- `SocketResponse.error()` is now `@Deprecated` — use `errorFlow` for structured errors with causes, solutions, and fatal flag
+- `TelnyxViewModel` now exposes `structuredError` and `structuredWarning` flows for compose_app consumers
+- See `docs/error-migration-guide.md` for migration guide
+- All legacy error emit sites migrated to use structured registry codes
 
 ## [3.5.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.5.0) (2026-03-20)
 

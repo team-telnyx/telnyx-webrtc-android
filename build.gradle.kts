@@ -3,7 +3,7 @@ buildscript {
     apply(from = "versions.gradle")
 
     val kotlinVersion = "1.9.23" // Define Kotlin version
-    val androidGradlePluginVersion = "8.7.3"
+    val androidGradlePluginVersion = "8.6.1"
     val googlePlayServicesVersion = "4.4.2"
     val hiltVersion = "2.48"
     repositories {
@@ -13,7 +13,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
+        classpath("com.android.tools.build:gradle:8.6.1")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("org.jetbrains.kotlinx:kover:0.5.1")
         classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.21.0")
@@ -40,27 +40,4 @@ allprojects {
 
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)
-}
-
-// Copy google-services.json from templates if missing (e.g. JitPack build).
-// The file is untracked to prevent leaking Firebase credentials, but the
-// google-services Gradle plugin requires it at build time.
-tasks.register("restoreGoogleServicesTemplates") {
-    description = "Restores google-services.json from templates if the file is missing."
-    doLast {
-        val sampleApps = listOf("compose_app", "xml_app", "connection_service_app")
-        sampleApps.forEach { app ->
-            val target = file("samples/$app/google-services.json")
-            val template = file("samples/$app/google-services.json.template")
-            if (!target.exists() && template.exists()) {
-                template.copyTo(target)
-                logger.lifecycle("Restored samples/$app/google-services.json from template")
-            }
-        }
-    }
-}
-
-// Run before any build task that needs google-services.json
-tasks.matching { it.name.startsWith("assemble") || it.name.startsWith("build") || it.name == "clean" }.configureEach {
-    dependsOn("restoreGoogleServicesTemplates")
 }

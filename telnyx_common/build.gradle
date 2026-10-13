@@ -10,7 +10,7 @@ def getCommonsVersion = { ->
 
 android {
     namespace "com.telnyx.webrtc.common"
-    compileSdk 36
+    compileSdk 35
 
     defaultConfig {
         minSdk 23
@@ -72,17 +72,9 @@ dependencies {
     implementation 'com.jakewharton.timber:timber:4.5.1'
     api 'com.google.firebase:firebase-messaging-ktx:24.1.0'
 
-    // EncryptedSharedPreferences for secure credential storage (SEC-279)
-    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
-
     // Room database
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
     kapt 'androidx.room:room-compiler:2.6.1'
-
-    testImplementation 'androidx.arch.core:core-testing:2.1.0'
-    testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4'
-    testImplementation deps.mockk.core
 
 }

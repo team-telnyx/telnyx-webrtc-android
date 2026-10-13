@@ -18,7 +18,10 @@ Enable Telnyx real-time communication services on Android
 - [Adding push notifications](#adding-push-notifications)
   - [Providing our SDK with the FCM Token to receive Push Notifications](#providing-our-sdk-with-the-fcm-token-to-receive-push-notifications)
 - [Custom Logging](#custom-logging)
-- [Call Quality Metrics](docs-markdown/webrtc-stats/WebRtcStats.md)
+- [Call Quality Metrics](#call-quality-metrics)
+  - [Enabling Call Quality Metrics](#enabling-call-quality-metrics)
+  - [CallQualityMetrics Properties](#callqualitymetrics-properties)
+  - [CallQuality Enum](#callquality-enum)
 - [Trickle Ice](#trickle-ice)
 - [AI Agent Usage](#ai-agent-usage)
   - [1. Logging in to communicate with the AI Agent](#1-logging-in-to-communicate-with-the-ai-agent)
@@ -168,50 +171,6 @@ data class TokenConfig(
     ) : TelnyxConfig()
 
 ```
-
-### Relay-only media
-
-Set `forceRelayCandidate = true` when every media path must use TURN, or while
-diagnosing restrictive NAT/firewall behavior:
-
-```kotlin
-val credentialConfig = CredentialConfig(
-    sipUser = sipUser,
-    sipPassword = sipPassword,
-    sipCallerIDName = callerIdName,
-    sipCallerIDNumber = callerIdNumber,
-    fcmToken = fcmToken,
-    ringtone = null,
-    ringBackTone = null,
-    forceRelayCandidate = true,
-    logLevel = LogLevel.ALL
-)
-```
-
-Relay-only mode sets WebRTC's ICE transport policy to `RELAY`. STUN entries
-remain in the ICE catalog, but they cannot become the selected media path. A
-reachable TURN server and valid credentials are mandatory. The production
-defaults are:
-
-1. `stun:stun.telnyx.com:3478`
-2. `stun:stun.l.google.com:19302`
-3. `turn:turn.telnyx.com:3478?transport=udp`
-4. `turn:turn.telnyx.com:3478?transport=tcp`
-5. `turns:turn.telnyx.com:443`
-
-Development uses the equivalent `stundev`, `turndev`, and
-`turns:turndev.telnyx.com:443` endpoints. TURNS URLs intentionally omit the
-transport query because TLS implies TCP. ICE server array order does not
-guarantee sequential fallback; WebRTC prioritizes the candidate pairs it
-gathers.
-
-Use relay-only mode selectively. Relaying all media can add connection time,
-latency, and relay bandwidth, and can reduce quality where a direct path would
-otherwise work. To validate it, place a call with SDK logging/call reporting
-enabled and inspect the selected ICE candidate pair. Its local candidate type
-must be `relay`; `host` or `srflx` means relay-only policy was not applied. A
-successful DNS lookup or TCP connection to port 443 alone does not prove that
-the call's media used TURNS.
 
 ### Creating a call invitation
 In order to make a call invitation, you need to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
@@ -412,37 +371,6 @@ telnyxClient.connect(
 )
 ```
 
-#### Automatic `answered_device_token` for push-when-active flows
-
-For push-when-active multi-device flows, the backend needs to know which device
-answered so it can exclude that device and send the correct
-"answered elsewhere" / "picked off" result to the remaining devices. When you
-configure the SDK with a non-blank `fcmToken` (as shown above), the Android SDK
-will automatically include the same `fcmToken` value as the
-`answered_device_token` field of the `telnyx_rtc.answer` verto payload — you do
-not need to plumb the token through `acceptCall(...)` yourself.
-
-Behavior:
-
-- **Push-when-active disabled** (no `fcmToken` configured, or the configured
-  token is blank): the `answered_device_token` field is omitted from
-  `telnyx_rtc.answer`. This preserves the previous wire shape for apps that
-  don't use push notifications.
-- **Push-when-active enabled** with a non-blank configured `fcmToken`: the SDK
-  populates `answered_device_token` with the same value, so the backend can
-  identify the answering device without any extra work in the app.
-- **Push call ID mapping**: pass the full push metadata to the SDK. The SDK maps
-  the app-visible push `call_id` back to the socket `callID` for answer/end
-  signaling.
-- **Explicit override**: if you pass a non-blank `answeredDeviceToken` argument
-  to `acceptCall(callId, destinationNumber, …)`, that explicit value always
-  takes precedence. Blank values are ignored and fall back to the configured
-  `fcmToken`.
-
-The `acceptCall(...)` `answeredDeviceToken` parameter is therefore optional for
-the common push-when-active path. You can continue to pass it explicitly if you
-manage a custom device-token source separate from the configured `fcmToken`.
-
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/push-notification/portal-setup)
 
 ## Custom Logging
@@ -569,25 +497,17 @@ In order to receive push notifications on Android 14, you will need to add  the 
     android:foregroundServiceType="phoneCall"
     android:exported="true" />
 ```
-### Handling Missed Call and Answered Elsewhere Notifications
-The backend sends cleanup push notifications when an incoming call should no longer ring on the device. A call that timed out or ended before the socket connected comes with the `Missed call!` message. A call that was picked up on another registered device comes with the `Answered Elsewhere` message.
-
-Handle both messages by dismissing the incoming call notification and stopping any ringing foreground service. Only `Missed call!` should be treated as a missed call in your UI or analytics; `Answered Elsewhere` should be handled as a call picked up on another device.
-
-You can use the following code snippet in the FirebaseMessagingService class:
+### Handling Missed Call Notifications
+The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
 ```kotlin
-const val MISSED_CALL = "Missed call!"
-const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
-
+const val Missed_Call = "Missed call!"
 val params = remoteMessage.data
 val objects = JSONObject(params as Map<*, *>)
 val metadata = objects.getString("metadata")
-val message = objects.getString("message")
-val isMissedCall = message == MISSED_CALL
-val isAnsweredElsewhere = message == ANSWERED_ELSEWHERE
+val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call)
 
-if (isMissedCall || isAnsweredElsewhere) {
-    Timber.d("Call notification cleanup message received: $message")
+if(isMissedCall){
+    Timber.d("Missed Call")
     val serviceIntent = Intent(this, NotificationsService::class.java).apply {
         putExtra("action", NotificationsService.STOP_ACTION)
     }
@@ -775,3 +695,4 @@ Questions? Comments? Building something rad? <a href="https://joinslack.telnyx.c
 ## License
 
 [`MIT Licence`](https://github.com/team-telnyx/telnyx-webrtc-android/blob/main/LICENSE) © [Telnyx](https://github.com/team-telnyx)
+

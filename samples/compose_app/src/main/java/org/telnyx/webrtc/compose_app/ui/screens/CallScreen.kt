@@ -1,6 +1,5 @@
 package org.telnyx.webrtc.compose_app.ui.screens
 
-import com.telnyx.webrtc.sdk.model.CallState
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.media.ToneGenerator.*
@@ -104,8 +103,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
 
     val uiState by telnyxViewModel.uiState.collectAsState()
     var callUIState by remember { mutableStateOf(CallUIState.IDLE) }
-    val sdkCallState by telnyxViewModel.currentCall?.callStateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CallState>(CallState.DONE()) }
     val loudSpeakerOn =
         telnyxViewModel.currentCall?.getIsOnLoudSpeakerStatus()?.observeAsState(initial = false)
     val isMuted = telnyxViewModel.currentCall?.getIsMuteStatus()?.observeAsState(initial = false)
@@ -155,12 +152,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
             }
 
             else -> {
-                // Check if SDK reports CONNECTING state (outbound call in progress)
-                if (sdkCallState is CallState.CONNECTING || sdkCallState is CallState.NEW) {
-                    CallUIState.CONNECTING
-                } else {
-                    CallUIState.IDLE
-                }
+                CallUIState.IDLE
             }
         }
     }
@@ -252,34 +244,6 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 backgroundColor = MaterialTheme.colorScheme.background
                             ) {
                                 showCallHistoryBottomSheet = true
-                            }
-                        }
-                    }
-
-                    CallUIState.CONNECTING -> {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                            modifier = Modifier.testTag("callConnectingView")
-                        ) {
-                            Text(
-                                text = stringResource(R.string.call_state_connecting),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                HomeIconButton(
-                                    Modifier.testTag("endCall"),
-                                    icon = R.drawable.baseline_call_end_24,
-                                    backGroundColor = callRed,
-                                    contentColor = Color.White,
-                                    stringResource(R.string.end)
-                                ) {
-                                    telnyxViewModel.endCall(context)
-                                }
                             }
                         }
                     }
@@ -820,7 +784,6 @@ fun DestinationTypeSwitcher(isPhoneNumber: Boolean, onCheckedChange: (Boolean) -
 
 private enum class CallUIState {
     IDLE,
-    CONNECTING,
     INCOMING,
     ACTIVE
 }

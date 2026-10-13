@@ -15,7 +15,7 @@ android {
 }
 
 def getVersionName = { ->
-    return "3.7.3"
+    return "3.5.0"
 }
 
 def getArtifactId = { ->
@@ -70,7 +70,7 @@ publishing {
 }
 
 android {
-    compileSdk 36
+    compileSdk 35
 
     defaultConfig {
         minSdkVersion 23

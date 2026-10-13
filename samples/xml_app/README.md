@@ -341,25 +341,17 @@ In order to receive push notifications on Android 14, you will need to add  the 
            android:foregroundServiceType="phoneCall"
            android:exported="true" />
    ```
-### Handling Missed Call and Answered Elsewhere Notifications
-The backend sends cleanup push notifications when an incoming call should no longer ring on the device. A call that timed out or ended before the socket connected comes with the `Missed call!` message. A call that was picked up on another registered device comes with the `Answered Elsewhere` message.
-
-Handle both messages by dismissing the incoming call notification and stopping any ringing foreground service. Only `Missed call!` should be treated as a missed call in your UI or analytics; `Answered Elsewhere` should be handled as a call picked up on another device.
-
-You can use the following code snippet in the FirebaseMessagingService class:
+### Handling Missed Call Notifications
+The backend sends a missed call notification when a call is ended while the socket is not yet connected. It comes with the `Missed call!` message. In order to handle missed call notifications, you can use the following code snippet in the FirebaseMessagingService class:
    ``` kotlin
-        const val MISSED_CALL = "Missed call!"
-        const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
-
+        const val Missed_Call = "Missed call!"
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val message = objects.getString("message")
-        val isMissedCall = message == MISSED_CALL
-        val isAnsweredElsewhere = message == ANSWERED_ELSEWHERE
+        val isMissedCall: Boolean = objects.getString("message").equals(Missed_Call) // 
 
-        if (isMissedCall || isAnsweredElsewhere) {
-            Timber.d("Call notification cleanup message received: $message")
+        if(isMissedCall){
+            Timber.d("Missed Call")
             val serviceIntent = Intent(this, NotificationsService::class.java).apply {
                 putExtra("action", NotificationsService.STOP_ACTION)
             }
@@ -418,3 +410,4 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+

@@ -49,9 +49,7 @@ class AuthenticateByToken(private val context: Context) {
                 callerIdName = tokenConfig.sipCallerIDName,
                 callerIdNumber = tokenConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
-                isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = tokenConfig.fcmToken,
-                region = tokenConfig.region,
                 forceRelayCandidate = tokenConfig.forceRelayCandidate
             )
         )
@@ -85,9 +83,7 @@ class AuthenticateByToken(private val context: Context) {
                 callerIdName = tokenConfig.sipCallerIDName,
                 callerIdNumber = tokenConfig.sipCallerIDNumber,
                 isUserLoggedIn = true,
-                isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = tokenConfig.fcmToken,
-                region = tokenConfig.region,
                 forceRelayCandidate = tokenConfig.forceRelayCandidate
             )
         )

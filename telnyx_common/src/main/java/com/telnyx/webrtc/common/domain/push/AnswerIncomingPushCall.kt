@@ -83,7 +83,7 @@ class AnswerIncomingPushCall(private val context: Context) {
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
                 telnyxClient.connect(
-                    serverConfigurationFor(lastProfile.isDev),
+                    TxServerConfiguration(),
                     lastProfile.toTokenConfig(token),
                     txPushMetaData,
                     true
@@ -91,7 +91,7 @@ class AnswerIncomingPushCall(private val context: Context) {
             } else {
 
                 telnyxClient.connect(
-                    serverConfigurationFor(lastProfile.isDev),
+                    TxServerConfiguration(),
                     lastProfile.toCredentialConfig(token),
                     txPushMetaData,
                     true
@@ -142,7 +142,7 @@ class AnswerIncomingPushCall(private val context: Context) {
             // Use TokenConfig when sipToken is not null, otherwise use CredentialConfig
             if (!lastProfile.sipToken.isNullOrEmpty()) {
                 telnyxClient.connect(
-                    serverConfigurationFor(lastProfile.isDev),
+                    TxServerConfiguration(),
                     lastProfile.toTokenConfig(token),
                     txPushMetaData,
                     true
@@ -150,7 +150,7 @@ class AnswerIncomingPushCall(private val context: Context) {
             } else {
 
                 telnyxClient.connect(
-                    serverConfigurationFor(lastProfile.isDev),
+                    TxServerConfiguration(),
                     lastProfile.toCredentialConfig(token),
                     txPushMetaData,
                     true
@@ -189,14 +189,6 @@ class AnswerIncomingPushCall(private val context: Context) {
         }
 
         return false
-    }
-
-    private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
-        return if (isDev) {
-            TxServerConfiguration.development()
-        } else {
-            TxServerConfiguration.production()
-        }
     }
 
     /**

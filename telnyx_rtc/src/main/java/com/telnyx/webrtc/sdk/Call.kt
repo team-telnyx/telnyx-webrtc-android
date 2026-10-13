@@ -199,6 +199,7 @@ data class Call(
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
             mutableCallStateFlow.value = CallState.ERROR
+            client.emitError(40003) // SDP_SET_LOCAL_DESCRIPTION_FAILED
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -483,6 +484,10 @@ data class Call(
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
+        client.emitError(
+            45003,
+            "Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
+        ) // RECONNECTION_EXHAUSTED
     }
 
     /**
@@ -513,6 +518,7 @@ data class Call(
         if (peerConnection == null) {
             Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
             updateCallState(CallState.ERROR)
+            client.emitError(44005) // PEER_CLOSED_DURING_INIT
             return
         }
 
@@ -549,6 +555,7 @@ data class Call(
             override fun onCreateFailure(p0: String?) {
                  Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
                  updateCallState(CallState.ERROR)
+                 client.emitError(40001) // SDP_CREATE_OFFER_FAILED
             }
         })
     }
@@ -598,6 +605,7 @@ data class Call(
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
             updateCallState(CallState.ERROR)
+            client.emitError(44002) // INVALID_CALL_PARAMETERS
         }
     }
 
@@ -655,6 +663,7 @@ data class Call(
                          if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          resetIceCandidateTimer() // Reset timer even on failure
                          updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
+                         client.emitError(40002) // SDP_CREATE_ANSWER_FAILED
                     }
                 } else {
                     Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")

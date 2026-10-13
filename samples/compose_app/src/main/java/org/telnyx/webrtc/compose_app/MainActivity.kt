@@ -17,10 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
@@ -46,7 +43,6 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
     // State for showing websocket messages bottom sheet
     val showWsMessagesBottomSheet: MutableState<Boolean> = mutableStateOf(false)
 
-    @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super<ComponentActivity>.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
@@ -61,15 +57,7 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         enableEdgeToEdge()
         setContent {
             TelnyxAndroidWebRTCSDKTheme {
-                // Expose Compose testTags as resource-ids so black-box UI drivers
-                // (Maestro / UiAutomator) can address widgets by `id:` for the
-                // deterministic E2E harness (`native-voice-android`).
-                // Semantics/accessibility-only; no behavioural or visual impact.
-                Scaffold(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .semantics { testTagsAsResourceId = true }
-                ) { innerPadding ->
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     innerPadding.calculateTopPadding()
                     HomeScreen(
                         navController = rememberNavController(), 
@@ -191,3 +179,4 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
             }).check()
     }
 }
+

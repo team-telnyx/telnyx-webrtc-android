@@ -10,9 +10,9 @@ import android.content.Intent
 import android.os.IBinder
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.ProfileManager
+import com.telnyx.webrtc.common.TelnyxCommon
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
-import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
@@ -20,16 +20,14 @@ import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.verto.receive.LoginResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.lifecycle.Observer
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Background service for handling call decline without launching the main application.
@@ -56,51 +54,9 @@ class BackgroundCallDeclineService : Service() {
         }
     }
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val operationLock = Any()
-    private var activeOperation: DeclineOperation? = null
-
-    private class DeclineOperation(val startId: Int) {
-        var operationJob: Job? = null
-        var timeoutJob: Job? = null
-        var socketStatusJob: Job? = null
-        var disconnectJob: Job? = null
-        var telnyxClient: TelnyxClient? = null
-        private var isCompleting = false
-
-        fun markCompleting(): Boolean = synchronized(this) {
-            if (isCompleting) {
-                false
-            } else {
-                isCompleting = true
-                true
-            }
-        }
-
-        fun cancel(reason: String) {
-            val cancellation = CancellationException(reason)
-            operationJob?.cancel(cancellation)
-            timeoutJob?.cancel(cancellation)
-            socketStatusJob?.cancel(cancellation)
-            disconnectJob?.cancel(cancellation)
-        }
-
-        fun disconnectClient(reason: String) {
-            val client = telnyxClient ?: return
-            disconnectClient(client, reason)
-        }
-
-        fun disconnectClient(client: TelnyxClient, reason: String) {
-            if (telnyxClient === client) {
-                telnyxClient = null
-            }
-            try {
-                client.disconnect()
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to disconnect background decline client: $reason")
-            }
-        }
-    }
+    private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+    private var timeoutJob: Job? = null
+    private var socketStatusJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -120,10 +76,10 @@ class BackgroundCallDeclineService : Service() {
         }
 
         if (txPushMetadata != null) {
-            performBackgroundDecline(txPushMetadataJson, startId)
+            performBackgroundDecline(txPushMetadataJson)
         } else {
             Timber.w("No push metadata provided, stopping service")
-            stopServiceForStart(startId, "No push metadata provided")
+            stopSelf()
         }
 
         return START_NOT_STICKY
@@ -133,96 +89,51 @@ class BackgroundCallDeclineService : Service() {
      * Performs the background call decline operation.
      *
      * @param txPushMetaData The push metadata as JSON string.
-     * @param startId The service start id associated with this decline request.
      */
-    private fun performBackgroundDecline(txPushMetaData: String?, startId: Int) {
-        val operation = DeclineOperation(startId)
-        activateOperation(operation)
-
-        operation.operationJob = serviceScope.launch {
+    private fun performBackgroundDecline(txPushMetaData: String?) {
+        serviceScope.launch {
             try {
+                val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
+                
                 ProfileManager.getProfilesList(this@BackgroundCallDeclineService).lastOrNull()?.let { lastProfile ->
                     val fcmToken = lastProfile.fcmToken ?: ""
 
-                    if (!isActiveOperation(operation)) {
-                        Timber.d("Skipping client creation for superseded background decline startId=${operation.startId}")
-                        return@launch
-                    }
-
-                    val telnyxClient = TelnyxClient.createDeclinePushClient(applicationContext)
-                    operation.telnyxClient = telnyxClient
-
-                    if (!isActiveOperation(operation)) {
-                        Timber.d("Disconnecting superseded background decline startId=${operation.startId}")
-                        operation.disconnectClient(telnyxClient, "Superseded after background decline client creation")
-                        return@launch
-                    }
-
                     // Set up timeout to ensure service doesn't run indefinitely
-                    operation.timeoutJob = launch {
+                    timeoutJob = launch {
                         delay(CONNECTION_TIMEOUT_MS)
                         Timber.w("Background decline operation timed out")
-                        finishAndStop(operation, "Background decline operation timed out")
+                        disconnectAndStop()
                     }
 
                     // Observe socket responses to handle login success - must be done on main thread
-                    operation.socketStatusJob = launch(Dispatchers.Main) {
-                        telnyxClient.socketResponseFlow
-                            .collectLatest { response ->
-                                handleSocketResponse(response, operation)
-                            }
-                    }
-
-                    if (!isActiveOperation(operation)) {
-                        Timber.d("Skipping connect for superseded background decline startId=${operation.startId}")
-                        return@launch
+                    socketStatusJob = launch(Dispatchers.Main) {
+                        telnyxClient.socketResponseFlow.collectLatest { response ->
+                            handleSocketResponse(response)
+                        }
                     }
 
                     // Connect with decline_push parameter
                     if (!lastProfile.sipToken.isNullOrEmpty()) {
                         telnyxClient.connectWithDeclinePush(
-                            serverConfigurationFor(lastProfile.isDev),
-                            lastProfile.toTokenConfig(fcmToken).copy(autoReconnect = false),
+                            TxServerConfiguration(),
+                            lastProfile.toTokenConfig(fcmToken),
                             txPushMetaData
                         )
                     } else {
                         telnyxClient.connectWithDeclinePush(
-                            serverConfigurationFor(lastProfile.isDev),
-                            lastProfile.toCredentialConfig(fcmToken).copy(autoReconnect = false),
+                            TxServerConfiguration(),
+                            lastProfile.toCredentialConfig(fcmToken),
                             txPushMetaData
                         )
                     }
-
-                    if (!isActiveOperation(operation)) {
-                        Timber.d("Disconnecting superseded background decline startId=${operation.startId}")
-                        operation.disconnectClient(telnyxClient, "Superseded after background decline connect")
-                        return@launch
-                    }
                 } ?: run {
                     Timber.w("No profile found, stopping service")
-                    finishAndStop(operation, "No profile found")
+                    stopSelf()
                 }
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Error during background decline operation")
-                finishAndStop(operation, "Error during background decline operation")
+                stopSelf()
             }
-        }
-    }
-
-    private fun activateOperation(operation: DeclineOperation) {
-        val previousOperation = synchronized(operationLock) {
-            activeOperation.also { activeOperation = operation }
-        }
-
-        previousOperation?.let { previous ->
-            Timber.d(
-                "Superseding background decline startId=${previous.startId} with startId=${operation.startId}"
-            )
-            previous.cancel("Superseded by newer background decline startId=${operation.startId}")
-            previous.disconnectClient("Superseded by newer background decline")
-            stopServiceForStart(previous.startId, "Superseded by newer background decline")
         }
     }
 
@@ -230,9 +141,8 @@ class BackgroundCallDeclineService : Service() {
      * Handles socket responses during the decline operation.
      *
      * @param response The socket response.
-     * @param operation The decline operation associated with this response collector.
      */
-    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>, operation: DeclineOperation) {
+    private fun handleSocketResponse(response: SocketResponse<ReceivedMessageBody>) {
         when (response.status) {
             SocketStatus.MESSAGERECEIVED -> {
                 if (response.data?.method == SocketMethod.LOGIN.methodName) {
@@ -240,13 +150,13 @@ class BackgroundCallDeclineService : Service() {
                     if (loginResponse != null) {
                         Timber.d("Login successful for decline operation, disconnecting")
                         // Login successful, now disconnect
-                        finishAndStop(operation, "Background decline operation completed")
+                        disconnectAndStop()
                     }
                 }
             }
             SocketStatus.ERROR -> {
                 Timber.e("Socket error during decline operation: ${response.errorMessage}")
-                finishAndStop(operation, "Socket error during decline operation")
+                disconnectAndStop()
             }
             else -> {
                 // Handle other statuses if needed
@@ -258,72 +168,28 @@ class BackgroundCallDeclineService : Service() {
     /**
      * Disconnects from the socket and stops the service.
      */
-    private fun finishAndStop(
-        operation: DeclineOperation,
-        reason: String,
-        disconnect: Boolean = true
-    ) {
-        if (!operation.markCompleting()) {
-            Timber.d("Ignoring duplicate finish for background decline startId=${operation.startId}")
-            return
-        }
-
-        operation.disconnectJob = serviceScope.launch {
+    private fun disconnectAndStop() {
+        serviceScope.launch {
             try {
-                operation.timeoutJob?.cancel()
-                operation.socketStatusJob?.cancel()
-
-                if (disconnect) {
-                    operation.disconnectClient(reason)
-                }
-
-                Timber.d("$reason, stopping service for startId=${operation.startId}")
-            } catch (e: CancellationException) {
-                throw e
+                timeoutJob?.cancel()
+                socketStatusJob?.cancel()
+                val telnyxClient = TelnyxCommon.getInstance().getTelnyxClient(this@BackgroundCallDeclineService)
+                telnyxClient.disconnect()
+                
+                Timber.d("Background decline operation completed, stopping service")
             } catch (e: Exception) {
                 Timber.e(e, "Error during disconnect")
             } finally {
-                clearActiveOperation(operation)
-                stopServiceForStart(operation.startId, reason)
+                stopSelf()
             }
-        }
-    }
-
-    private fun isActiveOperation(operation: DeclineOperation): Boolean = synchronized(operationLock) {
-        activeOperation === operation
-    }
-
-    private fun clearActiveOperation(operation: DeclineOperation) {
-        synchronized(operationLock) {
-            if (activeOperation === operation) {
-                activeOperation = null
-            }
-        }
-    }
-
-    private fun stopServiceForStart(startId: Int, reason: String) {
-        val stopped = stopSelfResult(startId)
-        Timber.d("stopSelfResult($startId)=$stopped: $reason")
-    }
-
-    private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
-        return if (isDev) {
-            TxServerConfiguration.development()
-        } else {
-            TxServerConfiguration.production()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        synchronized(operationLock) {
-            activeOperation.also { activeOperation = null }
-        }?.let { operation ->
-            operation.cancel("BackgroundCallDeclineService onDestroy")
-            operation.disconnectClient("BackgroundCallDeclineService onDestroy")
-        }
-        serviceScope.cancel(CancellationException("BackgroundCallDeclineService onDestroy"))
-
+        timeoutJob?.cancel()
+        socketStatusJob?.cancel()
+        
         Timber.d("BackgroundCallDeclineService destroyed")
     }
 }

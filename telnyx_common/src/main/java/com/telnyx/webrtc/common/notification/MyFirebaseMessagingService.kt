@@ -35,11 +35,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val params = remoteMessage.data
         val objects = JSONObject(params as Map<*, *>)
         val metadata = objects.getString("metadata")
-        val message = objects.getString("message")
+        val isMissedCall: Boolean = objects.getString("message").equals(MISSED_CALL)
 
-        if (message == MISSED_CALL || message == ANSWERED_ELSEWHERE) {
-            Timber.d("Call notification cleanup message received: $message")
-            dismissIncomingCallNotification()
+        if(isMissedCall){
+            Timber.d("Missed Call")
+            val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
+                putExtra("action", LegacyCallNotificationService.STOP_ACTION)
+            }
+            serviceIntent.setAction(LegacyCallNotificationService.STOP_ACTION)
+            startMessagingService(serviceIntent)
             return
         }
 
@@ -93,16 +97,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun dismissIncomingCallNotification() {
-        CallNotificationService.cancelNotification(this)
-
-        val serviceIntent = Intent(this, LegacyCallNotificationService::class.java).apply {
-            putExtra("action", LegacyCallNotificationService.STOP_ACTION)
-            action = LegacyCallNotificationService.STOP_ACTION
-        }
-        stopService(serviceIntent)
-    }
-
     companion object {
         const val ANSWER_REQUEST_CODE = 0
         const val REJECT_REQUEST_CODE = 1
@@ -111,7 +105,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         const val TX_PUSH_METADATA = "tx_push_metadata"
         const val MISSED_CALL = "Missed call!"
-        const val ANSWERED_ELSEWHERE = "Answered Elsewhere"
 
         const val EXT_KEY_DO_ACTION = "ext_key_do_action"
         const val ACT_ANSWER_CALL = "answer"

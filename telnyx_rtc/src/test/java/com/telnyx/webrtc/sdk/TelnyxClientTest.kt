@@ -2,12 +2,10 @@ package com.telnyx.webrtc.sdk
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.os.PowerManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.LiveData
@@ -17,7 +15,6 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.AudioDevice
 import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
-import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -26,9 +23,6 @@ import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
-import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
-import com.telnyx.webrtc.sdk.verto.send.AnonymousLoginParams
-import com.telnyx.webrtc.sdk.verto.send.LoginParam
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
@@ -41,7 +35,6 @@ import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.rules.TestRule
-import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
@@ -51,9 +44,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class TelnyxClientTest : BaseTest() {
@@ -224,7 +214,12 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with invalid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
 
         val config = CredentialConfig(
             "asdfasass",
@@ -236,11 +231,16 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
+
+        // Sleep to give time to connect
+        Thread.sleep(3000)
 
         client.credentialLogin(config)
 
         val jsonMock = Mockito.mock(JsonObject::class.java)
 
+        Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1)).send(any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onClientReady(jsonMock)
     }
@@ -248,7 +248,13 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `login with valid token - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
+        client.socket = Mockito.spy(
+            TxSocket(
+                host_address = "rtc.telnyx.com",
+                port = 14938,
+            )
+        )
+
 
         val config = TokenConfig(
             MOCK_TOKEN,
@@ -259,11 +265,15 @@ class TelnyxClientTest : BaseTest() {
             null,
             LogLevel.ALL
         )
+        client.socket.connect(client)
 
+        // Sleep to give time to connect
+        Thread.sleep(3000)
         client.tokenLogin(config)
 
+        Thread.sleep(3000)
         Mockito.verify(client.socket, Mockito.times(1))
-            .send(any(SendingMessageBody::class.java))
+            .send(dataObject = any(SendingMessageBody::class.java))
     }
 
     @Test
@@ -298,161 +308,6 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket, Mockito.times(1))
             .send(dataObject = any(SendingMessageBody::class.java))
         Mockito.verify(client, Mockito.times(0)).onClientReady(jsonMock)
-    }
-
-    @Test
-    fun `credential login sends push when active in user variables`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        client.credentialLogin(config)
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val loginParam = captor.value.params as LoginParam
-        assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
-        assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
-        assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
-        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
-    }
-
-    @Test
-    fun `credential login emits default mobile sdk identity for direct core usage`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = null,
-            ringtone = null,
-            ringBackTone = null,
-        )
-
-        client.credentialLogin(config)
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val loginParam = captor.value.params as LoginParam
-        // Default direct-core identity: name = "android", version = core artifact version.
-        assertEquals("android", loginParam.mobileSdkName)
-        assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
-        // Legacy User-Agent field is preserved unchanged.
-        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
-        // The SdkIdentity exposed on the client is immutable and matches what was sent.
-        assertEquals("android", client.sdkIdentity.name)
-        assertEquals(BuildConfig.SDK_VERSION, client.sdkIdentity.version)
-    }
-
-    @Test
-    fun `token login emits default mobile sdk identity for direct core usage`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val config = TokenConfig(
-            sipToken = MOCK_TOKEN,
-            sipCallerIDName = "test",
-            sipCallerIDNumber = "000000",
-            fcmToken = null,
-            ringtone = null,
-            ringBackTone = null,
-        )
-
-        client.tokenLogin(config)
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val loginParam = captor.value.params as LoginParam
-        assertEquals("android", loginParam.mobileSdkName)
-        assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
-        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
-    }
-
-    @Test
-    fun `client constructed with custom identity emits that identity on credential login`() {
-        val customIdentity = SdkIdentity(name = "android_commons", version = "9.9.9-test")
-        client = Mockito.spy(TelnyxClient(mockContext, customIdentity))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = null,
-            ringtone = null,
-            ringBackTone = null,
-        )
-
-        client.credentialLogin(config)
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val loginParam = captor.value.params as LoginParam
-        // Wrapper-overridden identity is forwarded on the wire.
-        assertEquals("android_commons", loginParam.mobileSdkName)
-        assertEquals("9.9.9-test", loginParam.mobileSdkVersion)
-        // Legacy User-Agent field stays anchored to the core artifact version
-        // so existing server-side UA matching continues to work for wrapper apps.
-        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
-        // The SdkIdentity on the client is the override — and is a `val`, not a `var`.
-        assertEquals(customIdentity, client.sdkIdentity)
-    }
-
-    @Test
-    fun `anonymous login emits mobile sdk identity on wire`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        client.anonymousLogin(targetId = "test-assistant-id")
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val anonParams = captor.value.params as AnonymousLoginParams
-        assertEquals("android", anonParams.mobileSdkName)
-        assertEquals(BuildConfig.SDK_VERSION, anonParams.mobileSdkVersion)
-        // Legacy nested User-Agent block is preserved unchanged.
-        assertEquals(BuildConfig.SDK_VERSION, anonParams.userAgent.sdkVersion)
-        assertEquals("Android-${BuildConfig.SDK_VERSION}", anonParams.userAgent.data)
-    }
-
-    @Test
-    fun `token login sends push when active in user variables`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val config = TokenConfig(
-            sipToken = MOCK_TOKEN,
-            sipCallerIDName = "test",
-            sipCallerIDNumber = "000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        client.tokenLogin(config)
-
-        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
-        Mockito.verify(client.socket).send(captor.capture())
-        val loginParam = captor.value.params as LoginParam
-        assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
-        assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
-        assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
-        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
     }
 
     @Test
@@ -616,106 +471,11 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
-    fun `playRingtone releases media player when start throws`() {
-        val ringtoneResource = 123
-        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
-        Mockito.`when`(mockMediaPlayer.isPlaying).thenReturn(false)
-        Mockito.doThrow(IllegalStateException("start failed"))
-            .`when`(mockMediaPlayer)
-            .start()
-        setTelnyxClientField("rawRingtone", ringtoneResource)
-
-        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
-        try {
-            mediaPlayerStatic.`when`<MediaPlayer?> {
-                MediaPlayer.create(mockContext, ringtoneResource)
-            }.thenReturn(mockMediaPlayer)
-
-            assertDoesNotThrow {
-                client.playRingtone()
-            }
-        } finally {
-            mediaPlayerStatic.close()
-        }
-
-        Mockito.verify(mockMediaPlayer).release()
-    }
-
-    @Test
-    fun `playRingtone releases media player when runtime setup failure throws`() {
-        val ringtoneResource = 124
-        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
-        Mockito.doThrow(SecurityException("wake lock permission denied"))
-            .`when`(mockMediaPlayer)
-            .setWakeMode(mockContext, PowerManager.PARTIAL_WAKE_LOCK)
-        setTelnyxClientField("rawRingtone", ringtoneResource)
-
-        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
-        try {
-            mediaPlayerStatic.`when`<MediaPlayer?> {
-                MediaPlayer.create(mockContext, ringtoneResource)
-            }.thenReturn(mockMediaPlayer)
-
-            assertDoesNotThrow {
-                client.playRingtone()
-            }
-        } finally {
-            mediaPlayerStatic.close()
-        }
-
-        Mockito.verify(mockMediaPlayer).release()
-    }
-
-    @Test
     fun `Test playing ringBacktone when one hasn't been set logs error and does not throw exception`() {
         assertDoesNotThrow {
             client = Mockito.spy(TelnyxClient(mockContext))
-            invokePlayRingBackTone()
+            client.playRingtone()
         }
-    }
-
-    @Test
-    fun `playRingBackTone does not throw when media player creation returns null`() {
-        val ringbackToneResource = 456
-        setTelnyxClientField("rawRingbackTone", ringbackToneResource)
-
-        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
-        try {
-            mediaPlayerStatic.`when`<MediaPlayer?> {
-                MediaPlayer.create(mockContext, ringbackToneResource)
-            }.thenReturn(null)
-
-            assertDoesNotThrow {
-                invokePlayRingBackTone()
-            }
-        } finally {
-            mediaPlayerStatic.close()
-        }
-    }
-
-    @Test
-    fun `playRingBackTone releases media player when setWakeMode throws`() {
-        val ringbackToneResource = 789
-        val mockMediaPlayer = Mockito.mock(MediaPlayer::class.java)
-        Mockito.doThrow(IllegalStateException("wake mode failed"))
-            .`when`(mockMediaPlayer)
-            .setWakeMode(mockContext, PowerManager.PARTIAL_WAKE_LOCK)
-        setTelnyxClientField("rawRingbackTone", ringbackToneResource)
-
-        val mediaPlayerStatic = Mockito.mockStatic(MediaPlayer::class.java)
-        try {
-            mediaPlayerStatic.`when`<MediaPlayer?> {
-                MediaPlayer.create(mockContext, ringbackToneResource)
-            }.thenReturn(mockMediaPlayer)
-
-            assertDoesNotThrow {
-                invokePlayRingBackTone()
-            }
-        } finally {
-            mediaPlayerStatic.close()
-        }
-
-        Mockito.verify(mockMediaPlayer).release()
     }
 
     @Test
@@ -984,44 +744,6 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
-    fun `Test reattachIdentifiers keeps existing identifiers when payload omits them`() {
-        val params = JsonObject()
-        val existingSessionId = UUID.randomUUID()
-        val existingLegId = UUID.randomUUID()
-
-        val identifiers = client.reattachIdentifiers(params, existingSessionId, existingLegId)
-
-        assertEquals(existingSessionId, identifiers.first)
-        assertEquals(existingLegId, identifiers.second)
-    }
-
-    @Test
-    fun `Test reattachIdentifiers accepts valid identifiers from payload`() {
-        val params = JsonObject()
-        val telnyxSessionId = UUID.randomUUID()
-        val telnyxLegId = UUID.randomUUID()
-        params.addProperty("telnyx_session_id", telnyxSessionId.toString())
-        params.addProperty("telnyx_leg_id", telnyxLegId.toString())
-
-        val identifiers = client.reattachIdentifiers(params, null, null)
-
-        assertEquals(telnyxSessionId, identifiers.first)
-        assertEquals(telnyxLegId, identifiers.second)
-    }
-
-    @Test
-    fun `Test reattachIdentifiers handles null and malformed identifiers`() {
-        val params = JsonObject()
-        params.add("telnyx_leg_id", com.google.gson.JsonNull.INSTANCE)
-        params.addProperty("telnyx_session_id", "not-a-uuid")
-
-        val identifiers = client.reattachIdentifiers(params, null, null)
-
-        assertNull(identifiers.first)
-        assertNull(identifiers.second)
-    }
-
-    @Test
     fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.onRemoteSessionErrorReceived("error")
@@ -1034,402 +756,6 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(client.getActiveCalls(), mutableMapOf())
     }
 
-    @Test
-    fun `Test calls map is thread-safe under concurrent put remove and iteration`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-
-        // Reset the calls map so this test is independent of other test ordering.
-        val underlyingCalls = client.calls
-        underlyingCalls.clear()
-
-        // Reduced iterations to keep CI deterministic — ConcurrentHashMap is verified
-        // by the other tests that use the calls map; this test only checks that
-        // concurrent put/remove/iterate does not throw.
-        val writerCount = 2
-        val iterations = 50
-        val executor = java.util.concurrent.Executors.newFixedThreadPool(writerCount + 1)
-        val latch = java.util.concurrent.CountDownLatch(1)
-        val done = java.util.concurrent.CountDownLatch(writerCount + 1)
-        val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
-
-        // Writer threads: add/remove entries concurrently.
-        repeat(writerCount) {
-            val fakeCall = Mockito.mock(Call::class.java)
-            executor.submit {
-                try {
-                    latch.await()
-                    repeat(iterations) {
-                        val id = UUID.randomUUID()
-                        underlyingCalls[id] = fakeCall
-                        underlyingCalls.remove(id)
-                    }
-                } catch (t: Throwable) {
-                    errors.add(t)
-                } finally {
-                    done.countDown()
-                }
-            }
-        }
-
-        // Reader thread: iterate the map and snapshot via getActiveCalls() repeatedly.
-        executor.submit {
-            try {
-                latch.await()
-                repeat(iterations) {
-                    // Snapshot via toMap() — must not throw ConcurrentModificationException
-                    // and must reflect a consistent view of the entries present at the time.
-                    val snapshot = client.getActiveCalls()
-                    // Touch each entry to make sure iteration did not throw.
-                    snapshot.forEach { _, _ -> }
-                    assertTrue(snapshot.size <= writerCount * iterations)
-                }
-            } catch (t: Throwable) {
-                errors.add(t)
-            } finally {
-                done.countDown()
-            }
-        }
-
-        latch.countDown()
-        assertTrue(done.await(30, java.util.concurrent.TimeUnit.SECONDS), "Concurrent workers did not finish in time")
-        executor.shutdown()
-        executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
-
-        assertTrue(errors.isEmpty(), "Concurrent operations threw: $errors")
-    }
-
-    @Test
-    fun `call id alias resolves app id to socket id`() {
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-
-        client.registerCallIdAlias(appCallId, socketCallId)
-
-        assertEquals(socketCallId, client.signalingCallId(appCallId))
-        assertEquals(appCallId, client.appCallId(socketCallId))
-    }
-
-    @Test
-    fun `remove from calls clears call id alias`() {
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-
-        client.registerCallIdAlias(appCallId, socketCallId)
-        client.removeFromCalls(socketCallId)
-
-        assertEquals(appCallId, client.signalingCallId(appCallId))
-        assertEquals(socketCallId, client.appCallId(socketCallId))
-    }
-
-    @Test
-    fun `remove from calls clears call id alias when app id is removed`() {
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-
-        client.registerCallIdAlias(appCallId, socketCallId)
-        client.removeFromCalls(appCallId)
-
-        assertEquals(appCallId, client.signalingCallId(appCallId))
-        assertEquals(socketCallId, client.appCallId(socketCallId))
-    }
-
-    @Test
-    fun `push app call id uses push call id instead of parent call id`() {
-        val parentCallId = UUID.randomUUID()
-        val pushCallId = UUID.randomUUID()
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        setPrivateField("credentialSessionConfig", config)
-        setPrivateField("tokenSessionConfig", null)
-
-        val resolved = invokePushAppCallId(
-            PushMetaData(
-                callerName = "Alice",
-                callerNumber = "1001",
-                callId = pushCallId.toString(),
-                voiceSdkId = "voice-sdk-id",
-                parentCallId = parentCallId.toString()
-            )
-        )
-
-        assertEquals(pushCallId, resolved)
-    }
-
-    @Test
-    fun `invite app call id ignores stale pending push id when push is not pending`() {
-        val stalePendingPushCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        setPrivateField("credentialSessionConfig", config)
-        setPrivateField("tokenSessionConfig", null)
-        setPrivateField("pendingPushAppCallId", stalePendingPushCallId)
-        setPrivateField("isCallPendingFromPush", false)
-
-        val resolved = invokeInviteAppCallId(socketCallId)
-
-        assertEquals(null, resolved)
-    }
-
-    @Test
-    fun `invite app call id uses pending push app call id before alias map`() {
-        val pendingPushCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        setPrivateField("credentialSessionConfig", config)
-        setPrivateField("tokenSessionConfig", null)
-        setPrivateField("pendingPushAppCallId", pendingPushCallId)
-        setPrivateField("isCallPendingFromPush", true)
-
-        val resolved = invokeInviteAppCallId(socketCallId)
-
-        assertEquals(pendingPushCallId, resolved)
-    }
-
-    @Test
-    fun `invite app call id falls back to stored alias when push is no longer pending`() {
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        val config = CredentialConfig(
-            sipUser = MOCK_USERNAME_TEST,
-            sipPassword = MOCK_PASSWORD,
-            sipCallerIDName = "Test",
-            sipCallerIDNumber = "000000000",
-            fcmToken = "fcm-token",
-            ringtone = null,
-            ringBackTone = null,
-            pushWhenActive = true
-        )
-
-        setPrivateField("credentialSessionConfig", config)
-        setPrivateField("tokenSessionConfig", null)
-        client.registerCallIdAlias(appCallId, socketCallId)
-
-        val resolved = invokeInviteAppCallId(socketCallId)
-
-        assertEquals(appCallId, resolved)
-    }
-
-    @Test
-    fun `add to calls keeps app facing call id while indexing by signaling call id`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
-        fakeCall.callId = appCallId
-        fakeCall.signalingCallId = socketCallId
-
-        client.addToCalls(fakeCall)
-
-        assertEquals(fakeCall, client.calls[socketCallId])
-        assertEquals(appCallId, client.calls[socketCallId]?.callId)
-        assertEquals(socketCallId, client.calls[socketCallId]?.signalingCallId)
-    }
-
-    @Test
-    fun `get active calls exposes app facing call id keys`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
-        fakeCall.callId = appCallId
-        fakeCall.signalingCallId = socketCallId
-
-        client.addToCalls(fakeCall)
-
-        val activeCalls = client.getActiveCalls()
-
-        assertEquals(fakeCall, activeCalls[appCallId])
-        assertEquals(null, activeCalls[socketCallId])
-    }
-
-    @Test
-    fun `on bye received emits app facing call id for aliased call`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.mock(TxSocket::class.java)
-
-        val appCallId = UUID.randomUUID()
-        val socketCallId = UUID.randomUUID()
-        client.registerCallIdAlias(appCallId, socketCallId)
-
-        val fakeCall = Mockito.spy(Call(mockContext, client, client.socket, "", audioManager))
-        fakeCall.callId = appCallId
-        fakeCall.signalingCallId = socketCallId
-        client.addToCalls(fakeCall)
-
-        val byeJsonObject = JsonObject()
-        byeJsonObject.add("params", JsonObject().apply {
-            addProperty("callID", socketCallId.toString())
-            addProperty("cause", "PICKED_OFF")
-        })
-
-        client.onByeReceived(byeJsonObject)
-
-        val message = client.socketResponseLiveData.getOrAwaitValue()
-        val body = message.data as ReceivedMessageBody
-        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
-        assertEquals(appCallId, bye.callId)
-    }
-
-    @Test
-    fun `on bye received emits terminal event for pending push call before invite`() {
-        val pushCallId = UUID.randomUUID()
-        val signalingCallId = UUID.randomUUID()
-        setPrivateField("isCallPendingFromPush", true)
-        setPrivateField(
-            "pushMetaData",
-            PushMetaData(
-                callerName = "Alice",
-                callerNumber = "1001",
-                callId = pushCallId.toString(),
-                voiceSdkId = "voice-sdk-id"
-            )
-        )
-
-        val byeJsonObject = JsonObject()
-        byeJsonObject.add("params", JsonObject().apply {
-            addProperty("callID", signalingCallId.toString())
-            addProperty("cause", "PICKED_OFF")
-        })
-
-        client.onByeReceived(byeJsonObject)
-
-        val message = client.socketResponseLiveData.getOrAwaitValue()
-        val body = message.data as ReceivedMessageBody
-        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
-        assertEquals(pushCallId, bye.callId)
-        assertEquals("PICKED_OFF", bye.cause)
-        assertFalse(getPrivateField("isCallPendingFromPush"))
-    }
-
-    @Test
-    fun `attach error clears pending push and emits correlated terminal bye`() {
-        val pushCallId = UUID.randomUUID()
-        val attachId = UUID.randomUUID().toString()
-        setPrivateField("isCallPendingFromPush", true)
-        setPrivateField("attachCallId", attachId)
-        setPrivateField(
-            "pushMetaData",
-            PushMetaData(
-                callerName = "Alice",
-                callerNumber = "1001",
-                callId = pushCallId.toString(),
-                voiceSdkId = "voice-sdk-id"
-            )
-        )
-
-        client.onErrorReceived(JsonObject().apply { addProperty("id", attachId) }, null)
-
-        // onErrorReceived emits SocketResponse.error first, then the BYE.
-        // With InstantTaskExecutorRule, getOrAwaitValue captures the first
-        // emission (the error), so we drain it before reading the BYE.
-        client.socketResponseLiveData.getOrAwaitValue() // discard SocketResponse.error
-        val message = client.socketResponseLiveData.getOrAwaitValue() // BYE
-        val body = message.data as ReceivedMessageBody
-        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
-        assertEquals(pushCallId, bye.callId)
-        assertEquals("REMOTE_ERROR", bye.cause)
-        assertFalse(getPrivateField("isCallPendingFromPush"))
-    }
-
-    @Test
-    fun `push invite watchdog emits one terminal bye and clears pending state`() {
-        val pushCallId = UUID.randomUUID()
-        client.pushInviteTimeoutMs = 10
-        setPrivateField("isCallPendingFromPush", true)
-        setPrivateField(
-            "pushMetaData",
-            PushMetaData(
-                callerName = "Alice",
-                callerNumber = "1001",
-                callId = pushCallId.toString(),
-                voiceSdkId = "voice-sdk-id"
-            )
-        )
-        client.socketResponseLiveData.value = null
-
-        TelnyxClient::class.java.getDeclaredMethod("startPushInviteTimeout").apply {
-            isAccessible = true
-            invoke(client)
-        }
-
-        // Use getOrAwaitValue instead of Thread.sleep — postValue from the
-        // background coroutine is asynchronous, so a fixed sleep can race the
-        // main-thread post. getOrAwaitValue blocks until the value is posted.
-        val message = client.socketResponseLiveData.getOrAwaitValue()
-        val body = message.data as ReceivedMessageBody
-        val bye = body.result as com.telnyx.webrtc.sdk.verto.receive.ByeResponse
-        assertEquals(pushCallId, bye.callId)
-        assertEquals("ORIGINATOR_CANCEL", bye.cause)
-        assertFalse(getPrivateField("isCallPendingFromPush"))
-    }
-
-    private fun setPrivateField(name: String, value: Any?) {
-        val field = TelnyxClient::class.java.getDeclaredField(name)
-        field.isAccessible = true
-        field.set(client, value)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> getPrivateField(name: String): T {
-        val field = TelnyxClient::class.java.getDeclaredField(name)
-        field.isAccessible = true
-        return field.get(client) as T
-    }
-
-    private fun invokePushAppCallId(metaData: PushMetaData, pushWhenActive: Boolean = true): UUID? {
-        val method = TelnyxClient::class.java.getDeclaredMethod(
-            "pushAppCallId",
-            PushMetaData::class.java,
-            Boolean::class.javaPrimitiveType
-        )
-        method.isAccessible = true
-        return method.invoke(client, metaData, pushWhenActive) as UUID?
-    }
-
-    private fun invokeInviteAppCallId(
-        socketCallId: UUID
-    ): UUID? {
-        val method = TelnyxClient::class.java.getDeclaredMethod(
-            "inviteAppCallId",
-            UUID::class.java
-        )
-        method.isAccessible = true
-        return method.invoke(client, socketCallId) as UUID?
-    }
-
     // Extension function for getOrAwaitValue for unit tests
     fun <T> LiveData<T>.getOrAwaitValue(
         time: Long = 10,
@@ -1439,7 +765,6 @@ class TelnyxClientTest : BaseTest() {
         val latch = CountDownLatch(1)
         val observer = object : Observer<T> {
             override fun onChanged(value: T) {
-                if (value == null) return  // Skip null values — wait for a real emission
                 data = value
                 latch.countDown()
                 this@getOrAwaitValue.removeObserver(this)
@@ -1455,19 +780,5 @@ class TelnyxClientTest : BaseTest() {
 
         @Suppress("UNCHECKED_CAST")
         return data as T
-    }
-
-    private fun setTelnyxClientField(fieldName: String, value: Any?) {
-        TelnyxClient::class.java.getDeclaredField(fieldName).apply {
-            isAccessible = true
-            set(client, value)
-        }
-    }
-
-    private fun invokePlayRingBackTone() {
-        TelnyxClient::class.java.getDeclaredMethod("playRingBackTone").apply {
-            isAccessible = true
-            invoke(client)
-        }
     }
 }

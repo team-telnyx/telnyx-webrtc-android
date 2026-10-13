@@ -45,6 +45,8 @@ import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.TelnyxError
+import com.telnyx.webrtc.sdk.model.TelnyxWarning
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQuality
@@ -122,6 +124,13 @@ class TelnyxViewModel : ViewModel() {
      */
     private val _sessionStateError = MutableSharedFlow<String?>()
     val sessionStateError: SharedFlow<String?> = _sessionStateError
+
+    // Structured error/warning flows (VSDK-393 Phase 4)
+    private val _structuredError = MutableSharedFlow<TelnyxError>()
+    val structuredError: SharedFlow<TelnyxError> = _structuredError
+
+    private val _structuredWarning = MutableSharedFlow<TelnyxWarning>()
+    val structuredWarning: SharedFlow<TelnyxWarning> = _structuredWarning
 
     /**
      * State flow for loading state.
@@ -277,6 +286,8 @@ class TelnyxViewModel : ViewModel() {
      * Job for collecting websocket messages.
      */
     private var wsMessagesCollectorJob: Job? = null
+    private var errorCollectorJob: Job? = null
+    private var warningCollectorJob: Job? = null
 
     /**
      * Call history repository for managing call history data.
@@ -354,21 +365,10 @@ class TelnyxViewModel : ViewModel() {
      */
     fun changeServerConfigEnvironment(isDev: Boolean) {
         serverConfigurationIsDev = isDev
-        serverConfiguration = serverConfigurationFor(isDev)
-    }
-
-    /**
-     * Changes and persists the server configuration environment for the current profile.
-     *
-     * @param context The application context.
-     * @param isDev If true, uses the development environment; otherwise, uses production.
-     */
-    fun changeServerConfigEnvironment(context: Context, isDev: Boolean) {
-        changeServerConfigEnvironment(isDev)
-        _currentProfile.value?.let { profile ->
-            val updatedProfile = profile.applySelectedEnvironment()
-            _currentProfile.value = updatedProfile
-            ProfileManager.saveProfile(context, updatedProfile)
+        serverConfiguration = if (isDev) {
+            TxServerConfiguration.development()
+        } else {
+            TxServerConfiguration.production()
         }
     }
 
@@ -379,9 +379,8 @@ class TelnyxViewModel : ViewModel() {
      * @param profile The user profile to set as current.
      */
     fun setCurrentConfig(context: Context, profile: Profile) {
-        val updatedProfile = profile.applySelectedEnvironment()
-        _currentProfile.value = updatedProfile
-        ProfileManager.saveProfile(context, updatedProfile)
+        _currentProfile.value = profile
+        ProfileManager.saveProfile(context, profile)
         loadCallHistoryForCurrentProfile()
     }
 
@@ -483,7 +482,7 @@ class TelnyxViewModel : ViewModel() {
      * @param profile The user profile to add.
      */
     fun addProfile(context: Context, profile: Profile) {
-        ProfileManager.saveProfile(context, profile.applySelectedEnvironment())
+        ProfileManager.saveProfile(context, profile)
         refreshProfileList(context)
     }
 
@@ -616,21 +615,7 @@ class TelnyxViewModel : ViewModel() {
         }
         ProfileManager.getLoggedProfile(context)?.let { profile ->
             _currentProfile.value = profile
-            changeServerConfigEnvironment(profile.isDev)
             loadCallHistoryForCurrentProfile()
-        }
-    }
-
-    private fun Profile.applySelectedEnvironment(): Profile {
-        isDev = serverConfigurationIsDev
-        return this
-    }
-
-    private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
-        return if (isDev) {
-            TxServerConfiguration.development()
-        } else {
-            TxServerConfiguration.production()
         }
     }
 
@@ -1388,6 +1373,25 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+
+        // Also collect structured errors and warnings (VSDK-393 Phase 4)
+        errorCollectorJob?.cancel()
+        errorCollectorJob = viewModelScope.launch {
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.errorFlow?.collect { error ->
+                Timber.w("Structured error: ${error.name} (${error.code}) — fatal=${error.fatal}")
+                _structuredError.emit(error)
+            }
+        }
+
+        warningCollectorJob?.cancel()
+        warningCollectorJob = viewModelScope.launch {
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.warningFlow?.collect { warning ->
+                Timber.w("Structured warning: ${warning.name} (${warning.code})")
+                _structuredWarning.emit(warning)
+            }
+        }
     }
 
     /**
@@ -1475,6 +1479,8 @@ class TelnyxViewModel : ViewModel() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
         wsMessagesCollectorJob?.cancel()
+        errorCollectorJob?.cancel()
+        warningCollectorJob?.cancel()
         userSessionJob?.cancel()
         precallDiagnosisCollectorJob?.cancel()
     }

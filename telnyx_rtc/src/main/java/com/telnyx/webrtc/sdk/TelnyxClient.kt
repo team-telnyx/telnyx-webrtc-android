@@ -216,6 +216,24 @@ class TelnyxClient private constructor(
     val socketResponseFlow: SharedFlow<SocketResponse<ReceivedMessageBody>> =
         _socketResponseFlow.asSharedFlow()
 
+    // SharedFlow for structured errors and warnings (VSDK-393)
+    private val _errorFlow = MutableSharedFlow<TelnyxError>(replay = 0, extraBufferCapacity = 64)
+    private val _warningFlow = MutableSharedFlow<TelnyxWarning>(replay = 0, extraBufferCapacity = 64)
+
+    /**
+     * Returns structured errors emitted by the SDK in the form of SharedFlow.
+     * Prefer observing this flow over parsing legacy error payloads on [socketResponseFlow].
+     * @see [TelnyxError]
+     */
+    val errorFlow: SharedFlow<TelnyxError> = _errorFlow.asSharedFlow()
+
+    /**
+     * Returns structured warnings emitted by the SDK in the form of SharedFlow.
+     * Warnings are non-fatal events (degraded quality, recoverable conditions).
+     * @see [TelnyxWarning]
+     */
+    val warningFlow: SharedFlow<TelnyxWarning> = _warningFlow.asSharedFlow()
+
     // Deprecated LiveData - kept for backward compatibility
     @Deprecated("Use socketResponseFlow instead. LiveData is deprecated in favor of Kotlin Flows.")
     var socketResponseLiveData: MutableLiveData<SocketResponse<ReceivedMessageBody>>
@@ -277,6 +295,44 @@ class TelnyxClient private constructor(
 
         // Emit to LiveData (deprecated, for backward compatibility)
         socketResponseLiveData.postValue(response)
+    }
+
+    /**
+     * Emits a structured error with the given registry code to [errorFlow] and mirrors it
+     * as a legacy [SocketResponse] error on [socketResponseFlow] for backward compatibility.
+     * Unknown codes fall back to the generic UNEXPECTED_ERROR (49001) definition.
+     * A non-null [customMessage] overrides the registry message.
+     */
+    internal fun emitError(code: Int, customMessage: String? = null) {
+        val baseError = TelnyxErrorRegistry.get(code) ?: TelnyxErrorRegistry.get(49001)!!
+        val finalError = if (customMessage != null) {
+            baseError.copy(message = customMessage)
+        } else {
+            baseError
+        }
+        _errorFlow.tryEmit(finalError)
+        emitSocketResponse(SocketResponse.error(finalError.message, code))
+    }
+
+    /**
+     * Emits a structured warning with the given registry code to [warningFlow].
+     * Unknown codes are ignored (no fallback for non-fatal events).
+     */
+    internal fun emitWarning(code: Int) {
+        val warning = TelnyxWarningRegistry.get(code) ?: return
+        _warningFlow.tryEmit(warning)
+    }
+
+    /**
+     * Maps a JSON-RPC style server error code to the SDK's structured error code.
+     */
+    private fun mapServerErrorCode(serverCode: Int?): Int = when (serverCode) {
+        -32000 -> 46001 // LOGIN_FAILED
+        -32001 -> 46002 // INVALID_CREDENTIALS
+        -32002 -> 40004 // SDP_SET_REMOTE_DESCRIPTION_FAILED
+        -32003 -> 45001 // WEBSOCKET_CONNECTION_FAILED
+        -32004 -> 45002 // WEBSOCKET_ERROR
+        else -> 49001 // UNEXPECTED_ERROR
     }
 
     // Keeps track of all the created calls by theirs UUIDs.
@@ -1118,12 +1174,7 @@ class TelnyxClient private constructor(
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
 
-                    emitSocketResponse(
-                        SocketResponse.error(
-                            "No Network Connection",
-                            null
-                        )
-                    )
+                    emitError(48001) // NETWORK_OFFLINE
 
                     // Start the reconnection timer to track timeout
                     startReconnectionTimer()
@@ -1418,7 +1469,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitError(48001) // NETWORK_OFFLINE
         }
     }
 
@@ -1526,7 +1577,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitError(48001) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1634,7 +1685,7 @@ class TelnyxClient private constructor(
 
             }
         } else {
-            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitError(48001) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1717,7 +1768,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitSocketResponse(SocketResponse.error("No Network Connection", null))
+            emitError(48001) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1811,7 +1862,7 @@ class TelnyxClient private constructor(
                     }
                 }
             } else {
-                emitSocketResponse(SocketResponse.error("No Network Connection", null))
+                emitError(48001) // NETWORK_OFFLINE
                 clearTransientDeclinePushMode()
             }
         } catch (e: Exception) {
@@ -2792,12 +2843,7 @@ class TelnyxClient private constructor(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            emitSocketResponse(
-                                SocketResponse.error(
-                                    "Gateway registration has timed out",
-                                    SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
-                                )
-                            )
+                            emitError(45004) // GATEWAY_FAILED
                             disconnectTransientDeclinePushConnection()
                         }
                     },
@@ -2845,23 +2891,13 @@ class TelnyxClient private constructor(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                emitSocketResponse(
-                    SocketResponse.error(
-                        "Gateway registration has timed out",
-                        SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
-                    )
-                )
+                emitError(45004) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                emitSocketResponse(
-                    SocketResponse.error(
-                        "Gateway registration has failed",
-                        SocketError.GATEWAY_FAILURE_ERROR.errorCode
-                    )
-                )
+                emitError(45004) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
@@ -2877,24 +2913,14 @@ class TelnyxClient private constructor(
                     launchReconnectJob()
                 } else {
                     invalidateGatewayResponseTimer()
-                    emitSocketResponse(
-                        SocketResponse.error(
-                            "Gateway registration has received fail wait response",
-                            SocketError.GATEWAY_FAILURE_ERROR.errorCode
-                        )
-                    )
+                    emitError(45004) // GATEWAY_FAILED
                     disconnectTransientDeclinePushConnection()
                 }
             }
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                emitSocketResponse(
-                    SocketResponse.error(
-                        "Gateway registration has timed out",
-                        SocketError.GATEWAY_TIMEOUT_ERROR.errorCode
-                    )
-                )
+                emitError(45004) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
@@ -2916,12 +2942,7 @@ class TelnyxClient private constructor(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                emitSocketResponse(
-                    SocketResponse.error(
-                        "Gateway registration has failed with an unknown error",
-                        null
-                    )
-                )
+                emitError(49001) // UNEXPECTED_ERROR
             }
         }
     }
@@ -3010,12 +3031,7 @@ class TelnyxClient private constructor(
                     // SIGSEGV in libjingle_peerconnection_so. The peer connections
                     // will be garbage collected safely without explicit disposal.
                     callNotOngoing()
-                    emitSocketResponse(
-                        SocketResponse.error(
-                            "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds",
-                            null
-                        )
-                    )
+                    emitError(45003, "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds") // RECONNECTION_EXHAUSTED
 
                     // Reset reconnection state
                     reconnecting = false
@@ -3066,7 +3082,7 @@ class TelnyxClient private constructor(
         if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
-            emitSocketResponse(SocketResponse.error("Call Failed", null))
+            emitError(49001, "Call Failed") // UNEXPECTED_ERROR
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
             }
@@ -3080,7 +3096,8 @@ class TelnyxClient private constructor(
             "Unknown error"
         } ?: "Unknown error"
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
-        emitSocketResponse(SocketResponse.error(errorMessage, errorCode))
+        val mappedCode = mapServerErrorCode(errorCode)
+        emitError(mappedCode, errorMessage)
         disconnectTransientDeclinePushConnection()
 
         // If we're not logged in yet and not already reconnecting, schedule a single
@@ -3841,7 +3858,7 @@ class TelnyxClient private constructor(
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        errorMessage?.let { emitSocketResponse(SocketResponse.error(it)) }
+        errorMessage?.let { emitError(48501, it) } // SESSION_NOT_REATTACHED
     }
 
     /**
