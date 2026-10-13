@@ -30,7 +30,7 @@ data class SdkIdentity(
 ) {
     companion object {
         /** Identity for direct core (telnyx_rtc) usage. */
-        val DEFAULT_NAME: String = "android"
+        const val DEFAULT_NAME: String = "android"
 
         /**
          * Returns the default identity for direct core usage: name = "android"
