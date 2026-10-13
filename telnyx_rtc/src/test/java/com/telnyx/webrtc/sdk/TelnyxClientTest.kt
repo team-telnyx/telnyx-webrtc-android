@@ -27,6 +27,7 @@ import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.verto.receive.SocketResponse
 import com.telnyx.webrtc.sdk.verto.receive.ReceivedMessageBody
+import com.telnyx.webrtc.sdk.verto.send.AnonymousLoginParams
 import com.telnyx.webrtc.sdk.verto.send.LoginParam
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
@@ -324,6 +325,108 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
         assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
         assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
+    }
+
+    @Test
+    fun `credential login emits default mobile sdk identity for direct core usage`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = null,
+            ringtone = null,
+            ringBackTone = null,
+        )
+
+        client.credentialLogin(config)
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val loginParam = captor.value.params as LoginParam
+        // Default direct-core identity: name = "android", version = core artifact version.
+        assertEquals("android", loginParam.mobileSdkName)
+        assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
+        // Legacy User-Agent field is preserved unchanged.
+        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
+        // The SdkIdentity exposed on the client is immutable and matches what was sent.
+        assertEquals("android", client.sdkIdentity.name)
+        assertEquals(BuildConfig.SDK_VERSION, client.sdkIdentity.version)
+    }
+
+    @Test
+    fun `token login emits default mobile sdk identity for direct core usage`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val config = TokenConfig(
+            sipToken = MOCK_TOKEN,
+            sipCallerIDName = "test",
+            sipCallerIDNumber = "000000",
+            fcmToken = null,
+            ringtone = null,
+            ringBackTone = null,
+        )
+
+        client.tokenLogin(config)
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val loginParam = captor.value.params as LoginParam
+        assertEquals("android", loginParam.mobileSdkName)
+        assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
+        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
+    }
+
+    @Test
+    fun `client constructed with custom identity emits that identity on credential login`() {
+        val customIdentity = SdkIdentity(name = "android_commons", version = "9.9.9-test")
+        client = Mockito.spy(TelnyxClient(mockContext, customIdentity))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = null,
+            ringtone = null,
+            ringBackTone = null,
+        )
+
+        client.credentialLogin(config)
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val loginParam = captor.value.params as LoginParam
+        // Wrapper-overridden identity is forwarded on the wire.
+        assertEquals("android_commons", loginParam.mobileSdkName)
+        assertEquals("9.9.9-test", loginParam.mobileSdkVersion)
+        // Legacy User-Agent field stays anchored to the core artifact version
+        // so existing server-side UA matching continues to work for wrapper apps.
+        assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
+        // The SdkIdentity on the client is the override — and is a `val`, not a `var`.
+        assertEquals(customIdentity, client.sdkIdentity)
+    }
+
+    @Test
+    fun `anonymous login emits mobile sdk identity on wire`() {
+        client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
+
+        client.anonymousLogin(targetId = "test-assistant-id")
+
+        val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
+        Mockito.verify(client.socket).send(captor.capture())
+        val anonParams = captor.value.params as AnonymousLoginParams
+        assertEquals("android", anonParams.mobileSdkName)
+        assertEquals(BuildConfig.SDK_VERSION, anonParams.mobileSdkVersion)
+        // Legacy nested User-Agent block is preserved unchanged.
+        assertEquals(BuildConfig.SDK_VERSION, anonParams.userAgent.sdkVersion)
+        assertEquals("Android-${BuildConfig.SDK_VERSION}", anonParams.userAgent.data)
     }
 
     @Test

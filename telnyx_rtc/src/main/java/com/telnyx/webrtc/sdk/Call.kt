@@ -209,7 +209,9 @@ data class Call(
                         attach = true,
                         callId = callId,
                         destinationNumber = destinationNumber
-                    )
+                    ),
+                    mobileSdkName = client.sdkIdentity.name,
+                    mobileSdkVersion = client.sdkIdentity.version,
                 )
             )
             socket.send(answerBodyMessage)
@@ -584,7 +586,9 @@ data class Call(
                         customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
                         preferredCodecs = preferredCodecs
                     ),
-                    trickle = true
+                    trickle = true,
+                    mobileSdkName = client.sdkIdentity.name,
+                    mobileSdkVersion = client.sdkIdentity.version,
                 )
             )
             socket.send(inviteMessageBody)
@@ -637,7 +641,9 @@ data class Call(
                                     customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
                                     preferredCodecs = preferredCodecs
                                 ),
-                                trickle = if (client.getUseTrickleIce()) true else null
+                                trickle = if (client.getUseTrickleIce()) true else null,
+                                mobileSdkName = client.sdkIdentity.name,
+                                mobileSdkVersion = client.sdkIdentity.version,
                             )
                         )
                         socket.send(inviteMessageBody)

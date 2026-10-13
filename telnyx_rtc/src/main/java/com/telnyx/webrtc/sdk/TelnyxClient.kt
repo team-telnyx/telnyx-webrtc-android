@@ -58,8 +58,15 @@ import kotlin.concurrent.timerTask
 class TelnyxClient private constructor(
     var context: Context,
     startsInDeclinePushMode: Boolean,
+    /**
+     * Immutable SDK identity carried on every outbound verto message. Set once
+     * at construction; no setter is exposed so consumer code cannot change the
+     * identity mid-session.
+     */
+    val sdkIdentity: SdkIdentity,
 ) : TxSocketListener {
-    constructor(context: Context) : this(context, false)
+    constructor(context: Context) : this(context, false, SdkIdentity.default())
+    constructor(context: Context, sdkIdentity: SdkIdentity) : this(context, false, sdkIdentity)
 
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
@@ -108,7 +115,7 @@ class TelnyxClient private constructor(
          * Creates a client isolated for background decline-push operations.
          */
         fun createDeclinePushClient(context: Context): TelnyxClient =
-            TelnyxClient(context, true)
+            TelnyxClient(context, true, SdkIdentity.default())
 
         /** Number of times to retry registration */
         const val RETRY_REGISTER_TIME = 3
@@ -549,7 +556,9 @@ class TelnyxClient private constructor(
                                 destinationNumber = destinationNumber,
                                 customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
                             ),
-                            trickle = true
+                            trickle = true,
+                            mobileSdkName = sdkIdentity.name,
+                            mobileSdkVersion = sdkIdentity.version,
                         )
                     )
                     socket.send(answerBodyMessage)
@@ -657,7 +666,9 @@ class TelnyxClient private constructor(
                                             customHeaders = customHeaders?.toCustomHeaders()
                                                 ?: arrayListOf(),
                                         ),
-                                        trickle = if (useTrickleIce) true else null
+                                        trickle = if (useTrickleIce) true else null,
+                                        mobileSdkName = sdkIdentity.name,
+                                        mobileSdkVersion = sdkIdentity.version,
                                     )
                                 )
                                 socket.send(answerBodyMessage)
@@ -1960,7 +1971,9 @@ class TelnyxClient private constructor(
                 passwd = password,
                 userVariables = notificationJsonObject,
                 loginParams = mapOf("attach_call" to "true"),
-                sessid = sessid
+                sessid = sessid,
+                mobileSdkName = sdkIdentity.name,
+                mobileSdkVersion = sdkIdentity.version,
             )
         )
         Logger.d(message = "Auto login with credentialConfig")
@@ -2023,7 +2036,9 @@ class TelnyxClient private constructor(
 
         attachCallId = UUID.randomUUID().toString()
         val params = AttachCallParams(
-            userVariables = AttachUserVariables()
+            userVariables = AttachUserVariables(),
+            mobileSdkName = sdkIdentity.name,
+            mobileSdkVersion = sdkIdentity.version,
         )
 
         val attachPushMessage = SendingMessageBody(
@@ -2168,7 +2183,9 @@ class TelnyxClient private constructor(
                 passwd = null,
                 userVariables = notificationJsonObject,
                 loginParams = mapOf("attach_call" to "true"),
-                sessid = sessid
+                sessid = sessid,
+                mobileSdkName = sdkIdentity.name,
+                mobileSdkVersion = sdkIdentity.version,
             )
         )
         
@@ -2242,6 +2259,8 @@ class TelnyxClient private constructor(
             userVariables = userVariables,
             reconnection = reconnection,
             userAgent = userAgent,
+            mobileSdkName = sdkIdentity.name,
+            mobileSdkVersion = sdkIdentity.version,
             sessid = sessid
         )
 

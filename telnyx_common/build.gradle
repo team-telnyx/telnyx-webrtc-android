@@ -4,6 +4,10 @@ plugins {
     id 'kotlin-kapt'
 }
 
+def getCommonsVersion = { ->
+    return "1.0.0"
+}
+
 android {
     namespace "com.telnyx.webrtc.common"
     compileSdk 36
@@ -12,11 +16,22 @@ android {
         minSdk 23
         targetSdk 34
         versionCode 1
-        versionName "1.0"
+        versionName getCommonsVersion()
 
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Single authoritative Android Commons version source — read at
+        // configuration time from the publishing/build metadata above and
+        // exposed to runtime code via BuildConfig.COMMONS_VERSION. Updating
+        // versionName (and the getCommonsVersion closure above) is the only
+        // place the Commons identity version needs to change.
+        buildConfigField "String", "COMMONS_VERSION", "\"${getCommonsVersion()}\""
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
