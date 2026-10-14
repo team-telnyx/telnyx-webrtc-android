@@ -94,53 +94,53 @@ class TelnyxErrorRegistryTest {
     @Test
     fun `specific error codes match JS SDK registry`() {
         // Verify key codes match the JS SDK parity model
-        assertNotNull("40001 SDP_CREATE_OFFER_FAILED", TelnyxErrorRegistry.get(40001))
-        assertNotNull("40002 SDP_CREATE_ANSWER_FAILED", TelnyxErrorRegistry.get(40002))
-        assertNotNull("42001 MEDIA_MICROPHONE_PERMISSION_DENIED", TelnyxErrorRegistry.get(42001))
-        assertNotNull("44001 HOLD_FAILED", TelnyxErrorRegistry.get(44001))
-        assertNotNull("45001 WEBSOCKET_CONNECTION_FAILED", TelnyxErrorRegistry.get(45001))
-        assertNotNull("45004 GATEWAY_FAILED", TelnyxErrorRegistry.get(45004))
-        assertNotNull("46001 LOGIN_FAILED", TelnyxErrorRegistry.get(46001))
-        assertNotNull("46002 INVALID_CREDENTIALS", TelnyxErrorRegistry.get(46002))
-        assertNotNull("47001 ICE_RESTART_FAILED", TelnyxErrorRegistry.get(47001))
-        assertNotNull("48001 NETWORK_OFFLINE", TelnyxErrorRegistry.get(48001))
-        assertNotNull("48501 SESSION_NOT_REATTACHED", TelnyxErrorRegistry.get(48501))
-        assertNotNull("49001 UNEXPECTED_ERROR", TelnyxErrorRegistry.get(49001))
+        assertNotNull("40001 SDP_CREATE_OFFER_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.SDP_CREATE_OFFER_FAILED.code))
+        assertNotNull("40002 SDP_CREATE_ANSWER_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code))
+        assertNotNull("42001 MEDIA_MICROPHONE_PERMISSION_DENIED", TelnyxErrorRegistry.get(TelnyxErrorCode.MEDIA_MICROPHONE_PERMISSION_DENIED.code))
+        assertNotNull("44001 HOLD_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.HOLD_FAILED.code))
+        assertNotNull("45001 WEBSOCKET_CONNECTION_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.WEBSOCKET_CONNECTION_FAILED.code))
+        assertNotNull("45004 GATEWAY_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.GATEWAY_FAILED.code))
+        assertNotNull("46001 LOGIN_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.LOGIN_FAILED.code))
+        assertNotNull("46002 INVALID_CREDENTIALS", TelnyxErrorRegistry.get(TelnyxErrorCode.INVALID_CREDENTIALS.code))
+        assertNotNull("47001 ICE_RESTART_FAILED", TelnyxErrorRegistry.get(TelnyxErrorCode.ICE_RESTART_FAILED.code))
+        assertNotNull("48001 NETWORK_OFFLINE", TelnyxErrorRegistry.get(TelnyxErrorCode.NETWORK_OFFLINE.code))
+        assertNotNull("48501 SESSION_NOT_REATTACHED", TelnyxErrorRegistry.get(TelnyxErrorCode.SESSION_NOT_REATTACHED.code))
+        assertNotNull("49001 UNEXPECTED_ERROR", TelnyxErrorRegistry.get(TelnyxErrorCode.UNEXPECTED_ERROR.code))
     }
 
     @Test
     fun `LOGIN_FAILED is fatal`() {
-        val error = TelnyxErrorRegistry.get(46001)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.LOGIN_FAILED.code)!!
         assertTrue("LOGIN_FAILED should be fatal", error.fatal)
     }
 
     @Test
     fun `GATEWAY_FAILED is not fatal`() {
-        val error = TelnyxErrorRegistry.get(45004)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.GATEWAY_FAILED.code)!!
         assertFalse("GATEWAY_FAILED should not be fatal (SDK retries)", error.fatal)
     }
 
     @Test
     fun `WEBSOCKET_ERROR is not fatal`() {
-        val error = TelnyxErrorRegistry.get(45002)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.WEBSOCKET_ERROR.code)!!
         assertFalse("WEBSOCKET_ERROR should not be fatal (auto-reconnect)", error.fatal)
     }
 
     @Test
     fun `NETWORK_OFFLINE is not fatal`() {
-        val error = TelnyxErrorRegistry.get(48001)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.NETWORK_OFFLINE.code)!!
         assertFalse("NETWORK_OFFLINE should not be fatal", error.fatal)
     }
 
     @Test
     fun `RECONNECTION_EXHAUSTED is fatal`() {
-        val error = TelnyxErrorRegistry.get(45003)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.RECONNECTION_EXHAUSTED.code)!!
         assertTrue("RECONNECTION_EXHAUSTED should be fatal", error.fatal)
     }
 
     @Test
     fun `SESSION_NOT_REATTACHED is fatal`() {
-        val error = TelnyxErrorRegistry.get(48501)!!
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.SESSION_NOT_REATTACHED.code)!!
         assertTrue("SESSION_NOT_REATTACHED should be fatal", error.fatal)
     }
 }

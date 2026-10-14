@@ -332,11 +332,11 @@ class TelnyxClient private constructor(
      * @return The matching registry error code.
      */
     private fun mapServerErrorCode(serverCode: Int?): Int = when (serverCode) {
-        -32000 -> 46001 // LOGIN_FAILED
-        -32001 -> 46002 // INVALID_CREDENTIALS
-        -32002 -> 40004 // SDP_SET_REMOTE_DESCRIPTION_FAILED
-        -32003, -32004 -> 45002 // WEBSOCKET_ERROR
-        else -> 49001 // UNEXPECTED_ERROR
+        -32000 -> TelnyxErrorCode.LOGIN_FAILED.code // LOGIN_FAILED
+        -32001 -> TelnyxErrorCode.INVALID_CREDENTIALS.code // INVALID_CREDENTIALS
+        -32002 -> TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code // CODEC → SDP_SET_REMOTE_DESCRIPTION_FAILED
+        -32003, -32004 -> TelnyxErrorCode.WEBSOCKET_ERROR.code // GATEWAY_TIMEOUT/FAILURE → WEBSOCKET_ERROR
+        else -> TelnyxErrorCode.UNEXPECTED_ERROR.code // UNEXPECTED_ERROR
     }
 
     // Keeps track of all the created calls by theirs UUIDs.
@@ -588,7 +588,7 @@ class TelnyxClient private constructor(
                 val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
                 if (generatedAnswerSdp == null) {
                     updateCallState(CallState.ERROR)
-                    client.emitError(40002) // SDP_CREATE_ANSWER_FAILED
+                    client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code) // SDP_CREATE_ANSWER_FAILED
                     Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
                 } else {
                     // Use the SdpUtils to modify the SDP
@@ -691,7 +691,7 @@ class TelnyxClient private constructor(
                                 peerConnection?.getLocalDescription()?.description
                             if (generatedAnswerSdp == null) {
                                 updateCallState(CallState.ERROR)
-                                client.emitError(40002) // SDP_CREATE_ANSWER_FAILED
+                                client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code) // SDP_CREATE_ANSWER_FAILED
                                 Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
                             } else {
                                 // Use the SdpUtils to modify the SDP
@@ -1180,7 +1180,7 @@ class TelnyxClient private constructor(
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
                     }
 
-                    emitError(48001) // NETWORK_OFFLINE
+                    emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
 
                     // Start the reconnection timer to track timeout
                     startReconnectionTimer()
@@ -1475,7 +1475,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitError(48001) // NETWORK_OFFLINE
+            emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
         }
     }
 
@@ -1583,7 +1583,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitError(48001) // NETWORK_OFFLINE
+            emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1691,7 +1691,7 @@ class TelnyxClient private constructor(
 
             }
         } else {
-            emitError(48001) // NETWORK_OFFLINE
+            emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1774,7 +1774,7 @@ class TelnyxClient private constructor(
                 }
             }
         } else {
-            emitError(48001) // NETWORK_OFFLINE
+            emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
             clearTransientDeclinePushMode()
         }
     }
@@ -1868,7 +1868,7 @@ class TelnyxClient private constructor(
                     }
                 }
             } else {
-                emitError(48001) // NETWORK_OFFLINE
+                emitError(TelnyxErrorCode.NETWORK_OFFLINE.code) // NETWORK_OFFLINE
                 clearTransientDeclinePushMode()
             }
         } catch (e: Exception) {
@@ -2849,7 +2849,7 @@ class TelnyxClient private constructor(
                                     this@TelnyxClient.javaClass.simpleName
                                 )
                             )
-                            emitError(45004) // GATEWAY_FAILED
+                            emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
                             disconnectTransientDeclinePushConnection()
                         }
                     },
@@ -2897,13 +2897,13 @@ class TelnyxClient private constructor(
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
-                emitError(45004) // GATEWAY_FAILED
+                emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
             GatewayState.FAILED.state -> {
                 invalidateGatewayResponseTimer()
-                emitError(45004) // GATEWAY_FAILED
+                emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
@@ -2919,14 +2919,14 @@ class TelnyxClient private constructor(
                     launchReconnectJob()
                 } else {
                     invalidateGatewayResponseTimer()
-                    emitError(45004) // GATEWAY_FAILED
+                    emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
                     disconnectTransientDeclinePushConnection()
                 }
             }
 
             GatewayState.EXPIRED.state -> {
                 invalidateGatewayResponseTimer()
-                emitError(45004) // GATEWAY_FAILED
+                emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
                 disconnectTransientDeclinePushConnection()
             }
 
@@ -2948,7 +2948,7 @@ class TelnyxClient private constructor(
 
             else -> {
                 invalidateGatewayResponseTimer()
-                emitError(49001) // UNEXPECTED_ERROR
+                emitError(TelnyxErrorCode.UNEXPECTED_ERROR.code) // UNEXPECTED_ERROR
             }
         }
     }
@@ -3091,7 +3091,7 @@ class TelnyxClient private constructor(
         if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
-            emitError(49001, "Call Failed") // UNEXPECTED_ERROR
+            emitError(TelnyxErrorCode.UNEXPECTED_ERROR.code, "Call Failed") // UNEXPECTED_ERROR
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
             }
@@ -3867,7 +3867,7 @@ class TelnyxClient private constructor(
 
     internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
         stopMediaPlayer()
-        errorMessage?.let { emitError(40004, it) } // SDP_SET_REMOTE_DESCRIPTION_FAILED
+        errorMessage?.let { emitError(TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code, it) } // SDP_SET_REMOTE_DESCRIPTION_FAILED
     }
 
     /**
