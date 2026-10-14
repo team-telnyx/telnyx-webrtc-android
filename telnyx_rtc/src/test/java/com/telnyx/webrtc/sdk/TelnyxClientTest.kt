@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
@@ -187,7 +188,7 @@ class TelnyxClientTest : BaseTest() {
         client.connect(txPushMetaData = null)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("No Network Connection")
+            SocketResponse.error("Device is offline", TelnyxErrorCode.NETWORK_OFFLINE.code)
         )
     }
 
@@ -530,7 +531,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect", -32001)
+            SocketResponse.error("Invalid credentials provided", TelnyxErrorCode.INVALID_CREDENTIALS.code)
         )
     }
 
@@ -554,7 +555,7 @@ class TelnyxClientTest : BaseTest() {
         client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode)
+            SocketResponse.error("Gateway registration failed", TelnyxErrorCode.GATEWAY_FAILED.code)
         )
     }
 

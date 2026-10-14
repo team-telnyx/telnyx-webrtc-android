@@ -53,7 +53,7 @@ However, `SocketResponse.error()` is now `@Deprecated`. Migrate to `errorFlow` t
 
 ## Error code reference
 
-See `TelnyxErrorRegistry` for the full list of error codes (25 codes across 9 categories) and `TelnyxWarningRegistry` for warning codes (17 codes across 6 categories).
+See `TelnyxErrorRegistry` for the full list of error codes (25 codes across 9 categories) and `TelnyxWarningRegistry` for warning codes (27 codes across 6 categories).
 
 ## Quick reference
 
@@ -71,7 +71,7 @@ See `TelnyxErrorRegistry` for the full list of error codes (25 codes across 9 ca
 | 46002 | INVALID_CREDENTIALS | ✓ |
 | 48001 | NETWORK_OFFLINE | ✗ |
 | 48501 | SESSION_NOT_REATTACHED | ✓ |
-| 49001 | UNEXPECTED_ERROR | ✓ |
+| 49001 | UNEXPECTED_ERROR | |
 
 | Warning code | Name |
 |-------------|------|

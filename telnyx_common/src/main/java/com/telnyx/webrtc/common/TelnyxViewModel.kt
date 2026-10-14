@@ -545,6 +545,10 @@ class TelnyxViewModel : ViewModel() {
         _isLoading.value = true
         disconnectedByUser = false
 
+        // Start collecting structured errors/warnings early (before login)
+        // to capture auth/transport failures during initial connect (VSDK-393)
+        startErrorCollection()
+
         userSessionJob?.cancel()
         userSessionJob = null
 
@@ -706,6 +710,10 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         disconnectedByUser = false
+
+        // Start collecting structured errors/warnings early (before login)
+        // to capture auth/transport failures during initial connect (VSDK-393)
+        startErrorCollection()
 
         userSessionJob?.cancel()
         userSessionJob = null
@@ -918,6 +926,9 @@ class TelnyxViewModel : ViewModel() {
 
         // Start collecting websocket messages
         collectWebsocketMessages()
+
+        // Start collecting structured errors/warnings (VSDK-393 Phase 4)
+        startErrorCollection()
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {

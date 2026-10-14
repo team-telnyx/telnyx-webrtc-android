@@ -3091,7 +3091,7 @@ class TelnyxClient private constructor(
         if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
-            emitError(TelnyxErrorCode.UNEXPECTED_ERROR.code, "Call Failed") // UNEXPECTED_ERROR
+            emitError(TelnyxErrorCode.SESSION_NOT_REATTACHED.code, "Call Failed") // SESSION_NOT_REATTACHED — attach-call failure means reattach failed
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
             }
