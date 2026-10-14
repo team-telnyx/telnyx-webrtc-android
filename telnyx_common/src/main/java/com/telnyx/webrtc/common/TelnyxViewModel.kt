@@ -545,13 +545,8 @@ class TelnyxViewModel : ViewModel() {
         _isLoading.value = true
         disconnectedByUser = false
 
-        // Start collecting structured errors/warnings early (before login)
-        // to capture auth/transport failures during initial connect (VSDK-393)
-        startErrorCollection()
-
         userSessionJob?.cancel()
         userSessionJob = null
-
 
         userSessionJob = viewModelScope.launch {
             // Ensure the token is fetched before proceeding
@@ -710,10 +705,6 @@ class TelnyxViewModel : ViewModel() {
     ) {
         _isLoading.value = true
         disconnectedByUser = false
-
-        // Start collecting structured errors/warnings early (before login)
-        // to capture auth/transport failures during initial connect (VSDK-393)
-        startErrorCollection()
 
         userSessionJob?.cancel()
         userSessionJob = null

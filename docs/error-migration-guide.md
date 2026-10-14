@@ -71,7 +71,7 @@ See `TelnyxErrorRegistry` for the full list of error codes (25 codes across 9 ca
 | 46002 | INVALID_CREDENTIALS | ✓ |
 | 48001 | NETWORK_OFFLINE | ✗ |
 | 48501 | SESSION_NOT_REATTACHED | ✓ |
-| 49001 | UNEXPECTED_ERROR | |
+| 49001 | UNEXPECTED_ERROR | ✗ |
 
 | Warning code | Name |
 |-------------|------|

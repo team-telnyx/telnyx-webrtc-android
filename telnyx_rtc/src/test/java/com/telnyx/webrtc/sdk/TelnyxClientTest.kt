@@ -531,7 +531,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Invalid credentials provided", TelnyxErrorCode.INVALID_CREDENTIALS.code)
+            SocketResponse.error("Login Incorrect", TelnyxErrorCode.INVALID_CREDENTIALS.code)
         )
     }
 
@@ -555,7 +555,7 @@ class TelnyxClientTest : BaseTest() {
         client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Gateway registration failed", TelnyxErrorCode.GATEWAY_FAILED.code)
+            SocketResponse.error("Gateway connection failed", TelnyxErrorCode.GATEWAY_FAILED.code)
         )
     }
 
