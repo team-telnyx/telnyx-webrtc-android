@@ -396,6 +396,7 @@ object TelnyxWarningRegistry {
     /**
      * Lookup table: warning code → [TelnyxWarning] definition.
      */
+    @Suppress("MagicNumber") // Registry lookup-table keys ARE the named constants
     private val registry: Map<Int, TelnyxWarning> = mapOf(
         31001 to HIGH_RTT,
         31002 to HIGH_JITTER,

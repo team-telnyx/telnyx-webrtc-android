@@ -465,6 +465,7 @@ object TelnyxErrorRegistry {
     /**
      * Lookup table: error code → [TelnyxError] definition.
      */
+    @Suppress("MagicNumber") // Registry lookup-table keys ARE the named constants
     private val registry: Map<Int, TelnyxError> = mapOf(
         40001 to SDP_CREATE_OFFER_FAILED,
         40002 to SDP_CREATE_ANSWER_FAILED,

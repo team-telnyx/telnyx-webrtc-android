@@ -310,7 +310,7 @@ class TelnyxClient private constructor(
      * @param customMessage Optional override for the registry's default message.
      */
     internal fun emitError(code: Int, customMessage: String? = null) {
-        val baseError = TelnyxErrorRegistry.get(code) ?: TelnyxErrorRegistry.get(49001)!!
+        val baseError = TelnyxErrorRegistry.get(code) ?: TelnyxErrorRegistry.get(TelnyxErrorCode.UNEXPECTED_ERROR.code)!!
         val finalError = if (customMessage != null) baseError.copy(message = customMessage) else baseError
         _errorFlow.tryEmit(finalError)
         emitSocketResponse(SocketResponse.error(finalError.message, code))
@@ -331,6 +331,7 @@ class TelnyxClient private constructor(
      * @param serverCode The raw error code received from the server, or null.
      * @return The matching registry error code.
      */
+    @Suppress("MagicNumber") // Legacy JSON-RPC server error codes from the Verto protocol
     private fun mapServerErrorCode(serverCode: Int?): Int = when (serverCode) {
         -32000 -> TelnyxErrorCode.LOGIN_FAILED.code // LOGIN_FAILED
         -32001 -> TelnyxErrorCode.INVALID_CREDENTIALS.code // INVALID_CREDENTIALS
@@ -3038,7 +3039,7 @@ class TelnyxClient private constructor(
                     // will be garbage collected safely without explicit disposal.
                     callNotOngoing()
                     emitError(
-                        45003,
+                        TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
                         "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
                     ) // RECONNECTION_EXHAUSTED
 

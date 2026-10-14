@@ -485,7 +485,7 @@ data class Call(
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
         client.emitError(
-            45003,
+            TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
             "Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
         ) // RECONNECTION_EXHAUSTED
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")

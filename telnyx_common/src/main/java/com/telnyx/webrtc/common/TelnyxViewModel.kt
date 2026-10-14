@@ -1409,8 +1409,8 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Starts collecting structured errors and warnings from TelnyxClient.
-     * Call this early (before login) to capture auth/transport errors
-     * that occur during the initial connection (VSDK-393).
+     * Must be called after login (when telnyxClient is non-null) to capture
+     * post-login errors and warnings (VSDK-393). Called from handleLogin().
      */
     fun startErrorCollection() {
         errorCollectorJob?.cancel()
