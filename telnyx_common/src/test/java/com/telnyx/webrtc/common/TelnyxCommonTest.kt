@@ -62,4 +62,25 @@ class TelnyxCommonTest {
 
         assertNull(telnyxCommon.connectionMetrics.value)
     }
+
+    @Test
+    fun commonsClientCarriesAndroidCommonsSdkIdentity() {
+        // The Commons wrapper must construct a TelnyxClient whose
+        // sdkIdentity matches the Commons artifact (name = "android_commons",
+        // version = BuildConfig.COMMONS_VERSION) so every outbound verto
+        // message emitted via the wrapper carries the Commons identity on
+        // the wire.
+        val client = telnyxCommon.getTelnyxClient(context)
+        assertEquals("android_commons", client.sdkIdentity.name)
+        assertEquals(BuildConfig.COMMONS_VERSION, client.sdkIdentity.version)
+        // The companion-level identity constant is the single authoritative
+        // source the wrapper uses; the client's identity must equal it.
+        assertEquals(TelnyxCommon.commonsSdkIdentity, client.sdkIdentity)
+        // And the Commons version itself is tied to the Commons module's
+        // publishing/build metadata — it must be non-empty so callers can
+        // rely on it as a wire-level identifier.
+        assert(BuildConfig.COMMONS_VERSION.isNotBlank()) {
+            "COMMONS_VERSION must not be blank — check telnyx_common/build.gradle"
+        }
+    }
 }

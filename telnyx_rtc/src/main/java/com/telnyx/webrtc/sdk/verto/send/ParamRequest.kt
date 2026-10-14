@@ -11,16 +11,29 @@ import java.util.UUID
 
 sealed class ParamRequest
 
+/**
+ * Login message params.
+ *
+ * Emits the legacy `User-Agent` field unchanged (still "Android-<core version>")
+ * plus the new `mobile_sdk_name` / `mobile_sdk_version` identity fields. Direct
+ * core callers use the defaults (`"android"` + core artifact version); higher
+ * level wrappers (e.g. `telnyx_common`) pass overridden values via the
+ * `mobileSdkName` / `mobileSdkVersion` parameters.
+ */
 data class LoginParam(
     @SerializedName("login_token")
     val loginToken: String?,
     val login: String?,
     val passwd: String?,
     val userVariables: JsonObject,
-    val loginParams: Map<Any,Any>?,
-    val sessid: String ,
+    val loginParams: Map<Any, Any>?,
+    val sessid: String,
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
+    @SerializedName("mobile_sdk_name")
+    val mobileSdkName: String = "android",
+    @SerializedName("mobile_sdk_version")
+    val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
 ) : ParamRequest()
 
 data class StatPrams(
@@ -33,7 +46,7 @@ data class StatPrams(
     val debugReportVersion: Int = 1,
     @SerializedName("id")
     val id: String = UUID.randomUUID().toString(),
-    val jsonrpc:String = "2.0"
+    val jsonrpc: String = "2.0"
 ) : ParamRequest()
 
 data class InitiateOrStopStatPrams(
@@ -44,20 +57,26 @@ data class InitiateOrStopStatPrams(
     val debugReportVersion: Int = 1,
     @SerializedName("id")
     val id: String = UUID.randomUUID().toString(),
-    val jsonrpc:String = "2.0"
+    val jsonrpc: String = "2.0"
 ) : ParamRequest()
 
-
-
+/**
+ * Call (invite / answer) message params. Emits legacy `User-Agent` unchanged
+ * plus the new `mobile_sdk_name` / `mobile_sdk_version` identity fields.
+ */
 data class CallParams(
     val sessid: String,
     val sdp: String,
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
+    @SerializedName("mobile_sdk_name")
+    val mobileSdkName: String = "android",
+    @SerializedName("mobile_sdk_version")
+    val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
     @SerializedName("answered_device_token")
     val answeredDeviceToken: String? = null,
     val dialogParams: CallDialogParams,
-    val trickle: Boolean? = null
+    val trickle: Boolean? = null,
 ) : ParamRequest()
 
 data class ByeParams(
@@ -66,7 +85,6 @@ data class ByeParams(
     val cause: String,
     val dialogParams: ByeDialogParams
 ) : ParamRequest()
-
 
 data class DisablePushParams(
     @SerializedName("user")
@@ -82,24 +100,36 @@ data class TokenDisablePushParams(
     val userVariables: UserVariables
 ) : ParamRequest()
 
+/**
+ * Attach call (recovery / resume) message params. Emits legacy `User-Agent`
+ * unchanged plus the new `mobile_sdk_name` / `mobile_sdk_version` identity
+ * fields so reconnection / resume traffic carries the same identity as the
+ * originating login.
+ */
 data class AttachCallParams(
     @SerializedName("userVariables")
-    val userVariables: AttachUserVariables
+    val userVariables: AttachUserVariables,
+    @SerializedName("User-Agent")
+    val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
+    @SerializedName("mobile_sdk_name")
+    val mobileSdkName: String = "android",
+    @SerializedName("mobile_sdk_version")
+    val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
 ) : ParamRequest()
 
 
 data class AttachUserVariables(
     @SerializedName("push_notification_environment")
-    val pushNotificationEnvironment:String = if (BuildConfig.DEBUG) "development" else "production",
+    val pushNotificationEnvironment: String = if (BuildConfig.DEBUG) "development" else "production",
     @SerializedName("push_notification_provider")
-    val pushNotificationProvider:String = "android",
+    val pushNotificationProvider: String = "android",
 )
 
 data class UserVariables(
     @SerializedName("push_device_token")
-    val pushDeviceToken:String,
+    val pushDeviceToken: String,
     @SerializedName("push_notification_provider")
-    val pushNotificationProvider:String = "android",
+    val pushNotificationProvider: String = "android",
 )
 
 data class ModifyParams(

@@ -8,7 +8,13 @@ import com.google.gson.annotations.SerializedName
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 
 /**
- * Data class representing an anonymous login message for AI assistant connections
+ * Data class representing an anonymous login message for AI assistant connections.
+ *
+ * Emits the legacy `User-Agent` `UserAgent` block unchanged plus the new
+ * top-level `mobile_sdk_name` / `mobile_sdk_version` identity fields. Direct
+ * core callers use the defaults (`"android"` + core artifact version); higher
+ * level wrappers pass overridden values via the `mobileSdkName` /
+ * `mobileSdkVersion` constructor parameters.
  *
  * @param targetType the type of target (defaults to "ai_assistant")
  * @param targetId the unique identifier of the target assistant
@@ -17,6 +23,8 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
  * @param userVariables optional user variables to include
  * @param reconnection whether this is a reconnection attempt
  * @param userAgent user agent information containing SDK version and platform data
+ * @param mobileSdkName mobile SDK identifier (defaults to "android" for core usage)
+ * @param mobileSdkVersion mobile SDK version (defaults to core artifact version)
  * @param sessid the session ID for the connection
  */
 data class AnonymousLoginParams(
@@ -34,8 +42,12 @@ data class AnonymousLoginParams(
     val reconnection: Boolean = false,
     @SerializedName("User-Agent")
     val userAgent: UserAgent,
+    @SerializedName("mobile_sdk_name")
+    val mobileSdkName: String = "android",
+    @SerializedName("mobile_sdk_version")
+    val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
     @SerializedName("sessid")
-    val sessid: String? = null
+    val sessid: String? = null,
 ) : ParamRequest()
 
 /**

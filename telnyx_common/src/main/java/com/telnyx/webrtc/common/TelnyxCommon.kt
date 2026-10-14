@@ -5,8 +5,10 @@ import android.content.SharedPreferences
 import androidx.lifecycle.Observer
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.telnyx.webrtc.common.BuildConfig
 import com.telnyx.webrtc.common.service.CallForegroundService
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.SdkIdentity
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.PushMetaData
@@ -73,6 +75,21 @@ class TelnyxCommon private constructor() {
     companion object {
         @Volatile
         private var instance: TelnyxCommon? = null
+
+        /**
+         * SDK identity for traffic emitted from the [TelnyxCommon] wrapper.
+         *
+         * The wrapper identifies itself as `android_commons` (the published
+         * Commons artifact) so Telnyx can distinguish Commons-wrapped traffic
+         * from direct core usage on the wire. The version is sourced from
+         * [BuildConfig.COMMONS_VERSION], which is tied to the Commons module's
+         * `versionName` — the single authoritative Android Commons version
+         * source tied to publishing/build metadata.
+         */
+        val commonsSdkIdentity: SdkIdentity = SdkIdentity(
+            name = "android_commons",
+            version = BuildConfig.COMMONS_VERSION,
+        )
 
         /**
          * Returns the singleton instance of TelnyxCommon.
@@ -189,12 +206,17 @@ class TelnyxCommon private constructor() {
     /**
      * Retrieves the singleton `TelnyxClient` instance, creating it if necessary.
      *
+     * The client is constructed with the [commonsSdkIdentity] so every
+     * outbound verto message emitted via this wrapper carries
+     * `mobile_sdk_name = "android_commons"` and `mobile_sdk_version` matching
+     * the Commons module's `versionName`.
+     *
      * @param context The application context, needed for client initialization.
      * @return The singleton `TelnyxClient` instance.
      */
     internal fun getTelnyxClient(context: Context): TelnyxClient {
         return _telnyxClient ?: synchronized(this) {
-            _telnyxClient ?: TelnyxClient(context.applicationContext).also {
+            _telnyxClient ?: TelnyxClient(context.applicationContext, commonsSdkIdentity).also {
                 _telnyxClient = it
                 observeConnectionMetrics(it)
             }
