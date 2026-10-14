@@ -1365,7 +1365,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
-                client.emitError(TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code) // SDP_SET_REMOTE_DESCRIPTION_FAILED
+                client.emitWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code) // Warning: hold/resume SDP renegotiation failed — call continues on existing SDP
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {

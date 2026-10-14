@@ -143,4 +143,77 @@ class TelnyxErrorRegistryTest {
         val error = TelnyxErrorRegistry.get(TelnyxErrorCode.SESSION_NOT_REATTACHED.code)!!
         assertTrue("SESSION_NOT_REATTACHED should be fatal", error.fatal)
     }
+
+    @Test
+    fun `UNEXPECTED_ERROR is not fatal`() {
+        val error = TelnyxErrorRegistry.get(TelnyxErrorCode.UNEXPECTED_ERROR.code)!!
+        assertFalse("UNEXPECTED_ERROR should not be fatal (safe default for unknown errors)", error.fatal)
+    }
+
+    // ── Warning registry tests ──
+
+    @Test
+    fun `every warning code has a definition`() {
+        val codes = TelnyxWarningRegistry.codes()
+        assertTrue("Warning registry should have codes", codes.isNotEmpty())
+        assertEquals("Warning registry should have 27 codes (JS parity)", 27, codes.size)
+        for (code in codes) {
+            val warning = TelnyxWarningRegistry.get(code)
+            assertNotNull("Warning code $code should have a definition", warning)
+        }
+    }
+
+    @Test
+    fun `every warning has non-empty name`() {
+        for (code in TelnyxWarningRegistry.codes()) {
+            val warning = TelnyxWarningRegistry.get(code)!!
+            assertTrue("Warning code $code name should not be empty", warning.name.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `every warning has non-empty message`() {
+        for (code in TelnyxWarningRegistry.codes()) {
+            val warning = TelnyxWarningRegistry.get(code)!!
+            assertTrue("Warning code $code message should not be empty", warning.message.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `every warning has at least one cause`() {
+        for (code in TelnyxWarningRegistry.codes()) {
+            val warning = TelnyxWarningRegistry.get(code)!!
+            assertTrue("Warning code $code should have at least one cause", warning.causes.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `every warning has at least one solution`() {
+        for (code in TelnyxWarningRegistry.codes()) {
+            val warning = TelnyxWarningRegistry.get(code)!!
+            assertTrue("Warning code $code should have at least one solution", warning.solutions.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `warning codes fall within expected ranges`() {
+        for (code in TelnyxWarningRegistry.codes()) {
+            val inRange = (code in 31001..31999) ||  // Network quality
+                          (code in 32001..32999) ||  // Connection / data-flow
+                          (code in 33001..33999) ||  // Call connection
+                          (code in 34001..34999) ||  // Authentication
+                          (code in 35001..35999) ||  // Session / reconnection
+                          (code in 36001..36999)     // Signaling health
+            assertTrue("Warning code $code should fall within a defined range", inRange)
+        }
+    }
+
+    @Test
+    fun `specific warning codes match JS SDK registry`() {
+        assertNotNull("33001 ICE_CONNECTIVITY_LOST", TelnyxWarningRegistry.get(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code))
+        assertNotNull("33004 PEER_CONNECTION_FAILED", TelnyxWarningRegistry.get(TelnyxWarningCode.PEER_CONNECTION_FAILED.code))
+        assertNotNull("32003 RECORDING_UNAVAILABLE", TelnyxWarningRegistry.get(TelnyxWarningCode.RECORDING_UNAVAILABLE.code))
+        assertNotNull("33010 MULTIPLE_ACTIVE_CALLS_DETECTED", TelnyxWarningRegistry.get(TelnyxWarningCode.MULTIPLE_ACTIVE_CALLS_DETECTED.code))
+        assertNotNull("36003 SIGNALING_RECOVERY_REQUIRED", TelnyxWarningRegistry.get(TelnyxWarningCode.SIGNALING_RECOVERY_REQUIRED.code))
+    }
 }

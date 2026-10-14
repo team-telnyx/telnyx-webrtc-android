@@ -200,7 +200,7 @@ data class Call(
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
             mutableCallStateFlow.value = CallState.ERROR
-            client.emitError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
+            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS — null SDP on reattach is a session precondition failure, not an SDP operation failure
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,

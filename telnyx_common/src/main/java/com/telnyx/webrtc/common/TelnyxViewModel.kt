@@ -46,6 +46,7 @@ import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.TelnyxError
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
 import com.telnyx.webrtc.sdk.model.TelnyxWarning
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.model.AudioConstraints
@@ -979,7 +980,10 @@ class TelnyxViewModel : ViewModel() {
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (disconnectedByUser && response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode) {
+        // Check both legacy (-32004) and new (45004) gateway failure codes
+        val isGatewayFailure = response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode ||
+            response.errorCode == TelnyxErrorCode.GATEWAY_FAILED.code
+        if (disconnectedByUser && isGatewayFailure) {
             handleDisconnect()
             disconnectedByUser = false
             return
@@ -1399,8 +1403,14 @@ class TelnyxViewModel : ViewModel() {
                 }
             }
         }
+    }
 
-        // Also collect structured errors and warnings (VSDK-393 Phase 4)
+    /**
+     * Starts collecting structured errors and warnings from TelnyxClient.
+     * Call this early (before login) to capture auth/transport errors
+     * that occur during the initial connection (VSDK-393).
+     */
+    fun startErrorCollection() {
         errorCollectorJob?.cancel()
         errorCollectorJob = viewModelScope.launch {
             val telnyxClient = TelnyxCommon.getInstance().telnyxClient

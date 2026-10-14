@@ -456,10 +456,10 @@ object TelnyxErrorRegistry {
             "Unknown or unhandled error condition",
         ),
         solutions = listOf(
-            "Check the originalError property for the underlying cause",
+            "Capture the thrown exception for the underlying cause",
             "Report the issue if it persists",
         ),
-        fatal = true,
+        fatal = false,
     )
 
     /**
