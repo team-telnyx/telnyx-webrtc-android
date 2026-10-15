@@ -40,6 +40,10 @@ data class SocketResponse<out T>(
             )
         }
 
+        @Deprecated(
+            message = "Use TelnyxClient.errorFlow for structured errors (TelnyxError with causes, solutions, fatal flag)",
+            replaceWith = ReplaceWith("errorFlow")
+        )
         fun <T> error(msg: String, errorCode: Int? = null): SocketResponse<T> {
             return SocketResponse(SocketStatus.ERROR, null, msg, errorCode)
         }

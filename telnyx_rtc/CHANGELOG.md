@@ -1,3 +1,14 @@
+## Unreleased
+
+### Enhancement
+- Structured error and warning taxonomy (VSDK-393): add `TelnyxError` and `TelnyxWarning` models with code, name, message, description, causes, solutions, and fatal flag
+- Add `errorFlow: SharedFlow<TelnyxError>` and `warningFlow: SharedFlow<TelnyxWarning>` to `TelnyxClient` for structured error/warning handling
+- Port JS SDK error registry (25 error codes across 9 categories) and warning registry (27 warning codes across 6 categories)
+- `SocketResponse.error()` is now `@Deprecated` — use `errorFlow` for structured errors with causes, solutions, and fatal flag
+- `TelnyxViewModel` now exposes `structuredError` and `structuredWarning` flows for compose_app consumers
+- See `docs/error-migration-guide.md` for migration guide
+- All legacy error emit sites migrated to use structured registry codes
+
 ## [3.7.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.3) (2026-10-02)
 
 ### Enhancement
