@@ -872,6 +872,12 @@ class TelnyxViewModel : ViewModel() {
         if (handlingResponses) {
             return
         }
+
+        // Start structured error collection as soon as we receive any socket response
+        // — this ensures auth/transport errors (bad credentials, network issues)
+        // are captured even before login succeeds (VSDK-393)
+        startErrorCollection()
+
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
             SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response)
