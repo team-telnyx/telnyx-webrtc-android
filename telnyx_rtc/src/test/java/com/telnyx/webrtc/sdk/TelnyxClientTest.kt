@@ -347,13 +347,13 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
-        // Default direct-core identity: name = "android", version = core artifact version.
-        assertEquals("android", loginParam.mobileSdkName)
+        // Default direct-core identity: name = "webrtc-android", version = core artifact version.
+        assertEquals("webrtc-android", loginParam.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
         // Legacy User-Agent field is preserved unchanged.
         assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
         // The SdkIdentity exposed on the client is immutable and matches what was sent.
-        assertEquals("android", client.sdkIdentity.name)
+        assertEquals("webrtc-android", client.sdkIdentity.name)
         assertEquals(BuildConfig.SDK_VERSION, client.sdkIdentity.version)
     }
 
@@ -376,14 +376,14 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
-        assertEquals("android", loginParam.mobileSdkName)
+        assertEquals("webrtc-android", loginParam.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
         assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
     }
 
     @Test
     fun `client constructed with custom identity emits that identity on credential login`() {
-        val customIdentity = SdkIdentity(name = "android_commons", version = "9.9.9-test")
+        val customIdentity = SdkIdentity(name = "webrtc-android-commons", version = "9.9.9-test")
         client = Mockito.spy(TelnyxClient(mockContext, customIdentity))
         client.socket = Mockito.mock(TxSocket::class.java)
 
@@ -403,7 +403,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
         // Wrapper-overridden identity is forwarded on the wire.
-        assertEquals("android_commons", loginParam.mobileSdkName)
+        assertEquals("webrtc-android-commons", loginParam.mobileSdkName)
         assertEquals("9.9.9-test", loginParam.mobileSdkVersion)
         // Legacy User-Agent field stays anchored to the core artifact version
         // so existing server-side UA matching continues to work for wrapper apps.
@@ -422,7 +422,7 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val anonParams = captor.value.params as AnonymousLoginParams
-        assertEquals("android", anonParams.mobileSdkName)
+        assertEquals("webrtc-android", anonParams.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, anonParams.mobileSdkVersion)
         // Legacy nested User-Agent block is preserved unchanged.
         assertEquals(BuildConfig.SDK_VERSION, anonParams.userAgent.sdkVersion)

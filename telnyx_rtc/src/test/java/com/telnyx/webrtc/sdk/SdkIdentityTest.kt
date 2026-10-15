@@ -16,7 +16,7 @@ import kotlin.test.assertNotNull
  * outbound verto message.
  *
  * These tests guard:
- *  - the default identity matches the direct-core contract ("android" + core
+ *  - the default identity matches the direct-core contract ("webrtc-android" + core
  *    artifact version),
  *  - the type is genuinely immutable (val fields, no setter on a live client),
  *  - `copy()` produces a new value (no shared mutable state across instances),
@@ -29,7 +29,7 @@ class SdkIdentityTest {
     fun `default identity is android plus core artifact version`() {
         val identity = SdkIdentity.default()
         assertEquals(SdkIdentity.DEFAULT_NAME, identity.name)
-        assertEquals("android", identity.name)
+        assertEquals("webrtc-android", identity.name)
         assertEquals(BuildConfig.SDK_VERSION, identity.version)
     }
 
@@ -46,8 +46,8 @@ class SdkIdentityTest {
 
     @Test
     fun `custom identity preserves constructor arguments`() {
-        val custom = SdkIdentity(name = "android_commons", version = "1.0.0")
-        assertEquals("android_commons", custom.name)
+        val custom = SdkIdentity(name = "webrtc-android-commons", version = "1.0.0")
+        assertEquals("webrtc-android-commons", custom.name)
         assertEquals("1.0.0", custom.version)
         // Distinct from default — proves the constructor accepts overrides.
         assertNotEquals(SdkIdentity.default(), custom)
@@ -56,12 +56,12 @@ class SdkIdentityTest {
     @Test
     fun `copy produces a new immutable value with the requested overrides`() {
         val original = SdkIdentity.default()
-        val copied = original.copy(name = "android_commons", version = "1.0.0")
+        val copied = original.copy(name = "webrtc-android-commons", version = "1.0.0")
         // Original is unchanged — copy() must not mutate the source instance.
-        assertEquals("android", original.name)
+        assertEquals("webrtc-android", original.name)
         assertEquals(BuildConfig.SDK_VERSION, original.version)
         // Copy carries the overrides.
-        assertEquals("android_commons", copied.name)
+        assertEquals("webrtc-android-commons", copied.name)
         assertEquals("1.0.0", copied.version)
         // copy() returns a new instance — not the same reference.
         assertNotEquals(original, copied)
@@ -96,7 +96,7 @@ class SdkIdentityTest {
     fun `LoginParam carries overridden identity for commons wrapper`() {
         // A wrapper identity must reach the wire unchanged — the whole point
         // of the new fields is to let Telnyx distinguish wrappers from core.
-        val identity = SdkIdentity(name = "android_commons", version = "1.0.0")
+        val identity = SdkIdentity(name = "webrtc-android-commons", version = "1.0.0")
         val json = Gson().toJson(
             mapOf(
                 "login" to "alice",
@@ -110,7 +110,7 @@ class SdkIdentityTest {
             )
         )
         val parsed = Gson().fromJson(json, Map::class.java)
-        assertEquals("android_commons", parsed["mobile_sdk_name"])
+        assertEquals("webrtc-android-commons", parsed["mobile_sdk_name"])
         assertEquals("1.0.0", parsed["mobile_sdk_version"])
     }
 }
