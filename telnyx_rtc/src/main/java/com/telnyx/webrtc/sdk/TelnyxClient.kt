@@ -217,7 +217,7 @@ class TelnyxClient private constructor(
         _socketResponseFlow.asSharedFlow()
 
     // SharedFlow for structured errors (VSDK-393)
-    private val _errorFlow = MutableSharedFlow<TelnyxError>(replay = 0, extraBufferCapacity = 64)
+    private val _errorFlow = MutableSharedFlow<TelnyxError>(replay = 1, extraBufferCapacity = 64)
     private val _warningFlow = MutableSharedFlow<TelnyxWarning>(replay = 0, extraBufferCapacity = 64)
 
     /**
