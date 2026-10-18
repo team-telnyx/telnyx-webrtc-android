@@ -72,7 +72,8 @@ internal class Peer(
     private val forceRelayCandidate: Boolean = false,
     private val isAnswering: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
-    private val audioConstraints: AudioConstraints? = null
+    private val audioConstraints: AudioConstraints? = null,
+    private val peerConnectionFactoryOverride: PeerConnectionFactory? = null,
 ) {
 
     companion object {
@@ -288,8 +289,6 @@ internal class Peer(
     private var endOfCandidatesTimer: Timer? = null
     private var endOfCandidatesSent = false
 
-    private val rootEglBase: EglBase = EglBase.create()
-
     private val mediaConstraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
@@ -415,7 +414,7 @@ internal class Peer(
      * This improves efficiency by reusing the factory across all peers.
      */
     private val peerConnectionFactory: PeerConnectionFactory
-        get() = sharedPeerConnectionFactory
+        get() = peerConnectionFactoryOverride ?: sharedPeerConnectionFactory
 
     internal var peerConnection: PeerConnection? = null
 
@@ -1863,8 +1862,11 @@ internal class Peer(
      * Uses the shared PeerConnectionFactory from the companion object.
      */
     init {
-        // Ensure WebRTC is initialized using companion's method
-        initPeerConnectionFactory(context)
+        // Tests can inject a factory to exercise the real signaling wiring
+        // without loading native WebRTC/EGL in the local JVM.
+        if (peerConnectionFactoryOverride == null) {
+            initPeerConnectionFactory(context)
+        }
         peerConnection = buildPeerConnection()
         CallTimingBenchmark.mark("peer_connection_created")
         // Track peer connection created milestone
@@ -1927,9 +1929,7 @@ internal class Peer(
                 return client.sendRecoveryProbe(probeId)
             }
 
-            override fun requestReattach() {
-                client.requestCallRecoveryReattach()
-            }
+            override fun requestReattach(): Boolean = client.requestCallRecoveryReattach()
 
             override fun snapshotForLog(): Map<String, String> {
                 val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")
@@ -1940,8 +1940,8 @@ internal class Peer(
     /**
      * Starts the recovery tick timer if the monitor is in a watchable
      * state. Idempotent and safe to call from any state. The timer drives
-     * the monitor's onTick() on a steady cadence while recovery is in
-     * flight, and tears itself down when the monitor returns to IDLE.
+     * active-call health checks as well as recovery deadlines, and tears
+     * itself down when the call is no longer active or recovery is terminal.
      */
     @Synchronized
     private fun scheduleRecoveryTickIfNeeded() {
@@ -1954,7 +1954,7 @@ internal class Peer(
             SignalingHealthMonitor.State.PROBING,
             SignalingHealthMonitor.State.ICE_RESTARTING,
             SignalingHealthMonitor.State.VERIFYING_MEDIA -> true
-            SignalingHealthMonitor.State.IDLE,
+            SignalingHealthMonitor.State.IDLE -> isCallActiveForRecovery()
             SignalingHealthMonitor.State.REATTACHING -> false
         }
         if (inWatchableState && recoveryTickTimer == null) {
@@ -1966,9 +1966,7 @@ internal class Peer(
             recoveryTickTimer?.schedule(
                 timerTask {
                     try {
-                        if (!isDisposed.get() &&
-                            signalingHealthMonitor.state() != SignalingHealthMonitor.State.IDLE
-                        ) {
+                        if (!isDisposed.get()) {
                             signalingHealthMonitor.onTick()
                             sampleRecoveryInboundRtpIfNeeded()
                         }
@@ -1991,6 +1989,23 @@ internal class Peer(
             recoveryTickTimer = null
         }
     }
+
+    /** Keeps active-call health checks aligned with the Call lifecycle. */
+    internal fun onCallStateChanged(state: CallState) {
+        if (!::signalingHealthMonitor.isInitialized || isDisposed.get()) return
+        when (state) {
+            is CallState.DONE,
+            is CallState.DROPPED,
+            CallState.ERROR -> signalingHealthMonitor.cancel("terminal_call_state")
+            else -> Unit
+        }
+        scheduleRecoveryTickIfNeeded()
+    }
+
+    private fun isCallActiveForRecovery(): Boolean =
+        client.calls[callId]?.callStateFlow?.value?.let {
+            it is CallState.ACTIVE || it is CallState.RENEGOTIATING
+        } ?: false
 
     private fun sampleRecoveryInboundRtpIfNeeded() {
         val now = System.currentTimeMillis()

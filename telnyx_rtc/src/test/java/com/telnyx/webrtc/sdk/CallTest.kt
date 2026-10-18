@@ -8,6 +8,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
@@ -19,6 +20,7 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
+import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.mockkObject
 import io.mockk.verify
@@ -98,6 +100,17 @@ class CallTest : BaseTest() {
                 audioManager
             )
         }
+    }
+
+    @Test
+    fun `call state changes notify peer recovery lifecycle`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.peerConnection = mockPeer
+
+        newCall.updateCallState(CallState.ACTIVE)
+
+        verify { mockPeer.onCallStateChanged(CallState.ACTIVE) }
     }
 
     @Test

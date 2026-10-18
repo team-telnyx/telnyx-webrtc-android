@@ -76,7 +76,7 @@ class SignalingHealthMonitorTest : BaseTest() {
         }
         io.mockk.every { actions.requestReattach() } answers {
             reattachCalls += 1
-            Unit
+            true
         }
         io.mockk.every { actions.snapshotForLog() } answers { emptyMap() }
 
@@ -219,6 +219,69 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
+    fun `FAILED during disconnected debounce starts recovery immediately`() {
+        flags.signalingAvailableValue = true
+        val monitor = newMonitor()
+
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
+    }
+
+    @Test
+    fun `stale active-call signaling is probed without restarting healthy ICE`() {
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+
+        monitor.onTick()
+
+        assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
+        val probeId = pingCalls.single()
+        monitor.onSignalingMessage(
+            messageId = probeId,
+            hasResult = true,
+            hasError = false,
+        )
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
+        assertEquals(0, restartCalls)
+        assertEquals(0, reattachCalls)
+    }
+
+    @Test
+    fun `active-call health check reattaches when signaling is unavailable`() {
+        flags.signalingAvailableValue = false
+        val monitor = newMonitor()
+        fakeClock.advance(3_001L)
+
+        monitor.onTick()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertEquals(1, reattachCalls)
+    }
+
+    @Test
+    fun `FAILED upgrades an in-flight health probe to media recovery`() {
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+        monitor.onTick()
+        val probeId = pingCalls.single()
+        flags.peerConnectedValue = false
+
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
+        monitor.onSignalingMessage(
+            messageId = probeId,
+            hasResult = true,
+            hasError = false,
+        )
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
+    }
+
+    @Test
     fun `exact probe correlation only resolves matching id`() {
         val monitor = newMonitor()
         makeSignalingStale()
@@ -342,6 +405,21 @@ class SignalingHealthMonitorTest : BaseTest() {
         monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
 
         assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertEquals(1, reattachCalls)
+    }
+
+    @Test
+    fun `rejected reattach request returns monitor to idle`() {
+        io.mockk.every { actions.requestReattach() } answers {
+            reattachCalls += 1
+            false
+        }
+        flags.signalingAvailableValue = false
+        val monitor = newMonitor()
+
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
         assertEquals(1, reattachCalls)
     }
 

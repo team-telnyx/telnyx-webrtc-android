@@ -123,6 +123,7 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        peerConnection?.onCallStateChanged(value)
     }
 
     /**

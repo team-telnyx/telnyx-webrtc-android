@@ -3645,26 +3645,29 @@ class TelnyxClient private constructor(
     }
 
     /** Uses the existing socket reconnect/login/attach flow as recovery fallback. */
-    internal fun requestCallRecoveryReattach() {
+    internal fun requestCallRecoveryReattach(): Boolean =
         synchronized(this) {
             when {
                 isDeclinePushConnection -> {
                     Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
+                    false
                 }
                 credentialSessionConfig == null && tokenSessionConfig == null -> {
                     Logger.e(message = "Cannot reattach call without a saved session configuration")
+                    false
                 }
-                reconnecting && reconnectJob?.isActive == true -> {
+                reconnecting -> {
                     Logger.d(message = "Call recovery reattach is already in progress")
+                    true
                 }
                 else -> {
                     reconnecting = true
                     Logger.w(message = "Starting reconnect/reattach for call recovery")
                     launchReconnectJob()
+                    true
                 }
             }
         }
-    }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {

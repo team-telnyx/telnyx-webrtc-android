@@ -19,7 +19,8 @@ import kotlin.random.Random
  * [com.telnyx.webrtc.sdk.TelnyxClient] owns socket reconnect/reattach.
  *
  * State machine:
- *  - idle:           no failure observed; healthy call.
+ *  - idle:           no failure observed; periodically checking signaling
+ *                    while the call is active.
  *  - probing:        transient failure observed; waiting out the disconnected
  *                    debounce window before deciding whether to escalate.
  *  - iceRestarting:  decided to attempt same-peer ICE restart; tracking the
@@ -37,8 +38,9 @@ import kotlin.random.Random
  *
  * The class is intentionally side-effect-light on construction and does not
  * create its own thread. [Peer] serializes calls into the synchronized API and
- * drives [onTick] while a deadline is active. Call [cancel] on terminal call
- * states or disposal to release the active recovery generation.
+ * drives [onTick] while a call is active or a recovery deadline is active.
+ * Call [cancel] on terminal call states or disposal to release the active
+ * recovery generation.
  */
 internal class SignalingHealthMonitor(
     private val callId: UUID,
@@ -54,6 +56,8 @@ internal class SignalingHealthMonitor(
      *  - 15 second restart timeout
      *  - 5 second media verification window
      *  - signaling is recent for 3 seconds inbound / 45 seconds confirmed outbound
+     *  - active-call signaling health is checked every 3 seconds
+     *  - inbound signaling is considered stale after 20 seconds
      */
     data class Config(
         val disconnectedDebounceMs: Long = 3_000L,
@@ -62,6 +66,8 @@ internal class SignalingHealthMonitor(
         val pingTimeoutMs: Long = 5_000L,
         val recentInboundActivityMs: Long = 3_000L,
         val confirmedOutboundActivityMs: Long = 45_000L,
+        val staleInboundActivityMs: Long = 20_000L,
+        val signalingHealthCheckIntervalMs: Long = 3_000L,
     )
 
     /**
@@ -80,13 +86,18 @@ internal class SignalingHealthMonitor(
         fun startIceRestart(generation: Long)
         /** Issue a single signaling-health ping with the given unique id. */
         fun sendProbePing(probeId: String): Boolean
-        /** Notify the call that reattach should be initiated by the client. */
-        fun requestReattach()
+        /**
+         * Ask the client to initiate reattach. Returns false when the client
+         * cannot accept the request (for example, no saved login config).
+         */
+        fun requestReattach(): Boolean
         /** Optional: dump minimal call/generation context for sanitized logs. */
         fun snapshotForLog(): Map<String, String>
     }
 
     enum class State { IDLE, PROBING, ICE_RESTARTING, VERIFYING_MEDIA, REATTACHING }
+
+    private enum class ProbePurpose { MEDIA_RECOVERY, HEALTH_CHECK }
 
     private val generation = AtomicLong(0L)
     private var currentState: State = State.IDLE
@@ -95,11 +106,13 @@ internal class SignalingHealthMonitor(
     private var disconnectedStartedAtMs: Long = 0L
     private var probeStartedAtMs: Long = 0L
     private var pendingProbeId: String? = null
+    private var pendingProbePurpose: ProbePurpose? = null
     private var reattachPerformed: Boolean = false
     private var lastSeenIceState: PeerConnection.IceConnectionState? = null
     private var lastInboundRtpPacketCount: Long? = null
     private var lastInboundSignalingActivityMs: Long = clock()
     private var lastConfirmedOutboundActivityMs: Long = clock()
+    private var lastSignalingHealthCheckAtMs: Long = clock()
 
     /**
      * Public read-only view of the current state. Useful for tests and the
@@ -251,7 +264,8 @@ internal class SignalingHealthMonitor(
      */
     private fun onProbeResponse(probeId: String) {
         if (currentState != State.PROBING) return
-        if (pendingProbeId == null || pendingProbeId != probeId) {
+        val purpose = pendingProbePurpose
+        if (pendingProbeId != probeId || purpose == null) {
             Logger.d(
                 tag = TAG,
                 message = logLine(
@@ -263,12 +277,25 @@ internal class SignalingHealthMonitor(
             return
         }
         pendingProbeId = null
-        transitionTo(State.ICE_RESTARTING, "probe_succeeded")
-        restartStartedAtMs = clock()
-        if (actions.isCallActive() && !actions.isPeerConnectedOrCompleted()) {
-            actions.startIceRestart(generation.get())
-        } else {
-            cancelInternal(reason = "preconditions_failed_post_probe")
+        pendingProbePurpose = null
+        probeStartedAtMs = 0L
+
+        when (purpose) {
+            ProbePurpose.MEDIA_RECOVERY -> {
+                transitionTo(State.ICE_RESTARTING, "media_recovery_probe_succeeded")
+                restartStartedAtMs = clock()
+                if (actions.isCallActive() && !actions.isPeerConnectedOrCompleted()) {
+                    actions.startIceRestart(generation.get())
+                } else {
+                    cancelInternal(reason = "preconditions_failed_post_probe")
+                }
+            }
+            ProbePurpose.HEALTH_CHECK -> {
+                transitionTo(State.IDLE, "health_check_probe_succeeded")
+                disconnectedStartedAtMs = 0L
+                reattachPerformed = false
+                lastSignalingHealthCheckAtMs = clock()
+            }
         }
     }
 
@@ -297,32 +324,60 @@ internal class SignalingHealthMonitor(
         when (currentState) {
             State.IDLE -> {
                 bumpGeneration()
+                beginMediaRecovery(trigger)
+            }
+            State.PROBING -> {
                 when {
-                    !actions.isSignalingAvailable() -> {
-                        performReattachOnce(reason = "signaling_unavailable")
+                    isDisconnectedDebounceInProgress() -> {
+                        // FAILED is definitive. Do not make it wait behind the
+                        // transient DISCONNECTED debounce window.
+                        disconnectedStartedAtMs = 0L
+                        beginMediaRecovery(trigger)
                     }
-                    hasRecentSignalingActivity() -> {
-                        transitionTo(State.ICE_RESTARTING, "trigger_$trigger")
-                        restartStartedAtMs = clock()
-                        actions.startIceRestart(generation.get())
+                    pendingProbePurpose == ProbePurpose.HEALTH_CHECK -> {
+                        // Reuse the exact probe already in flight, but upgrade
+                        // its success path so it performs the now-required ICE
+                        // restart instead of merely returning to IDLE.
+                        pendingProbePurpose = ProbePurpose.MEDIA_RECOVERY
+                        Logger.i(
+                            tag = TAG,
+                            message = logLine("health_probe_upgraded", "trigger" to trigger),
+                        )
                     }
-                    else -> startProbe(trigger = trigger)
+                    else -> logDuplicateTrigger(trigger)
                 }
             }
-            State.PROBING, State.ICE_RESTARTING, State.VERIFYING_MEDIA, State.REATTACHING -> {
-                // Duplicate or late callback: just log and stay in the
-                // current generation; the existing timer is still authoritative.
-                Logger.d(
-                    tag = TAG,
-                    message = logLine(
-                        "trigger_duplicate",
-                        "trigger" to trigger,
-                        "state" to currentState.name,
-                    ),
-                )
-            }
+            State.ICE_RESTARTING, State.VERIFYING_MEDIA, State.REATTACHING -> logDuplicateTrigger(trigger)
         }
     }
+
+    private fun beginMediaRecovery(trigger: String) {
+        when {
+            !actions.isSignalingAvailable() -> {
+                performReattachOnce(reason = "signaling_unavailable")
+            }
+            hasRecentSignalingActivity() -> {
+                transitionTo(State.ICE_RESTARTING, "trigger_$trigger")
+                restartStartedAtMs = clock()
+                actions.startIceRestart(generation.get())
+            }
+            else -> startProbe(trigger = trigger, purpose = ProbePurpose.MEDIA_RECOVERY)
+        }
+    }
+
+    private fun logDuplicateTrigger(trigger: String) {
+        Logger.d(
+            tag = TAG,
+            message = logLine(
+                "trigger_duplicate",
+                "trigger" to trigger,
+                "state" to currentState.name,
+            ),
+        )
+    }
+
+    private fun isDisconnectedDebounceInProgress(): Boolean =
+        currentState == State.PROBING && pendingProbeId == null && disconnectedStartedAtMs != 0L
 
     private fun onDisconnectedObserved() {
         if (currentState != State.IDLE) return
@@ -335,7 +390,7 @@ internal class SignalingHealthMonitor(
     }
 
     private fun onRecoveredObserved(newState: PeerConnection.IceConnectionState) {
-        if (currentState == State.PROBING) {
+        if (isDisconnectedDebounceInProgress()) {
             // Debounce window cancelled: peer recovered before escalation.
             Logger.i(
                 tag = TAG,
@@ -357,55 +412,93 @@ internal class SignalingHealthMonitor(
     fun onTick() {
         val now = clock()
         when (currentState) {
-            State.PROBING -> {
-                if (pendingProbeId != null) {
-                    if (now - probeStartedAtMs >= config.pingTimeoutMs) {
-                        pendingProbeId = null
-                        performReattachOnce(reason = "probe_timeout")
-                    }
-                } else if (disconnectedStartedAtMs == 0L ||
-                    now - disconnectedStartedAtMs >= config.disconnectedDebounceMs
-                ) {
-                    when {
-                        !actions.isSignalingAvailable() -> {
-                            performReattachOnce(reason = "signaling_unavailable")
-                        }
-                        hasRecentSignalingActivity() -> {
-                            transitionTo(State.ICE_RESTARTING, "debounce_elapsed_signaling_healthy")
-                            restartStartedAtMs = now
-                            actions.startIceRestart(generation.get())
-                        }
-                        else -> startProbe(trigger = "debounce_elapsed")
-                    }
-                }
-            }
-            State.ICE_RESTARTING -> {
-                if (now - restartStartedAtMs >= config.restartTimeoutMs) {
-                    Logger.w(
-                        tag = TAG,
-                        message = logLine("restart_timeout", "elapsedMs" to (now - restartStartedAtMs).toString()),
-                    )
-                    performReattachOnce(reason = "restart_timeout")
-                }
-            }
-            State.VERIFYING_MEDIA -> {
-                if (now - mediaVerifyStartedAtMs >= config.mediaVerifyWindowMs) {
-                    Logger.w(
-                        tag = TAG,
-                        message = logLine("media_verify_timeout", "elapsedMs" to (now - mediaVerifyStartedAtMs).toString()),
-                    )
-                    performReattachOnce(reason = "media_verify_timeout")
-                }
-            }
-            else -> Unit
+            State.IDLE -> checkActiveCallSignalingHealth(now)
+            State.PROBING -> tickProbeOrDisconnectedDebounce(now)
+            State.ICE_RESTARTING -> tickIceRestart(now)
+            State.VERIFYING_MEDIA -> tickMediaVerification(now)
+            State.REATTACHING -> Unit
         }
     }
 
-    private fun startProbe(trigger: String) {
+    private fun tickProbeOrDisconnectedDebounce(now: Long) {
+        if (pendingProbeId != null) {
+            if (now - probeStartedAtMs >= config.pingTimeoutMs) {
+                pendingProbeId = null
+                pendingProbePurpose = null
+                performReattachOnce(reason = "probe_timeout")
+            }
+            return
+        }
+        if (disconnectedStartedAtMs != 0L &&
+            now - disconnectedStartedAtMs < config.disconnectedDebounceMs
+        ) {
+            return
+        }
+
+        when {
+            !actions.isSignalingAvailable() -> {
+                performReattachOnce(reason = "signaling_unavailable")
+            }
+            hasRecentSignalingActivity() -> {
+                transitionTo(State.ICE_RESTARTING, "debounce_elapsed_signaling_healthy")
+                restartStartedAtMs = now
+                actions.startIceRestart(generation.get())
+            }
+            else -> startProbe(
+                trigger = "debounce_elapsed",
+                purpose = ProbePurpose.MEDIA_RECOVERY,
+            )
+        }
+    }
+
+    private fun tickIceRestart(now: Long) {
+        if (now - restartStartedAtMs < config.restartTimeoutMs) return
+        Logger.w(
+            tag = TAG,
+            message = logLine("restart_timeout", "elapsedMs" to (now - restartStartedAtMs).toString()),
+        )
+        performReattachOnce(reason = "restart_timeout")
+    }
+
+    private fun tickMediaVerification(now: Long) {
+        if (now - mediaVerifyStartedAtMs < config.mediaVerifyWindowMs) return
+        Logger.w(
+            tag = TAG,
+            message = logLine("media_verify_timeout", "elapsedMs" to (now - mediaVerifyStartedAtMs).toString()),
+        )
+        performReattachOnce(reason = "media_verify_timeout")
+    }
+
+    private fun checkActiveCallSignalingHealth(now: Long) {
+        if (!actions.isCallActive()) return
+        if (now - lastSignalingHealthCheckAtMs < config.signalingHealthCheckIntervalMs) return
+        lastSignalingHealthCheckAtMs = now
+
+        when {
+            !actions.isSignalingAvailable() -> {
+                bumpGeneration()
+                performReattachOnce(reason = "active_call_signaling_unavailable")
+            }
+            isSignalingStale(now) -> {
+                bumpGeneration()
+                startProbe(
+                    trigger = "active_call_signaling_stale",
+                    purpose = ProbePurpose.HEALTH_CHECK,
+                )
+            }
+        }
+    }
+
+    private fun isSignalingStale(now: Long): Boolean =
+        now - lastInboundSignalingActivityMs >= config.staleInboundActivityMs ||
+            now - lastConfirmedOutboundActivityMs >= config.confirmedOutboundActivityMs
+
+    private fun startProbe(trigger: String, purpose: ProbePurpose) {
         val probeId = "$PROBE_ID_PREFIX-${generation.get()}-${
             random.nextInt(0, PROBE_ID_RANDOM_BOUND).toString(PROBE_ID_RANDOM_RADIX)
         }"
         pendingProbeId = probeId
+        pendingProbePurpose = purpose
         transitionTo(State.PROBING, "probe_started_$trigger")
         probeStartedAtMs = clock()
         Logger.d(
@@ -414,6 +507,7 @@ internal class SignalingHealthMonitor(
         )
         if (!actions.sendProbePing(probeId)) {
             pendingProbeId = null
+            pendingProbePurpose = null
             performReattachOnce(reason = "probe_send_failed")
         }
     }
@@ -426,9 +520,16 @@ internal class SignalingHealthMonitor(
             )
             return
         }
-        reattachPerformed = true
-        transitionTo(State.REATTACHING, "reattach_$reason")
-        actions.requestReattach()
+        if (actions.requestReattach()) {
+            reattachPerformed = true
+            transitionTo(State.REATTACHING, "reattach_$reason")
+        } else {
+            Logger.e(
+                tag = TAG,
+                message = logLine("reattach_rejected", "reason" to reason),
+            )
+            cancelInternal(reason = "reattach_rejected")
+        }
     }
 
     private fun finishMediaVerification() {
@@ -445,8 +546,10 @@ internal class SignalingHealthMonitor(
         disconnectedStartedAtMs = 0L
         probeStartedAtMs = 0L
         pendingProbeId = null
+        pendingProbePurpose = null
         reattachPerformed = false
         lastInboundRtpPacketCount = null
+        lastSignalingHealthCheckAtMs = clock()
     }
 
     private fun hasRecentSignalingActivity(): Boolean {
@@ -477,12 +580,14 @@ internal class SignalingHealthMonitor(
         val previous = currentState
         currentState = State.IDLE
         pendingProbeId = null
+        pendingProbePurpose = null
         reattachPerformed = false
         mediaVerifyStartedAtMs = 0L
         restartStartedAtMs = 0L
         disconnectedStartedAtMs = 0L
         probeStartedAtMs = 0L
         lastInboundRtpPacketCount = null
+        lastSignalingHealthCheckAtMs = clock()
         bumpGeneration()
         Logger.i(
             tag = TAG,

@@ -8,18 +8,14 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
-import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
-import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.sdk.verto.receive.UpdateMediaResponse
 import com.telnyx.webrtc.sdk.verto.send.ModifyParams
 import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
-import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.junit.jupiter.api.BeforeEach
+import org.junit.Before
 import org.junit.Rule
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.Test
 import org.junit.rules.TestRule
 import java.util.*
 import kotlin.test.assertEquals
@@ -30,11 +26,9 @@ import kotlin.test.assertNotNull
  * Tests cover sending updateMedia messages and processing updateMedia responses
  * for ICE renegotiation functionality.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
-@ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class UpdateMediaTest : BaseTest() {
 
-    @MockK
+    @RelaxedMockK
     private lateinit var mockContext: Context
 
     @RelaxedMockK
@@ -53,7 +47,7 @@ class UpdateMediaTest : BaseTest() {
     private val testCallId = UUID.randomUUID()
     private val testSessid = "test-session-id"
 
-    @BeforeEach
+    @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
@@ -61,16 +55,14 @@ class UpdateMediaTest : BaseTest() {
         telnyxClient = spyk(TelnyxClient(mockContext))
 
         // Setup socket mock
-        every { telnyxClient.socket } returns mockTxSocket
-        every { mockTxSocket.send(any<SendingMessageBody>()) } just Awaits
+        telnyxClient.socket = mockTxSocket
+        every { mockTxSocket.send(any<SendingMessageBody>()) } just Runs
 
         // Setup session ID
         telnyxClient.sessid = testSessid
 
         // Setup calls map
-        val callsMap = mutableMapOf<UUID, Call>()
-        callsMap[testCallId] = mockCall
-        every { telnyxClient.calls } returns callsMap
+        telnyxClient.calls[testCallId] = mockCall
 
         // Setup call and peer mocks
         every { mockCall.peerConnection } returns mockPeer
@@ -79,7 +71,7 @@ class UpdateMediaTest : BaseTest() {
         every { mockPeer.handleUpdateMediaResponse(any()) } just Runs
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test sendUpdateMediaMessage creates correct modify message`() {
         // Arrange
         val testSdp = "v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\n..."
@@ -102,7 +94,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(testCallId, params.dialogParams.callId)
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test sendUpdateMediaMessage with empty SDP`() {
         // Arrange
         val emptySdp = ""
@@ -119,7 +111,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(emptySdp, params.sdp)
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test sendUpdateMediaMessage with complex SDP containing ICE candidates`() {
         // Arrange
         val complexSdp = """
@@ -154,7 +146,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(complexSdp, params.sdp)
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived processes updateMedia response successfully`() {
         // Arrange
         val testRemoteSdp = "v=0\r\no=- 987654321 2 IN IP4 10.0.0.1\r\n..."
@@ -175,7 +167,7 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer.handleUpdateMediaResponse(testRemoteSdp) }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived handles missing call gracefully`() {
         // Arrange
         val nonExistentCallId = UUID.randomUUID()
@@ -196,7 +188,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived handles missing peer gracefully`() {
         // Arrange
         every { mockCall.peerConnection } returns null
@@ -218,7 +210,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived handles malformed JSON gracefully`() {
         // Arrange
         val malformedJson = JsonObject().apply {
@@ -232,7 +224,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived handles missing result object gracefully`() {
         // Arrange
         val jsonWithoutResult = JsonObject().apply {
@@ -247,7 +239,7 @@ class UpdateMediaTest : BaseTest() {
         verify(exactly = 0) { mockPeer.handleUpdateMediaResponse(any()) }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test onModifyReceived processes multiple updateMedia responses`() {
         // Arrange
         val testCallId2 = UUID.randomUUID()
@@ -277,7 +269,7 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer2.handleUpdateMediaResponse("sdp2") }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test updateMedia response with different action types`() {
         // Arrange - test with non-updateMedia action
         val otherActionResponse = JsonObject().apply {
@@ -296,13 +288,13 @@ class UpdateMediaTest : BaseTest() {
         verify { mockPeer.handleUpdateMediaResponse("test-sdp") }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test sendUpdateMediaMessage generates unique message IDs`() {
         // Arrange
         val testSdp = "test-sdp"
         val capturedMessages = mutableListOf<SendingMessageBody>()
 
-        every { mockTxSocket.send(capture(capturedMessages)) } just Awaits
+        every { mockTxSocket.send(capture(capturedMessages)) } just Runs
 
         // Act - send multiple messages
         repeat(3) {
@@ -315,7 +307,7 @@ class UpdateMediaTest : BaseTest() {
         assertEquals(3, messageIds.toSet().size) // All IDs should be unique
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     fun `test updateMedia response parsing with special characters in SDP`() {
         // Arrange
         val sdpWithSpecialChars = "v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\ns=Test \"Session\" with 'quotes'\r\n"
