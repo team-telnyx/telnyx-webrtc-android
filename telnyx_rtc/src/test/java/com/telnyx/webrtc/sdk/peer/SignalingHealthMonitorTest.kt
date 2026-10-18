@@ -11,10 +11,14 @@ import org.junit.Before
 import org.junit.Test
 import com.telnyx.webrtc.lib.PeerConnection
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 /**
  * Unit tests for [SignalingHealthMonitor].
@@ -184,20 +188,20 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
-    fun `disconnected transitions to PROBING and cancels on re-connect`() {
+    fun `peer disconnected transitions to PROBING and cancels on peer re-connect`() {
         val monitor = newMonitor()
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
         assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.CONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.CONNECTED)
         assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
         assertEquals(0, restartCalls)
     }
 
     @Test
-    fun `disconnected debounce elapses and starts a probe when signaling is stale`() {
+    fun `peer disconnected debounce elapses and starts a probe when signaling is stale`() {
         val monitor = newMonitor()
         makeSignalingStale()
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
         assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
         // Advance past the debounce window.
         fakeClock.advance(3_001L)
@@ -207,10 +211,10 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
-    fun `disconnected debounce elapses and restarts when signaling healthy`() {
+    fun `peer disconnected debounce elapses and restarts when signaling healthy`() {
         flags.signalingAvailableValue = true
         val monitor = newMonitor()
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
         assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
         fakeClock.advance(3_001L)
         monitor.onSignalingMessage(
@@ -228,11 +232,71 @@ class SignalingHealthMonitorTest : BaseTest() {
         flags.signalingAvailableValue = true
         val monitor = newMonitor()
 
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
         monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
 
         assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
         assertEquals(1, restartCalls)
+    }
+
+    @Test
+    fun `ICE disconnected does not start peer recovery debounce`() {
+        val monitor = newMonitor()
+
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
+        assertEquals(0, restartCalls)
+    }
+
+    @Test
+    fun `ICE connected does not cancel peer disconnected debounce`() {
+        flags.signalingAvailableValue = true
+        val monitor = newMonitor()
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.CONNECTED)
+        assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
+        fakeClock.advance(3_001L)
+        monitor.onSignalingMessage(
+            messageId = null,
+            hasResult = false,
+            hasError = false,
+        )
+        monitor.onTick()
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
+    }
+
+    @Test
+    fun `state remains readable while a synchronized recovery action is running`() {
+        flags.signalingAvailableValue = true
+        val actionStarted = CountDownLatch(1)
+        val releaseAction = CountDownLatch(1)
+        io.mockk.every { actions.startIceRestart(any()) } answers {
+            actionStarted.countDown()
+            releaseAction.await(5, TimeUnit.SECONDS)
+            Unit
+        }
+        val monitor = newMonitor()
+        val executor = Executors.newFixedThreadPool(2)
+        val recoveryFuture = executor.submit {
+            monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        }
+
+        try {
+            assertTrue(actionStarted.await(1, TimeUnit.SECONDS))
+            val stateFuture = executor.submit<SignalingHealthMonitor.State> { monitor.state() }
+            assertEquals(
+                SignalingHealthMonitor.State.ICE_RESTARTING,
+                stateFuture.get(1, TimeUnit.SECONDS),
+            )
+        } finally {
+            releaseAction.countDown()
+            recoveryFuture.get(1, TimeUnit.SECONDS)
+            executor.shutdownNow()
+        }
     }
 
     @Test

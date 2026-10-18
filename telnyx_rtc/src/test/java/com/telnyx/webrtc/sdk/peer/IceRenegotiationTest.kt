@@ -144,6 +144,19 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
+    fun `peer state exclusively owns disconnected recovery debounce`() {
+        webRtcObserver.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, peer.signalingHealthMonitor.state())
+        assertEquals(3_000L, peer.getPrivateField("recoveryTickIntervalMs"))
+
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.PROBING, peer.signalingHealthMonitor.state())
+        assertEquals(250L, peer.getPrivateField("recoveryTickIntervalMs"))
+    }
+
+    @Test
     fun `test startIceRenegotiation sets call state to RENEGOTIATING`() {
         // Arrange
         val mockSessionDescription = SessionDescription(SessionDescription.Type.OFFER, "test-sdp")

@@ -103,6 +103,7 @@ internal class SignalingHealthMonitor(
     private enum class ProbePurpose { MEDIA_RECOVERY, HEALTH_CHECK }
 
     private val generation = AtomicLong(0L)
+    @Volatile
     private var currentState: State = State.IDLE
     private var restartStartedAtMs: Long = 0L
     private var mediaVerifyStartedAtMs: Long = 0L
@@ -123,7 +124,6 @@ internal class SignalingHealthMonitor(
      * surrounding [Peer] to short-circuit operations when recovery is in
      * flight.
      */
-    @Synchronized
     fun state(): State = currentState
 
     /**
@@ -147,9 +147,6 @@ internal class SignalingHealthMonitor(
             PeerConnection.IceConnectionState.FAILED -> onFailureObserved(
                 trigger = "ice_failed",
             )
-            PeerConnection.IceConnectionState.DISCONNECTED -> onDisconnectedObserved()
-            PeerConnection.IceConnectionState.CONNECTED,
-            PeerConnection.IceConnectionState.COMPLETED -> onRecoveredObserved(newState)
             else -> {
                 Logger.d(
                     tag = TAG,
