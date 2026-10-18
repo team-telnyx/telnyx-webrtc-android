@@ -1134,6 +1134,29 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `recovery relay override is consumed once by replacement call`() {
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+        )
+        setPrivateField("credentialSessionConfig", config)
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+
+        assertTrue(client.requestCallRecoveryReattach(forceRelayCandidateForRecovery = true))
+
+        val method = TelnyxClient::class.java.getDeclaredMethod("takeForceRelayForNextRecoveredCall")
+        method.isAccessible = true
+        assertTrue(method.invoke(client) as Boolean)
+        assertFalse(method.invoke(client) as Boolean)
+    }
+
+    @Test
     fun `push app call id uses push call id instead of parent call id`() {
         val parentCallId = UUID.randomUUID()
         val pushCallId = UUID.randomUUID()

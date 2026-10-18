@@ -26,7 +26,8 @@ import kotlin.test.assertNotEquals
  *    do not resolve the probe)
  *  - probe timeout escalates to reattach
  *  - 15s restart timeout escalates to reattach
- *  - already-connected guard prevents re-entry
+ *  - peer-level FAILED recovers even while ICE still reports connected
+ *  - failed direct VPN paths request a relay-only replacement call
  *  - RTP verification success returns the machine to IDLE
  *  - RTP verification timeout escalates to reattach
  *  - terminal-call cancellation cancels all timers/jobs
@@ -50,6 +51,7 @@ class SignalingHealthMonitorTest : BaseTest() {
     private var restartCalls = 0
     private var pingCalls = mutableListOf<String>()
     private var reattachCalls = 0
+    private var reattachForceRelay = mutableListOf<Boolean>()
 
     @Before
     fun setup() {
@@ -58,9 +60,9 @@ class SignalingHealthMonitorTest : BaseTest() {
         restartCalls = 0
         pingCalls = mutableListOf<String>()
         reattachCalls = 0
+        reattachForceRelay = mutableListOf<Boolean>()
 
         io.mockk.every { actions.isCallActive() } answers { flags.callActiveValue }
-        io.mockk.every { actions.isPeerConnectedOrCompleted() } answers { flags.peerConnectedValue }
         io.mockk.every { actions.isSignalingAvailable() } answers { flags.signalingAvailableValue }
         io.mockk.every { actions.startIceRestart(any()) } answers {
             restartCalls += 1
@@ -74,8 +76,12 @@ class SignalingHealthMonitorTest : BaseTest() {
             pingCalls += firstArg<String>()
             true
         }
-        io.mockk.every { actions.requestReattach() } answers {
+        io.mockk.every { actions.shouldForceRelayForRecovery(any()) } answers {
+            firstArg<(Boolean) -> Unit>().invoke(false)
+        }
+        io.mockk.every { actions.requestReattach(any()) } answers {
             reattachCalls += 1
+            reattachForceRelay += firstArg<Boolean>()
             true
         }
         io.mockk.every { actions.snapshotForLog() } answers { emptyMap() }
@@ -147,13 +153,12 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
-    fun `already-connected guard prevents recovery re-entry`() {
+    fun `peer connection FAILED recovers while ICE still reports connected`() {
         flags.signalingAvailableValue = true
-        flags.peerConnectedValue = true
         val monitor = newMonitor()
-        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
-        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
-        assertEquals(0, restartCalls)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
     }
 
     @Test
@@ -260,6 +265,22 @@ class SignalingHealthMonitorTest : BaseTest() {
 
         assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
         assertEquals(1, reattachCalls)
+        assertEquals(listOf(false), reattachForceRelay)
+        io.mockk.verify(exactly = 0) { actions.shouldForceRelayForRecovery(any()) }
+    }
+
+    @Test
+    fun `failed direct VPN path forces relay for replacement call`() {
+        flags.signalingAvailableValue = false
+        io.mockk.every { actions.shouldForceRelayForRecovery(any()) } answers {
+            firstArg<(Boolean) -> Unit>().invoke(true)
+        }
+        val monitor = newMonitor()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertEquals(listOf(true), reattachForceRelay)
     }
 
     @Test
@@ -268,8 +289,6 @@ class SignalingHealthMonitorTest : BaseTest() {
         fakeClock.advance(20_001L)
         monitor.onTick()
         val probeId = pingCalls.single()
-        flags.peerConnectedValue = false
-
         monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         monitor.onSignalingMessage(
             messageId = probeId,
@@ -307,20 +326,18 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
-    fun `probe success that finds peer already connected cancels cleanly`() {
+    fun `probe success after failure restarts even if ICE may have recovered`() {
         val monitor = newMonitor()
         makeSignalingStale()
         monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
         val probeId = pingCalls.single()
-        // Between probe start and result the peer re-connected.
-        flags.peerConnectedValue = true
         monitor.onSignalingMessage(
             messageId = probeId,
             hasResult = true,
             hasError = false,
         )
-        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
-        assertEquals(0, restartCalls)
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
     }
 
     @Test
@@ -410,7 +427,7 @@ class SignalingHealthMonitorTest : BaseTest() {
 
     @Test
     fun `rejected reattach request returns monitor to idle`() {
-        io.mockk.every { actions.requestReattach() } answers {
+        io.mockk.every { actions.requestReattach(any()) } answers {
             reattachCalls += 1
             false
         }
@@ -528,22 +545,17 @@ class SignalingHealthMonitorTest : BaseTest() {
 
     private class ActionFlags {
         val callActive = AtomicLong(1L)
-        val peerConnected = AtomicLong(0L)
         val signalingAvailable = AtomicLong(1L)
 
         var callActiveValue: Boolean
             get() = callActive.get() != 0L
             set(v) { callActive.set(if (v) 1L else 0L) }
-        var peerConnectedValue: Boolean
-            get() = peerConnected.get() != 0L
-            set(v) { peerConnected.set(if (v) 1L else 0L) }
         var signalingAvailableValue: Boolean
             get() = signalingAvailable.get() != 0L
             set(v) { signalingAvailable.set(if (v) 1L else 0L) }
 
         init {
             callActiveValue = true
-            peerConnectedValue = false
             signalingAvailableValue = true
         }
     }

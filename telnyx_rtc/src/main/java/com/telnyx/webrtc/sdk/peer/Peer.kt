@@ -138,8 +138,10 @@ internal class Peer(
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
 
-        // Recovery monitor cadence
-        private const val RECOVERY_TICK_MS = 250L
+        // Recovery monitor cadence. IDLE only needs to match the signaling
+        // health interval; active recovery uses a tighter deadline cadence.
+        private const val RECOVERY_ACTIVE_TICK_MS = 250L
+        private const val RECOVERY_IDLE_TICK_MS = 3_000L
         private const val RECOVERY_RTP_SAMPLE_MS = 1_000L
 
 
@@ -147,6 +149,22 @@ internal class Peer(
         private const val TYP_PREFIX = "typ "
         private const val PROTOCOL_INDEX = 2
         private const val UNKNOWN_VALUE = "unknown"
+
+        /** Mirrors iOS candidate-path selection for the VPN relay fallback. */
+        internal fun selectedCandidateUsesDirectVpn(
+            statistics: Map<String, Map<String, Any?>>,
+        ): Boolean {
+            val transport = statistics.values.firstOrNull { it["type"] == "transport" }
+            val candidatePair = (transport?.get("selectedCandidatePairId") as? String)
+                ?.let(statistics::get)
+            val localCandidate = (candidatePair?.get("localCandidateId") as? String)
+                ?.let(statistics::get)
+            val networkType = localCandidate?.get("networkType") as? String
+            val candidateType = localCandidate?.get("candidateType") as? String
+
+            return networkType?.equals("vpn", ignoreCase = true) == true &&
+                candidateType?.equals("relay", ignoreCase = true) == false
+        }
 
         /**
          * Shared PeerConnectionFactory used for codec queries and peer connections.
@@ -439,6 +457,7 @@ internal class Peer(
      */
     internal lateinit var signalingHealthMonitor: SignalingHealthMonitor
     private var recoveryTickTimer: Timer? = null
+    private var recoveryTickIntervalMs: Long? = null
     private val recoveryRequestLock = Any()
     private var pendingRecoveryRequestId: String? = null
     private var pendingRecoveryGeneration: Long? = null
@@ -1177,6 +1196,7 @@ internal class Peer(
             // can reach into a disposed peer.
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
+            recoveryTickIntervalMs = null
             synchronized(recoveryRequestLock) {
                 pendingRecoveryRequestId = null
                 pendingRecoveryGeneration = null
@@ -1906,15 +1926,6 @@ internal class Peer(
                 } ?: false
             }
 
-            override fun isPeerConnectedOrCompleted(): Boolean {
-                if (isDisposed.get()) return false
-                return peerConnection?.let { pc ->
-                    val state = pc.iceConnectionState()
-                    state == PeerConnection.IceConnectionState.CONNECTED ||
-                        state == PeerConnection.IceConnectionState.COMPLETED
-                } ?: false
-            }
-
             override fun isSignalingAvailable(): Boolean {
                 return client.isSocketConnected()
             }
@@ -1929,13 +1940,50 @@ internal class Peer(
                 return client.sendRecoveryProbe(probeId)
             }
 
-            override fun requestReattach(): Boolean = client.requestCallRecoveryReattach()
+            override fun shouldForceRelayForRecovery(onResult: (Boolean) -> Unit) {
+                evaluateRelayFallback(onResult)
+            }
+
+            override fun requestReattach(forceRelay: Boolean): Boolean =
+                client.requestCallRecoveryReattach(forceRelay)
 
             override fun snapshotForLog(): Map<String, String> {
                 val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")
                 return mapOf("iceState" to iceState)
             }
         }
+
+    private fun evaluateRelayFallback(onResult: (Boolean) -> Unit) {
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            onResult(false)
+            return
+        }
+
+        try {
+            connection.getStats { report ->
+                val statistics = report.statsMap.mapValues { (_, stat) ->
+                    stat.members.toMutableMap<String, Any?>().apply {
+                        this["type"] = stat.type
+                    }
+                }
+                val forceRelay = selectedCandidateUsesDirectVpn(statistics)
+                if (forceRelay) {
+                    Logger.w(
+                        tag = "SignalingHealthMonitor",
+                        message = "Failed VPN direct path; forcing relay for replacement call",
+                    )
+                }
+                onResult(forceRelay)
+            }
+        } catch (error: RuntimeException) {
+            Logger.e(
+                tag = "SignalingHealthMonitor",
+                message = "Unable to inspect recovery candidate path: ${error.message}",
+            )
+            onResult(false)
+        }
+    }
 
     /**
      * Starts the recovery tick timer if the monitor is in a watchable
@@ -1948,20 +1996,31 @@ internal class Peer(
         if (isDisposed.get()) {
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
+            recoveryTickIntervalMs = null
             return
         }
-        val inWatchableState = when (signalingHealthMonitor.state()) {
+        val desiredIntervalMs = when (signalingHealthMonitor.state()) {
             SignalingHealthMonitor.State.PROBING,
             SignalingHealthMonitor.State.ICE_RESTARTING,
-            SignalingHealthMonitor.State.VERIFYING_MEDIA -> true
-            SignalingHealthMonitor.State.IDLE -> isCallActiveForRecovery()
-            SignalingHealthMonitor.State.REATTACHING -> false
+            SignalingHealthMonitor.State.VERIFYING_MEDIA -> RECOVERY_ACTIVE_TICK_MS
+            SignalingHealthMonitor.State.IDLE -> {
+                if (isCallActiveForRecovery()) RECOVERY_IDLE_TICK_MS else null
+            }
+            SignalingHealthMonitor.State.REATTACHING -> null
         }
-        if (inWatchableState && recoveryTickTimer == null) {
+
+        if (recoveryTickTimer != null && recoveryTickIntervalMs != desiredIntervalMs) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            recoveryTickIntervalMs = null
+        }
+
+        if (desiredIntervalMs != null && recoveryTickTimer == null) {
             // Repeating timer so the monitor's debounce / restart-timeout /
             // media-verify deadlines elapse without depending on external
             // scheduleRecoveryTickIfNeeded() calls. Cancellation is handled by
-            // the !inWatchableState branch below and the isDisposed guard above.
+            // the null-interval branch below and the isDisposed guard above.
+            recoveryTickIntervalMs = desiredIntervalMs
             recoveryTickTimer = Timer()
             recoveryTickTimer?.schedule(
                 timerTask {
@@ -1981,12 +2040,13 @@ internal class Peer(
                         )
                     }
                 },
-                RECOVERY_TICK_MS,
-                RECOVERY_TICK_MS,
+                desiredIntervalMs,
+                desiredIntervalMs,
             )
-        } else if (!inWatchableState && recoveryTickTimer != null) {
+        } else if (desiredIntervalMs == null && recoveryTickTimer != null) {
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
+            recoveryTickIntervalMs = null
         }
     }
 

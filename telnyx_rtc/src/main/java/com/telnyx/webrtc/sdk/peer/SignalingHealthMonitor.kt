@@ -78,8 +78,6 @@ internal class SignalingHealthMonitor(
     interface Actions {
         /** True if the call is still in ACTIVE state. */
         fun isCallActive(): Boolean
-        /** True if the peer has already reached CONNECTED/COMPLETED. */
-        fun isPeerConnectedOrCompleted(): Boolean
         /** True when the signaling socket is currently available. */
         fun isSignalingAvailable(): Boolean
         /** Trigger a same-peer ICE restart on the underlying [Peer]. */
@@ -87,10 +85,15 @@ internal class SignalingHealthMonitor(
         /** Issue a single signaling-health ping with the given unique id. */
         fun sendProbePing(probeId: String): Boolean
         /**
+         * Inspect the selected candidate path before replacing a failed peer.
+         * The callback is true only for a direct (non-relay) VPN path.
+         */
+        fun shouldForceRelayForRecovery(onResult: (Boolean) -> Unit)
+        /**
          * Ask the client to initiate reattach. Returns false when the client
          * cannot accept the request (for example, no saved login config).
          */
-        fun requestReattach(): Boolean
+        fun requestReattach(forceRelay: Boolean): Boolean
         /** Optional: dump minimal call/generation context for sanitized logs. */
         fun snapshotForLog(): Map<String, String>
     }
@@ -108,6 +111,7 @@ internal class SignalingHealthMonitor(
     private var pendingProbeId: String? = null
     private var pendingProbePurpose: ProbePurpose? = null
     private var reattachPerformed: Boolean = false
+    private var shouldEvaluateRelayFallback: Boolean = false
     private var lastSeenIceState: PeerConnection.IceConnectionState? = null
     private var lastInboundRtpPacketCount: Long? = null
     private var lastInboundSignalingActivityMs: Long = clock()
@@ -284,7 +288,7 @@ internal class SignalingHealthMonitor(
             ProbePurpose.MEDIA_RECOVERY -> {
                 transitionTo(State.ICE_RESTARTING, "media_recovery_probe_succeeded")
                 restartStartedAtMs = clock()
-                if (actions.isCallActive() && !actions.isPeerConnectedOrCompleted()) {
+                if (actions.isCallActive()) {
                     actions.startIceRestart(generation.get())
                 } else {
                     cancelInternal(reason = "preconditions_failed_post_probe")
@@ -311,18 +315,12 @@ internal class SignalingHealthMonitor(
 
     private fun onFailureObserved(trigger: String) {
         if (!actions.isCallActive()) return
-        if (actions.isPeerConnectedOrCompleted()) {
-            Logger.d(
-                tag = TAG,
-                message = logLine(
-                    "trigger_ignored_peer_already_connected",
-                    "trigger" to trigger,
-                ),
-            )
-            return
-        }
         when (currentState) {
             State.IDLE -> {
+                // Match iOS: both ICE FAILED and peer-connection FAILED are
+                // definitive recovery triggers. In particular, a DTLS-level
+                // peer failure may coexist with connected ICE.
+                shouldEvaluateRelayFallback = true
                 bumpGeneration()
                 beginMediaRecovery(trigger)
             }
@@ -331,6 +329,7 @@ internal class SignalingHealthMonitor(
                     isDisconnectedDebounceInProgress() -> {
                         // FAILED is definitive. Do not make it wait behind the
                         // transient DISCONNECTED debounce window.
+                        shouldEvaluateRelayFallback = true
                         disconnectedStartedAtMs = 0L
                         beginMediaRecovery(trigger)
                     }
@@ -338,6 +337,7 @@ internal class SignalingHealthMonitor(
                         // Reuse the exact probe already in flight, but upgrade
                         // its success path so it performs the now-required ICE
                         // restart instead of merely returning to IDLE.
+                        shouldEvaluateRelayFallback = true
                         pendingProbePurpose = ProbePurpose.MEDIA_RECOVERY
                         Logger.i(
                             tag = TAG,
@@ -382,6 +382,7 @@ internal class SignalingHealthMonitor(
     private fun onDisconnectedObserved() {
         if (currentState != State.IDLE) return
         if (!actions.isCallActive()) return
+        shouldEvaluateRelayFallback = true
         bumpGeneration()
         transitionTo(State.PROBING, "disconnected_observed")
         disconnectedStartedAtMs = clock()
@@ -476,10 +477,12 @@ internal class SignalingHealthMonitor(
 
         when {
             !actions.isSignalingAvailable() -> {
+                shouldEvaluateRelayFallback = false
                 bumpGeneration()
                 performReattachOnce(reason = "active_call_signaling_unavailable")
             }
             isSignalingStale(now) -> {
+                shouldEvaluateRelayFallback = false
                 bumpGeneration()
                 startProbe(
                     trigger = "active_call_signaling_stale",
@@ -520,10 +523,31 @@ internal class SignalingHealthMonitor(
             )
             return
         }
-        if (actions.requestReattach()) {
-            reattachPerformed = true
-            transitionTo(State.REATTACHING, "reattach_$reason")
+
+        reattachPerformed = true
+        val generationAtRequest = generation.get()
+        val evaluateRelayFallback = shouldEvaluateRelayFallback
+        shouldEvaluateRelayFallback = false
+        transitionTo(State.REATTACHING, "reattach_$reason")
+
+        if (evaluateRelayFallback) {
+            actions.shouldForceRelayForRecovery { forceRelay ->
+                completeReattachRequest(generationAtRequest, reason, forceRelay)
+            }
         } else {
+            completeReattachRequest(generationAtRequest, reason, forceRelay = false)
+        }
+    }
+
+    @Synchronized
+    private fun completeReattachRequest(
+        generationAtRequest: Long,
+        reason: String,
+        forceRelay: Boolean,
+    ) {
+        if (generationAtRequest != generation.get() || currentState != State.REATTACHING) return
+
+        if (!actions.requestReattach(forceRelay)) {
             Logger.e(
                 tag = TAG,
                 message = logLine("reattach_rejected", "reason" to reason),
@@ -548,6 +572,7 @@ internal class SignalingHealthMonitor(
         pendingProbeId = null
         pendingProbePurpose = null
         reattachPerformed = false
+        shouldEvaluateRelayFallback = false
         lastInboundRtpPacketCount = null
         lastSignalingHealthCheckAtMs = clock()
     }
@@ -582,6 +607,7 @@ internal class SignalingHealthMonitor(
         pendingProbeId = null
         pendingProbePurpose = null
         reattachPerformed = false
+        shouldEvaluateRelayFallback = false
         mediaVerifyStartedAtMs = 0L
         restartStartedAtMs = 0L
         disconnectedStartedAtMs = 0L

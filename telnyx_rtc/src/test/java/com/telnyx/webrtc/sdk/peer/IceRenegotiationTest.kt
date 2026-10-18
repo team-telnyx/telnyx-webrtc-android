@@ -13,13 +13,16 @@ import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import io.mockk.*
 import io.mockk.impl.annotations.RelaxedMockK
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestRule
 import java.util.*
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Unit tests for ICE renegotiation functionality in the Peer class.
@@ -78,18 +81,18 @@ class IceRenegotiationTest : BaseTest() {
         } returns mockPeerConnection
 
         // Create peer instance with mocked dependencies
-        peer = spyk(
-            Peer(
-                context = mockContext,
-                client = mockTelnyxClient,
-                callId = testCallId,
-                peerConnectionFactoryOverride = mockPeerConnectionFactory,
-            )
+        peer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
         )
         webRtcObserver = observerSlot.captured
+    }
 
-        // Mock the peer connection field
-        every { peer.peerConnection } returns mockPeerConnection
+    @After
+    fun tearDown() {
+        peer.disconnect()
     }
 
     @Test
@@ -105,6 +108,39 @@ class IceRenegotiationTest : BaseTest() {
         // Note: Due to Timer usage, we can't directly verify the method call
         // but we can verify the state transition was handled
         verify { mockCall.callStateFlow.value }
+    }
+
+    @Test
+    fun `direct VPN candidate path requires relay fallback`() {
+        val statistics = candidatePathStatistics(networkType = "vpn", candidateType = "host")
+
+        assertTrue(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `VPN relay candidate path does not require another relay fallback`() {
+        val statistics = candidatePathStatistics(networkType = "VPN", candidateType = "relay")
+
+        assertFalse(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `non-VPN direct candidate path keeps configured ICE policy`() {
+        val statistics = candidatePathStatistics(networkType = "wifi", candidateType = "host")
+
+        assertFalse(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `peer failure starts recovery and active cadence while ICE reports connected`() {
+        assertEquals(3_000L, peer.getPrivateField("recoveryTickIntervalMs"))
+        every { mockPeerConnection.iceConnectionState() } returns
+            PeerConnection.IceConnectionState.CONNECTED
+
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, peer.signalingHealthMonitor.state())
+        assertEquals(250L, peer.getPrivateField("recoveryTickIntervalMs"))
     }
 
     @Test
@@ -339,7 +375,7 @@ class IceRenegotiationTest : BaseTest() {
     @Test
     fun `test renegotiation with null peer connection handles gracefully`() {
         // Arrange
-        every { peer.peerConnection } returns null
+        peer.peerConnection = null
 
         // Act & Assert - should not throw exception
         peer.invokePrivate("startIceRenegotiation")
@@ -381,6 +417,25 @@ class IceRenegotiationTest : BaseTest() {
         verify { mockCall.updateCallState(CallState.ACTIVE) }
     }
 
+    private fun candidatePathStatistics(
+        networkType: String,
+        candidateType: String,
+    ): Map<String, Map<String, Any?>> = mapOf(
+        "transport" to mapOf(
+            "type" to "transport",
+            "selectedCandidatePairId" to "pair",
+        ),
+        "pair" to mapOf(
+            "type" to "candidate-pair",
+            "localCandidateId" to "local",
+        ),
+        "local" to mapOf(
+            "type" to "local-candidate",
+            "networkType" to networkType,
+            "candidateType" to candidateType,
+        ),
+    )
+
     /**
      * Helper extension function to invoke private methods for testing
      */
@@ -388,5 +443,11 @@ class IceRenegotiationTest : BaseTest() {
         val method = this::class.java.getDeclaredMethod(methodName, *args.map { it?.javaClass ?: Any::class.java }.toTypedArray())
         method.isAccessible = true
         return method.invoke(this, *args)
+    }
+
+    private fun Any.getPrivateField(fieldName: String): Any? {
+        val field = Peer::class.java.getDeclaredField(fieldName)
+        field.isAccessible = true
+        return field.get(this)
     }
 }
