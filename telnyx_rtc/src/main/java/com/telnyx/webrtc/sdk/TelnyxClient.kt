@@ -257,6 +257,13 @@ class TelnyxClient private constructor(
      * Helper function to emit socket response to both SharedFlow and deprecated LiveData
      */
     fun emitWsMessage(message: JsonObject) {
+        // Match iOS SignalingHealthMonitor: every inbound frame updates liveness,
+        // but only the exact JSON-RPC id resolves a recovery probe.
+        calls.values
+            .mapNotNull { it.peerConnection }
+            .toSet()
+            .forEach { it.onSignalingMessage(message) }
+
         _wsMessagesResponseFlow.tryEmit(message)
         wsMessagesResponseLiveData.postValue(message)
     }
@@ -2332,7 +2339,15 @@ class TelnyxClient private constructor(
      * @param sdp the new local SDP for ICE restart
      */
     fun sendUpdateMediaMessage(callId: UUID, sdp: String) {
-        val uuid: String = UUID.randomUUID().toString()
+        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString())
+    }
+
+    /** Sends a monitor-owned updateMedia request with a retained id. */
+    internal fun sendRecoveryUpdateMediaMessage(callId: UUID, sdp: String, requestId: String) {
+        sendUpdateMediaMessage(callId, sdp, requestId)
+    }
+
+    private fun sendUpdateMediaMessage(callId: UUID, sdp: String, requestId: String) {
 
         val callDialogParams = CallDialogParams(
             callId = callId,
@@ -2347,13 +2362,32 @@ class TelnyxClient private constructor(
         )
 
         val modifyMessage = SendingMessageBody(
-            id = uuid,
+            id = requestId,
             method = SocketMethod.MODIFY.methodName,
             params = modifyParams
         )
 
         Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
         socket.send(modifyMessage)
+    }
+
+    /**
+     * Sends the same authenticated JSON-RPC signaling probe used by iOS.
+     * The caller-generated id is preserved so only its matching result/error
+     * can authorize an ICE restart.
+     */
+    internal fun sendRecoveryProbe(probeId: String): Boolean {
+        if (!socket.isConnected) return false
+
+        val probe = JsonObject().apply {
+            addProperty("id", probeId)
+            addProperty("jsonrpc", "2.0")
+            addProperty("method", SocketMethod.PINGPONG.methodName)
+            add("params", JsonObject())
+            voiceSDKID?.let { addProperty("voice_sdk_id", it) }
+        }
+        socket.send(probe)
+        return true
     }
 
     /**
@@ -3610,6 +3644,28 @@ class TelnyxClient private constructor(
         return socket.isConnected
     }
 
+    /** Uses the existing socket reconnect/login/attach flow as recovery fallback. */
+    internal fun requestCallRecoveryReattach() {
+        synchronized(this) {
+            when {
+                isDeclinePushConnection -> {
+                    Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
+                }
+                credentialSessionConfig == null && tokenSessionConfig == null -> {
+                    Logger.e(message = "Cannot reattach call without a saved session configuration")
+                }
+                reconnecting && reconnectJob?.isActive == true -> {
+                    Logger.d(message = "Call recovery reattach is already in progress")
+                }
+                else -> {
+                    reconnecting = true
+                    Logger.w(message = "Starting reconnect/reattach for call recovery")
+                    launchReconnectJob()
+                }
+            }
+        }
+    }
+
     override fun onRingingReceived(jsonObject: JsonObject) {
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {
             return
@@ -3996,7 +4052,16 @@ class TelnyxClient private constructor(
                 val call = calls[callId]
                 val peer = call?.peerConnection
                 if (peer != null) {
-                    peer.handleUpdateMediaResponse(updateMediaResponse.sdp)
+                    val responseId = jsonObject.get("id")
+                        ?.takeUnless { it.isJsonNull }
+                        ?.asString
+                    if (responseId == null) {
+                        // Preserve compatibility with legacy responses that
+                        // omitted the JSON-RPC id.
+                        peer.handleUpdateMediaResponse(updateMediaResponse.sdp)
+                    } else {
+                        peer.handleUpdateMediaResponse(updateMediaResponse.sdp, responseId)
+                    }
                 } else {
                     Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
                 }

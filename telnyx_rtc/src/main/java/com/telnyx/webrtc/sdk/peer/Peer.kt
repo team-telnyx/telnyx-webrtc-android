@@ -6,6 +6,7 @@ package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
 import android.os.SystemClock
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
@@ -131,16 +132,14 @@ internal class Peer(
             return summary
         }
 
-        // ICE renegotiation delay constants
-        private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
-
         private const val AUDIO_BUFFER_RESET_DELAY_MS =
             200L // 0.2 second delay for audio buffer reset
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
 
-        // Recovery coordinator cadence
+        // Recovery monitor cadence
         private const val RECOVERY_TICK_MS = 250L
+        private const val RECOVERY_RTP_SAMPLE_MS = 1_000L
 
 
         // ICE candidate parsing constants
@@ -432,15 +431,26 @@ internal class Peer(
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
 
     /**
-     * Per-call ICE-restart and peer-connection recovery coordinator. The
-     * coordinator owns the state machine, debouncing, and one-at-a-time
+     * Per-call ICE-restart and peer-connection recovery monitor. The
+     * monitor owns the state machine, debouncing, and one-at-a-time
      * decisions; the [Peer] still owns the actual SDP offer creation, the
      * updateMedia exchange, and the answer application. Construction is
      * deferred until [init] runs so the underlying [peerConnection] is
      * available for the Actions adapter.
      */
-    internal lateinit var recoveryCoordinator: RecoveryCoordinator
+    internal lateinit var signalingHealthMonitor: SignalingHealthMonitor
     private var recoveryTickTimer: Timer? = null
+    private val recoveryRequestLock = Any()
+    private var pendingRecoveryRequestId: String? = null
+    private var pendingRecoveryGeneration: Long? = null
+    private val recoveryStatsRequestInFlight = AtomicBoolean(false)
+    @Volatile
+    private var lastRecoveryRtpSampleAtMs: Long = 0L
+
+    private data class RecoveryResponseContext(
+        val generation: Long?,
+        val stale: Boolean,
+    )
 
     /**
      * Gets the supported audio codec capabilities from the shared factory.
@@ -526,9 +536,9 @@ internal class Peer(
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
 
-            // Drive the recovery coordinator. Duplicate callbacks against a
-            // current recovery generation are no-ops at the coordinator.
-            recoveryCoordinator.onIceConnectionChange(newState)
+            // Drive the recovery monitor. Duplicate callbacks against a
+            // current recovery generation are no-ops at the monitor.
+            signalingHealthMonitor.onIceConnectionChange(newState)
             scheduleRecoveryTickIfNeeded()
 
             // Update previous state
@@ -699,8 +709,8 @@ internal class Peer(
             })
             peerConnectionObserver?.onConnectionChange(newState)
 
-            // Drive the recovery coordinator on peer-connection FAILED.
-            recoveryCoordinator.onConnectionChange(newState)
+            // Drive the recovery monitor on peer-connection FAILED.
+            signalingHealthMonitor.onConnectionChange(newState)
             scheduleRecoveryTickIfNeeded()
 
             // Mark benchmark milestone for peer connection state changes
@@ -1164,12 +1174,17 @@ internal class Peer(
             // from calling getStats() on a freed native PeerConnection (SIGSEGV).
             // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
             isDisposed.set(true)
-            // Tear down the recovery coordinator first so no in-flight timer
+            // Tear down the recovery monitor first so no in-flight timer
             // can reach into a disposed peer.
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
-            if (::recoveryCoordinator.isInitialized) {
-                recoveryCoordinator.cancel("peer_disconnect")
+            synchronized(recoveryRequestLock) {
+                pendingRecoveryRequestId = null
+                pendingRecoveryGeneration = null
+            }
+            recoveryStatsRequestInFlight.set(false)
+            if (::signalingHealthMonitor.isInitialized) {
+                signalingHealthMonitor.cancel("peer_disconnect")
             }
             peerConnection?.close()
             peerConnection?.dispose()
@@ -1233,7 +1248,21 @@ internal class Peer(
      * Creates a new offer with ICE restart enabled
      */
     private fun startIceRenegotiation() {
+        startIceRenegotiationInternal(recoveryGeneration = null)
+    }
+
+    /** Starts a monitor-owned ICE restart for one recovery generation. */
+    private fun startRecoveryIceRenegotiation(recoveryGeneration: Long) {
+        startIceRenegotiationInternal(recoveryGeneration)
+    }
+
+    private fun startIceRenegotiationInternal(recoveryGeneration: Long?) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
+
+        if (isDisposed.get() || peerConnection == null) {
+            notifyIceRestartFailure(recoveryGeneration, "peer_unavailable")
+            return
+        }
 
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
@@ -1262,6 +1291,13 @@ internal class Peer(
                             // Start negotiation timer to wait for ICE candidates before sending updateMedia
                             // This is the same mechanism used for invite/accept flow
                             setOnNegotiationComplete {
+                                if (!isCurrentRecoveryGeneration(recoveryGeneration)) {
+                                    Logger.d(
+                                        tag = "ICE_RENEGOTIATION",
+                                        message = "Ignoring negotiation completion for stale recovery generation",
+                                    )
+                                    return@setOnNegotiationComplete
+                                }
                                 Logger.d(
                                     tag = "ICE_RENEGOTIATION",
                                     message = "ICE negotiation complete for renegotiation, sending updateMedia message"
@@ -1269,13 +1305,14 @@ internal class Peer(
                                 // Get the current local description which should now include candidates
                                 val currentSdp = peerConnection?.localDescription?.description
                                 if (currentSdp != null) {
-                                    sendUpdateMediaMessage(currentSdp)
+                                    sendUpdateMediaMessage(currentSdp, recoveryGeneration)
                                 } else {
                                     Logger.e(
                                         tag = "ICE_RENEGOTIATION",
                                         message = "Failed to get local description after negotiation"
                                     )
                                     client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                    notifyIceRestartFailure(recoveryGeneration, "local_sdp_unavailable")
                                 }
                             }
                         }
@@ -1287,6 +1324,7 @@ internal class Peer(
                             )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                            notifyIceRestartFailure(recoveryGeneration, "set_local_description_failed")
                         }
 
                         override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1303,9 +1341,10 @@ internal class Peer(
                             )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                            notifyIceRestartFailure(recoveryGeneration, "set_local_description_create_failed")
                         }
                     }, sdp)
-                }
+                } ?: notifyIceRestartFailure(recoveryGeneration, "offer_sdp_unavailable")
             }
 
             override fun onCreateFailure(error: String?) {
@@ -1315,6 +1354,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "create_offer_failed")
             }
 
             override fun onSetSuccess() {
@@ -1331,6 +1371,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "create_offer_set_failed")
             }
         }, iceRestartConstraints)
     }
@@ -1338,13 +1379,35 @@ internal class Peer(
     /**
      * Sends the updateMedia modify message with the new SDP for ICE renegotiation
      */
-    private fun sendUpdateMediaMessage(sdp: String) {
+    private fun sendUpdateMediaMessage(sdp: String, recoveryGeneration: Long?) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
 
         // Reset call state back to ACTIVE after sending the updateMedia message
         client.calls[callId]?.updateCallState(CallState.ACTIVE)
 
-        client.sendUpdateMediaMessage(callId, sdp)
+        if (recoveryGeneration == null) {
+            client.sendUpdateMediaMessage(callId, sdp)
+            return
+        }
+
+        val requestId = UUID.randomUUID().toString()
+        synchronized(recoveryRequestLock) {
+            pendingRecoveryRequestId = requestId
+            pendingRecoveryGeneration = recoveryGeneration
+        }
+        client.sendRecoveryUpdateMediaMessage(callId, sdp, requestId)
+    }
+
+    private fun isCurrentRecoveryGeneration(recoveryGeneration: Long?): Boolean =
+        recoveryGeneration == null ||
+            (!isDisposed.get() &&
+                signalingHealthMonitor.generation() == recoveryGeneration &&
+                signalingHealthMonitor.state() == SignalingHealthMonitor.State.ICE_RESTARTING)
+
+    private fun notifyIceRestartFailure(recoveryGeneration: Long?, reason: String) {
+        if (recoveryGeneration == null) return
+        signalingHealthMonitor.onIceRestartFailed(recoveryGeneration, reason)
+        scheduleRecoveryTickIfNeeded()
     }
 
     /**
@@ -1370,24 +1433,10 @@ internal class Peer(
             message = "ICE state transition: $previousState -> $newState"
         )
 
-        // Case 1: disconnected -> failed: Attempt ICE restart/renegotiation
-        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
-            newState == PeerConnection.IceConnectionState.FAILED
-        ) {
-            Logger.w(
-                tag = "IceStateTransition",
-                message = "ICE connection failed after disconnect - attempting ICE restart"
-            )
+        // Recovery decisions are owned exclusively by SignalingHealthMonitor.
+        // This method retains only audio-buffer maintenance and diagnostics.
 
-            // Trigger ICE restart to recover from failed state with delay
-            Timer().schedule(object : TimerTask() {
-                override fun run() {
-                    startIceRenegotiation()
-                }
-            }, ICE_RESTART_DELAY_MS)
-        }
-
-        // Case 2: connected -> disconnected: Reset audio buffers
+        // Case 1: connected -> disconnected: Reset audio buffers
         if (previousState == PeerConnection.IceConnectionState.CONNECTED &&
             newState == PeerConnection.IceConnectionState.DISCONNECTED
         ) {
@@ -1404,7 +1453,7 @@ internal class Peer(
             }, AUDIO_BUFFER_RESET_DELAY_MS)
         }
 
-        // Case 3: disconnected -> connected: Reset audio buffers
+        // Case 2: disconnected -> connected: Reset audio buffers
         if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
             newState == PeerConnection.IceConnectionState.CONNECTED
         ) {
@@ -1451,13 +1500,64 @@ internal class Peer(
      * This completes the ICE renegotiation process
      */
     fun handleUpdateMediaResponse(remoteSdp: String) {
+        handleUpdateMediaResponse(remoteSdp, responseId = null)
+    }
+
+    internal fun handleUpdateMediaResponse(remoteSdp: String, responseId: String?) {
         Logger.d(
             tag = "ICE_RENEGOTIATION",
             message = "Handling updateMedia response with remote SDP"
         )
 
+        val responseContext = synchronized(recoveryRequestLock) {
+            val expectedRequestId = pendingRecoveryRequestId
+            if (responseId != null && expectedRequestId != null && responseId != expectedRequestId) {
+                Logger.w(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "Ignoring stale updateMedia response id=$responseId expected=$expectedRequestId",
+                )
+                RecoveryResponseContext(generation = null, stale = true)
+            } else if (expectedRequestId != null &&
+                (responseId == null || responseId == expectedRequestId)
+            ) {
+                // Older gateways may omit the JSON-RPC id. There is no exact
+                // correlation available in that case, so consume the single
+                // in-flight recovery request to preserve compatibility.
+                val generationAtSend = pendingRecoveryGeneration
+                pendingRecoveryRequestId = null
+                pendingRecoveryGeneration = null
+                RecoveryResponseContext(generation = generationAtSend, stale = false)
+            } else {
+                RecoveryResponseContext(generation = null, stale = false)
+            }
+        }
+        val recoveryGeneration = responseContext.generation
+
+        if (responseContext.stale ||
+            (recoveryGeneration != null && !isCurrentRecoveryGeneration(recoveryGeneration))
+        ) {
+            Logger.w(
+                tag = "ICE_RENEGOTIATION",
+                message = "Ignoring stale updateMedia response generation=$recoveryGeneration",
+            )
+            return
+        }
+
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            notifyIceRestartFailure(recoveryGeneration, "peer_unavailable_for_remote_sdp")
+        } else {
+            applyRemoteIceRestartDescription(connection, remoteSdp, recoveryGeneration)
+        }
+    }
+
+    private fun applyRemoteIceRestartDescription(
+        connection: PeerConnection,
+        remoteSdp: String,
+        recoveryGeneration: Long?,
+    ) {
         val remoteSessionDescription = SessionDescription(SessionDescription.Type.ANSWER, remoteSdp)
-        peerConnection?.setRemoteDescription(object : SdpObserver {
+        connection.setRemoteDescription(object : SdpObserver {
             override fun onSetSuccess() {
                 Logger.d(
                     tag = "ICE_RENEGOTIATION",
@@ -1465,12 +1565,13 @@ internal class Peer(
                 )
                 // Ensure call state is reset to ACTIVE on successful completion
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
-                // Signal the recovery coordinator that the updateMedia answer
-                // is applied. The coordinator advances from ICE_RESTARTING
+                // Signal the recovery monitor that the updateMedia answer
+                // is applied. The monitor advances from ICE_RESTARTING
                 // into VERIFYING_MEDIA (or returns to IDLE if recovery is no
                 // longer the current generation).
-                val gen = recoveryCoordinator.generation()
-                recoveryCoordinator.onUpdateMediaAnswerApplied(generationAtSend = gen)
+                recoveryGeneration?.let { generationAtSend ->
+                    signalingHealthMonitor.onUpdateMediaAnswerApplied(generationAtSend)
+                }
                 scheduleRecoveryTickIfNeeded()
             }
 
@@ -1481,6 +1582,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "set_remote_description_failed")
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1497,6 +1599,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "set_remote_description_create_failed")
             }
         }, remoteSessionDescription)
     }
@@ -1699,6 +1802,18 @@ internal class Peer(
         startIceRenegotiation()
     }
 
+    /** Forwards every inbound signaling frame to the health monitor. */
+    internal fun onSignalingMessage(message: JsonObject) {
+        val idElement = if (message.has("id")) message.get("id") else null
+        val messageId = if (idElement == null || idElement.isJsonNull) null else idElement.asString
+        signalingHealthMonitor.onSignalingMessage(
+            messageId = messageId,
+            hasResult = message.has("result"),
+            hasError = message.has("error"),
+        )
+        scheduleRecoveryTickIfNeeded()
+    }
+
     /**
      * Extracts the candidate type from an ICE candidate SDP string.
      * Example SDP: "candidate:0 1 UDP 2122252543 192.168.1.1 54321 typ host"
@@ -1764,11 +1879,11 @@ internal class Peer(
         } finally {
             candidateLock.unlock()
         }
-        // Construct the recovery coordinator. The adapter bridges the
-        // coordinator's policy decisions onto this Peer's existing
+        // Construct the signaling health monitor. The adapter bridges the
+        // monitor's policy decisions onto this Peer's existing
         // startIceRenegotiation primitive without duplicating any SDP or
         // socket logic.
-        recoveryCoordinator = RecoveryCoordinator(
+        signalingHealthMonitor = SignalingHealthMonitor(
             callId = callId,
             actions = peerRecoveryActions(),
         )
@@ -1776,12 +1891,12 @@ internal class Peer(
     }
 
     /**
-     * Adapts this [Peer] to the [RecoveryCoordinator.Actions] surface. Every
+     * Adapts this [Peer] to the [SignalingHealthMonitor.Actions] surface. Every
      * call is best-effort: if the underlying peer has been disposed or the
      * call is no longer active, the action is a no-op.
      */
-    private fun peerRecoveryActions(): RecoveryCoordinator.Actions =
-        object : RecoveryCoordinator.Actions {
+    private fun peerRecoveryActions(): SignalingHealthMonitor.Actions =
+        object : SignalingHealthMonitor.Actions {
             override fun isCallActive(): Boolean {
                 if (isDisposed.get()) return false
                 return client.calls[callId]?.callStateFlow?.value?.let {
@@ -1798,35 +1913,22 @@ internal class Peer(
                 } ?: false
             }
 
-            override fun isSignalingHealthy(): Boolean {
-                // iOS PR #380 correlation: treat the socket as healthy when
-                // the client reports it connected. A liveness probe lands in
-                // a follow-up; for now the coordinator's signaling-healthy
-                // branch defaults to same-peer ICE restart.
+            override fun isSignalingAvailable(): Boolean {
                 return client.isSocketConnected()
             }
 
-            override fun startIceRestart() {
+            override fun startIceRestart(generation: Long) {
                 if (isDisposed.get()) return
-                startIceRenegotiation()
+                startRecoveryIceRenegotiation(generation)
             }
 
-            override fun sendProbePing(probeId: String) {
-                // Single ping with a unique id. The actual signaling-health
-                // probe implementation lives in TelnyxClient (parity with
-                // iOS PR #380) and is wired in a follow-up. Until then the
-                // coordinator's probe-timeout path escalates to reattach.
-                Logger.d(
-                    tag = "RecoveryCoordinator",
-                    message = "probe requested probeId=$probeId (no-op until ping primitive lands)",
-                )
+            override fun sendProbePing(probeId: String): Boolean {
+                if (isDisposed.get()) return false
+                return client.sendRecoveryProbe(probeId)
             }
 
             override fun requestReattach() {
-                Logger.w(
-                    tag = "RecoveryCoordinator",
-                    message = "reattach requested (handled by client reconnection path)",
-                )
+                client.requestCallRecoveryReattach()
             }
 
             override fun snapshotForLog(): Map<String, String> {
@@ -1836,20 +1938,27 @@ internal class Peer(
         }
 
     /**
-     * Starts the recovery tick timer if the coordinator is in a watchable
+     * Starts the recovery tick timer if the monitor is in a watchable
      * state. Idempotent and safe to call from any state. The timer drives
-     * the coordinator's onTick() on a steady cadence while recovery is in
-     * flight, and tears itself down when the coordinator returns to IDLE.
+     * the monitor's onTick() on a steady cadence while recovery is in
+     * flight, and tears itself down when the monitor returns to IDLE.
      */
+    @Synchronized
     private fun scheduleRecoveryTickIfNeeded() {
         if (isDisposed.get()) {
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
             return
         }
-        val inWatchableState = recoveryCoordinator.state() != RecoveryCoordinator.State.IDLE
+        val inWatchableState = when (signalingHealthMonitor.state()) {
+            SignalingHealthMonitor.State.PROBING,
+            SignalingHealthMonitor.State.ICE_RESTARTING,
+            SignalingHealthMonitor.State.VERIFYING_MEDIA -> true
+            SignalingHealthMonitor.State.IDLE,
+            SignalingHealthMonitor.State.REATTACHING -> false
+        }
         if (inWatchableState && recoveryTickTimer == null) {
-            // Repeating timer so the coordinator's debounce / restart-timeout /
+            // Repeating timer so the monitor's debounce / restart-timeout /
             // media-verify deadlines elapse without depending on external
             // scheduleRecoveryTickIfNeeded() calls. Cancellation is handled by
             // the !inWatchableState branch below and the isDisposed guard above.
@@ -1858,13 +1967,18 @@ internal class Peer(
                 timerTask {
                     try {
                         if (!isDisposed.get() &&
-                            recoveryCoordinator.state() != RecoveryCoordinator.State.IDLE
+                            signalingHealthMonitor.state() != SignalingHealthMonitor.State.IDLE
                         ) {
-                            recoveryCoordinator.onTick()
+                            signalingHealthMonitor.onTick()
+                            sampleRecoveryInboundRtpIfNeeded()
                         }
+                        // A tick may finish verification or escalate to
+                        // reattach. Re-evaluate here so the repeating Timer
+                        // cannot survive a terminal monitor state.
+                        scheduleRecoveryTickIfNeeded()
                     } catch (e: Exception) {
                         Logger.e(
-                            tag = "RecoveryCoordinator",
+                            tag = "SignalingHealthMonitor",
                             message = "tick error: ${e.message}",
                         )
                     }
@@ -1875,6 +1989,54 @@ internal class Peer(
         } else if (!inWatchableState && recoveryTickTimer != null) {
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
+        }
+    }
+
+    private fun sampleRecoveryInboundRtpIfNeeded() {
+        val now = System.currentTimeMillis()
+        val shouldSample = signalingHealthMonitor.state() == SignalingHealthMonitor.State.VERIFYING_MEDIA &&
+            now - lastRecoveryRtpSampleAtMs >= RECOVERY_RTP_SAMPLE_MS &&
+            recoveryStatsRequestInFlight.compareAndSet(false, true)
+        if (!shouldSample) return
+        lastRecoveryRtpSampleAtMs = now
+
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            recoveryStatsRequestInFlight.set(false)
+        } else {
+            try {
+                connection.getStats { report ->
+                    try {
+                        if (!isDisposed.get()) {
+                            var packetsReceived = 0L
+                            var foundInboundAudio = false
+                            report.statsMap.values.forEach { stat ->
+                                if (stat.type == "inbound-rtp") {
+                                    val kind = stat.members["kind"]?.toString()
+                                        ?: stat.members["mediaType"]?.toString()
+                                    val packets = stat.members["packetsReceived"] as? Number
+                                    if (kind == "audio" && packets != null) {
+                                        packetsReceived += packets.toLong()
+                                        foundInboundAudio = true
+                                    }
+                                }
+                            }
+                            if (foundInboundAudio) {
+                                signalingHealthMonitor.onInboundRtpSample(packetsReceived)
+                            }
+                        }
+                    } finally {
+                        recoveryStatsRequestInFlight.set(false)
+                        scheduleRecoveryTickIfNeeded()
+                    }
+                }
+            } catch (error: RuntimeException) {
+                recoveryStatsRequestInFlight.set(false)
+                Logger.e(
+                    tag = "SignalingHealthMonitor",
+                    message = "Unable to sample inbound RTP: ${error.message}",
+                )
+            }
         }
     }
 }

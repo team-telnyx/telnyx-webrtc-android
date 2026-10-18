@@ -4,7 +4,6 @@
 
 package com.telnyx.webrtc.sdk.peer
 
-import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.lib.PeerConnection
 import java.util.UUID
@@ -12,12 +11,12 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
 /**
- * Per-call ICE-restart and peer-connection recovery coordinator.
+ * Per-call signaling-health and ICE-recovery monitor.
  *
- * The coordinator owns the recovery state machine, debouncing, timers, and
- * one-at-a-time decisions for an active call. It is the smallest extension on
- * top of the existing [Peer.startIceRenegotiation] primitive — it does not
- * create a second signaling path.
+ * Mirrors the iOS `SignalingHealthMonitor` ownership model: this class owns
+ * signaling freshness, probe correlation, recovery state, and deadlines;
+ * [Peer] owns WebRTC renegotiation; and
+ * [com.telnyx.webrtc.sdk.TelnyxClient] owns socket reconnect/reattach.
  *
  * State machine:
  *  - idle:           no failure observed; healthy call.
@@ -32,16 +31,16 @@ import kotlin.random.Random
  *                    socket-driven reattach. Performed at most once per
  *                    recovery generation.
  *
- * Every public mutator validates the recovery generation before changing state
- * to guard against duplicate or late callbacks firing on a stale generation.
+ * Each recovery attempt owns a generation token. Asynchronous restart
+ * callbacks validate that token before changing state so duplicate or late
+ * callbacks from an older attempt become no-ops.
  *
- * The class is intentionally side-effect-light on construction: it owns timers
- * but does not start them. Call [onIceConnectionChange], [onConnectionChange]
- * (peer-connection), and [onUpdateMediaAnswerApplied] from [Peer] observers to
- * drive the machine. Call [cancel] on DONE, DROPPED, logout, or
- * [com.telnyx.webrtc.sdk.TelnyxClient] disposal to release all resources.
+ * The class is intentionally side-effect-light on construction and does not
+ * create its own thread. [Peer] serializes calls into the synchronized API and
+ * drives [onTick] while a deadline is active. Call [cancel] on terminal call
+ * states or disposal to release the active recovery generation.
  */
-internal class RecoveryCoordinator(
+internal class SignalingHealthMonitor(
     private val callId: UUID,
     private val config: Config = Config(),
     private val clock: () -> Long = System::currentTimeMillis,
@@ -50,20 +49,23 @@ internal class RecoveryCoordinator(
 ) {
 
     /**
-     * Tunable timing constants. Defaults match the plan:
+     * Tunable timing constants. Defaults match iOS:
      *  - 3 second disconnected debounce window
      *  - 15 second restart timeout
      *  - 5 second media verification window
+     *  - signaling is recent for 3 seconds inbound / 45 seconds confirmed outbound
      */
     data class Config(
         val disconnectedDebounceMs: Long = 3_000L,
         val restartTimeoutMs: Long = 15_000L,
         val mediaVerifyWindowMs: Long = 5_000L,
         val pingTimeoutMs: Long = 5_000L,
+        val recentInboundActivityMs: Long = 3_000L,
+        val confirmedOutboundActivityMs: Long = 45_000L,
     )
 
     /**
-     * Side-effect surface. The coordinator invokes these hooks to drive the
+     * Side-effect surface. The monitor invokes these hooks to drive the
      * existing ICE-renegotiation and socket-health primitives without owning
      * the peer connection or socket directly.
      */
@@ -72,12 +74,12 @@ internal class RecoveryCoordinator(
         fun isCallActive(): Boolean
         /** True if the peer has already reached CONNECTED/COMPLETED. */
         fun isPeerConnectedOrCompleted(): Boolean
-        /** True if the signaling socket is recent/healthy. */
-        fun isSignalingHealthy(): Boolean
+        /** True when the signaling socket is currently available. */
+        fun isSignalingAvailable(): Boolean
         /** Trigger a same-peer ICE restart on the underlying [Peer]. */
-        fun startIceRestart()
+        fun startIceRestart(generation: Long)
         /** Issue a single signaling-health ping with the given unique id. */
-        fun sendProbePing(probeId: String)
+        fun sendProbePing(probeId: String): Boolean
         /** Notify the call that reattach should be initiated by the client. */
         fun requestReattach()
         /** Optional: dump minimal call/generation context for sanitized logs. */
@@ -90,29 +92,35 @@ internal class RecoveryCoordinator(
     private var currentState: State = State.IDLE
     private var restartStartedAtMs: Long = 0L
     private var mediaVerifyStartedAtMs: Long = 0L
+    private var disconnectedStartedAtMs: Long = 0L
     private var probeStartedAtMs: Long = 0L
     private var pendingProbeId: String? = null
     private var reattachPerformed: Boolean = false
     private var lastSeenIceState: PeerConnection.IceConnectionState? = null
+    private var lastInboundRtpPacketCount: Long? = null
+    private var lastInboundSignalingActivityMs: Long = clock()
+    private var lastConfirmedOutboundActivityMs: Long = clock()
 
     /**
      * Public read-only view of the current state. Useful for tests and the
      * surrounding [Peer] to short-circuit operations when recovery is in
      * flight.
      */
+    @Synchronized
     fun state(): State = currentState
 
     /**
-     * Public read-only view of the active generation. Every state transition
-     * bumps the generation; stale callbacks observe a non-matching generation
-     * and become no-ops.
+     * Public read-only view of the active recovery generation. Starting or
+     * cancelling an attempt bumps the generation so stale callbacks become
+     * no-ops.
      */
     fun generation(): Long = generation.get()
 
     /**
      * Observe a peer-connection ICE connection state change. Triggers the
-     * coordinator's debounce/probe/restart decision policy.
+     * monitor's debounce/probe/restart decision policy.
      */
+    @Synchronized
     fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
         if (newState == null) return
         val previous = lastSeenIceState
@@ -143,20 +151,27 @@ internal class RecoveryCoordinator(
      * detect `FAILED` peer-connection state on top of the ICE connection
      * state.
      */
+    @Synchronized
     fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
         if (newState == null) return
-        if (newState == PeerConnection.PeerConnectionState.FAILED) {
-            onFailureObserved(
+        when (newState) {
+            PeerConnection.PeerConnectionState.FAILED -> onFailureObserved(
                 trigger = "peer_connection_failed",
             )
+            PeerConnection.PeerConnectionState.DISCONNECTED -> onDisconnectedObserved()
+            PeerConnection.PeerConnectionState.CONNECTED -> onRecoveredObserved(
+                PeerConnection.IceConnectionState.CONNECTED,
+            )
+            else -> Unit
         }
     }
 
     /**
-     * Notify the coordinator that the remote updateMedia answer SDP has been
+     * Notify the monitor that the remote updateMedia answer SDP has been
      * applied. Moves the machine out of ICE_RESTARTING into VERIFYING_MEDIA
      * with a bounded 5 second window.
      */
+    @Synchronized
     fun onUpdateMediaAnswerApplied(generationAtSend: Long) {
         if (generationAtSend != generation.get() || currentState != State.ICE_RESTARTING) return
         if (!actions.isCallActive()) {
@@ -165,6 +180,24 @@ internal class RecoveryCoordinator(
         }
         transitionTo(State.VERIFYING_MEDIA, "answer_applied")
         mediaVerifyStartedAtMs = clock()
+        // The SDP answer only proves signaling recovered. Discard any packet
+        // count from the old transport and require growth sampled after the
+        // answer, matching iOS SignalingHealthMonitor behavior.
+        lastInboundRtpPacketCount = null
+    }
+
+    /**
+     * Notify the monitor that creating, sending, or applying the ICE
+     * restart failed. A failure from an old recovery generation is ignored.
+     */
+    @Synchronized
+    fun onIceRestartFailed(generationAtSend: Long, reason: String) {
+        if (generationAtSend != generation.get() || currentState != State.ICE_RESTARTING) return
+        Logger.e(
+            tag = TAG,
+            message = logLine("restart_failed", "reason" to reason),
+        )
+        performReattachOnce(reason = "restart_failed")
     }
 
     /**
@@ -172,25 +205,51 @@ internal class RecoveryCoordinator(
      * No-op outside VERIFYING_MEDIA. Treats the recovery as successful on
      * first valid report.
      */
+    @Synchronized
     fun onInboundRtpGrowth(generationAtSend: Long) {
         if (generationAtSend != generation.get()) return
         if (currentState != State.VERIFYING_MEDIA) return
-        transitionTo(State.IDLE, "media_verified")
-        Logger.i(
-            tag = TAG,
-            message = logLine(
-                "media_verified",
-                "durationMs" to (clock() - mediaVerifyStartedAtMs).toString(),
-            ),
-        )
+        finishMediaVerification()
     }
 
     /**
-     * Observe a probe ping response. Only the exact probe id resolves the
-     * probe; unrelated inbound frames update liveness but do not resolve the
-     * pending probe.
+     * Receives the inbound audio RTP packet counter from WebRTC stats. The
+     * first post-answer sample establishes a baseline; only later growth
+     * proves that the restarted transport is carrying media.
      */
-    fun onProbeResult(probeId: String, success: Boolean) {
+    @Synchronized
+    fun onInboundRtpSample(packetsReceived: Long) {
+        if (currentState != State.VERIFYING_MEDIA) return
+        val previous = lastInboundRtpPacketCount
+        lastInboundRtpPacketCount = packetsReceived
+        if (previous != null && packetsReceived > previous) {
+            finishMediaVerification()
+        }
+    }
+
+    /**
+     * Records every inbound signaling frame. Any JSON-RPC response confirms
+     * bidirectional signaling activity, but only the exact pending probe id
+     * resolves a recovery probe. An error response still proves the signaling
+     * path is alive, matching iOS behavior.
+     */
+    @Synchronized
+    fun onSignalingMessage(messageId: String?, hasResult: Boolean, hasError: Boolean) {
+        val now = clock()
+        lastInboundSignalingActivityMs = now
+        if (!hasResult && !hasError) return
+
+        lastConfirmedOutboundActivityMs = now
+        if (messageId != null) {
+            onProbeResponse(probeId = messageId)
+        }
+    }
+
+    /**
+     * Only the exact probe id resolves the probe; unrelated inbound frames
+     * update liveness but do not resolve the pending probe.
+     */
+    private fun onProbeResponse(probeId: String) {
         if (currentState != State.PROBING) return
         if (pendingProbeId == null || pendingProbeId != probeId) {
             Logger.d(
@@ -204,24 +263,21 @@ internal class RecoveryCoordinator(
             return
         }
         pendingProbeId = null
-        if (success) {
-            transitionTo(State.ICE_RESTARTING, "probe_succeeded")
-            restartStartedAtMs = clock()
-            if (actions.isCallActive() && !actions.isPeerConnectedOrCompleted()) {
-                actions.startIceRestart()
-            } else {
-                cancelInternal(reason = "preconditions_failed_post_probe")
-            }
+        transitionTo(State.ICE_RESTARTING, "probe_succeeded")
+        restartStartedAtMs = clock()
+        if (actions.isCallActive() && !actions.isPeerConnectedOrCompleted()) {
+            actions.startIceRestart(generation.get())
         } else {
-            performReattachOnce(reason = "probe_failed")
+            cancelInternal(reason = "preconditions_failed_post_probe")
         }
     }
 
     /**
-     * Cancel the coordinator: stops all timers, clears pending probe, and
+     * Cancel the monitor: stops all timers, clears pending probe, and
      * returns the machine to IDLE. Safe to call from any state, including
      * during a transition.
      */
+    @Synchronized
     fun cancel(reason: String) {
         cancelInternal(reason)
     }
@@ -241,12 +297,16 @@ internal class RecoveryCoordinator(
         when (currentState) {
             State.IDLE -> {
                 bumpGeneration()
-                if (actions.isSignalingHealthy()) {
-                    transitionTo(State.ICE_RESTARTING, "trigger_$trigger")
-                    restartStartedAtMs = clock()
-                    actions.startIceRestart()
-                } else {
-                    startProbe(trigger = trigger)
+                when {
+                    !actions.isSignalingAvailable() -> {
+                        performReattachOnce(reason = "signaling_unavailable")
+                    }
+                    hasRecentSignalingActivity() -> {
+                        transitionTo(State.ICE_RESTARTING, "trigger_$trigger")
+                        restartStartedAtMs = clock()
+                        actions.startIceRestart(generation.get())
+                    }
+                    else -> startProbe(trigger = trigger)
                 }
             }
             State.PROBING, State.ICE_RESTARTING, State.VERIFYING_MEDIA, State.REATTACHING -> {
@@ -269,12 +329,9 @@ internal class RecoveryCoordinator(
         if (!actions.isCallActive()) return
         bumpGeneration()
         transitionTo(State.PROBING, "disconnected_observed")
-        probeStartedAtMs = clock()
-        // The disconnected debounce is implemented as a virtual deadline:
-        // the coordinator checks elapsed time on subsequent state observations
-        // and on timer ticks. We do not own a Timer thread here — instead the
-        // caller (Peer) drives ticks via onTick() from its own dispatcher.
-        scheduleProbeDeadlineCheck()
+        disconnectedStartedAtMs = clock()
+        probeStartedAtMs = 0L
+        // Peer drives the virtual deadline via onTick() from its timer.
     }
 
     private fun onRecoveredObserved(newState: PeerConnection.IceConnectionState) {
@@ -296,22 +353,29 @@ internal class RecoveryCoordinator(
      * disconnected-debounce, restart-timeout, and media-verification
      * deadlines. Cheap to call; only acts when a deadline has elapsed.
      */
+    @Synchronized
     fun onTick() {
         val now = clock()
         when (currentState) {
             State.PROBING -> {
-                if (now - probeStartedAtMs >= config.disconnectedDebounceMs) {
-                    if (actions.isSignalingHealthy()) {
-                        transitionTo(State.ICE_RESTARTING, "debounce_elapsed_signaling_healthy")
-                        restartStartedAtMs = now
-                        actions.startIceRestart()
-                    } else if (pendingProbeId != null) {
-                        if (now - probeStartedAtMs >= config.disconnectedDebounceMs + config.pingTimeoutMs) {
-                            pendingProbeId = null
-                            performReattachOnce(reason = "probe_timeout")
+                if (pendingProbeId != null) {
+                    if (now - probeStartedAtMs >= config.pingTimeoutMs) {
+                        pendingProbeId = null
+                        performReattachOnce(reason = "probe_timeout")
+                    }
+                } else if (disconnectedStartedAtMs == 0L ||
+                    now - disconnectedStartedAtMs >= config.disconnectedDebounceMs
+                ) {
+                    when {
+                        !actions.isSignalingAvailable() -> {
+                            performReattachOnce(reason = "signaling_unavailable")
                         }
-                    } else {
-                        startProbe(trigger = "debounce_elapsed")
+                        hasRecentSignalingActivity() -> {
+                            transitionTo(State.ICE_RESTARTING, "debounce_elapsed_signaling_healthy")
+                            restartStartedAtMs = now
+                            actions.startIceRestart(generation.get())
+                        }
+                        else -> startProbe(trigger = "debounce_elapsed")
                     }
                 }
             }
@@ -348,7 +412,10 @@ internal class RecoveryCoordinator(
             tag = TAG,
             message = logLine("probe_started", "probeId" to probeId),
         )
-        actions.sendProbePing(probeId)
+        if (!actions.sendProbePing(probeId)) {
+            pendingProbeId = null
+            performReattachOnce(reason = "probe_send_failed")
+        }
     }
 
     private fun performReattachOnce(reason: String) {
@@ -364,11 +431,28 @@ internal class RecoveryCoordinator(
         actions.requestReattach()
     }
 
-    private fun scheduleProbeDeadlineCheck() {
-        // No-op stub: the actual deadline is honored via onTick() which the
-        // owner is expected to drive on a steady cadence (e.g., once per
-        // 250ms from the call's coroutine scope). Keeping the timer out of
-        // the coordinator avoids spawning threads per call.
+    private fun finishMediaVerification() {
+        transitionTo(State.IDLE, "media_verified")
+        Logger.i(
+            tag = TAG,
+            message = logLine(
+                "media_verified",
+                "durationMs" to (clock() - mediaVerifyStartedAtMs).toString(),
+            ),
+        )
+        mediaVerifyStartedAtMs = 0L
+        restartStartedAtMs = 0L
+        disconnectedStartedAtMs = 0L
+        probeStartedAtMs = 0L
+        pendingProbeId = null
+        reattachPerformed = false
+        lastInboundRtpPacketCount = null
+    }
+
+    private fun hasRecentSignalingActivity(): Boolean {
+        val now = clock()
+        return now - lastInboundSignalingActivityMs <= config.recentInboundActivityMs &&
+            now - lastConfirmedOutboundActivityMs <= config.confirmedOutboundActivityMs
     }
 
     private fun bumpGeneration() {
@@ -396,7 +480,9 @@ internal class RecoveryCoordinator(
         reattachPerformed = false
         mediaVerifyStartedAtMs = 0L
         restartStartedAtMs = 0L
+        disconnectedStartedAtMs = 0L
         probeStartedAtMs = 0L
+        lastInboundRtpPacketCount = null
         bumpGeneration()
         Logger.i(
             tag = TAG,
@@ -429,7 +515,7 @@ internal class RecoveryCoordinator(
     }
 
     companion object {
-        private const val TAG = "RecoveryCoordinator"
+        private const val TAG = "SignalingHealthMonitor"
         private const val PROBE_ID_PREFIX = "rcv"
         private val PROBE_ID_RANDOM_BOUND: Int = Int.MAX_VALUE
         private const val PROBE_ID_RANDOM_RADIX = 16
