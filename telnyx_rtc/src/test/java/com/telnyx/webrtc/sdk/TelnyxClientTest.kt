@@ -50,6 +50,7 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -1150,10 +1151,9 @@ class TelnyxClientTest : BaseTest() {
 
         assertTrue(client.requestCallRecoveryReattach(forceRelayCandidateForRecovery = true))
 
-        val method = TelnyxClient::class.java.getDeclaredMethod("takeForceRelayForNextRecoveredCall")
-        method.isAccessible = true
-        assertTrue(method.invoke(client) as Boolean)
-        assertFalse(method.invoke(client) as Boolean)
+        val pendingForceRelay = getPrivateField<AtomicBoolean>("forceRelayForNextRecoveredCall")
+        assertTrue(pendingForceRelay.getAndSet(false))
+        assertFalse(pendingForceRelay.get())
     }
 
     @Test

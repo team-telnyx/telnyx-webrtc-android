@@ -47,6 +47,7 @@ import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.timerTask
 
@@ -158,8 +159,7 @@ class TelnyxClient private constructor(
     private var useTrickleIce: Boolean = false
     @Volatile
     private var reconnecting = false
-    @Volatile
-    private var forceRelayForNextRecoveredCall = false
+    private val forceRelayForNextRecoveredCall = AtomicBoolean(false)
 
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
@@ -3660,13 +3660,13 @@ class TelnyxClient private constructor(
                 }
                 reconnecting -> {
                     if (forceRelayCandidateForRecovery) {
-                        forceRelayForNextRecoveredCall = true
+                        forceRelayForNextRecoveredCall.set(true)
                     }
                     Logger.d(message = "Call recovery reattach is already in progress")
                     true
                 }
                 else -> {
-                    forceRelayForNextRecoveredCall = forceRelayCandidateForRecovery
+                    forceRelayForNextRecoveredCall.set(forceRelayCandidateForRecovery)
                     reconnecting = true
                     Logger.w(message = "Starting reconnect/reattach for call recovery")
                     launchReconnectJob()
@@ -3674,13 +3674,6 @@ class TelnyxClient private constructor(
                 }
             }
         }
-
-    @Synchronized
-    private fun takeForceRelayForNextRecoveredCall(): Boolean {
-        val shouldForceRelay = forceRelayForNextRecoveredCall
-        forceRelayForNextRecoveredCall = false
-        return shouldForceRelay
-    }
 
     override fun onRingingReceived(jsonObject: JsonObject) {
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {
@@ -3831,7 +3824,7 @@ class TelnyxClient private constructor(
                 direction = "inbound"
             )
 
-            val forceRelayForRecoveredCall = takeForceRelayForNextRecoveredCall()
+            val forceRelayForRecoveredCall = forceRelayForNextRecoveredCall.getAndSet(false)
             peerConnection = Peer(
                 context,
                 client,
@@ -3983,7 +3976,7 @@ class TelnyxClient private constructor(
         
         // Reset reconnection state
         reconnecting = false
-        forceRelayForNextRecoveredCall = false
+        forceRelayForNextRecoveredCall.set(false)
         reconnectJob?.cancel()
         reconnectJob = null
         reconnectionRetryCounter.set(0)
