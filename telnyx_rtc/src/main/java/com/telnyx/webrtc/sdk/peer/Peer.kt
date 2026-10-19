@@ -35,6 +35,7 @@ import com.telnyx.webrtc.lib.DataChannel
 import com.telnyx.webrtc.lib.DefaultVideoDecoderFactory
 import com.telnyx.webrtc.lib.DefaultVideoEncoderFactory
 import com.telnyx.webrtc.lib.EglBase
+import com.telnyx.webrtc.lib.CandidatePairChangeEvent
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.MediaConstraints
 import com.telnyx.webrtc.lib.MediaStream
@@ -80,6 +81,7 @@ internal class Peer(
             3000L // 3 seconds timeout for end-of-candidates
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
+        private const val ICE_DIAG_TAG = "ICE_DIAG"
 
         // ICE renegotiation delay constants
         private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
@@ -264,7 +266,7 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Logger.d(message = "Start collection of ice servers")
+        Logger.d(tag = ICE_DIAG_TAG, message = "Start collection of ice servers | providedStun=$providedStun | providedTurn=$providedTurn | forceRelay=$forceRelayCandidate | prefetchPool=$iceCandidatePoolSize [${System.currentTimeMillis()}ms]")
 
         // Determine UDP, TCP and TURNS 443 URLs
         // Use predefined constants for default Telnyx servers, derive for custom servers
@@ -436,7 +438,7 @@ internal class Peer(
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
+            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Connection State Change: $newState [${System.currentTimeMillis()}ms]")
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
             newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
@@ -463,12 +465,12 @@ internal class Peer(
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
-            Logger.d(tag = "Observer", message = "ICE Connection Receiving Change: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Connection Receiving Change: $p0 [${System.currentTimeMillis()}ms]")
             peerConnectionObserver?.onIceConnectionReceivingChange(p0)
         }
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
-            Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Gathering State Change: $p0 [${System.currentTimeMillis()}ms]")
 
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
@@ -509,9 +511,9 @@ internal class Peer(
                 )
             }
 
-            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
+            Logger.d(tag = ICE_DIAG_TAG, message = "Event-IceCandidate Generated: $candidate [${System.currentTimeMillis()}ms]")
             candidate?.let {
-                Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
+                Logger.d(tag = ICE_DIAG_TAG, message = "Processing ICE candidate: ${it.serverUrl} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${System.currentTimeMillis()}ms]")
                 if (client.getUseTrickleIce()) {
                     candidateLock.lock()
                     try {
@@ -575,8 +577,15 @@ internal class Peer(
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-            Logger.d(tag = "Observer", message = "ICE Candidates Removed: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Candidates Removed: $p0 [${System.currentTimeMillis()}ms]")
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
+        }
+
+        override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent?) {
+            event?.let {
+                Logger.d(tag = ICE_DIAG_TAG, message = "SELECTED PAIR CHANGED: local=${it.local.serverUrl} remote=${it.remote.serverUrl} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${System.currentTimeMillis()}ms]")
+            }
+            peerConnectionObserver?.onSelectedCandidatePairChanged(event)
         }
 
         override fun onAddStream(p0: MediaStream?) {
@@ -600,7 +609,7 @@ internal class Peer(
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
-            Logger.d(tag = "Observer", message = "Peer Connection State Change: $newState")
+            Logger.d(tag = ICE_DIAG_TAG, message = "Peer Connection State Change: $newState [${System.currentTimeMillis()}ms]")
             peerConnectionObserver?.onConnectionChange(newState)
 
             // Mark benchmark milestone for peer connection state changes
@@ -633,6 +642,8 @@ internal class Peer(
                 iceTransportsType = PeerConnection.IceTransportsType.RELAY
             }
         }
+
+        Logger.d(tag = ICE_DIAG_TAG, message = "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${System.currentTimeMillis()}ms]")
 
         return peerConnectionFactory.createPeerConnection(config, observer)
     }
@@ -964,6 +975,7 @@ internal class Peer(
      * @see [IceCandidate]
      */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
+        Logger.d(tag = ICE_DIAG_TAG, message = "REMOTE ICE candidate added: ${iceCandidate?.serverUrl} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${System.currentTimeMillis()}ms]")
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
