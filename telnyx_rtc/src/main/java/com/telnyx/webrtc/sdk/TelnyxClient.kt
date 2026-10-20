@@ -47,7 +47,6 @@ import com.telnyx.webrtc.lib.SessionDescription
 import com.telnyx.webrtc.sdk.utilities.SdpUtils
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.timerTask
 
@@ -159,7 +158,10 @@ class TelnyxClient private constructor(
     private var useTrickleIce: Boolean = false
     @Volatile
     private var reconnecting = false
-    private val forceRelayForNextRecoveredCall = AtomicBoolean(false)
+    // Signaling call IDs whose recovery reattach must rebuild the peer with
+    // relay-only ICE (a failed direct VPN path). Kept per call so another
+    // call's attach can never consume the override.
+    private val forceRelayRecoveredCallIds: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
@@ -1071,6 +1073,8 @@ class TelnyxClient private constructor(
      */
     internal fun removeFromCalls(callId: UUID) {
         cancelAcceptCallJob(callId)
+        forceRelayRecoveredCallIds.remove(callId)
+        forceRelayRecoveredCallIds.remove(signalingCallId(callId))
         calls.remove(callId)
         appCallIdBySocketCallId.remove(callId)?.let { socketCallIdByAppCallId.remove(it) }
         socketCallIdByAppCallId.remove(callId)?.let { appCallIdBySocketCallId.remove(it) }
@@ -3654,9 +3658,18 @@ class TelnyxClient private constructor(
         return socket.isConnected
     }
 
-    /** Uses the existing socket reconnect/login/attach flow as recovery fallback. */
-    internal fun requestCallRecoveryReattach(forceRelayCandidateForRecovery: Boolean = false): Boolean =
+    /**
+     * Uses the existing socket reconnect/login/attach flow as recovery fallback.
+     *
+     * @param callId the recovering call; a relay-only override is recorded for
+     * this call only and consumed by its own attach.
+     */
+    internal fun requestCallRecoveryReattach(
+        callId: UUID,
+        forceRelayCandidateForRecovery: Boolean = false
+    ): Boolean =
         synchronized(this) {
+            val recoveringCallId = signalingCallId(callId)
             when {
                 isDeclinePushConnection -> {
                     Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
@@ -3668,13 +3681,17 @@ class TelnyxClient private constructor(
                 }
                 reconnecting -> {
                     if (forceRelayCandidateForRecovery) {
-                        forceRelayForNextRecoveredCall.set(true)
+                        forceRelayRecoveredCallIds.add(recoveringCallId)
                     }
                     Logger.d(message = "Call recovery reattach is already in progress")
                     true
                 }
                 else -> {
-                    forceRelayForNextRecoveredCall.set(forceRelayCandidateForRecovery)
+                    if (forceRelayCandidateForRecovery) {
+                        forceRelayRecoveredCallIds.add(recoveringCallId)
+                    } else {
+                        forceRelayRecoveredCallIds.remove(recoveringCallId)
+                    }
                     reconnecting = true
                     Logger.w(message = "Starting reconnect/reattach for call recovery")
                     launchReconnectJob()
@@ -3682,6 +3699,13 @@ class TelnyxClient private constructor(
                 }
             }
         }
+
+    /**
+     * Consume the relay-only override recorded for this call's recovery, if
+     * any. Only the attach for the requesting call receives it.
+     */
+    internal fun consumeRecoveryRelayOverride(callId: UUID): Boolean =
+        forceRelayRecoveredCallIds.remove(callId)
 
     override fun onRingingReceived(jsonObject: JsonObject) {
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {
@@ -3832,7 +3856,7 @@ class TelnyxClient private constructor(
                 direction = "inbound"
             )
 
-            val forceRelayForRecoveredCall = forceRelayForNextRecoveredCall.getAndSet(false)
+            val forceRelayForRecoveredCall = consumeRecoveryRelayOverride(offerCallId)
             peerConnection = Peer(
                 context,
                 client,
@@ -3984,7 +4008,7 @@ class TelnyxClient private constructor(
         
         // Reset reconnection state
         reconnecting = false
-        forceRelayForNextRecoveredCall.set(false)
+        forceRelayRecoveredCallIds.clear()
         reconnectJob?.cancel()
         reconnectJob = null
         reconnectionRetryCounter.set(0)

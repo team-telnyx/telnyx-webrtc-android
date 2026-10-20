@@ -314,10 +314,16 @@ internal class SignalingHealthMonitor(
                 }
             }
             ProbePurpose.HEALTH_CHECK -> {
-                transitionTo(State.IDLE, "health_check_probe_succeeded")
-                disconnectedStartedAtMs = 0L
-                reattachPerformed = false
                 lastSignalingHealthCheckAtMs = clock()
+                reattachPerformed = false
+                if (disconnectedStartedAtMs != 0L) {
+                    // The peer disconnected while this probe was in flight.
+                    // Hand over to the disconnected debounce, still measured
+                    // from the original disconnect, instead of dropping it.
+                    transitionTo(State.PROBING, "health_check_probe_succeeded_disconnect_pending")
+                } else {
+                    transitionTo(State.IDLE, "health_check_probe_succeeded")
+                }
             }
         }
     }
@@ -357,6 +363,7 @@ internal class SignalingHealthMonitor(
                         // its success path so it performs the now-required ICE
                         // restart instead of merely returning to IDLE.
                         shouldEvaluateRelayFallback = true
+                        disconnectedStartedAtMs = 0L
                         pendingProbePurpose = ProbePurpose.MEDIA_RECOVERY
                         Logger.i(
                             tag = TAG,
@@ -398,9 +405,33 @@ internal class SignalingHealthMonitor(
     private fun isDisconnectedDebounceInProgress(): Boolean =
         currentState == State.PROBING && pendingProbeId == null && disconnectedStartedAtMs != 0L
 
+    private fun isHealthCheckProbeInFlight(): Boolean =
+        currentState == State.PROBING &&
+            pendingProbeId != null &&
+            pendingProbePurpose == ProbePurpose.HEALTH_CHECK
+
     private fun onDisconnectedObserved() {
-        if (currentState != State.IDLE) return
         if (!actions.isCallActive()) return
+        when {
+            isHealthCheckProbeInFlight() -> recordDisconnectDuringHealthProbe()
+            currentState == State.IDLE -> startDisconnectedDebounce()
+            else -> Unit
+        }
+    }
+
+    /**
+     * Keep a disconnect seen alongside an in-flight health probe; the probe
+     * outcome decides whether it runs the debounce or reattaches.
+     */
+    private fun recordDisconnectDuringHealthProbe() {
+        if (disconnectedStartedAtMs == 0L) {
+            disconnectedStartedAtMs = clock()
+        }
+        shouldEvaluateRelayFallback = true
+        Logger.i(tag = TAG, message = logLine("disconnected_during_health_probe"))
+    }
+
+    private fun startDisconnectedDebounce() {
         shouldEvaluateRelayFallback = true
         bumpGeneration()
         transitionTo(State.PROBING, "disconnected_observed")
@@ -410,6 +441,17 @@ internal class SignalingHealthMonitor(
     }
 
     private fun onRecoveredObserved(newState: PeerConnection.IceConnectionState) {
+        if (isHealthCheckProbeInFlight() && disconnectedStartedAtMs != 0L) {
+            // The peer reconnected before the health probe settled: the probe
+            // goes back to being a plain signaling health check.
+            disconnectedStartedAtMs = 0L
+            shouldEvaluateRelayFallback = false
+            Logger.i(
+                tag = TAG,
+                message = logLine("disconnected_recovered_during_health_probe", "state" to newState.name),
+            )
+            return
+        }
         if (isDisconnectedDebounceInProgress()) {
             // Debounce window cancelled: peer recovered before escalation.
             Logger.i(

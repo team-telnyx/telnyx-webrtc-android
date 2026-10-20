@@ -1945,7 +1945,7 @@ internal class Peer(
             }
 
             override fun requestReattach(forceRelay: Boolean): Boolean =
-                client.requestCallRecoveryReattach(forceRelay)
+                client.requestCallRecoveryReattach(callId, forceRelay)
 
             override fun snapshotForLog(): Map<String, String> {
                 val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")

@@ -366,6 +366,78 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
+    fun `peer disconnect during a health probe runs the debounce after the probe answers`() {
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+        monitor.onTick()
+        val probeId = pingCalls.single()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+        monitor.onSignalingMessage(messageId = probeId, hasResult = true, hasError = false)
+
+        assertEquals(SignalingHealthMonitor.State.PROBING, monitor.state())
+        assertEquals(0, restartCalls)
+
+        fakeClock.advance(3_000L)
+        monitor.onTick()
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1, restartCalls)
+        assertEquals(1, pingCalls.size)
+    }
+
+    @Test
+    fun `peer reconnect before the deadline cancels recovery deferred by a health probe`() {
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+        monitor.onTick()
+        val probeId = pingCalls.single()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+        monitor.onSignalingMessage(messageId = probeId, hasResult = true, hasError = false)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.CONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
+        fakeClock.advance(3_000L)
+        monitor.onTick()
+        assertEquals(0, restartCalls)
+    }
+
+    @Test
+    fun `peer reconnect while the health probe is in flight keeps it a plain health check`() {
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+        monitor.onTick()
+        val probeId = pingCalls.single()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.CONNECTED)
+        monitor.onSignalingMessage(messageId = probeId, hasResult = true, hasError = false)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
+        fakeClock.advance(3_000L)
+        monitor.onTick()
+        assertEquals(0, restartCalls)
+    }
+
+    @Test
+    fun `health probe timeout with a pending peer disconnect evaluates relay fallback`() {
+        io.mockk.every { actions.shouldForceRelayForRecovery(any()) } answers {
+            firstArg<(Boolean) -> Unit>().invoke(true)
+        }
+        val monitor = newMonitor()
+        fakeClock.advance(20_001L)
+        monitor.onTick()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+        fakeClock.advance(5_000L)
+        monitor.onTick()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertEquals(listOf(true), reattachForceRelay)
+    }
+
+    @Test
     fun `exact probe correlation only resolves matching id`() {
         val monitor = newMonitor()
         makeSignalingStale()
