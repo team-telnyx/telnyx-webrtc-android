@@ -5,6 +5,7 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
+import android.os.SystemClock
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
@@ -82,6 +83,48 @@ internal class Peer(
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
         private const val ICE_DIAG_TAG = "ICE_DIAG"
+
+        /**
+         * Formats an ICE candidate for diagnostic logs with the fields that are
+         * always populated: the candidate type and address parsed from the SDP
+         * candidate line. `serverUrl` is only set for STUN/TURN-derived
+         * candidates (empty for host candidates), so it says nothing about a
+         * direct connection — the SDP-derived summary does.
+         *
+         * Produces e.g. `host 192.168.1.10:50000/udp` or
+         * `srflx 84.x.x.x:50001/udp via stun:stun.l.google.com:19302`.
+         */
+        internal fun describeCandidate(candidate: IceCandidate?): String {
+            if (candidate == null) return "none"
+            val sdpParts = candidate.sdp?.trim()?.split(" ")
+            var type: String? = null
+            var address: String? = null
+            var protocol: String? = null
+            if (sdpParts != null && sdpParts.size >= 8) {
+                // candidate:<foundation> <component-id> <transport> <priority> <ip> <port> typ <type> ...
+                protocol = sdpParts[2]
+                address = "${sdpParts[4]}:${sdpParts[5]}"
+                val typIndex = sdpParts.indexOf("typ")
+                if (typIndex >= 0 && typIndex + 1 < sdpParts.size) {
+                    type = sdpParts[typIndex + 1]
+                }
+            }
+            val summary = buildString {
+                append(type ?: "unknown")
+                append(' ')
+                append(address ?: candidate.sdp ?: "no-address")
+                protocol?.let {
+                    append('/')
+                    append(it.lowercase())
+                }
+                // For STUN/TURN-derived candidates, include which server produced us
+                candidate.serverUrl?.takeIf { it.isNotBlank() }?.let {
+                    append(" via ")
+                    append(it)
+                }
+            }
+            return summary
+        }
 
         // ICE renegotiation delay constants
         private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
@@ -266,7 +309,9 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Logger.d(tag = ICE_DIAG_TAG, message = "Start collection of ice servers | providedStun=$providedStun | providedTurn=$providedTurn | forceRelay=$forceRelayCandidate | prefetchPool=$iceCandidatePoolSize [${System.currentTimeMillis()}ms]")
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "Start collection of ice servers | providedStun=$providedStun | providedTurn=$providedTurn | forceRelay=$forceRelayCandidate | prefetchPool=$iceCandidatePoolSize [${SystemClock.elapsedRealtime()}ms]"
+        })
 
         // Determine UDP, TCP and TURNS 443 URLs
         // Use predefined constants for default Telnyx servers, derive for custom servers
@@ -438,7 +483,9 @@ internal class Peer(
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Connection State Change: $newState [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
+            })
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
             newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
@@ -465,12 +512,16 @@ internal class Peer(
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
-            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Connection Receiving Change: $p0 [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Connection Receiving Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
             peerConnectionObserver?.onIceConnectionReceivingChange(p0)
         }
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Gathering State Change: $p0 [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Gathering State Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
 
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
@@ -511,9 +562,13 @@ internal class Peer(
                 )
             }
 
-            Logger.d(tag = ICE_DIAG_TAG, message = "Event-IceCandidate Generated: $candidate [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "Event-IceCandidate Generated: $candidate [${SystemClock.elapsedRealtime()}ms]"
+            })
             candidate?.let {
-                Logger.d(tag = ICE_DIAG_TAG, message = "Processing ICE candidate: ${it.serverUrl} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${System.currentTimeMillis()}ms]")
+                Logger.d(tag = ICE_DIAG_TAG, message = {
+                    "Processing ICE candidate: ${describeCandidate(it)} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${SystemClock.elapsedRealtime()}ms]"
+                })
                 if (client.getUseTrickleIce()) {
                     candidateLock.lock()
                     try {
@@ -577,15 +632,21 @@ internal class Peer(
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = "ICE Candidates Removed: $p0 [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Candidates Removed: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
         }
 
         override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent?) {
             event?.let {
-                Logger.d(tag = ICE_DIAG_TAG, message = "SELECTED PAIR CHANGED: local=${it.local.serverUrl} remote=${it.remote.serverUrl} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${System.currentTimeMillis()}ms]")
+                Logger.d(tag = ICE_DIAG_TAG, throwable = null, message = {
+                    "SELECTED PAIR CHANGED: local=${describeCandidate(it.local)} remote=${describeCandidate(it.remote)} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${SystemClock.elapsedRealtime()}ms]"
+                })
             }
-            peerConnectionObserver?.onSelectedCandidatePairChanged(event)
+            // No forward to peerConnectionObserver: the internal PeerConnectionObserver
+            // does not override onSelectedCandidatePairChanged, so the call was a
+            // guaranteed no-op. Selected-pair data remains available via these logs.
         }
 
         override fun onAddStream(p0: MediaStream?) {
@@ -609,7 +670,9 @@ internal class Peer(
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = "Peer Connection State Change: $newState [${System.currentTimeMillis()}ms]")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "Peer Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
+            })
             peerConnectionObserver?.onConnectionChange(newState)
 
             // Mark benchmark milestone for peer connection state changes
@@ -643,7 +706,9 @@ internal class Peer(
             }
         }
 
-        Logger.d(tag = ICE_DIAG_TAG, message = "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${System.currentTimeMillis()}ms]")
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${SystemClock.elapsedRealtime()}ms]"
+        })
 
         return peerConnectionFactory.createPeerConnection(config, observer)
     }
@@ -975,7 +1040,9 @@ internal class Peer(
      * @see [IceCandidate]
      */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
-        Logger.d(tag = ICE_DIAG_TAG, message = "REMOTE ICE candidate added: ${iceCandidate?.serverUrl} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${System.currentTimeMillis()}ms]")
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "REMOTE ICE candidate added: ${describeCandidate(iceCandidate)} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${SystemClock.elapsedRealtime()}ms]"
+        })
         peerConnection?.addIceCandidate(iceCandidate)
     }
 

@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.Gson
@@ -563,7 +564,9 @@ class TelnyxClient private constructor(
                     )
                     socket.send(answerBodyMessage)
                     CallTimingBenchmark.mark("answer_sent")
-                    Logger.d(tag = "ICE_DIAG", message = "ANSWER sent via socket for call $callId [${System.currentTimeMillis()}ms]")
+                    Logger.d(tag = "ICE_DIAG", message = {
+                        "ANSWER sent via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
+                    })
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
 
                     // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
@@ -674,7 +677,9 @@ class TelnyxClient private constructor(
                                 )
                                 socket.send(answerBodyMessage)
                                 CallTimingBenchmark.mark("answer_sdp_sent")
-                                Logger.d(tag = "ICE_DIAG", message = "ANSWER sent (non-trickle) via socket for call $callId [${System.currentTimeMillis()}ms]")
+                                Logger.d(tag = "ICE_DIAG", message = {
+                                    "ANSWER sent (non-trickle) via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
+                                })
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
                                 updateCallState(CallState.ACTIVE)
                                 
