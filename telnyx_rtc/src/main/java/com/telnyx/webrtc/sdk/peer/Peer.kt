@@ -83,6 +83,10 @@ internal class Peer(
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
         private const val ICE_DIAG_TAG = "ICE_DIAG"
+        private const val ICE_CANDIDATE_MIN_PARTS = 8
+        private const val ICE_CANDIDATE_TRANSPORT_INDEX = 2
+        private const val ICE_CANDIDATE_ADDRESS_INDEX = 4
+        private const val ICE_CANDIDATE_PORT_INDEX = 5
 
         /**
          * Formats an ICE candidate for diagnostic logs with the fields that are
@@ -100,10 +104,11 @@ internal class Peer(
             var type: String? = null
             var address: String? = null
             var protocol: String? = null
-            if (sdpParts != null && sdpParts.size >= 8) {
+            if (sdpParts != null && sdpParts.size >= ICE_CANDIDATE_MIN_PARTS) {
                 // candidate:<foundation> <component-id> <transport> <priority> <ip> <port> typ <type> ...
-                protocol = sdpParts[2]
-                address = "${sdpParts[4]}:${sdpParts[5]}"
+                protocol = sdpParts[ICE_CANDIDATE_TRANSPORT_INDEX]
+                address =
+                    "${sdpParts[ICE_CANDIDATE_ADDRESS_INDEX]}:${sdpParts[ICE_CANDIDATE_PORT_INDEX]}"
                 val typIndex = sdpParts.indexOf("typ")
                 if (typIndex >= 0 && typIndex + 1 < sdpParts.size) {
                     type = sdpParts[typIndex + 1]
