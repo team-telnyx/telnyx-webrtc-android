@@ -134,6 +134,28 @@ internal class SignalingHealthMonitor(
     fun generation(): Long = generation.get()
 
     /**
+     * Prepare for the client-owned reconnect that follows a network-path
+     * change. This mirrors iOS by preempting any per-peer recovery work and
+     * suppressing VPN relay fallback evaluation for an expected path switch.
+     */
+    @Synchronized
+    fun onNetworkPathDidChange() {
+        if (!actions.isCallActive() || currentState == State.REATTACHING) return
+
+        pendingProbeId = null
+        pendingProbePurpose = null
+        reattachPerformed = true
+        shouldEvaluateRelayFallback = false
+        mediaVerifyStartedAtMs = 0L
+        restartStartedAtMs = 0L
+        disconnectedStartedAtMs = 0L
+        probeStartedAtMs = 0L
+        lastInboundRtpPacketCount = null
+        bumpGeneration()
+        transitionTo(State.REATTACHING, "network_path_changed")
+    }
+
+    /**
      * Observe a peer-connection ICE connection state change. Triggers the
      * monitor's debounce/probe/restart decision policy.
      */

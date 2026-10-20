@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
@@ -1056,6 +1057,7 @@ class TelnyxClientTest : BaseTest() {
         // Writer threads: add/remove entries concurrently.
         repeat(writerCount) {
             val fakeCall = Mockito.mock(Call::class.java)
+            Mockito.`when`(fakeCall.callId).thenReturn(UUID.randomUUID())
             executor.submit {
                 try {
                     latch.await()
@@ -1135,7 +1137,7 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
-    fun `recovery relay override is consumed once by replacement call`() {
+    fun `recovery relay override is retained while reattach is already in progress`() {
         val config = CredentialConfig(
             sipUser = MOCK_USERNAME_TEST,
             sipPassword = MOCK_PASSWORD,
@@ -1152,8 +1154,28 @@ class TelnyxClientTest : BaseTest() {
         assertTrue(client.requestCallRecoveryReattach(forceRelayCandidateForRecovery = true))
 
         val pendingForceRelay = getPrivateField<AtomicBoolean>("forceRelayForNextRecoveredCall")
-        assertTrue(pendingForceRelay.getAndSet(false))
-        assertFalse(pendingForceRelay.get())
+        assertTrue(pendingForceRelay.get())
+    }
+
+    @Test
+    fun `network path change is forwarded to every call peer`() {
+        val firstPeer = mockk<Peer>(relaxed = true)
+        val secondPeer = mockk<Peer>(relaxed = true)
+        val firstCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns firstPeer
+        }
+        val secondCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns secondPeer
+        }
+        client.calls[UUID.randomUUID()] = firstCall
+        client.calls[UUID.randomUUID()] = secondCall
+
+        val method = TelnyxClient::class.java.getDeclaredMethod("notifyCallPeersOfNetworkPathChange")
+        method.isAccessible = true
+        method.invoke(client)
+
+        verify(exactly = 1) { firstPeer.onNetworkPathDidChange() }
+        verify(exactly = 1) { secondPeer.onNetworkPathDidChange() }
     }
 
     @Test

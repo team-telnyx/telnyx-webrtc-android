@@ -2062,6 +2062,13 @@ internal class Peer(
         scheduleRecoveryTickIfNeeded()
     }
 
+    /** Preempts per-peer recovery before the client reconnects for a path change. */
+    internal fun onNetworkPathDidChange() {
+        if (!::signalingHealthMonitor.isInitialized || isDisposed.get()) return
+        signalingHealthMonitor.onNetworkPathDidChange()
+        scheduleRecoveryTickIfNeeded()
+    }
+
     private fun isCallActiveForRecovery(): Boolean =
         client.calls[callId]?.callStateFlow?.value?.let {
             it is CallState.ACTIVE || it is CallState.RENEGOTIATING

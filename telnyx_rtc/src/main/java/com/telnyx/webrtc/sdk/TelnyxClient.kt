@@ -1126,6 +1126,7 @@ class TelnyxClient private constructor(
                     this@TelnyxClient.javaClass.simpleName
                 )
             )
+            notifyCallPeersOfNetworkPathChange()
             reconnecting = true
 
             Handler(Looper.getMainLooper()).postDelayed({
@@ -1149,6 +1150,13 @@ class TelnyxClient private constructor(
                 }
             }, RECONNECT_DELAY)
         }
+    }
+
+    private fun notifyCallPeersOfNetworkPathChange() {
+        calls.values
+            .mapNotNull { it.peerConnection }
+            .toSet()
+            .forEach { it.onNetworkPathDidChange() }
     }
 
     private fun launchReconnectJob(delayMs: Long = 0L) {

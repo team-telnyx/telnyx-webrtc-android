@@ -22,6 +22,7 @@ import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -141,6 +142,17 @@ class IceRenegotiationTest : BaseTest() {
 
         assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, peer.signalingHealthMonitor.state())
         assertEquals(250L, peer.getPrivateField("recoveryTickIntervalMs"))
+    }
+
+    @Test
+    fun `network path change preempts peer recovery and stops recovery timer`() {
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, peer.signalingHealthMonitor.state())
+
+        peer.onNetworkPathDidChange()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, peer.signalingHealthMonitor.state())
+        assertNull(peer.getPrivateField("recoveryTickIntervalMs"))
     }
 
     @Test

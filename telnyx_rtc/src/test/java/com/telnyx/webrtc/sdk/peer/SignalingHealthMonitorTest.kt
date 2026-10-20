@@ -32,6 +32,7 @@ import kotlin.test.assertTrue
  *  - 15s restart timeout escalates to reattach
  *  - peer-level FAILED recovers even while ICE still reports connected
  *  - failed direct VPN paths request a relay-only replacement call
+ *  - network-path changes preempt per-peer recovery for client reattach
  *  - RTP verification success returns the machine to IDLE
  *  - RTP verification timeout escalates to reattach
  *  - terminal-call cancellation cancels all timers/jobs
@@ -525,6 +526,27 @@ class SignalingHealthMonitorTest : BaseTest() {
         monitor.cancel("dropped")
         assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
         assertNotEquals(beforeGen, monitor.generation())
+    }
+
+    @Test
+    fun `network path change preempts recovery for client reattach`() {
+        flags.signalingAvailableValue = true
+        val monitor = newMonitor()
+        monitor.onIceConnectionChange(PeerConnection.IceConnectionState.FAILED)
+        val restartGeneration = monitor.generation()
+
+        monitor.onNetworkPathDidChange()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertNotEquals(restartGeneration, monitor.generation())
+        assertEquals(1, restartCalls)
+        assertEquals(0, reattachCalls)
+
+        monitor.onIceRestartFailed(restartGeneration, "late_failure")
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertEquals(0, reattachCalls)
     }
 
     @Test
