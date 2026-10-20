@@ -1055,6 +1055,7 @@ class TelnyxClientTest : BaseTest() {
         // Writer threads: add/remove entries concurrently.
         repeat(writerCount) {
             val fakeCall = Mockito.mock(Call::class.java)
+            Mockito.`when`(fakeCall.callId).thenReturn(UUID.randomUUID())
             executor.submit {
                 try {
                     latch.await()

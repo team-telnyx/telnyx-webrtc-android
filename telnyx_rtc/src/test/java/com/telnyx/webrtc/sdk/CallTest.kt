@@ -34,6 +34,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -98,6 +100,18 @@ class CallTest : BaseTest() {
                 audioManager
             )
         }
+    }
+
+    @Test
+    fun `trickle ICE changes affect future calls without mutating an existing call`() {
+        client.setUseTrickleIce(true)
+        val existingCall = Call(mockContext, client, socket, "123", audioManager)
+
+        client.setUseTrickleIce(false)
+        val nextCall = Call(mockContext, client, socket, "123", audioManager)
+
+        assertTrue(existingCall.useTrickleIce)
+        assertFalse(nextCall.useTrickleIce)
     }
 
     @Test

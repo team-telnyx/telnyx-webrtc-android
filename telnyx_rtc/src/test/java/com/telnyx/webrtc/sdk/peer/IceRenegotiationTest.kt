@@ -9,9 +9,12 @@ import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
 import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
 import com.telnyx.webrtc.lib.MediaConstraints
+import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
+import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
@@ -46,6 +49,9 @@ class IceRenegotiationTest : BaseTest() {
     @RelaxedMockK
     private lateinit var mockPeerConnection: PeerConnection
 
+    @RelaxedMockK
+    private lateinit var mockSocket: TxSocket
+
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
 
@@ -67,6 +73,7 @@ class IceRenegotiationTest : BaseTest() {
 
         // Setup TelnyxClient methods
         every { mockTelnyxClient.sendUpdateMediaMessage(any(), any()) } just Runs
+        every { mockTelnyxClient.socket } returns mockSocket
 
         // Mock PeerConnection creation and methods
         mockkConstructor(PeerConnection::class)
@@ -85,6 +92,66 @@ class IceRenegotiationTest : BaseTest() {
 
         // Mock the peer connection field
         every { peer.peerConnection } returns mockPeerConnection
+    }
+
+    @Test
+    fun `outbound trickle call keeps its mode when client default changes during gathering`() {
+        val candidate = mockk<IceCandidate>(relaxed = true) {
+            every { sdp } returns "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host"
+            every { sdpMid } returns "audio"
+            every { sdpMLineIndex } returns 0
+            every { serverUrl } returns ""
+        }
+        val tricklePeer = spyk(
+            Peer(
+                context = mockContext,
+                client = mockTelnyxClient,
+                callId = testCallId,
+                useTrickleIce = true,
+                isAnswering = false,
+            )
+        )
+        every { tricklePeer.peerConnection } returns mockPeerConnection
+
+        // Simulate changing the session default while this call is gathering.
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        tricklePeer.peerConnectionObserver?.onIceCandidate(candidate)
+
+        verify {
+            mockSocket.send(
+                match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
+            )
+        }
+        verify(exactly = 0) { mockPeerConnection.addIceCandidate(candidate) }
+    }
+
+    @Test
+    fun `inbound standard call keeps its mode when client default changes during gathering`() {
+        val candidate = mockk<IceCandidate>(relaxed = true) {
+            every { sdp } returns "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host"
+            every { serverUrl } returns "candidate-url"
+        }
+        val candidateCallback = mockk<(String) -> Unit>(relaxed = true)
+        val standardPeer = spyk(
+            Peer(
+                context = mockContext,
+                client = mockTelnyxClient,
+                callId = testCallId,
+                useTrickleIce = false,
+                isAnswering = true,
+                onIceCandidateAdd = candidateCallback,
+            )
+        )
+        every { standardPeer.peerConnection } returns mockPeerConnection
+        every { mockCall.callStateFlow.value } returns CallState.CONNECTING
+
+        // Simulate enabling the default while this inbound call is gathering.
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        standardPeer.peerConnectionObserver?.onIceCandidate(candidate)
+
+        verify { mockPeerConnection.addIceCandidate(candidate) }
+        verify { candidateCallback.invoke("candidate-url") }
+        verify(exactly = 0) { mockSocket.send(any()) }
     }
 
     @Test

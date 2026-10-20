@@ -67,6 +67,7 @@ internal class Peer(
     private val callId: UUID,
     private val prefetchIceCandidate: Boolean = false,
     private val forceRelayCandidate: Boolean = false,
+    private val useTrickleIce: Boolean = client.getUseTrickleIce(),
     private val isAnswering: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
     private val audioConstraints: AudioConstraints? = null
@@ -484,7 +485,7 @@ internal class Peer(
             }
 
             // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
-            if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
+            if (p0 == PeerConnection.IceGatheringState.COMPLETE && useTrickleIce) {
                 sendEndOfCandidates()
                 Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
             }
@@ -512,7 +513,7 @@ internal class Peer(
             Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
             candidate?.let {
                 Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
-                if (client.getUseTrickleIce()) {
+                if (useTrickleIce) {
                     candidateLock.lock()
                     try {
                         if (isAnswering && !answerSent) {
@@ -1124,9 +1125,6 @@ internal class Peer(
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
 
-        // turn off IceTrickle, as it is not required for renegotiation:
-        client.setUseTrickleIce(false)
-
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
         }
@@ -1389,10 +1387,10 @@ internal class Peer(
      * and is sent immediately instead of being queued (and then lost on clear()).
      */
     internal fun flushQueuedCandidatesAfterAnswer() {
-        if (!client.getUseTrickleIce() || !isAnswering) {
+        if (!useTrickleIce || !isAnswering) {
             Logger.d(
                 tag = "CandidateFlush",
-                message = "Not flushing - trickleIce=${client.getUseTrickleIce()}, isAnswering=$isAnswering"
+                message = "Not flushing - trickleIce=$useTrickleIce, isAnswering=$isAnswering"
             )
             return
         }
@@ -1435,7 +1433,7 @@ internal class Peer(
      */
     private fun startEndOfCandidatesTimer() {
         // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
-        if (!client.getUseTrickleIce()) {
+        if (!useTrickleIce) {
             Logger.d(
                 tag = "EndOfCandidatesTimer",
                 message = "Timer not started - Trickle ICE disabled"
@@ -1463,7 +1461,7 @@ internal class Peer(
                 )
 
                 // Send end-of-candidates if not already sent
-                if (!endOfCandidatesSent && client.getUseTrickleIce()) {
+                if (!endOfCandidatesSent && useTrickleIce) {
                     Logger.d(
                         tag = "EndOfCandidatesTimer",
                         message = "Sending end-of-candidates via timer"
