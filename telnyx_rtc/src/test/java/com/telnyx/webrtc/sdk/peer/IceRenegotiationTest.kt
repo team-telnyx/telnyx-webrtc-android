@@ -5,6 +5,7 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
 import com.telnyx.webrtc.lib.MediaConstraints
 import com.telnyx.webrtc.lib.PeerConnection
@@ -47,6 +48,9 @@ class IceRenegotiationTest : BaseTest() {
     @RelaxedMockK
     private lateinit var mockPeerConnectionFactory: PeerConnectionFactory
 
+    @RelaxedMockK
+    private lateinit var mockDebugDataCollector: DebugDataCollector
+
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
 
@@ -70,6 +74,8 @@ class IceRenegotiationTest : BaseTest() {
         // Setup TelnyxClient methods
         every { mockTelnyxClient.sendUpdateMediaMessage(any(), any()) } just Runs
         every { mockTelnyxClient.isSocketConnected() } returns true
+        every { mockTelnyxClient.debugDataCollector } returns mockDebugDataCollector
+        every { mockTelnyxClient.sessid } returns "session-id"
 
         // Capture the actual observer installed by Peer while avoiding native
         // WebRTC/EGL initialization in this local JVM test.
@@ -230,6 +236,18 @@ class IceRenegotiationTest : BaseTest() {
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
         verify { mockCall.updateCallState(CallState.ACTIVE) } // Should reset state on failure
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                callId = testCallId,
+                level = "error",
+                message = "ICE restart offer creation failed",
+                context = match {
+                    it["callId"] == testCallId.toString() &&
+                        it["sessionId"] == "session-id" &&
+                        it["error"] == errorMessage
+                },
+            )
+        }
     }
 
     @Test
@@ -272,6 +290,20 @@ class IceRenegotiationTest : BaseTest() {
         // Assert
         verify { mockPeerConnection.setRemoteDescription(any(), any()) }
         verify { mockCall.updateCallState(CallState.ACTIVE) }
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart Modify response received",
+                any(),
+            )
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart remote SDP applied",
+                any(),
+            )
+        }
     }
 
     @Test
@@ -291,6 +323,14 @@ class IceRenegotiationTest : BaseTest() {
         // Assert
         verify { mockPeerConnection.setRemoteDescription(any(), any()) }
         verify { mockCall.updateCallState(CallState.ACTIVE) } // Should reset state on failure
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                callId = testCallId,
+                level = "error",
+                message = "ICE restart remote SDP apply failed",
+                context = match { it["error"] == errorMessage },
+            )
+        }
     }
 
     @Test
@@ -368,6 +408,35 @@ class IceRenegotiationTest : BaseTest() {
             mockTelnyxClient.sendUpdateMediaMessage(testCallId, "test-sdp-with-candidates")
         }
         verify(timeout = 1_000L) { mockCall.updateCallState(CallState.ACTIVE) }
+        verify(timeout = 1_000L) {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart: initiated",
+                any(),
+            )
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart: sending Modify with new offer SDP",
+                match { it["trickle"] == false },
+            )
+        }
+    }
+
+    @Test
+    fun `empty updateMedia answer is reported without applying SDP`() {
+        peer.handleUpdateMediaResponse("")
+
+        verify(exactly = 0) { mockPeerConnection.setRemoteDescription(any(), any()) }
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "error",
+                "ICE restart Modify response missing SDP",
+                any(),
+            )
+        }
     }
 
     @Test

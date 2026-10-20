@@ -1279,9 +1279,15 @@ internal class Peer(
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
 
         if (isDisposed.get() || peerConnection == null) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart failed - missing required parameters",
+            )
             notifyIceRestartFailure(recoveryGeneration, "peer_unavailable")
             return
         }
+
+        recordIceRestartEvent(level = "info", message = "ICE restart: initiated")
 
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
@@ -1330,6 +1336,10 @@ internal class Peer(
                                         tag = "ICE_RENEGOTIATION",
                                         message = "Failed to get local description after negotiation"
                                     )
+                                    recordIceRestartEvent(
+                                        level = "error",
+                                        message = "ICE restart failed - no SDP generated",
+                                    )
                                     client.calls[callId]?.updateCallState(CallState.ACTIVE)
                                     notifyIceRestartFailure(recoveryGeneration, "local_sdp_unavailable")
                                 }
@@ -1340,6 +1350,11 @@ internal class Peer(
                             Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Failed to set local description for ICE restart: $error"
+                            )
+                            recordIceRestartEvent(
+                                level = "error",
+                                message = "ICE restart offer creation failed",
+                                context = recoveryErrorContext(error),
                             )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
@@ -1358,18 +1373,34 @@ internal class Peer(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateFailure called in setLocalDescription: $p0"
                             )
+                            recordIceRestartEvent(
+                                level = "error",
+                                message = "ICE restart offer creation failed",
+                                context = recoveryErrorContext(p0),
+                            )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
                             notifyIceRestartFailure(recoveryGeneration, "set_local_description_create_failed")
                         }
                     }, sdp)
-                } ?: notifyIceRestartFailure(recoveryGeneration, "offer_sdp_unavailable")
+                } ?: run {
+                    recordIceRestartEvent(
+                        level = "error",
+                        message = "ICE restart failed - no SDP generated",
+                    )
+                    notifyIceRestartFailure(recoveryGeneration, "offer_sdp_unavailable")
+                }
             }
 
             override fun onCreateFailure(error: String?) {
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to create ICE restart offer: $error"
+                )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart offer creation failed",
+                    context = recoveryErrorContext(error),
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
@@ -1388,6 +1419,11 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetFailure called in createOffer: $p0"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart offer creation failed",
+                    context = recoveryErrorContext(p0),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
                 notifyIceRestartFailure(recoveryGeneration, "create_offer_set_failed")
@@ -1400,6 +1436,13 @@ internal class Peer(
      */
     private fun sendUpdateMediaMessage(sdp: String, recoveryGeneration: Long?) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+
+        val trickle = client.getUseTrickleIce()
+        recordIceRestartEvent(
+            level = "info",
+            message = "ICE restart: sending ${if (trickle) "trickle " else ""}Modify with new offer SDP",
+            context = mapOf("trickle" to trickle),
+        )
 
         // Reset call state back to ACTIVE after sending the updateMedia message
         client.calls[callId]?.updateCallState(CallState.ACTIVE)
@@ -1562,8 +1605,24 @@ internal class Peer(
             return
         }
 
+        if (remoteSdp.isBlank()) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart Modify response missing SDP",
+            )
+            notifyIceRestartFailure(recoveryGeneration, "remote_sdp_unavailable")
+            return
+        }
+
+        recordIceRestartEvent(level = "info", message = "ICE restart Modify response received")
+
         val connection = peerConnection
         if (connection == null || isDisposed.get()) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart remote SDP apply failed",
+                context = recoveryErrorContext("Peer connection unavailable"),
+            )
             notifyIceRestartFailure(recoveryGeneration, "peer_unavailable_for_remote_sdp")
         } else {
             applyRemoteIceRestartDescription(connection, remoteSdp, recoveryGeneration)
@@ -1582,6 +1641,10 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "ICE renegotiation completed successfully"
                 )
+                recordIceRestartEvent(
+                    level = "info",
+                    message = "ICE restart remote SDP applied",
+                )
                 // Ensure call state is reset to ACTIVE on successful completion
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
                 // Signal the recovery monitor that the updateMedia answer
@@ -1598,6 +1661,11 @@ internal class Peer(
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to set remote description for ICE renegotiation: $error"
+                )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart remote SDP apply failed",
+                    context = recoveryErrorContext(error),
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
@@ -1616,12 +1684,37 @@ internal class Peer(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateFailure called in setRemoteDescription: $p0"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart remote SDP apply failed",
+                    context = recoveryErrorContext(p0),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
                 notifyIceRestartFailure(recoveryGeneration, "set_remote_description_create_failed")
             }
         }, remoteSessionDescription)
     }
+
+    /** Mirrors the iOS ICE-restart lifecycle entries in the call-report logs array. */
+    private fun recordIceRestartEvent(
+        level: String,
+        message: String,
+        context: Map<String, Any> = emptyMap(),
+    ) {
+        client.debugDataCollector.addLogEntry(
+            callId = callId,
+            level = level,
+            message = message,
+            context = context + mapOf(
+                "callId" to callId.toString(),
+                "sessionId" to client.sessid,
+            ),
+        )
+    }
+
+    private fun recoveryErrorContext(error: String?): Map<String, Any> =
+        mapOf("error" to (error ?: "Unknown error"))
 
     /**
      * Flushes all queued ICE candidates after ANSWER is sent.
