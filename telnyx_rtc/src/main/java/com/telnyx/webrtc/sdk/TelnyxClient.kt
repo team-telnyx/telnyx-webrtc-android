@@ -431,7 +431,6 @@ class TelnyxClient private constructor(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
-     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
@@ -449,7 +448,6 @@ class TelnyxClient private constructor(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
         mutedMicOnStart: Boolean = false,
         answeredDeviceToken: String? = null
@@ -466,7 +464,6 @@ class TelnyxClient private constructor(
                 destinationNumber = destinationNumber,
                 customHeaders = customHeaders,
                 debug = debug,
-                useTrickleIce = useTrickleIce,
                 audioConstraints = audioConstraints,
                 mutedMicOnStart = mutedMicOnStart,
                 answeredDeviceToken = answeredDeviceToken
@@ -475,12 +472,13 @@ class TelnyxClient private constructor(
 
         val socketPortalDebug = isSocketDebug
 
-        // Set trickle ICE for this call
-        this.useTrickleIce = useTrickleIce
+        // Trickle ICE is session-wide: read the value configured on the client
+        // (set at login via CredentialConfig/TokenConfig, or through setUseTrickleIce()).
+        val acceptUseTrickleIce = useTrickleIce
 
         // Update the per-call tracker's ICE mode since the inbound tracker was
         // started in onOfferReceived with the previous client-level value.
-        latencyTracker.updateIceMode(callId, useTrickleIce)
+        latencyTracker.updateIceMode(callId, acceptUseTrickleIce)
 
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
@@ -814,7 +812,6 @@ class TelnyxClient private constructor(
      *
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
-     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
@@ -850,7 +847,6 @@ class TelnyxClient private constructor(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
-        useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
         mutedMicOnStart: Boolean = false
     ): Call {
@@ -858,11 +854,12 @@ class TelnyxClient private constructor(
         val socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
-        // Set trickle ICE for this call
-        this.useTrickleIce = useTrickleIce
+        // Trickle ICE is session-wide: read the value configured on the client
+        // (set at login via CredentialConfig/TokenConfig, or through setUseTrickleIce()).
+        val inviteUseTrickleIce = useTrickleIce
 
         // Start latency tracking for outbound call
-        latencyTracker.startCallTracking(inviteCallId, isOutbound = true, useTrickleIce = useTrickleIce)
+        latencyTracker.startCallTracking(inviteCallId, isOutbound = true, useTrickleIce = inviteUseTrickleIce)
         
         val inviteCall = Call(
             context = context,
@@ -1317,10 +1314,14 @@ class TelnyxClient private constructor(
     }
 
     /**
-     * Set the flag to indicate whether to use trickle ICE
+     * Set the flag to indicate whether to use trickle ICE.
+     *
+     * This applies session-wide to all subsequent calls made or accepted by this client.
+     * The value is also initialized from [CredentialConfig]/[TokenConfig] at login time.
+     *
      * @param enabled The new value for useTrickleIce
      */
-    internal fun setUseTrickleIce(enabled: Boolean) {
+    fun setUseTrickleIce(enabled: Boolean) {
         this.useTrickleIce = enabled
     }
 
@@ -1939,6 +1940,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2151,6 +2153,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2378,6 +2381,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2449,6 +2453,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -3473,8 +3478,8 @@ class TelnyxClient private constructor(
                         message = "Remote party supports trickle ICE in OFFER"
                     )
                     // Only enable trickle ICE if both parties support it
-                    // Note: We should respect the user's trickle ICE setting
-                    // useTrickleIce is already set by the user in acceptCall
+                    // The session-wide useTrickleIce setter (or login config) controls
+                    // whether the SDK participates in trickle ICE for this session.
                 }
 
                 // Extract ICE parameters from the offer SDP for candidate enhancement

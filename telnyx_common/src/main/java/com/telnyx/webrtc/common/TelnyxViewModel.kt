@@ -330,20 +330,34 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Flag indicating whether trickle ICE should be enabled for new calls.
-     * This preference will be used when making or accepting calls.
+     * Session-wide: applies to every call made or accepted while logged in.
+     * The value is applied to the [com.telnyx.webrtc.sdk.TelnyxClient] session
+     * config at login time and can be changed live via [toggleTrickleIce].
      */
     var useTrickleIce: Boolean = false
         private set
 
     /**
-     * Toggles the trickle ICE setting for new calls.
+     * Toggles the trickle ICE setting for the current session and profile.
      * This method provides a centralized way to control the trickle ICE preference
      * that will be used when making or accepting calls.
      *
+     * The value is persisted in the current profile (so it survives app restarts
+     * and is applied to the login config on subsequent connections), and it is
+     * also applied to the active client session immediately, so it takes effect
+     * for subsequent calls without requiring a reconnect.
+     *
+     * @param context The application context, used to persist the preference.
      * @param enabled True to enable trickle ICE, false to disable it.
      */
-    fun toggleTrickleIce(enabled: Boolean) {
+    fun toggleTrickleIce(context: Context, enabled: Boolean) {
         useTrickleIce = enabled
+        _currentProfile.value?.let { profile ->
+            val updatedProfile = profile.copy(useTrickleIce = enabled)
+            _currentProfile.value = updatedProfile
+            ProfileManager.saveProfile(context, updatedProfile)
+        }
+        TelnyxCommon.getInstance().setSessionTrickleIce(enabled)
         Timber.d("Trickle ICE toggled: $enabled")
     }
 
@@ -616,6 +630,7 @@ class TelnyxViewModel : ViewModel() {
         }
         ProfileManager.getLoggedProfile(context)?.let { profile ->
             _currentProfile.value = profile
+            useTrickleIce = profile.useTrickleIce
             changeServerConfigEnvironment(profile.isDev)
             loadCallHistoryForCurrentProfile()
         }
@@ -844,8 +859,7 @@ class TelnyxViewModel : ViewModel() {
                     "",
                     mapOf(Pair("X-test", "123456")),
                     true,
-                    null,
-                    useTrickleIce
+                    null
                 ).callStateFlow.collect {
                     handlePrecallDiagnosisCallState(it)
                 }
@@ -1058,11 +1072,9 @@ class TelnyxViewModel : ViewModel() {
         destinationNumber: String,
         debug: Boolean,
         preferredCodecs: List<AudioCodec>? = null,
-        trickleIce: Boolean = false,
         audioConstraintsOverride: AudioConstraints? = null
     ) {
 
-        toggleTrickleIce(trickleIce)
         callStateJob?.cancel()
         callStateJob = null
 
@@ -1077,7 +1089,6 @@ class TelnyxViewModel : ViewModel() {
                     mapOf(Pair("X-test", "123456")),
                     debug,
                     preferredCodecs ?: preferredAudioCodecs,
-                    trickleIce,
                     audioConstraintsOverride ?: audioConstraints,
                     mutedMicOnStart,
                     onCallHistoryAdd = { number ->
@@ -1123,7 +1134,6 @@ class TelnyxViewModel : ViewModel() {
                 mapOf(Pair("X-test", "123456")),
                 debug,
                 preferredCodecs,
-                useTrickleIce,
                 audioConstraintsOverride ?: audioConstraints,
                 mutedMicOnStart,
                 onCallHistoryAdd = { number ->
@@ -1230,7 +1240,6 @@ class TelnyxViewModel : ViewModel() {
                     callerIdNumber,
                     mapOf(Pair("X-test", "123456")),
                     debug,
-                    useTrickleIce,
                     audioConstraintsOverride ?: audioConstraints,
                     mutedMicOnStart,
                     onCallHistoryAdd = { number ->

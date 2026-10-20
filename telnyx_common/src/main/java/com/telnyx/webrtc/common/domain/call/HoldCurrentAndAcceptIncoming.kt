@@ -19,15 +19,13 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
      * @param callerIdNumber The destination number to accept the call.
      * @param customeHeaders The custom headers to accept the call.
      * @param debug When true, enables real-time call quality metrics.
-     * @param useTrickleIce When true, enables trickle ICE for faster call setup.
      * @return The accepted incoming call.
      */
     operator fun invoke(
         callId: UUID,
         callerIdNumber: String,
         customeHeaders: Map<String, String>? = null,
-        debug: Boolean,
-        useTrickleIce: Boolean = false
+        debug: Boolean
     ): Call {
         val telnyxCommon = TelnyxCommon.getInstance()
 
@@ -42,7 +40,6 @@ class HoldCurrentAndAcceptIncoming(private val context: Context) {
             callerIdNumber,
             customeHeaders,
             debug,
-            useTrickleIce = useTrickleIce,
             audioConstraints = null  // Use defaults when accepting while holding
         )
     }

@@ -43,6 +43,7 @@ sealed class TelnyxConfig
  * @property fallbackOnRegionFailure whether or not connect to default region if the selected region is not reachable
  * @property forceRelayCandidate whether to force TURN relay for peer connections. Note that this may cause issues with some networks that do not allow TURN connections. Enabling this may affect the quality of calls when devices are on the same local network, as all media will be relayed through TURN servers.
  * @property pushWhenActive whether to request push notifications while the client is active
+ * @property useTrickleIce whether to enable trickle ICE for the whole session (applies to all calls made or accepted by this client). Defaults to false. Trickle ICE sends ICE candidates incrementally as they are discovered, enabling faster call setup. It is opt-in: when disabled, the SDK waits for the full ICE gathering to complete before sending the offer/answer.
  */
 data class CredentialConfig(
     val sipUser: String,
@@ -63,13 +64,15 @@ data class CredentialConfig(
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
     val forceRelayCandidate: Boolean = false,
-    val pushWhenActive: Boolean = false
+    val pushWhenActive: Boolean = false,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
         const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
         const val DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET = false
+        const val DEFAULT_USE_TRICKLE_ICE = false
     }
 }
 
@@ -92,6 +95,7 @@ data class CredentialConfig(
  * @property fallbackOnRegionFailure whether or not connect to default region if the select region is not reachable
  * @property forceRelayCandidate whether to force TURN relay for peer connections. Note that this may cause issues with some networks that do not allow TURN connections. Enabling this may affect the quality of calls when devices are on the same local network, as all media will be relayed through TURN servers.
  * @property pushWhenActive whether to request push notifications while the client is active
+ * @property useTrickleIce whether to enable trickle ICE for the whole session (applies to all calls made or accepted by this client). Defaults to false. Trickle ICE sends ICE candidates incrementally as they are discovered, enabling faster call setup. It is opt-in: when disabled, the SDK waits for the full ICE gathering to complete before sending the offer/answer.
  */
 data class TokenConfig(
     val sipToken: String,
@@ -111,12 +115,14 @@ data class TokenConfig(
     val region: Region = Region.AUTO,
     val fallbackOnRegionFailure: Boolean = true,
     val forceRelayCandidate: Boolean = false,
-    val pushWhenActive: Boolean = false
+    val pushWhenActive: Boolean = false,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
         const val DEFAULT_ENABLE_CALL_QUALITY_REPORTS = false
         const val DEFAULT_CALL_QUALITY_INTERVAL: Long = 5000L
         const val DEFAULT_SEND_WEBRTC_STATS_VIA_SOCKET = false
+        const val DEFAULT_USE_TRICKLE_ICE = false
     }
 }

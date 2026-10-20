@@ -356,11 +356,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
     }
 
     /**
-     * Toggles the trickle ICE setting
+     * Toggles the trickle ICE setting (session-wide, applied at login)
      */
     private fun toggleTrickleIce() {
         val newState = !telnyxViewModel.useTrickleIce
-        telnyxViewModel.toggleTrickleIce(newState)
+        telnyxViewModel.toggleTrickleIce(this, newState)
         val message = if (newState) {
             getString(R.string.enable_trickle_ice)
         } else {
