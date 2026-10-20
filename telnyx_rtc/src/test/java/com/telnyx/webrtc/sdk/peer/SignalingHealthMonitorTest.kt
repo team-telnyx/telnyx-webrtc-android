@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -435,6 +436,46 @@ class SignalingHealthMonitorTest : BaseTest() {
 
         assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
         assertEquals(listOf(true), reattachForceRelay)
+    }
+
+    @Test
+    fun `stalled relay evaluation still requests reattach after its timeout`() {
+        flags.signalingAvailableValue = false
+        io.mockk.every { actions.shouldForceRelayForRecovery(any()) } answers { Unit }
+        val monitor = newMonitor()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
+        assertTrue(monitor.isAwaitingRelayEvaluation())
+        assertEquals(0, reattachCalls)
+
+        fakeClock.advance(999L)
+        monitor.onTick()
+        assertEquals(0, reattachCalls)
+
+        fakeClock.advance(1L)
+        monitor.onTick()
+        assertEquals(1, reattachCalls)
+        assertEquals(listOf(false), reattachForceRelay)
+        assertFalse(monitor.isAwaitingRelayEvaluation())
+    }
+
+    @Test
+    fun `late relay evaluation result does not request a second reattach`() {
+        flags.signalingAvailableValue = false
+        var relayResult: ((Boolean) -> Unit)? = null
+        io.mockk.every { actions.shouldForceRelayForRecovery(any()) } answers {
+            relayResult = firstArg<(Boolean) -> Unit>()
+        }
+        val monitor = newMonitor()
+
+        monitor.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        fakeClock.advance(1_000L)
+        monitor.onTick()
+        relayResult?.invoke(true)
+
+        assertEquals(1, reattachCalls)
+        assertEquals(listOf(false), reattachForceRelay)
     }
 
     @Test

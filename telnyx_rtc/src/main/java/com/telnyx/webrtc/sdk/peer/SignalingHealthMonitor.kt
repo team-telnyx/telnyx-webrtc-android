@@ -68,6 +68,12 @@ internal class SignalingHealthMonitor(
         val confirmedOutboundActivityMs: Long = 45_000L,
         val staleInboundActivityMs: Long = 20_000L,
         val signalingHealthCheckIntervalMs: Long = 3_000L,
+        /**
+         * Upper bound on the selected-candidate stats read that decides a
+         * relay-only replacement call, so a stalled getStats() cannot
+         * prevent the reattach.
+         */
+        val relayEvaluationTimeoutMs: Long = 1_000L,
     )
 
     /**
@@ -112,6 +118,8 @@ internal class SignalingHealthMonitor(
     private var pendingProbeId: String? = null
     private var pendingProbePurpose: ProbePurpose? = null
     private var reattachPerformed: Boolean = false
+    private var reattachRequestPending: Boolean = false
+    private var relayEvaluationStartedAtMs: Long = 0L
     private var shouldEvaluateRelayFallback: Boolean = false
     private var lastSeenIceState: PeerConnection.IceConnectionState? = null
     private var lastInboundRtpPacketCount: Long? = null
@@ -145,6 +153,8 @@ internal class SignalingHealthMonitor(
         pendingProbeId = null
         pendingProbePurpose = null
         reattachPerformed = true
+        reattachRequestPending = false
+        relayEvaluationStartedAtMs = 0L
         shouldEvaluateRelayFallback = false
         mediaVerifyStartedAtMs = 0L
         restartStartedAtMs = 0L
@@ -478,8 +488,32 @@ internal class SignalingHealthMonitor(
             State.PROBING -> tickProbeOrDisconnectedDebounce(now)
             State.ICE_RESTARTING -> tickIceRestart(now)
             State.VERIFYING_MEDIA -> tickMediaVerification(now)
-            State.REATTACHING -> Unit
+            State.REATTACHING -> tickRelayEvaluation(now)
         }
+    }
+
+    /**
+     * True while a reattach is waiting on the relay evaluation stats read;
+     * the owner keeps ticking so its deadline can elapse.
+     */
+    @Synchronized
+    fun isAwaitingRelayEvaluation(): Boolean =
+        currentState == State.REATTACHING && relayEvaluationStartedAtMs != 0L
+
+    private fun tickRelayEvaluation(now: Long) {
+        if (relayEvaluationStartedAtMs == 0L ||
+            now - relayEvaluationStartedAtMs < config.relayEvaluationTimeoutMs
+        ) {
+            return
+        }
+        Logger.w(
+            tag = TAG,
+            message = logLine(
+                "relay_evaluation_timeout",
+                "elapsedMs" to (now - relayEvaluationStartedAtMs).toString(),
+            ),
+        )
+        completeReattachRequest(generation.get(), "relay_evaluation_timeout", forceRelay = false)
     }
 
     private fun tickProbeOrDisconnectedDebounce(now: Long) {
@@ -586,12 +620,14 @@ internal class SignalingHealthMonitor(
         }
 
         reattachPerformed = true
+        reattachRequestPending = true
         val generationAtRequest = generation.get()
         val evaluateRelayFallback = shouldEvaluateRelayFallback
         shouldEvaluateRelayFallback = false
         transitionTo(State.REATTACHING, "reattach_$reason")
 
         if (evaluateRelayFallback) {
+            relayEvaluationStartedAtMs = clock()
             actions.shouldForceRelayForRecovery { forceRelay ->
                 completeReattachRequest(generationAtRequest, reason, forceRelay)
             }
@@ -606,7 +642,16 @@ internal class SignalingHealthMonitor(
         reason: String,
         forceRelay: Boolean,
     ) {
-        if (generationAtRequest != generation.get() || currentState != State.REATTACHING) return
+        // reattachRequestPending makes this one-shot: a relay evaluation that
+        // answers after its timeout cannot request a second reattach.
+        if (generationAtRequest != generation.get() ||
+            currentState != State.REATTACHING ||
+            !reattachRequestPending
+        ) {
+            return
+        }
+        reattachRequestPending = false
+        relayEvaluationStartedAtMs = 0L
 
         if (!actions.requestReattach(forceRelay)) {
             Logger.e(
@@ -668,6 +713,8 @@ internal class SignalingHealthMonitor(
         pendingProbeId = null
         pendingProbePurpose = null
         reattachPerformed = false
+        reattachRequestPending = false
+        relayEvaluationStartedAtMs = 0L
         shouldEvaluateRelayFallback = false
         mediaVerifyStartedAtMs = 0L
         restartStartedAtMs = 0L

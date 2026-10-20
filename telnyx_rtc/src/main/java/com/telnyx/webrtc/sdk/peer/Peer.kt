@@ -1985,6 +1985,20 @@ internal class Peer(
         }
     }
 
+    /** Tick interval for the monitor's current state, or null to stop ticking. */
+    private fun desiredRecoveryTickIntervalMs(): Long? = when (signalingHealthMonitor.state()) {
+        SignalingHealthMonitor.State.PROBING,
+        SignalingHealthMonitor.State.ICE_RESTARTING,
+        SignalingHealthMonitor.State.VERIFYING_MEDIA -> RECOVERY_ACTIVE_TICK_MS
+        SignalingHealthMonitor.State.IDLE -> {
+            if (isCallActiveForRecovery()) RECOVERY_IDLE_TICK_MS else null
+        }
+        SignalingHealthMonitor.State.REATTACHING -> {
+            // Keep ticking only while the relay evaluation deadline runs.
+            if (signalingHealthMonitor.isAwaitingRelayEvaluation()) RECOVERY_ACTIVE_TICK_MS else null
+        }
+    }
+
     /**
      * Starts the recovery tick timer if the monitor is in a watchable
      * state. Idempotent and safe to call from any state. The timer drives
@@ -1999,15 +2013,7 @@ internal class Peer(
             recoveryTickIntervalMs = null
             return
         }
-        val desiredIntervalMs = when (signalingHealthMonitor.state()) {
-            SignalingHealthMonitor.State.PROBING,
-            SignalingHealthMonitor.State.ICE_RESTARTING,
-            SignalingHealthMonitor.State.VERIFYING_MEDIA -> RECOVERY_ACTIVE_TICK_MS
-            SignalingHealthMonitor.State.IDLE -> {
-                if (isCallActiveForRecovery()) RECOVERY_IDLE_TICK_MS else null
-            }
-            SignalingHealthMonitor.State.REATTACHING -> null
-        }
+        val desiredIntervalMs = desiredRecoveryTickIntervalMs()
 
         if (recoveryTickTimer != null && recoveryTickIntervalMs != desiredIntervalMs) {
             recoveryTickTimer?.cancel()
