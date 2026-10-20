@@ -497,7 +497,9 @@ class TelnyxViewModel : ViewModel() {
      * @param profile The user profile to add.
      */
     fun addProfile(context: Context, profile: Profile) {
-        ProfileManager.saveProfile(context, profile.applySelectedEnvironment())
+        ProfileManager.saveProfile(context, profile
+            .applySessionTrickleIce()
+            .applySelectedEnvironment())
         refreshProfileList(context)
     }
 
@@ -638,6 +640,16 @@ class TelnyxViewModel : ViewModel() {
 
     private fun Profile.applySelectedEnvironment(): Profile {
         isDev = serverConfigurationIsDev
+        return this
+    }
+
+    /**
+     * Copies session-wide toggles configured pre-login (e.g. from the overflow
+     * menu) onto the profile that is about to be saved, so they take effect
+     * at login. Mirrors the persistence pattern of forceRelayCandidate.
+     */
+    private fun Profile.applySessionTrickleIce(): Profile {
+        useTrickleIce = this@TelnyxViewModel.useTrickleIce
         return this
     }
 

@@ -161,7 +161,7 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_prefetch_ice_candidates).isVisible = isConnected
-        popupMenu.menu.findItem(R.id.action_trickle_ice).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_trickle_ice).isVisible = !isConnected
         popupMenu.menu.findItem(R.id.action_preferred_codecs).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_audio_constraints).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_mute_on_start).isVisible = isConnected
