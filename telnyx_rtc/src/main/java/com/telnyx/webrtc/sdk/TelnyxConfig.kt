@@ -65,7 +65,7 @@ data class CredentialConfig(
     val fallbackOnRegionFailure: Boolean = true,
     val forceRelayCandidate: Boolean = false,
     val pushWhenActive: Boolean = false,
-    val useTrickleIce: Boolean = false
+    val useTrickleIce: Boolean = DEFAULT_USE_TRICKLE_ICE
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
@@ -116,7 +116,7 @@ data class TokenConfig(
     val fallbackOnRegionFailure: Boolean = true,
     val forceRelayCandidate: Boolean = false,
     val pushWhenActive: Boolean = false,
-    val useTrickleIce: Boolean = false
+    val useTrickleIce: Boolean = DEFAULT_USE_TRICKLE_ICE
 ) : TelnyxConfig() {
     companion object {
         const val DEFAULT_DEBUG = false
