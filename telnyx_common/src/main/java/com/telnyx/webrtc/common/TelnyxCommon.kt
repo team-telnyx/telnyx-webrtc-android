@@ -79,7 +79,7 @@ class TelnyxCommon private constructor() {
         /**
          * SDK identity for traffic emitted from the [TelnyxCommon] wrapper.
          *
-         * The wrapper identifies itself as `android_commons` (the published
+         * The wrapper identifies itself as `webrtc-android-commons` (the published
          * Commons artifact) so Telnyx can distinguish Commons-wrapped traffic
          * from direct core usage on the wire. The version is sourced from
          * [BuildConfig.COMMONS_VERSION], which is tied to the Commons module's
@@ -87,7 +87,7 @@ class TelnyxCommon private constructor() {
          * source tied to publishing/build metadata.
          */
         val commonsSdkIdentity: SdkIdentity = SdkIdentity(
-            name = "android_commons",
+            name = "webrtc-android-commons",
             version = BuildConfig.COMMONS_VERSION,
         )
 
@@ -208,7 +208,7 @@ class TelnyxCommon private constructor() {
      *
      * The client is constructed with the [commonsSdkIdentity] so every
      * outbound verto message emitted via this wrapper carries
-     * `mobile_sdk_name = "android_commons"` and `mobile_sdk_version` matching
+     * `mobile_sdk_name = "webrtc-android-commons"` and `mobile_sdk_version` matching
      * the Commons module's `versionName`.
      *
      * @param context The application context, needed for client initialization.

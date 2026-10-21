@@ -16,7 +16,7 @@ sealed class ParamRequest
  *
  * Emits the legacy `User-Agent` field unchanged (still "Android-<core version>")
  * plus the new `mobile_sdk_name` / `mobile_sdk_version` identity fields. Direct
- * core callers use the defaults (`"android"` + core artifact version); higher
+ * core callers use the defaults (`"webrtc-android"` + core artifact version); higher
  * level wrappers (e.g. `telnyx_common`) pass overridden values via the
  * `mobileSdkName` / `mobileSdkVersion` parameters.
  */
@@ -31,7 +31,7 @@ data class LoginParam(
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
     @SerializedName("mobile_sdk_name")
-    val mobileSdkName: String = "android",
+    val mobileSdkName: String = "webrtc-android",
     @SerializedName("mobile_sdk_version")
     val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
 ) : ParamRequest()
@@ -70,7 +70,7 @@ data class CallParams(
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
     @SerializedName("mobile_sdk_name")
-    val mobileSdkName: String = "android",
+    val mobileSdkName: String = "webrtc-android",
     @SerializedName("mobile_sdk_version")
     val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
     @SerializedName("answered_device_token")
@@ -112,7 +112,7 @@ data class AttachCallParams(
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
     @SerializedName("mobile_sdk_name")
-    val mobileSdkName: String = "android",
+    val mobileSdkName: String = "webrtc-android",
     @SerializedName("mobile_sdk_version")
     val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
 ) : ParamRequest()
@@ -122,6 +122,12 @@ data class AttachUserVariables(
     @SerializedName("push_notification_environment")
     val pushNotificationEnvironment: String = if (BuildConfig.DEBUG) "development" else "production",
     @SerializedName("push_notification_provider")
+    // VSDK-767 AFK review: keep this as the plain platform name. The backend
+    // uses push_notification_provider to select the push channel (FCM vs APNs)
+    // when fan-out is deferred, so this is a routing field, not a telemetry
+    // identity. Every sibling SDK (RN, Flutter, iOS) keeps the plain
+    // platform value; only mobile_sdk_name/mobile_sdk_version are prefixed.
+    // Renaming here risks silent push delivery failures for Android apps.
     val pushNotificationProvider: String = "android",
 )
 
@@ -129,6 +135,7 @@ data class UserVariables(
     @SerializedName("push_device_token")
     val pushDeviceToken: String,
     @SerializedName("push_notification_provider")
+    // See AttachUserVariables above — this is a routing field, not identity.
     val pushNotificationProvider: String = "android",
 )
 

@@ -66,12 +66,12 @@ class TelnyxCommonTest {
     @Test
     fun commonsClientCarriesAndroidCommonsSdkIdentity() {
         // The Commons wrapper must construct a TelnyxClient whose
-        // sdkIdentity matches the Commons artifact (name = "android_commons",
+        // sdkIdentity matches the Commons artifact (name = "webrtc-android-commons",
         // version = BuildConfig.COMMONS_VERSION) so every outbound verto
         // message emitted via the wrapper carries the Commons identity on
         // the wire.
         val client = telnyxCommon.getTelnyxClient(context)
-        assertEquals("android_commons", client.sdkIdentity.name)
+        assertEquals("webrtc-android-commons", client.sdkIdentity.name)
         assertEquals(BuildConfig.COMMONS_VERSION, client.sdkIdentity.version)
         // The companion-level identity constant is the single authoritative
         // source the wrapper uses; the client's identity must equal it.
