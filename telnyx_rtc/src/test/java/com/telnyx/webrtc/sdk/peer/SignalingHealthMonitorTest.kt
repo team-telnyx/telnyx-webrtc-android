@@ -40,24 +40,24 @@ import kotlin.test.assertTrue
  *  - reattach is performed at most once per recovery generation
  *  - late callbacks against a stale generation are dropped
  */
-class SignalingHealthMonitorTest : BaseTest() {
+internal abstract class SignalingHealthMonitorTestBase : BaseTest() {
 
     @RelaxedMockK
-    private lateinit var actions: SignalingHealthMonitor.Actions
+    protected lateinit var actions: SignalingHealthMonitor.Actions
 
-    private val testCallId = UUID.randomUUID()
-    private lateinit var fakeClock: FakeClock
+    protected val testCallId = UUID.randomUUID()
+    protected lateinit var fakeClock: FakeClock
 
     /**
      * Mutable flag holder for the Actions mock surface. MockK doesn't easily
      * model per-test reactivity without stubs, so we drive the relevant
      * booleans through a small holder that the test controls.
      */
-    private lateinit var flags: ActionFlags
-    private var restartCalls = 0
-    private var pingCalls = mutableListOf<String>()
-    private var reattachCalls = 0
-    private var reattachForceRelay = mutableListOf<Boolean>()
+    protected lateinit var flags: ActionFlags
+    protected var restartCalls = 0
+    protected var pingCalls = mutableListOf<String>()
+    protected var reattachCalls = 0
+    protected var reattachForceRelay = mutableListOf<Boolean>()
 
     @Before
     fun setup() {
@@ -95,7 +95,7 @@ class SignalingHealthMonitorTest : BaseTest() {
         fakeClock = FakeClock().also { it.now.set(1_000_000L) }
     }
 
-    private fun newMonitor(
+    protected fun newMonitor(
         cfg: SignalingHealthMonitor.Config = SignalingHealthMonitor.Config(
             disconnectedDebounceMs = 3_000L,
             restartTimeoutMs = 15_000L,
@@ -109,6 +109,37 @@ class SignalingHealthMonitorTest : BaseTest() {
         random = Random(0xC0FFEE),
         actions = actions,
     )
+
+    protected fun makeSignalingStale() {
+        fakeClock.advance(45_001L)
+    }
+
+    protected class ActionFlags {
+        val callActive = AtomicLong(1L)
+        val signalingAvailable = AtomicLong(1L)
+
+        var callActiveValue: Boolean
+            get() = callActive.get() != 0L
+            set(v) { callActive.set(if (v) 1L else 0L) }
+        var signalingAvailableValue: Boolean
+            get() = signalingAvailable.get() != 0L
+            set(v) { signalingAvailable.set(if (v) 1L else 0L) }
+
+        init {
+            callActiveValue = true
+            signalingAvailableValue = true
+        }
+    }
+
+    protected class FakeClock {
+        val now = AtomicLong(0L)
+        fun advance(deltaMs: Long) {
+            now.addAndGet(deltaMs)
+        }
+    }
+}
+
+internal class SignalingHealthMonitorManualRestartTest : SignalingHealthMonitorTestBase() {
 
     @Test
     fun `idle starts in IDLE with generation zero`() {
@@ -145,6 +176,9 @@ class SignalingHealthMonitorTest : BaseTest() {
         assertFalse(busyMonitor.requestIceRestart())
         assertEquals(1, restartCalls)
     }
+}
+
+internal class SignalingHealthMonitorConnectionTest : SignalingHealthMonitorTestBase() {
 
     @Test
     fun `ICE FAILED with healthy signaling immediately triggers ice restart`() {
@@ -377,6 +411,9 @@ class SignalingHealthMonitorTest : BaseTest() {
         assertEquals(SignalingHealthMonitor.State.REATTACHING, monitor.state())
         assertEquals(listOf(true), reattachForceRelay)
     }
+}
+
+internal class SignalingHealthMonitorRecoveryTest : SignalingHealthMonitorTestBase() {
 
     @Test
     fun `FAILED upgrades an in-flight health probe to media recovery`() {
@@ -765,33 +802,5 @@ class SignalingHealthMonitorTest : BaseTest() {
         flags.callActiveValue = false
         monitor.onUpdateMediaAnswerApplied(generationAtSend = gen)
         assertEquals(SignalingHealthMonitor.State.IDLE, monitor.state())
-    }
-
-    private fun makeSignalingStale() {
-        fakeClock.advance(45_001L)
-    }
-
-    private class ActionFlags {
-        val callActive = AtomicLong(1L)
-        val signalingAvailable = AtomicLong(1L)
-
-        var callActiveValue: Boolean
-            get() = callActive.get() != 0L
-            set(v) { callActive.set(if (v) 1L else 0L) }
-        var signalingAvailableValue: Boolean
-            get() = signalingAvailable.get() != 0L
-            set(v) { signalingAvailable.set(if (v) 1L else 0L) }
-
-        init {
-            callActiveValue = true
-            signalingAvailableValue = true
-        }
-    }
-
-    private class FakeClock {
-        val now = AtomicLong(0L)
-        fun advance(deltaMs: Long) {
-            now.addAndGet(deltaMs)
-        }
     }
 }
