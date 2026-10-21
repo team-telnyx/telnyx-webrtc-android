@@ -3612,8 +3612,6 @@ class TelnyxClient private constructor(
                     }
                 }
 
-                peerConnection?.startLocalAudioCapture()
-
                 peerConnection?.onRemoteSessionReceived(
                     SessionDescription(
                         SessionDescription.Type.OFFER,

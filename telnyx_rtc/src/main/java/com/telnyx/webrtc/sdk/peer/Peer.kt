@@ -780,6 +780,14 @@ internal class Peer(
     fun startLocalAudioCapture(constraints: AudioConstraints? = null) {
         Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
 
+        if (localAudioTrack != null) {
+            Logger.d(
+                tag = "Peer:Audio",
+                message = "Local audio capture is already active; reusing the existing track.",
+            )
+            return
+        }
+
         // Use provided constraints, fall back to constructor constraints, or default to all enabled
         val effectiveConstraints = constraints ?: audioConstraints ?: AudioConstraints()
         Logger.d(

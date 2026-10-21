@@ -689,16 +689,33 @@ data class Call(
      * when the call is not active, the signaling socket is disconnected, the
      * peer is unavailable, or another recovery is already in progress.
      */
-    fun iceRestart(): Boolean {
+    fun iceRestart(): Boolean =
+        if (callStateFlow.value !is CallState.ACTIVE) {
+            Logger.w(
+                tag = "Call:IceRestart",
+                message = "ICE restart skipped - call is not active",
+            )
+            false
+        } else {
+            // Reattach replaces the Call/Peer stored by TelnyxClient. Applications can still
+            // temporarily hold the previous Call because its state flow is shared with the
+            // replacement. Route the request to the canonical instance instead of asking the
+            // disposed peer to restart ICE.
+            val activeCall = client.getActiveCalls()[callId]
+            if (activeCall != null && activeCall !== this) {
+                Logger.d(
+                    tag = "Call:IceRestart",
+                    message = "Forwarding ICE restart to the current call instance after reattach",
+                )
+                activeCall.iceRestart()
+            } else {
+                restartIceOnCurrentPeer()
+            }
+        }
+
+    private fun restartIceOnCurrentPeer(): Boolean {
         val peer = peerConnection
         return when {
-            callStateFlow.value !is CallState.ACTIVE -> {
-                Logger.w(
-                    tag = "Call:IceRestart",
-                    message = "ICE restart skipped - call is not active",
-                )
-                false
-            }
             !client.isSocketConnected() -> {
                 Logger.w(
                     tag = "Call:IceRestart",

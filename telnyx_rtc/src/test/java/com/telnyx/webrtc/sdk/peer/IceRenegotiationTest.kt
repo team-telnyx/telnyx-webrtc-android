@@ -7,7 +7,10 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
+import com.telnyx.webrtc.lib.AudioSource
+import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.MediaConstraints
+import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.lib.PeerConnection
 import com.telnyx.webrtc.lib.PeerConnectionFactory
 import com.telnyx.webrtc.lib.SdpObserver
@@ -116,6 +119,27 @@ class IceRenegotiationTest : BaseTest() {
         // Note: Due to Timer usage, we can't directly verify the method call
         // but we can verify the state transition was handled
         verify { mockCall.callStateFlow.value }
+    }
+
+    @Test
+    fun `starting local audio capture twice reuses the existing track`() {
+        val audioSource = mockk<AudioSource>(relaxed = true)
+        val audioTrack = mockk<AudioTrack>(relaxed = true)
+        val localStream = mockk<MediaStream>(relaxed = true)
+        every { mockPeerConnectionFactory.createAudioSource(any()) } returns audioSource
+        every {
+            mockPeerConnectionFactory.createAudioTrack(any(), audioSource)
+        } returns audioTrack
+        every {
+            mockPeerConnectionFactory.createLocalMediaStream(any())
+        } returns localStream
+
+        peer.startLocalAudioCapture()
+        peer.startLocalAudioCapture()
+
+        verify(exactly = 1) { mockPeerConnectionFactory.createAudioSource(any()) }
+        verify(exactly = 1) { mockPeerConnectionFactory.createAudioTrack(any(), audioSource) }
+        verify(exactly = 1) { mockPeerConnection.addTrack(audioTrack) }
     }
 
     @Test

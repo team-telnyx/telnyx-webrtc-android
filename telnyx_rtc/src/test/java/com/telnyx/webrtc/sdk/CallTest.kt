@@ -157,6 +157,29 @@ class CallTest : BaseTest() {
     }
 
     @Test
+    fun `iceRestart forwards a stale call reference to its reattached replacement`() {
+        val callId = UUID.randomUUID()
+        val staleCall = Call(mockContext, client, socket, "123", audioManager)
+        val replacementCall = Call(mockContext, client, socket, "123", audioManager)
+        val stalePeer = mockk<Peer>(relaxed = true)
+        val replacementPeer = mockk<Peer>(relaxed = true)
+        staleCall.callId = callId
+        staleCall.peerConnection = stalePeer
+        staleCall.updateCallState(CallState.ACTIVE)
+        replacementCall.callId = callId
+        replacementCall.peerConnection = replacementPeer
+        replacementCall.updateCallState(CallState.ACTIVE)
+        every { client.getActiveCalls() } returns mapOf(callId to replacementCall)
+        every { client.isSocketConnected() } returns true
+        every { replacementPeer.restartIce() } returns true
+
+        assertTrue(staleCall.iceRestart())
+
+        verify(exactly = 0) { stalePeer.restartIce() }
+        verify(exactly = 1) { replacementPeer.restartIce() }
+    }
+
+    @Test
     fun `test ending call resets our call options`() {
         val newCall = Call(mockContext, client, socket, "123", audioManager)
         newCall.endCall(UUID.randomUUID())
