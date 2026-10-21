@@ -201,6 +201,24 @@ fun HomeScreen(
         }
     }
 
+    // Collect structured errors (VSDK-393) — log to logcat for testing
+    LaunchedEffect(Unit) {
+        telnyxViewModel.structuredError.collectLatest { error ->
+            Timber.e("TelnyxError: code=${error.code} name=${error.name} message=${error.message} fatal=${error.fatal}")
+            Timber.d("TelnyxError causes: ${error.causes}")
+            Timber.d("TelnyxError solutions: ${error.solutions}")
+        }
+    }
+
+    // Collect structured warnings (VSDK-393) — log to logcat for testing
+    LaunchedEffect(Unit) {
+        telnyxViewModel.structuredWarning.collectLatest { warning ->
+            Timber.w("TelnyxWarning: code=${warning.code} name=${warning.name} message=${warning.message}")
+            Timber.d("TelnyxWarning causes: ${warning.causes}")
+            Timber.d("TelnyxWarning solutions: ${warning.solutions}")
+        }
+    }
+
     if (showErrorDialog) {
         AlertDialog(
             onDismissRequest = { showErrorDialog = false },

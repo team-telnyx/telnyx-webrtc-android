@@ -19,6 +19,8 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.model.TelnyxWarningCode
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
@@ -742,6 +744,7 @@ internal class Peer(
                                     tag = "Call",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
+                                client.emitError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
                             }
 
                             override fun onSetSuccess() {
@@ -847,6 +850,7 @@ internal class Peer(
                                     tag = "Answer",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
+                                client.emitError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
                             }
 
                             override fun onSetSuccess() {
@@ -1264,6 +1268,7 @@ internal class Peer(
                 tag = "IceStateTransition",
                 message = "ICE connection failed after disconnect - attempting ICE restart"
             )
+            client.emitWarning(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code) // ICE_CONNECTIVITY_LOST
 
             // Trigger ICE restart to recover from failed state with delay
             Timer().schedule(object : TimerTask() {
@@ -1360,6 +1365,7 @@ internal class Peer(
                 )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                client.emitWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code) // Warning: hold/resume SDP renegotiation failed — call continues on existing SDP
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {

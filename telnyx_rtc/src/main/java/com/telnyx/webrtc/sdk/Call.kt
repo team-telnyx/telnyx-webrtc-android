@@ -17,6 +17,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -199,6 +200,7 @@ data class Call(
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
             mutableCallStateFlow.value = CallState.ERROR
+            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS — null SDP on reattach is a session precondition failure, not an SDP operation failure
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -482,6 +484,10 @@ data class Call(
      */
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
+        client.emitError(
+            TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+            "Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
+        ) // RECONNECTION_EXHAUSTED
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
 
@@ -513,6 +519,7 @@ data class Call(
         if (peerConnection == null) {
             Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
             updateCallState(CallState.ERROR)
+            client.emitError(TelnyxErrorCode.PEER_CLOSED_DURING_INIT.code) // PEER_CLOSED_DURING_INIT
             return
         }
 
@@ -549,6 +556,7 @@ data class Call(
             override fun onCreateFailure(p0: String?) {
                  Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
                  updateCallState(CallState.ERROR)
+                 client.emitError(TelnyxErrorCode.SDP_CREATE_OFFER_FAILED.code) // SDP_CREATE_OFFER_FAILED
             }
         })
     }
@@ -598,6 +606,7 @@ data class Call(
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
             updateCallState(CallState.ERROR)
+            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
         }
     }
 
@@ -655,6 +664,7 @@ data class Call(
                          if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          resetIceCandidateTimer() // Reset timer even on failure
                          updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
+                         client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
                     }
                 } else {
                     Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")

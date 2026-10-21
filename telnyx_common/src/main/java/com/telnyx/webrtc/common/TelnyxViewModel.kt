@@ -45,6 +45,9 @@ import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.TelnyxError
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.model.TelnyxWarning
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQuality
@@ -122,6 +125,13 @@ class TelnyxViewModel : ViewModel() {
      */
     private val _sessionStateError = MutableSharedFlow<String?>()
     val sessionStateError: SharedFlow<String?> = _sessionStateError
+
+    // Structured error/warning flows (VSDK-393 Phase 4)
+    private val _structuredError = MutableSharedFlow<TelnyxError>()
+    val structuredError: SharedFlow<TelnyxError> = _structuredError
+
+    private val _structuredWarning = MutableSharedFlow<TelnyxWarning>()
+    val structuredWarning: SharedFlow<TelnyxWarning> = _structuredWarning
 
     /**
      * State flow for loading state.
@@ -277,6 +287,8 @@ class TelnyxViewModel : ViewModel() {
      * Job for collecting websocket messages.
      */
     private var wsMessagesCollectorJob: Job? = null
+    private var errorCollectorJob: Job? = null
+    private var warningCollectorJob: Job? = null
 
     /**
      * Call history repository for managing call history data.
@@ -535,7 +547,6 @@ class TelnyxViewModel : ViewModel() {
 
         userSessionJob?.cancel()
         userSessionJob = null
-
 
         userSessionJob = viewModelScope.launch {
             // Ensure the token is fetched before proceeding
@@ -861,6 +872,12 @@ class TelnyxViewModel : ViewModel() {
         if (handlingResponses) {
             return
         }
+
+        // Start structured error collection as soon as we receive any socket response
+        // — this ensures auth/transport errors (bad credentials, network issues)
+        // are captured even before login succeeds (VSDK-393)
+        startErrorCollection()
+
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
             SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response)
@@ -906,6 +923,9 @@ class TelnyxViewModel : ViewModel() {
 
         // Start collecting websocket messages
         collectWebsocketMessages()
+
+        // Start collecting structured errors/warnings (VSDK-393 Phase 4)
+        startErrorCollection()
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {
@@ -968,7 +988,10 @@ class TelnyxViewModel : ViewModel() {
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (disconnectedByUser && response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode) {
+        // Check both legacy (-32004) and new (45004) gateway failure codes
+        val isGatewayFailure = response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode ||
+            response.errorCode == TelnyxErrorCode.GATEWAY_FAILED.code
+        if (disconnectedByUser && isGatewayFailure) {
             handleDisconnect()
             disconnectedByUser = false
             return
@@ -1391,6 +1414,31 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Starts collecting structured errors and warnings from TelnyxClient.
+     * Must be called after login (when telnyxClient is non-null) to capture
+     * post-login errors and warnings (VSDK-393). Called from handleLogin().
+     */
+    fun startErrorCollection() {
+        errorCollectorJob?.cancel()
+        errorCollectorJob = viewModelScope.launch {
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.errorFlow?.collect { error ->
+                Timber.w("Structured error: ${error.name} (${error.code}) — fatal=${error.fatal}")
+                _structuredError.emit(error)
+            }
+        }
+
+        warningCollectorJob?.cancel()
+        warningCollectorJob = viewModelScope.launch {
+            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
+            telnyxClient?.warningFlow?.collect { warning ->
+                Timber.w("Structured warning: ${warning.name} (${warning.code})")
+                _structuredWarning.emit(warning)
+            }
+        }
+    }
+
+    /**
      * Clears the websocket messages list.
      */
     fun clearWebsocketMessages() {
@@ -1475,6 +1523,8 @@ class TelnyxViewModel : ViewModel() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
         wsMessagesCollectorJob?.cancel()
+        errorCollectorJob?.cancel()
+        warningCollectorJob?.cancel()
         userSessionJob?.cancel()
         precallDiagnosisCollectorJob?.cancel()
     }
