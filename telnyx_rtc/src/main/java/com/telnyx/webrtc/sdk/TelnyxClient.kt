@@ -3870,14 +3870,21 @@ class TelnyxClient private constructor(
             callId = appCallId(offerCallId)
             signalingCallId = offerCallId
 
-            // Notify debug data collector that a new call has started (push notification reattach)
-            client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
-            client.debugDataCollector.updateCallMetadata(
-                callId = offerCallId,
-                callerNumber = callerNumber,
-                destinationNumber = "",
-                direction = "inbound"
+            // A recovery reattach is still the same call, so retain all previously collected
+            // report data. A cold-start push attach initializes a report here instead.
+            val resumedExistingReport = client.debugDataCollector.onCallReattached(
+                offerCallId,
+                telnyxSessionId,
+                telnyxLegId
             )
+            if (!resumedExistingReport) {
+                client.debugDataCollector.updateCallMetadata(
+                    callId = offerCallId,
+                    callerNumber = callerNumber,
+                    destinationNumber = "",
+                    direction = "inbound"
+                )
+            }
 
             val forceRelayForRecoveredCall = consumeRecoveryRelayOverride(offerCallId)
             peerConnection = Peer(
