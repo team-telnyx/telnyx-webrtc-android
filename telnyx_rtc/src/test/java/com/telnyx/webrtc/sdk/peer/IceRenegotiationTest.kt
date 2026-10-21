@@ -511,6 +511,36 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
+    fun `terminal cancellation suppresses stale trickle restart callback`() {
+        val setLocalDescriptionObserver = startDelayedTrickleRestartWithQueuedCandidate()
+
+        peer.onCallStateChanged(CallState.DONE())
+        peer.disconnect()
+        setLocalDescriptionObserver.onSetSuccess()
+
+        verify(exactly = 0) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        }
+        verify(exactly = 0) { mockTelnyxClient.socket.send(any()) }
+        verify(exactly = 0) { mockCall.updateCallState(CallState.ACTIVE) }
+    }
+
+    @Test
+    fun `network path handoff suppresses stale trickle restart callback`() {
+        val setLocalDescriptionObserver = startDelayedTrickleRestartWithQueuedCandidate()
+
+        peer.onNetworkPathDidChange()
+        setLocalDescriptionObserver.onSetSuccess()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, peer.signalingHealthMonitor.state())
+        verify(exactly = 0) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        }
+        verify(exactly = 0) { mockTelnyxClient.socket.send(any()) }
+        verify(exactly = 0) { mockCall.updateCallState(CallState.ACTIVE) }
+    }
+
+    @Test
     fun `empty updateMedia answer is reported without applying SDP`() {
         peer.handleUpdateMediaResponse("")
 
@@ -615,6 +645,33 @@ class IceRenegotiationTest : BaseTest() {
             "candidateType" to candidateType,
         ),
     )
+
+    private fun startDelayedTrickleRestartWithQueuedCandidate(): SdpObserver {
+        val offer = SessionDescription(SessionDescription.Type.OFFER, "delayed-trickle-sdp")
+        val candidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
+        val setLocalDescriptionObserver = slot<SdpObserver>()
+        val socket = mockk<TxSocket>(relaxed = true)
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        every { mockTelnyxClient.socket } returns socket
+        every { mockCall.sessionId } returns "session-id"
+        every { mockPeerConnection.createOffer(any(), any()) } answers {
+            firstArg<SdpObserver>().onCreateSuccess(offer)
+        }
+        every {
+            mockPeerConnection.setLocalDescription(capture(setLocalDescriptionObserver), offer)
+        } just Runs
+        every { mockPeerConnection.localDescription } returns offer
+
+        assertTrue(peer.restartIce())
+        webRtcObserver.onIceCandidate(candidate)
+        webRtcObserver.onIceGatheringChange(PeerConnection.IceGatheringState.COMPLETE)
+
+        return setLocalDescriptionObserver.captured
+    }
 
     private fun Any.getPrivateField(fieldName: String): Any? {
         val field = Peer::class.java.getDeclaredField(fieldName)

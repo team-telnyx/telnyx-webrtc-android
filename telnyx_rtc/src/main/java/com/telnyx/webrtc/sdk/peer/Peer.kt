@@ -1313,6 +1313,9 @@ internal class Peer(
 
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer success")) {
+                    return
+                }
                 sessionDescription?.let { sdp ->
                     Logger.d(
                         tag = "ICE_RENEGOTIATION",
@@ -1320,6 +1323,13 @@ internal class Peer(
                     )
                     peerConnection?.setLocalDescription(object : SdpObserver {
                         override fun onSetSuccess() {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription success",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.d(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Local description set for ICE restart"
@@ -1374,6 +1384,13 @@ internal class Peer(
                         }
 
                         override fun onSetFailure(error: String?) {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription failure",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Failed to set local description for ICE restart: $error"
@@ -1396,6 +1413,13 @@ internal class Peer(
                         }
 
                         override fun onCreateFailure(p0: String?) {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription create failure",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateFailure called in setLocalDescription: $p0"
@@ -1420,6 +1444,9 @@ internal class Peer(
             }
 
             override fun onCreateFailure(error: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer failure")) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to create ICE restart offer: $error"
@@ -1442,6 +1469,9 @@ internal class Peer(
             }
 
             override fun onSetFailure(p0: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer set failure")) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetFailure called in createOffer: $p0"
@@ -1466,6 +1496,10 @@ internal class Peer(
         recoveryGeneration: Long?,
         trickle: Boolean,
     ) {
+        if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "updateMedia send")) {
+            return
+        }
+
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
 
         recordIceRestartEvent(
@@ -1564,10 +1598,22 @@ internal class Peer(
     }
 
     private fun isCurrentRecoveryGeneration(recoveryGeneration: Long?): Boolean =
-        recoveryGeneration == null ||
-            (!isDisposed.get() &&
-                signalingHealthMonitor.generation() == recoveryGeneration &&
-                signalingHealthMonitor.state() == SignalingHealthMonitor.State.ICE_RESTARTING)
+        !isDisposed.get() &&
+            (recoveryGeneration == null ||
+                (signalingHealthMonitor.generation() == recoveryGeneration &&
+                    signalingHealthMonitor.state() == SignalingHealthMonitor.State.ICE_RESTARTING))
+
+    private fun shouldIgnoreStaleRecoveryCallback(
+        recoveryGeneration: Long?,
+        callback: String,
+    ): Boolean {
+        if (isCurrentRecoveryGeneration(recoveryGeneration)) return false
+        Logger.d(
+            tag = "ICE_RENEGOTIATION",
+            message = "Ignoring $callback for stale recovery generation=$recoveryGeneration",
+        )
+        return true
+    }
 
     private fun notifyIceRestartFailure(recoveryGeneration: Long?, reason: String) {
         prepareIceRestartCandidateDispatch(trickle = false)
@@ -1741,6 +1787,13 @@ internal class Peer(
         val remoteSessionDescription = SessionDescription(SessionDescription.Type.ANSWER, remoteSdp)
         connection.setRemoteDescription(object : SdpObserver {
             override fun onSetSuccess() {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription success",
+                    )
+                ) {
+                    return
+                }
                 Logger.d(
                     tag = "ICE_RENEGOTIATION",
                     message = "ICE renegotiation completed successfully"
@@ -1762,6 +1815,13 @@ internal class Peer(
             }
 
             override fun onSetFailure(error: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription failure",
+                    )
+                ) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to set remote description for ICE renegotiation: $error"
@@ -1784,6 +1844,13 @@ internal class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription create failure",
+                    )
+                ) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateFailure called in setRemoteDescription: $p0"
