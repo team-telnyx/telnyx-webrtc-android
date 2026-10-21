@@ -118,6 +118,35 @@ class SignalingHealthMonitorTest : BaseTest() {
     }
 
     @Test
+    fun `application ICE restart request starts coordinated recovery`() {
+        val monitor = newMonitor()
+
+        assertTrue(monitor.requestIceRestart())
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, monitor.state())
+        assertEquals(1L, monitor.generation())
+        assertEquals(1, restartCalls)
+    }
+
+    @Test
+    fun `application ICE restart request rejects invalid preconditions`() {
+        flags.callActiveValue = false
+        val inactiveMonitor = newMonitor()
+        assertFalse(inactiveMonitor.requestIceRestart())
+
+        flags.callActiveValue = true
+        flags.signalingAvailableValue = false
+        val disconnectedMonitor = newMonitor()
+        assertFalse(disconnectedMonitor.requestIceRestart())
+
+        flags.signalingAvailableValue = true
+        val busyMonitor = newMonitor()
+        assertTrue(busyMonitor.requestIceRestart())
+        assertFalse(busyMonitor.requestIceRestart())
+        assertEquals(1, restartCalls)
+    }
+
+    @Test
     fun `ICE FAILED with healthy signaling immediately triggers ice restart`() {
         flags.signalingAvailableValue = true
         val monitor = newMonitor()

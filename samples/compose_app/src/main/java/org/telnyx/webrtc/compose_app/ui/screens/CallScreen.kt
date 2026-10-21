@@ -354,6 +354,21 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 HomeIconButton(
+                                    Modifier.testTag("restartIce"),
+                                    icon = R.drawable.baseline_refresh_24,
+                                    backGroundColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = Color.Black,
+                                    contentDescription = stringResource(R.string.restart_ice)
+                                ) {
+                                    val message = if (telnyxViewModel.iceRestart()) {
+                                        R.string.ice_restart_started
+                                    } else {
+                                        R.string.ice_restart_unavailable
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+
+                                HomeIconButton(
                                     Modifier.testTag("endCall"),
                                     icon = R.drawable.baseline_call_end_24,
                                     backGroundColor = callRed,

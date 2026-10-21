@@ -1262,14 +1262,6 @@ internal class Peer(
         Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
     }
 
-    /**
-     * Starts ICE renegotiation when ICE connection fails
-     * Creates a new offer with ICE restart enabled
-     */
-    private fun startIceRenegotiation() {
-        startIceRenegotiationInternal(recoveryGeneration = null)
-    }
-
     /** Starts a monitor-owned ICE restart for one recovery generation. */
     private fun startRecoveryIceRenegotiation(recoveryGeneration: Long) {
         startIceRenegotiationInternal(recoveryGeneration)
@@ -1906,12 +1898,20 @@ internal class Peer(
     }
 
     /**
-     * Forces ICE renegotiation for testing purposes.
-     * This method directly calls startIceRenegotiation() to test the renegotiation logic.
+     * Requests an ICE restart through the active-call recovery coordinator.
+     *
+     * @return `true` when the request was accepted, or `false` when the call
+     * is not active, signaling is unavailable, or recovery is already active.
      */
-    fun forceIceRenegotiationForTesting() {
-        Logger.w(tag = "IceRenegotiationTest", message = "Forcing ICE renegotiation for testing")
-        startIceRenegotiation()
+    fun restartIce(): Boolean {
+        val started = signalingHealthMonitor.requestIceRestart()
+        if (started) {
+            Logger.i(tag = "ICE_RENEGOTIATION", message = "Application requested ICE restart")
+            scheduleRecoveryTickIfNeeded()
+        } else {
+            Logger.w(tag = "ICE_RENEGOTIATION", message = "Application ICE restart request was rejected")
+        }
+        return started
     }
 
     /** Forwards every inbound signaling frame to the health monitor. */
@@ -1996,7 +1996,7 @@ internal class Peer(
         }
         // Construct the signaling health monitor. The adapter bridges the
         // monitor's policy decisions onto this Peer's existing
-        // startIceRenegotiation primitive without duplicating any SDP or
+        // startRecoveryIceRenegotiation primitive without duplicating any SDP or
         // socket logic.
         signalingHealthMonitor = SignalingHealthMonitor(
             callId = callId,

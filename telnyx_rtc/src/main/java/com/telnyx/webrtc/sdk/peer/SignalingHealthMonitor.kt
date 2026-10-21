@@ -142,6 +142,37 @@ internal class SignalingHealthMonitor(
     fun generation(): Long = generation.get()
 
     /**
+     * Starts an ICE restart requested explicitly by the application.
+     *
+     * The request uses the same generation tracking, timeout, SDP-answer
+     * handling, media verification, and reattach fallback as an automatic
+     * recovery. It is accepted only for an active call with connected
+     * signaling and no recovery already in progress.
+     *
+     * @return `true` when a restart episode was accepted and started.
+     */
+    @Synchronized
+    fun requestIceRestart(): Boolean {
+        if (!actions.isCallActive() ||
+            !actions.isSignalingAvailable() ||
+            currentState != State.IDLE
+        ) {
+            return false
+        }
+
+        reattachPerformed = false
+        reattachRequestPending = false
+        relayEvaluationStartedAtMs = 0L
+        shouldEvaluateRelayFallback = true
+        lastInboundRtpPacketCount = null
+        bumpGeneration()
+        transitionTo(State.ICE_RESTARTING, "application_requested")
+        restartStartedAtMs = clock()
+        actions.startIceRestart(generation.get())
+        return true
+    }
+
+    /**
      * Prepare for the client-owned reconnect that follows a network-path
      * change. This mirrors iOS by preempting any per-peer recovery work and
      * suppressing VPN relay fallback evaluation for an expected path switch.

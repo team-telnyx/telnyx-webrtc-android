@@ -36,6 +36,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 
 @ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
@@ -111,6 +113,47 @@ class CallTest : BaseTest() {
         newCall.updateCallState(CallState.ACTIVE)
 
         verify { mockPeer.onCallStateChanged(CallState.ACTIVE) }
+    }
+
+    @Test
+    fun `iceRestart starts recovery for active call with connected signaling`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.callId = UUID.randomUUID()
+        newCall.peerConnection = mockPeer
+        newCall.updateCallState(CallState.ACTIVE)
+        every { client.isSocketConnected() } returns true
+        every { mockPeer.restartIce() } returns true
+
+        assertTrue(newCall.iceRestart())
+
+        verify(exactly = 1) { mockPeer.restartIce() }
+    }
+
+    @Test
+    fun `iceRestart rejects a call that is not active`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.peerConnection = mockPeer
+        every { client.isSocketConnected() } returns true
+
+        assertFalse(newCall.iceRestart())
+
+        verify(exactly = 0) { mockPeer.restartIce() }
+    }
+
+    @Test
+    fun `iceRestart rejects disconnected signaling`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.callId = UUID.randomUUID()
+        newCall.peerConnection = mockPeer
+        newCall.updateCallState(CallState.ACTIVE)
+        every { client.isSocketConnected() } returns false
+
+        assertFalse(newCall.iceRestart())
+
+        verify(exactly = 0) { mockPeer.restartIce() }
     }
 
     @Test

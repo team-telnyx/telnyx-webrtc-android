@@ -224,9 +224,21 @@
 
                     <Button
                         style="@style/IconControlButton"
+                        android:id="@+id/restartIce"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:layout_marginEnd="20dp"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:contentDescription="@string/restart_ice"
+                        app:icon="@drawable/baseline_refresh_24"
+                        />
+
+                    <Button
+                        style="@style/IconControlButton"
                         android:id="@+id/endCall"
                         android:layout_width="60dp"
                         android:layout_height="60dp"
+                        android:layout_marginStart="20dp"
                         android:backgroundTint="@color/reject_red"
                         android:contentDescription="@string/fab_transformation_scrim_behavior"
                         app:icon="@drawable/baseline_call_reject_24"

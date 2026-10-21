@@ -1457,19 +1457,18 @@ class TelnyxViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Forces ICE renegotiation for testing purposes.
-     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
-     * 
-     * @return true if the renegotiation was successfully triggered, false otherwise
-     */
-    fun forceIceRenegotiationForTesting(): Boolean {
-        Timber.d("Force ICE renegotiation called from ViewModel")
-        return currentCall?.forceIceRenegotiationForTesting() ?: run {
-            Timber.w("Cannot force ICE renegotiation - no active call")
+    /** Requests an ICE restart for the current active call. */
+    fun iceRestart(): Boolean {
+        Timber.d("ICE restart requested from ViewModel")
+        return currentCall?.iceRestart() ?: run {
+            Timber.w("Cannot restart ICE - no active call")
             false
         }
     }
+
+    /** Compatibility alias for the original demo/test API. */
+    @Deprecated("Use iceRestart() instead", ReplaceWith("iceRestart()"))
+    fun forceIceRenegotiationForTesting(): Boolean = iceRestart()
 
     override fun onCleared() {
         super.onCleared()

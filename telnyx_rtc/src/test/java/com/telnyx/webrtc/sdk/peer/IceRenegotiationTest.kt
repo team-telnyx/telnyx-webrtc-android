@@ -73,6 +73,7 @@ class IceRenegotiationTest : BaseTest() {
 
         // Setup TelnyxClient methods
         every { mockTelnyxClient.sendUpdateMediaMessage(any(), any()) } just Runs
+        every { mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any()) } just Runs
         every { mockTelnyxClient.isSocketConnected() } returns true
         every { mockTelnyxClient.debugDataCollector } returns mockDebugDataCollector
         every { mockTelnyxClient.sessid } returns "session-id"
@@ -195,7 +196,7 @@ class IceRenegotiationTest : BaseTest() {
         every { mockPeerConnection.localDescription } returns mockSessionDescription
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
@@ -209,7 +210,7 @@ class IceRenegotiationTest : BaseTest() {
         every { mockPeerConnection.createOffer(any(), capture(capturedConstraints)) } just Runs
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockPeerConnection.createOffer(any(), any()) }
@@ -231,7 +232,7 @@ class IceRenegotiationTest : BaseTest() {
         }
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
@@ -267,7 +268,7 @@ class IceRenegotiationTest : BaseTest() {
         }
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
@@ -334,11 +335,11 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
-    fun `test forceIceRenegotiationForTesting calls startIceRenegotiation`() {
+    fun `test restartIce starts ICE renegotiation`() {
         every { mockPeerConnection.createOffer(any(), any()) } just Runs
 
         // Act
-        peer.forceIceRenegotiationForTesting()
+        peer.restartIce()
 
         // Assert
         verify { mockPeerConnection.createOffer(any(), any()) }
@@ -400,12 +401,16 @@ class IceRenegotiationTest : BaseTest() {
         every { mockPeerConnection.localDescription } returns mockSessionDescription
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
         verify(timeout = 1_000L) {
-            mockTelnyxClient.sendUpdateMediaMessage(testCallId, "test-sdp-with-candidates")
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-sdp-with-candidates",
+                any(),
+            )
         }
         verify(timeout = 1_000L) { mockCall.updateCallState(CallState.ACTIVE) }
         verify(timeout = 1_000L) {
@@ -472,9 +477,8 @@ class IceRenegotiationTest : BaseTest() {
         peer.peerConnection = null
 
         // Act & Assert - should not throw exception
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         peer.handleUpdateMediaResponse("test-sdp")
-        peer.forceIceRenegotiationForTesting()
     }
 
     @Test
@@ -487,11 +491,12 @@ class IceRenegotiationTest : BaseTest() {
             observer.onCreateFailure("Create offer failed")
         }
 
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         verify { mockCall.updateCallState(CallState.ACTIVE) }
 
         // Reset mocks
-        clearMocks(mockCall)
+        clearMocks(mockCall, answers = false)
+        peer.signalingHealthMonitor.cancel("test-reset")
 
         // Scenario 2: setLocalDescription fails
         val mockSessionDescription = SessionDescription(SessionDescription.Type.OFFER, "test-sdp")
@@ -506,7 +511,7 @@ class IceRenegotiationTest : BaseTest() {
             observer.onSetFailure("Set local description failed")
         }
 
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
         verify { mockCall.updateCallState(CallState.ACTIVE) }
     }
@@ -529,15 +534,6 @@ class IceRenegotiationTest : BaseTest() {
             "candidateType" to candidateType,
         ),
     )
-
-    /**
-     * Helper extension function to invoke private methods for testing
-     */
-    private fun Any.invokePrivate(methodName: String, vararg args: Any?): Any? {
-        val method = this::class.java.getDeclaredMethod(methodName, *args.map { it?.javaClass ?: Any::class.java }.toTypedArray())
-        method.isAccessible = true
-        return method.invoke(this, *args)
-    }
 
     private fun Any.getPrivateField(fieldName: String): Any? {
         val field = Peer::class.java.getDeclaredField(fieldName)
