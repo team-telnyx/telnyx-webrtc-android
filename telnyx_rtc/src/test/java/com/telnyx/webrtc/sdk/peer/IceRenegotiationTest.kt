@@ -5,8 +5,11 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
 import com.telnyx.webrtc.lib.AudioSource
 import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.MediaConstraints
@@ -75,9 +78,12 @@ class IceRenegotiationTest : BaseTest() {
         every { mockCall.updateCallState(any()) } just Runs
 
         // Setup TelnyxClient methods
-        every { mockTelnyxClient.sendUpdateMediaMessage(any(), any()) } just Runs
-        every { mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any()) } just Runs
+        every { mockTelnyxClient.sendUpdateMediaMessage(any(), any(), any()) } just Runs
+        every {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        } just Runs
         every { mockTelnyxClient.isSocketConnected() } returns true
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
         every { mockTelnyxClient.debugDataCollector } returns mockDebugDataCollector
         every { mockTelnyxClient.sessid } returns "session-id"
 
@@ -434,6 +440,7 @@ class IceRenegotiationTest : BaseTest() {
                 testCallId,
                 "test-sdp-with-candidates",
                 any(),
+                null,
             )
         }
         verify(timeout = 1_000L) { mockCall.updateCallState(CallState.ACTIVE) }
@@ -451,6 +458,56 @@ class IceRenegotiationTest : BaseTest() {
                 match { it["trickle"] == false },
             )
         }
+    }
+
+    @Test
+    fun `trickle ICE restart sends updateMedia immediately with trickle enabled`() {
+        val mockSessionDescription = SessionDescription(
+            SessionDescription.Type.OFFER,
+            "test-trickle-restart-sdp",
+        )
+        val restartCandidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
+        val mockSocket = mockk<TxSocket>(relaxed = true)
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        every { mockTelnyxClient.socket } returns mockSocket
+        every { mockCall.sessionId } returns "session-id"
+        every { mockPeerConnection.createOffer(any(), any()) } answers {
+            firstArg<SdpObserver>().onCreateSuccess(mockSessionDescription)
+        }
+        every { mockPeerConnection.setLocalDescription(any(), any()) } answers {
+            // libwebrtc may emit a candidate before setLocalDescription completes.
+            // The restart path must keep it behind the updateMedia offer.
+            webRtcObserver.onIceCandidate(restartCandidate)
+            firstArg<SdpObserver>().onSetSuccess()
+        }
+        every { mockPeerConnection.localDescription } returns mockSessionDescription
+
+        peer.restartIce()
+
+        verify(timeout = 1_000L) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-trickle-restart-sdp",
+                any(),
+                true,
+            )
+        }
+        verifyOrder {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-trickle-restart-sdp",
+                any(),
+                true,
+            )
+            mockSocket.send(match<SendingMessageBody> {
+                it.method == SocketMethod.CANDIDATE.methodName
+            })
+        }
+        verify(exactly = 0) { mockTelnyxClient.setUseTrickleIce(false) }
     }
 
     @Test

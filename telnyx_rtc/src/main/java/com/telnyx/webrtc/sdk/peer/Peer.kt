@@ -303,6 +303,13 @@ internal class Peer(
     private val queuedCandidates = mutableListOf<IceCandidate>()
     private var answerSent = false
 
+    // A trickle ICE restart must send its updateMedia offer before any new
+    // generation candidates. WebRTC can emit candidates immediately after
+    // setLocalDescription(), so hold them until the Modify is on the socket.
+    private val queuedIceRestartCandidates = mutableListOf<IceCandidate>()
+    private var iceRestartModifyPending = false
+    private var iceRestartEndOfCandidatesPending = false
+
     // End-of-candidates timer management
     private var endOfCandidatesTimer: Timer? = null
     private var endOfCandidatesSent = false
@@ -588,10 +595,11 @@ internal class Peer(
                 milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
             }
 
-            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
+            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled.
+            // During a restart it must follow the updateMedia offer, just like
+            // the individual candidates.
             if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
-                sendEndOfCandidates()
-                Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+                sendOrQueueIceRestartEndOfCandidates()
             }
 
             peerConnectionObserver?.onIceGatheringChange(p0)
@@ -622,9 +630,16 @@ internal class Peer(
                     "Processing ICE candidate: ${describeCandidate(it)} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${SystemClock.elapsedRealtime()}ms]"
                 })
                 if (client.getUseTrickleIce()) {
+                    var sendImmediately = false
                     candidateLock.lock()
                     try {
-                        if (isAnswering && !answerSent) {
+                        if (iceRestartModifyPending) {
+                            queuedIceRestartCandidates.add(it)
+                            Logger.d(
+                                tag = "Observer",
+                                message = "ICE restart candidate queued until updateMedia is sent: $it",
+                            )
+                        } else if (isAnswering && !answerSent) {
                             // Answering side: Queue candidate until ANSWER is sent
                             queuedCandidates.add(it)
                             Logger.d(
@@ -632,23 +647,20 @@ internal class Peer(
                                 message = "ICE candidate queued for answering side (ANSWER not sent yet): $it"
                             )
                         } else {
-                            // Calling side OR answering side after ANSWER sent: Send immediately
-                            // Release lock before sending to avoid holding it during network I/O
-                            candidateLock.unlock()
-                            sendIceCandidate(it)
-                            Logger.d(
-                                tag = "Observer",
-                                message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
-                            )
-                            // Start/restart the end-of-candidates timer when sending candidates
-                            startEndOfCandidatesTimer()
-                            // Re-acquire lock so the finally block can unlock cleanly
-                            candidateLock.lock()
+                            sendImmediately = true
                         }
                     } finally {
-                        if (candidateLock.isHeldByCurrentThread) {
-                            candidateLock.unlock()
-                        }
+                        candidateLock.unlock()
+                    }
+
+                    if (sendImmediately) {
+                        sendIceCandidate(it)
+                        Logger.d(
+                            tag = "Observer",
+                            message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
+                        )
+                        // Start/restart the end-of-candidates timer when sending candidates
+                        startEndOfCandidatesTimer()
                     }
 
                     // Notify debug data collector about ICE candidate
@@ -1292,8 +1304,8 @@ internal class Peer(
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
 
-        // turn off IceTrickle, as it is not required for renegotiation:
-        client.setUseTrickleIce(false)
+        val trickle = client.getUseTrickleIce()
+        prepareIceRestartCandidateDispatch(trickle)
 
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
@@ -1313,35 +1325,50 @@ internal class Peer(
                                 message = "Local description set for ICE restart"
                             )
 
-                            // Start negotiation timer to wait for ICE candidates before sending updateMedia
-                            // This is the same mechanism used for invite/accept flow
-                            setOnNegotiationComplete {
-                                if (!isCurrentRecoveryGeneration(recoveryGeneration)) {
+                            if (trickle) {
+                                // Match the JS/RN flow: send the restart offer immediately,
+                                // then trickle this ICE generation's candidates separately.
+                                val currentSdp = peerConnection?.localDescription?.description
+                                    ?: sdp.description
+                                sendUpdateMediaMessage(
+                                    sdp = currentSdp,
+                                    recoveryGeneration = recoveryGeneration,
+                                    trickle = true,
+                                )
+                            } else {
+                                // Traditional ICE waits for candidate gathering and sends
+                                // one complete SDP without the trickle field.
+                                setOnNegotiationComplete {
+                                    if (!isCurrentRecoveryGeneration(recoveryGeneration)) {
+                                        Logger.d(
+                                            tag = "ICE_RENEGOTIATION",
+                                            message = "Ignoring negotiation completion for stale recovery generation",
+                                        )
+                                        return@setOnNegotiationComplete
+                                    }
                                     Logger.d(
                                         tag = "ICE_RENEGOTIATION",
-                                        message = "Ignoring negotiation completion for stale recovery generation",
+                                        message = "ICE negotiation complete for renegotiation, sending updateMedia message"
                                     )
-                                    return@setOnNegotiationComplete
-                                }
-                                Logger.d(
-                                    tag = "ICE_RENEGOTIATION",
-                                    message = "ICE negotiation complete for renegotiation, sending updateMedia message"
-                                )
-                                // Get the current local description which should now include candidates
-                                val currentSdp = peerConnection?.localDescription?.description
-                                if (currentSdp != null) {
-                                    sendUpdateMediaMessage(currentSdp, recoveryGeneration)
-                                } else {
-                                    Logger.e(
-                                        tag = "ICE_RENEGOTIATION",
-                                        message = "Failed to get local description after negotiation"
-                                    )
-                                    recordIceRestartEvent(
-                                        level = "error",
-                                        message = "ICE restart failed - no SDP generated",
-                                    )
-                                    client.calls[callId]?.updateCallState(CallState.ACTIVE)
-                                    notifyIceRestartFailure(recoveryGeneration, "local_sdp_unavailable")
+                                    val currentSdp = peerConnection?.localDescription?.description
+                                    if (currentSdp != null) {
+                                        sendUpdateMediaMessage(
+                                            sdp = currentSdp,
+                                            recoveryGeneration = recoveryGeneration,
+                                            trickle = false,
+                                        )
+                                    } else {
+                                        Logger.e(
+                                            tag = "ICE_RENEGOTIATION",
+                                            message = "Failed to get local description after negotiation"
+                                        )
+                                        recordIceRestartEvent(
+                                            level = "error",
+                                            message = "ICE restart failed - no SDP generated",
+                                        )
+                                        client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                        notifyIceRestartFailure(recoveryGeneration, "local_sdp_unavailable")
+                                    }
                                 }
                             }
                         }
@@ -1434,10 +1461,13 @@ internal class Peer(
     /**
      * Sends the updateMedia modify message with the new SDP for ICE renegotiation
      */
-    private fun sendUpdateMediaMessage(sdp: String, recoveryGeneration: Long?) {
+    private fun sendUpdateMediaMessage(
+        sdp: String,
+        recoveryGeneration: Long?,
+        trickle: Boolean,
+    ) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
 
-        val trickle = client.getUseTrickleIce()
         recordIceRestartEvent(
             level = "info",
             message = "ICE restart: sending ${if (trickle) "trickle " else ""}Modify with new offer SDP",
@@ -1448,7 +1478,8 @@ internal class Peer(
         client.calls[callId]?.updateCallState(CallState.ACTIVE)
 
         if (recoveryGeneration == null) {
-            client.sendUpdateMediaMessage(callId, sdp)
+            client.sendUpdateMediaMessage(callId, sdp, trickle.takeIf { it })
+            flushQueuedIceRestartCandidatesAfterModify(trickle)
             return
         }
 
@@ -1457,7 +1488,79 @@ internal class Peer(
             pendingRecoveryRequestId = requestId
             pendingRecoveryGeneration = recoveryGeneration
         }
-        client.sendRecoveryUpdateMediaMessage(callId, sdp, requestId)
+        client.sendRecoveryUpdateMediaMessage(
+            callId = callId,
+            sdp = sdp,
+            requestId = requestId,
+            trickle = trickle.takeIf { it },
+        )
+        flushQueuedIceRestartCandidatesAfterModify(trickle)
+    }
+
+    private fun prepareIceRestartCandidateDispatch(trickle: Boolean) {
+        stopEndOfCandidatesTimer()
+        candidateLock.lock()
+        try {
+            queuedIceRestartCandidates.clear()
+            iceRestartModifyPending = trickle
+            iceRestartEndOfCandidatesPending = false
+            if (trickle) {
+                // The initial negotiation may already have sent end-of-candidates.
+                // A restart is a new ICE generation and needs its own signal.
+                endOfCandidatesSent = false
+            }
+        } finally {
+            candidateLock.unlock()
+        }
+    }
+
+    private fun flushQueuedIceRestartCandidatesAfterModify(trickle: Boolean) {
+        if (!trickle) return
+
+        val candidates: List<IceCandidate>
+        val shouldSendEndOfCandidates: Boolean
+        candidateLock.lock()
+        try {
+            iceRestartModifyPending = false
+            candidates = queuedIceRestartCandidates.toList()
+            queuedIceRestartCandidates.clear()
+            shouldSendEndOfCandidates = iceRestartEndOfCandidatesPending
+            iceRestartEndOfCandidatesPending = false
+        } finally {
+            candidateLock.unlock()
+        }
+
+        candidates.forEach { candidate ->
+            sendIceCandidate(candidate)
+            startEndOfCandidatesTimer()
+        }
+        if (shouldSendEndOfCandidates) {
+            sendEndOfCandidates()
+            Logger.d(tag = "Observer", message = "Queued end-of-candidates sent after updateMedia")
+        }
+    }
+
+    private fun sendOrQueueIceRestartEndOfCandidates() {
+        var sendImmediately = false
+        candidateLock.lock()
+        try {
+            if (iceRestartModifyPending) {
+                iceRestartEndOfCandidatesPending = true
+                Logger.d(
+                    tag = "Observer",
+                    message = "End-of-candidates queued until ICE restart updateMedia is sent",
+                )
+            } else {
+                sendImmediately = true
+            }
+        } finally {
+            candidateLock.unlock()
+        }
+
+        if (sendImmediately) {
+            sendEndOfCandidates()
+            Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+        }
     }
 
     private fun isCurrentRecoveryGeneration(recoveryGeneration: Long?): Boolean =
@@ -1467,6 +1570,7 @@ internal class Peer(
                 signalingHealthMonitor.state() == SignalingHealthMonitor.State.ICE_RESTARTING)
 
     private fun notifyIceRestartFailure(recoveryGeneration: Long?, reason: String) {
+        prepareIceRestartCandidateDispatch(trickle = false)
         if (recoveryGeneration == null) return
         signalingHealthMonitor.onIceRestartFailed(recoveryGeneration, reason)
         scheduleRecoveryTickIfNeeded()
@@ -1887,7 +1991,10 @@ internal class Peer(
         candidateLock.lock()
         try {
             queuedCandidates.clear()
+            queuedIceRestartCandidates.clear()
             answerSent = false
+            iceRestartModifyPending = false
+            iceRestartEndOfCandidatesPending = false
         } finally {
             candidateLock.unlock()
         }

@@ -2353,15 +2353,39 @@ class TelnyxClient private constructor(
      * @param sdp the new local SDP for ICE restart
      */
     fun sendUpdateMediaMessage(callId: UUID, sdp: String) {
-        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString())
+        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString(), null)
+    }
+
+    /** Sends updateMedia with explicit trickle ICE signaling semantics. */
+    internal fun sendUpdateMediaMessage(callId: UUID, sdp: String, trickle: Boolean?) {
+        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString(), trickle)
     }
 
     /** Sends a monitor-owned updateMedia request with a retained id. */
-    internal fun sendRecoveryUpdateMediaMessage(callId: UUID, sdp: String, requestId: String) {
-        sendUpdateMediaMessage(callId, sdp, requestId)
+    internal fun sendRecoveryUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+    ) {
+        sendUpdateMediaMessage(callId, sdp, requestId, null)
     }
 
-    private fun sendUpdateMediaMessage(callId: UUID, sdp: String, requestId: String) {
+    /** Sends a monitor-owned updateMedia request with explicit trickle ICE semantics. */
+    internal fun sendRecoveryUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+        trickle: Boolean?,
+    ) {
+        sendUpdateMediaMessage(callId, sdp, requestId, trickle)
+    }
+
+    private fun sendUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+        trickle: Boolean?,
+    ) {
 
         val callDialogParams = CallDialogParams(
             callId = callId,
@@ -2372,7 +2396,8 @@ class TelnyxClient private constructor(
             sessid = sessid,
             action = "updateMedia",
             dialogParams = callDialogParams,
-            sdp = sdp
+            sdp = sdp,
+            trickle = trickle,
         )
 
         val modifyMessage = SendingMessageBody(

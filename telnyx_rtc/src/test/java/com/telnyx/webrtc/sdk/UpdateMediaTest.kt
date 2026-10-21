@@ -92,6 +92,21 @@ class UpdateMediaTest : BaseTest() {
         assertEquals("updateMedia", params.action)
         assertEquals(testSdp, params.sdp)
         assertEquals(testCallId, params.dialogParams.callId)
+        assertEquals(null, params.trickle)
+        assertEquals(false, Gson().toJson(message).contains("\"trickle\""))
+    }
+
+    @Test
+    fun `test sendUpdateMediaMessage includes trickle when enabled`() {
+        val testSdp = "v=0\r\na=ice-options:trickle\r\n"
+        val capturedMessage = slot<SendingMessageBody>()
+
+        telnyxClient.sendUpdateMediaMessage(testCallId, testSdp, trickle = true)
+
+        verify { mockTxSocket.send(capture(capturedMessage)) }
+        val params = capturedMessage.captured.params as ModifyParams
+        assertEquals(true, params.trickle)
+        assertEquals(true, Gson().toJson(capturedMessage.captured).contains("\"trickle\":true"))
     }
 
     @Test
