@@ -5,7 +5,6 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -103,15 +102,6 @@ class HomeCallFragment : Fragment() {
 
         binding.hold.setOnClickListener {
             telnyxViewModel.holdUnholdCurrentCall(this@HomeCallFragment.requireContext())
-        }
-
-        binding.restartIce.setOnClickListener {
-            val message = if (telnyxViewModel.iceRestart()) {
-                R.string.ice_restart_started
-            } else {
-                R.string.ice_restart_unavailable
-            }
-            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
         }
 
         binding.dialpad.setOnClickListener {

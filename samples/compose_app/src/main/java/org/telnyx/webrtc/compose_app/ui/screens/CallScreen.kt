@@ -4,7 +4,6 @@ import com.telnyx.webrtc.sdk.model.CallState
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.media.ToneGenerator.*
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -349,34 +348,14 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                     }
                                 }
                             }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.smallSpacing),
-                                verticalAlignment = Alignment.CenterVertically
+                            HomeIconButton(
+                                Modifier.testTag("endCall"),
+                                icon = R.drawable.baseline_call_end_24,
+                                backGroundColor = callRed,
+                                contentColor = Color.White,
+                                stringResource(R.string.end)
                             ) {
-                                HomeIconButton(
-                                    Modifier.testTag("restartIce"),
-                                    icon = R.drawable.baseline_refresh_24,
-                                    backGroundColor = MaterialTheme.colorScheme.secondary,
-                                    contentColor = Color.Black,
-                                    contentDescription = stringResource(R.string.restart_ice)
-                                ) {
-                                    val message = if (telnyxViewModel.iceRestart()) {
-                                        R.string.ice_restart_started
-                                    } else {
-                                        R.string.ice_restart_unavailable
-                                    }
-                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                }
-
-                                HomeIconButton(
-                                    Modifier.testTag("endCall"),
-                                    icon = R.drawable.baseline_call_end_24,
-                                    backGroundColor = callRed,
-                                    contentColor = Color.White,
-                                    stringResource(R.string.end)
-                                ) {
-                                    telnyxViewModel.endCall(context)
-                                }
+                                telnyxViewModel.endCall(context)
                             }
                         }
 

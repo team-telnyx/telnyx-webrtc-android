@@ -285,6 +285,33 @@ fun HomeScreen(
                                     }
                                 )
 
+                                if (callState is CallState.ACTIVE) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.restart_ice)) },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            val message = if (telnyxViewModel.iceRestart()) {
+                                                R.string.ice_restart_started
+                                            } else {
+                                                R.string.ice_restart_unavailable
+                                            }
+                                            Toast.makeText(
+                                                context,
+                                                message,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = R.drawable.baseline_refresh_24
+                                                ),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+
                                 // Copy FCM Token option
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.copy_fcm_token_menu)) },
