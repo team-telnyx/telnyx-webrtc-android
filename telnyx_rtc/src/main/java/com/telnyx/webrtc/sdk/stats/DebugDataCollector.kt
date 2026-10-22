@@ -82,6 +82,40 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Continues collecting into an existing call report after a reattach.
+     *
+     * A recovery reattach replaces the peer connection, but it does not start a new call. The
+     * existing report must therefore retain its original start time, stats, logs, and metadata.
+     * If the SDK was cold-started for an attach and has no report yet, this initializes one.
+     *
+     * @return `true` when an existing report was resumed, or `false` when a new report was created
+     */
+    @Synchronized
+    fun onCallReattached(
+        callId: UUID,
+        telnyxSessionId: UUID? = null,
+        telnyxLegId: UUID? = null
+    ): Boolean {
+        val existingData = callDebugData[callId]
+        if (existingData == null) {
+            onCallStarted(callId, telnyxSessionId, telnyxLegId)
+            return false
+        }
+
+        telnyxSessionId?.let { existingData.telnyxSessionId = it }
+        telnyxLegId?.let { existingData.telnyxLegId = it }
+        existingData.logs.add(
+            LogEntry(
+                timestamp = System.currentTimeMillis(),
+                level = "info",
+                message = "Call reattached - continuing existing debug data"
+            )
+        )
+        Timber.tag(TAG).d("Call reattached - continuing debug data for call: $callId")
+        return true
+    }
+
+    /**
      * Updates the Telnyx identifiers for a call (may be received after call starts).
      *
      * @param callId The unique identifier for the call

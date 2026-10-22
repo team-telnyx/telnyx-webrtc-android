@@ -38,9 +38,10 @@ import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import com.telnyx.webrtc.sdk.TelnyxClient
+import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import com.telnyx.webrtc.sdk.model.SocketConnectionMetrics
 import com.telnyx.webrtc.sdk.model.SocketConnectionQuality
-import com.telnyx.webrtc.sdk.model.ConnectionStatus
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import org.telnyx.webrtc.xmlapp.BuildConfig
@@ -154,9 +155,11 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
         val isConnected = (connectionStatus == ConnectionStatus.CLIENT_READY) ||
             (connectionStatus == ConnectionStatus.DISCONNECTED &&
              telnyxViewModel.sessionsState.value is TelnyxSessionState.ClientLoggedIn)
+        val isCallActive = telnyxViewModel.currentCall?.callStateFlow?.value is CallState.ACTIVE
 
         // Hide logged-in user options when not connected
         popupMenu.menu.findItem(R.id.action_websocket_messages).isVisible = isConnected
+        popupMenu.menu.findItem(R.id.action_restart_ice).isVisible = isConnected && isCallActive
         popupMenu.menu.findItem(R.id.action_copy_fcm_token).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_disable_push).isVisible = isConnected
         popupMenu.menu.findItem(R.id.action_precall_diagnosis).isVisible = isConnected
@@ -220,6 +223,16 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
             when (menuItem.itemId) {
                 R.id.action_websocket_messages -> {
                     showWebsocketMessagesBottomSheet()
+                    true
+                }
+
+                R.id.action_restart_ice -> {
+                    val message = if (telnyxViewModel.iceRestart()) {
+                        R.string.ice_restart_started
+                    } else {
+                        R.string.ice_restart_unavailable
+                    }
+                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                     true
                 }
 

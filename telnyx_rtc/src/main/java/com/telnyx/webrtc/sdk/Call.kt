@@ -123,6 +123,7 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        peerConnection?.onCallStateChanged(value)
     }
 
     /**
@@ -677,20 +678,63 @@ data class Call(
     }
 
     /**
-     * Forces ICE renegotiation for testing purposes.
-     * This method simulates the DISCONNECTED -> FAILED state transition to test the renegotiation logic.
-     * 
-     * @return true if the renegotiation was successfully triggered, false otherwise
+     * Restarts ICE for this active call without replacing the peer connection.
+     *
+     * The SDK creates an ICE-restart offer, exchanges it with Telnyx using an
+     * `updateMedia` modify request, applies the answer, and verifies that
+     * inbound media resumes. A failed restart uses the normal single-reattach
+     * recovery fallback.
+     *
+     * @return `true` when the restart request was accepted. Returns `false`
+     * when the call is not active, the signaling socket is disconnected, the
+     * peer is unavailable, or another recovery is already in progress.
      */
-    fun forceIceRenegotiationForTesting(): Boolean {
-        Logger.w(tag = "Call:IceRenegotiationTest", message = "Forcing ICE renegotiation for testing in Call [${currentSignalingCallId()}]")
-        
-        return peerConnection?.let { peer ->
-            peer.forceIceRenegotiationForTesting()
-            true
-        } ?: run {
-            Logger.e(tag = "Call:IceRenegotiationTest", message = "Cannot force ICE renegotiation - peerConnection is null in Call [${currentSignalingCallId()}]")
+    fun iceRestart(): Boolean =
+        if (callStateFlow.value !is CallState.ACTIVE) {
+            Logger.w(
+                tag = "Call:IceRestart",
+                message = "ICE restart skipped - call is not active",
+            )
             false
+        } else {
+            // Reattach replaces the Call/Peer stored by TelnyxClient. Applications can still
+            // temporarily hold the previous Call because its state flow is shared with the
+            // replacement. Route the request to the canonical instance instead of asking the
+            // disposed peer to restart ICE.
+            val activeCall = client.getActiveCalls()[callId]
+            if (activeCall != null && activeCall !== this) {
+                Logger.d(
+                    tag = "Call:IceRestart",
+                    message = "Forwarding ICE restart to the current call instance after reattach",
+                )
+                activeCall.iceRestart()
+            } else {
+                restartIceOnCurrentPeer()
+            }
+        }
+
+    private fun restartIceOnCurrentPeer(): Boolean {
+        val peer = peerConnection
+        return when {
+            !client.isSocketConnected() -> {
+                Logger.w(
+                    tag = "Call:IceRestart",
+                    message = "ICE restart skipped - signaling socket is not connected",
+                )
+                false
+            }
+            peer == null -> {
+                Logger.e(
+                    tag = "Call:IceRestart",
+                    message = "ICE restart failed - peer connection is unavailable",
+                )
+                false
+            }
+            else -> peer.restartIce()
         }
     }
+
+    /** Compatibility alias for the original demo/test API. */
+    @Deprecated("Use iceRestart() instead", ReplaceWith("iceRestart()"))
+    fun forceIceRenegotiationForTesting(): Boolean = iceRestart()
 }
