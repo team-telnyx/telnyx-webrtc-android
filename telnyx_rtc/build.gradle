@@ -176,7 +176,7 @@ dependencies {
     implementation deps.appcompat
     implementation deps.material
 
-    implementation "com.telnyx.webrtc.lib:library:1.0.1"
+    implementation "com.telnyx.webrtc.lib:library:1.1.0"
 
     implementation deps.gson
 
