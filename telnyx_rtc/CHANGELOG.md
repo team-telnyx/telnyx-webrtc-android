@@ -1,7 +1,14 @@
-## [Unreleased]
+## [3.8.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.0) (2026-10-23)
 
 ### Enhancement
 - Make Trickle ICE a session-wide option configured at login: new `useTrickleIce` flag in `CredentialConfig` and `TokenConfig` (defaults to `false`), applied to every call made or accepted in the session and toggleable at runtime via the new public `TelnyxClient.setUseTrickleIce()` (VSUP-305)
+- Implement JS/iOS-parity per-call ICE restart and peer-connection recovery: a per-call `SignalingHealthMonitor` state machine covering transient disconnection debounce, ICE/peer-connection failure handling and correlated signaling health, with an application-triggered public ICE restart API that stays on the existing peer connection when possible and performs one bounded reattach fallback if media cannot recover (VSDK-678)
+- Add `mobile_sdk_name` + `mobile_sdk_version` to outbound verto messages so Telnyx servers can distinguish core SDK traffic from Android Commons wrapper traffic; core identity `webrtc-android`, Commons identity `webrtc-android-commons`; legacy `User-Agent` field preserved unchanged (VSDK-767)
+- Add detailed ICE/DTLS diagnostic logging on Peer connection state transitions, selected candidate pairs, gathering policy and answer timestamps — enable via `adb logcat -s ICE_DIAG:*` when investigating delayed audio after answer (VSUP-295)
+
+### Bug Fixing
+- Fix minified (R8-enabled) consumer apps failing call setup because the SDK AAR shipped without the consumer proguard rules that `defaultConfig` referenced: keep rules for Gson-serialized SDK models now ship inside the AAR and are applied automatically by consumer apps with shrinking enabled (no card — PR #882)
+- Upgrade the bundled WebRTC library `com.telnyx.webrtc.lib:library` from 1.0.1 to 1.1.0 (WebRTC M144.7559.15), with embedded consumer proguard rules so minified consumer apps no longer strip JNI-referenced classes (no card — PR #883)
 
 ### Breaking
 - Remove the per-call `useTrickleIce` parameters from `TelnyxClient.newInvite()`, `TelnyxClient.acceptCall()` and the `telnyx_common` call use cases (`SendInvite`, `AcceptCall`, `EndCurrentAndAcceptIncoming`, `HoldCurrentAndAcceptIncoming`, `AnswerIncomingPushCall`) — use the login config option or the session-wide setter instead (VSUP-305)
