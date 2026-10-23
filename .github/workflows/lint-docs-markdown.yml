@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: docs-markdown
-        run: npm install
+        run: npm ci
 
       - name: Run ESLint on markdown files
         working-directory: docs-markdown

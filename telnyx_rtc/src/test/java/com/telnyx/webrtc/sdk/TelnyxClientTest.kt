@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
@@ -1132,6 +1133,103 @@ class TelnyxClientTest : BaseTest() {
 
         assertEquals(appCallId, client.signalingCallId(appCallId))
         assertEquals(socketCallId, client.appCallId(socketCallId))
+    }
+
+    @Test
+    fun `recovery relay override is retained while reattach is already in progress`() {
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+        )
+        setPrivateField("credentialSessionConfig", config)
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callId = UUID.randomUUID()
+
+        assertTrue(client.requestCallRecoveryReattach(callId, forceRelayCandidateForRecovery = true))
+
+        assertTrue(client.consumeRecoveryRelayOverride(callId))
+    }
+
+    @Test
+    fun `recovery relay override is consumed only by the requesting call's attach`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callA = UUID.randomUUID()
+        val callB = UUID.randomUUID()
+
+        // B's failed direct VPN path asks for relay; A does not.
+        assertTrue(client.requestCallRecoveryReattach(callB, forceRelayCandidateForRecovery = true))
+
+        // A's attach arrives first and must not take B's override.
+        assertFalse(client.consumeRecoveryRelayOverride(callA))
+        assertTrue(client.consumeRecoveryRelayOverride(callB))
+        assertFalse(client.consumeRecoveryRelayOverride(callB))
+    }
+
+    @Test
+    fun `every call that requests relay keeps its own recovery override`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callA = UUID.randomUUID()
+        val callB = UUID.randomUUID()
+
+        client.requestCallRecoveryReattach(callA, forceRelayCandidateForRecovery = true)
+        client.requestCallRecoveryReattach(callB, forceRelayCandidateForRecovery = true)
+
+        assertTrue(client.consumeRecoveryRelayOverride(callB))
+        assertTrue(client.consumeRecoveryRelayOverride(callA))
+    }
+
+    @Test
+    fun `removing a call clears its pending recovery relay override`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callId = UUID.randomUUID()
+        client.requestCallRecoveryReattach(callId, forceRelayCandidateForRecovery = true)
+
+        client.removeFromCalls(callId)
+
+        assertFalse(client.consumeRecoveryRelayOverride(callId))
+    }
+
+    private fun recoveryTestConfig() = CredentialConfig(
+        sipUser = MOCK_USERNAME_TEST,
+        sipPassword = MOCK_PASSWORD,
+        sipCallerIDName = "Test",
+        sipCallerIDNumber = "000000000",
+        fcmToken = "fcm-token",
+        ringtone = null,
+        ringBackTone = null,
+    )
+
+    @Test
+    fun `network path change is forwarded to every call peer`() {
+        val firstPeer = mockk<Peer>(relaxed = true)
+        val secondPeer = mockk<Peer>(relaxed = true)
+        val firstCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns firstPeer
+        }
+        val secondCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns secondPeer
+        }
+        client.calls[UUID.randomUUID()] = firstCall
+        client.calls[UUID.randomUUID()] = secondCall
+
+        val method = TelnyxClient::class.java.getDeclaredMethod("notifyCallPeersOfNetworkPathChange")
+        method.isAccessible = true
+        method.invoke(client)
+
+        verify(exactly = 1) { firstPeer.onNetworkPathDidChange() }
+        verify(exactly = 1) { secondPeer.onNetworkPathDidChange() }
     }
 
     @Test

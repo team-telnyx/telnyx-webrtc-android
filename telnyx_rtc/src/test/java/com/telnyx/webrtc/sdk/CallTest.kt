@@ -8,6 +8,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
@@ -19,6 +20,7 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
+import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.mockkObject
 import io.mockk.verify
@@ -112,6 +114,81 @@ class CallTest : BaseTest() {
 
         assertTrue(existingCall.useTrickleIce)
         assertFalse(nextCall.useTrickleIce)
+    }
+
+    @Test
+    fun `call state changes notify peer recovery lifecycle`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.peerConnection = mockPeer
+
+        newCall.updateCallState(CallState.ACTIVE)
+
+        verify { mockPeer.onCallStateChanged(CallState.ACTIVE) }
+    }
+
+    @Test
+    fun `iceRestart starts recovery for active call with connected signaling`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.callId = UUID.randomUUID()
+        newCall.peerConnection = mockPeer
+        newCall.updateCallState(CallState.ACTIVE)
+        every { client.isSocketConnected() } returns true
+        every { mockPeer.restartIce() } returns true
+
+        assertTrue(newCall.iceRestart())
+
+        verify(exactly = 1) { mockPeer.restartIce() }
+    }
+
+    @Test
+    fun `iceRestart rejects a call that is not active`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.peerConnection = mockPeer
+        every { client.isSocketConnected() } returns true
+
+        assertFalse(newCall.iceRestart())
+
+        verify(exactly = 0) { mockPeer.restartIce() }
+    }
+
+    @Test
+    fun `iceRestart rejects disconnected signaling`() {
+        val newCall = Call(mockContext, client, socket, "123", audioManager)
+        val mockPeer = mockk<Peer>(relaxed = true)
+        newCall.callId = UUID.randomUUID()
+        newCall.peerConnection = mockPeer
+        newCall.updateCallState(CallState.ACTIVE)
+        every { client.isSocketConnected() } returns false
+
+        assertFalse(newCall.iceRestart())
+
+        verify(exactly = 0) { mockPeer.restartIce() }
+    }
+
+    @Test
+    fun `iceRestart forwards a stale call reference to its reattached replacement`() {
+        val callId = UUID.randomUUID()
+        val staleCall = Call(mockContext, client, socket, "123", audioManager)
+        val replacementCall = Call(mockContext, client, socket, "123", audioManager)
+        val stalePeer = mockk<Peer>(relaxed = true)
+        val replacementPeer = mockk<Peer>(relaxed = true)
+        staleCall.callId = callId
+        staleCall.peerConnection = stalePeer
+        staleCall.updateCallState(CallState.ACTIVE)
+        replacementCall.callId = callId
+        replacementCall.peerConnection = replacementPeer
+        replacementCall.updateCallState(CallState.ACTIVE)
+        every { client.getActiveCalls() } returns mapOf(callId to replacementCall)
+        every { client.isSocketConnected() } returns true
+        every { replacementPeer.restartIce() } returns true
+
+        assertTrue(staleCall.iceRestart())
+
+        verify(exactly = 0) { stalePeer.restartIce() }
+        verify(exactly = 1) { replacementPeer.restartIce() }
     }
 
     @Test

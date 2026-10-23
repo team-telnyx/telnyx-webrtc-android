@@ -143,7 +143,8 @@ data class ModifyParams(
     val sessid: String,
     val action: String,
     val dialogParams: CallDialogParams,
-    val sdp: String? = null
+    val sdp: String? = null,
+    val trickle: Boolean? = null,
 ) : ParamRequest()
 
 data class InfoParams(
