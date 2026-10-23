@@ -118,16 +118,33 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
-    fun `outbound call follows the live trickle default while gathering`() {
+    fun `outbound trickle call keeps its mode when client default changes during gathering`() {
         val candidate = IceCandidate(
             "audio",
             0,
             "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host",
         )
 
-        // Trickle is enabled at the live client default: outbound candidates
-        // flow straight to the socket instead of the peer connection.
+        // Constructed as a trickle call: the mode is captured per peer, so a
+        // mid-gathering change of the session default does not reroute this call.
         every { mockTelnyxClient.getUseTrickleIce() } returns true
+        val outboundObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(outboundObserverSlot),
+            )
+        } returns mockPeerConnection
+        val tricklePeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        webRtcObserver = outboundObserverSlot.captured
+
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
         webRtcObserver.onIceCandidate(candidate)
 
         verify {
@@ -137,17 +154,11 @@ class IceRenegotiationTest : BaseTest() {
         }
         verify(exactly = 0) { mockPeerConnection.addIceCandidate(candidate) }
 
-        // The live default drops to standard mid-gathering: the same peer now
-        // buffers candidates on the connection because it reads the flag live.
-        every { mockTelnyxClient.getUseTrickleIce() } returns false
-        every { mockCall.callStateFlow.value } returns CallState.CONNECTING
-        webRtcObserver.onIceCandidate(candidate)
-
-        verify { mockPeerConnection.addIceCandidate(candidate) }
+        tricklePeer.disconnect()
     }
 
     @Test
-    fun `inbound answering call keeps queueing candidates until the ANSWER flush`() {
+    fun `inbound standard call keeps its mode when client default changes during gathering`() {
         val candidate = IceCandidate(
             "audio",
             0,
@@ -161,36 +172,87 @@ class IceRenegotiationTest : BaseTest() {
                 capture(answeringObserverSlot),
             )
         } returns mockPeerConnection
-        // Trickle enabled: the answering side must queue candidates until the
-        // ANSWER is sent, because it reads the live client default.
-        every { mockTelnyxClient.getUseTrickleIce() } returns true
-        val answeringPeer = Peer(
+
+        // Constructed as a standard-ICE call: candidates route to the peer
+        // connection even if the session default flips to trickle mid-gathering.
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        val standardPeer = Peer(
             context = mockContext,
             client = mockTelnyxClient,
             callId = testCallId,
+            useTrickleIce = false,
             isAnswering = true,
             onIceCandidateAdd = candidateCallback,
             peerConnectionFactoryOverride = mockPeerConnectionFactory,
         )
         val answeringObserver = answeringObserverSlot.captured
         every { mockCall.sessionId } returns "session-id"
+        every { mockCall.callStateFlow.value } returns CallState.CONNECTING
 
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
         answeringObserver.onIceCandidate(candidate)
 
-        // Candidates are held back until the ANSWER flush.
+        verify { mockPeerConnection.addIceCandidate(candidate) }
+        verify { candidateCallback.invoke(any()) }
         verify(exactly = 0) { mockSocket.send(any()) }
-        verify(exactly = 0) { mockPeerConnection.addIceCandidate(candidate) }
 
-        answeringPeer.flushQueuedCandidatesAfterAnswer()
+        standardPeer.disconnect()
+    }
 
-        // The flush drains the queue onto the socket once the ANSWER is out.
+    @Test
+    fun `inbound trickle call flushes queued candidates even if the session default flips off before the ANSWER`() {
+        val candidate = IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host",
+        )
+        val candidateCallback = mockk<(String) -> Unit>(relaxed = true)
+        val answeringObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(answeringObserverSlot),
+            )
+        } returns mockPeerConnection
+
+        // Constructed as a trickle answering call: candidates queue until the ANSWER.
+        val trickleAnsweringPeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            isAnswering = true,
+            onIceCandidateAdd = candidateCallback,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        val trickleObserver = answeringObserverSlot.captured
+        every { mockCall.sessionId } returns "session-id"
+
+        trickleObserver.onIceCandidate(candidate)
+
+        // Queue while the ANSWER has not been sent.
+        verify(exactly = 0) { mockSocket.send(any()) }
+
+        // The session default flips to standard ICE mid-ring, before the ANSWER
+        // goes out. The peer captured its mode at construction, so the flush must
+        // still drain the queue — the ANSWER was already marked trickle.
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        trickleAnsweringPeer.flushQueuedCandidatesAfterAnswer()
+
         verify(exactly = 1) {
             mockSocket.send(
                 match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
             )
         }
+        // A candidate generated after the flush is sent immediately, not re-queued.
+        trickleObserver.onIceCandidate(candidate)
+        verify(exactly = 2) {
+            mockSocket.send(
+                match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
+            )
+        }
 
-        answeringPeer.disconnect()
+        trickleAnsweringPeer.disconnect()
     }
 
     @Test
@@ -556,18 +618,37 @@ class IceRenegotiationTest : BaseTest() {
         every { mockTelnyxClient.getUseTrickleIce() } returns true
         every { mockTelnyxClient.socket } returns mockSocket
         every { mockCall.sessionId } returns "session-id"
+
+        // The trickle mode is captured per peer at construction, so build a
+        // dedicated trickle peer for this restart scenario.
+        val trickleObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(trickleObserverSlot),
+            )
+        } returns mockPeerConnection
+        val tricklePeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        val trickleObserver = trickleObserverSlot.captured
+
         every { mockPeerConnection.createOffer(any(), any()) } answers {
             firstArg<SdpObserver>().onCreateSuccess(mockSessionDescription)
         }
         every { mockPeerConnection.setLocalDescription(any(), any()) } answers {
             // libwebrtc may emit a candidate before setLocalDescription completes.
             // The restart path must keep it behind the updateMedia offer.
-            webRtcObserver.onIceCandidate(restartCandidate)
+            trickleObserver.onIceCandidate(restartCandidate)
             firstArg<SdpObserver>().onSetSuccess()
         }
         every { mockPeerConnection.localDescription } returns mockSessionDescription
 
-        peer.restartIce()
+        tricklePeer.restartIce()
 
         verify(timeout = 1_000L) {
             mockTelnyxClient.sendRecoveryUpdateMediaMessage(
@@ -589,6 +670,8 @@ class IceRenegotiationTest : BaseTest() {
             })
         }
         verify(exactly = 0) { mockTelnyxClient.setUseTrickleIce(false) }
+
+        tricklePeer.disconnect()
     }
 
     @Test
@@ -739,6 +822,25 @@ class IceRenegotiationTest : BaseTest() {
         every { mockTelnyxClient.getUseTrickleIce() } returns true
         every { mockTelnyxClient.socket } returns socket
         every { mockCall.sessionId } returns "session-id"
+
+        // The trickle mode is captured per peer at construction, so the restart
+        // scenario runs on a dedicated trickle peer.
+        val trickleObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(trickleObserverSlot),
+            )
+        } returns mockPeerConnection
+        peer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        webRtcObserver = trickleObserverSlot.captured
+
         every { mockPeerConnection.createOffer(any(), any()) } answers {
             firstArg<SdpObserver>().onCreateSuccess(offer)
         }
