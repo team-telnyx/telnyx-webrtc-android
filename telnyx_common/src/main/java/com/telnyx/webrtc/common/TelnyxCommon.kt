@@ -224,6 +224,20 @@ class TelnyxCommon private constructor() {
     }
 
     /**
+     * Applies the trickle ICE preference to the active client session (if any).
+     *
+     * The session-wide value is normally initialized from `CredentialConfig`/`TokenConfig`
+     * at login time; calling this afterwards updates the live session so changes take
+     * effect for subsequent calls without reconnecting. If no client is active yet,
+     * the value will be picked up from the login config when the user connects.
+     *
+     * @param enabled True to enable trickle ICE for the session, false to disable it.
+     */
+    internal fun setSessionTrickleIce(enabled: Boolean) {
+        _telnyxClient?.setUseTrickleIce(enabled)
+    }
+
+    /**
      * Observes connection metrics from the TelnyxClient and updates the state flow.
      *
      * @param client The TelnyxClient instance to observe

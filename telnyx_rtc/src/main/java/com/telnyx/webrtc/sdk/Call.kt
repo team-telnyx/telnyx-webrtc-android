@@ -77,6 +77,9 @@ data class Call(
 
     internal var peerConnection: Peer? = null
 
+    /** Immutable ICE mode captured when this call is created. */
+    internal val useTrickleIce: Boolean = client.getUseTrickleIce()
+
     internal var earlySDP = false
 
     var inviteResponse: InviteResponse? = null
@@ -522,7 +525,7 @@ data class Call(
         // Create offer using this Call's peerConnection
         peerConnection?.createOfferForSdp(object : AppSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
-                if (client.getUseTrickleIce()) {
+                if (useTrickleIce) {
                     // For trickle ICE, send INVITE immediately without waiting for candidates
                     Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [${currentSignalingCallId()}]")
 
@@ -623,7 +626,7 @@ data class Call(
                     var sdpDescription = peerConnection?.getLocalDescription()?.description
                     if (sdpDescription != null && outgoingInviteUUID != null) {
                         // Add trickle ICE capability to SDP if trickle ICE is enabled
-                        if (client.getUseTrickleIce()) {
+                        if (useTrickleIce) {
                             sdpDescription = SdpUtils.addTrickleIceCapability(sdpDescription)
                         }
                         
@@ -642,7 +645,7 @@ data class Call(
                                     customHeaders = customHeaders?.toCustomHeaders() ?: arrayListOf(),
                                     preferredCodecs = preferredCodecs
                                 ),
-                                trickle = if (client.getUseTrickleIce()) true else null,
+                                trickle = if (useTrickleIce) true else null,
                                 mobileSdkName = client.sdkIdentity.name,
                                 mobileSdkVersion = client.sdkIdentity.version,
                             )

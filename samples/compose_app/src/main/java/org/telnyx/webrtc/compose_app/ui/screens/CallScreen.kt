@@ -238,8 +238,7 @@ fun CallScreen(telnyxViewModel: TelnyxViewModel) {
                                             telnyxViewModel.sendInvite(
                                                 context,
                                                 destinationNumber,
-                                                true,
-                                                trickleIce = telnyxViewModel.useTrickleIce
+                                                true
                                             )
                                     }
                                 }

@@ -505,10 +505,45 @@ If no custom logger is provided, the SDK will use its default logging implementa
 
 The SDK supports Trickle ICE, which enables faster call setup by sending ICE candidates incrementally as they are discovered, rather than waiting for all candidates before establishing the connection.
 
+### How to enable
+
+Trickle ICE is a **session-wide** option configured at login time. Set `useTrickleIce = true` in your `CredentialConfig` or `TokenConfig`:
+
+```kotlin
+val credentialConfig = CredentialConfig(
+    sipUser = sipUser,
+    sipPassword = sipPassword,
+    sipCallerIDName = callerIdName,
+    sipCallerIDNumber = callerIdNumber,
+    fcmToken = fcmToken,
+    ringtone = null,
+    ringBackTone = null,
+    useTrickleIce = true,
+    logLevel = LogLevel.ALL
+)
+```
+
+The flag applies to every call made or accepted in the session — including
+outbound calls, inbound accepts, and push-answered calls — so there are no
+per-call parameters. Once logged in, you can also toggle it at runtime:
+
+```kotlin
+telnyxClient.setUseTrickleIce(true)
+```
+
+The change takes effect for subsequent calls without reconnecting.
+
+> **Breaking change:** the `useTrickleIce` parameters previously accepted by
+> `TelnyxClient.newInvite()`, `TelnyxClient.acceptCall()` and the
+> `telnyx_common` call use cases (`SendInvite`, `AcceptCall`,
+> `EndCurrentAndAcceptIncoming`, `HoldCurrentAndAcceptIncoming`,
+> `AnswerIncomingPushCall`) have been removed. Use the config option or the
+> session-wide setter instead. Defaults to `false` (traditional ICE).
+
 ### Key Features
 
-- **Faster Call Establishment**: Candidates are sent immediately as discovered, reducing connection time
-- **Automatic Management**: No configuration required - the SDK handles Trickle ICE automatically
+- **Faster Call Establishment**: Candidates are sent immediately as they are generated, reducing connection time
+- **Session-wide**: Configured once at login (or toggled live), applied to every call
 - **Smart Queuing**: Answering side queues candidates until ANSWER is sent to prevent race conditions
 - **Candidate Cleaning**: WebRTC extensions are removed for maximum server compatibility
 

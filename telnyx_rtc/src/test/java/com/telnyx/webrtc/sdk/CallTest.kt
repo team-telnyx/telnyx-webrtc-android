@@ -105,6 +105,18 @@ class CallTest : BaseTest() {
     }
 
     @Test
+    fun `trickle ICE changes affect future calls without mutating an existing call`() {
+        client.setUseTrickleIce(true)
+        val existingCall = Call(mockContext, client, socket, "123", audioManager)
+
+        client.setUseTrickleIce(false)
+        val nextCall = Call(mockContext, client, socket, "123", audioManager)
+
+        assertTrue(existingCall.useTrickleIce)
+        assertFalse(nextCall.useTrickleIce)
+    }
+
+    @Test
     fun `call state changes notify peer recovery lifecycle`() {
         val newCall = Call(mockContext, client, socket, "123", audioManager)
         val mockPeer = mockk<Peer>(relaxed = true)

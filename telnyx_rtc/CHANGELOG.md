@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Enhancement
+- Make Trickle ICE a session-wide option configured at login: new `useTrickleIce` flag in `CredentialConfig` and `TokenConfig` (defaults to `false`), applied to every call made or accepted in the session and toggleable at runtime via the new public `TelnyxClient.setUseTrickleIce()` (VSUP-305)
+
+### Breaking
+- Remove the per-call `useTrickleIce` parameters from `TelnyxClient.newInvite()`, `TelnyxClient.acceptCall()` and the `telnyx_common` call use cases (`SendInvite`, `AcceptCall`, `EndCurrentAndAcceptIncoming`, `HoldCurrentAndAcceptIncoming`, `AnswerIncomingPushCall`) — use the login config option or the session-wide setter instead (VSUP-305)
+
 ## [3.7.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.7.3) (2026-10-02)
 
 ### Enhancement

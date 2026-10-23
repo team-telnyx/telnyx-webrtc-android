@@ -37,6 +37,8 @@ Represents a SIP user for login - Credential based
 
 **fallbackOnRegionFailure** - Whether or not to connect to default region if the selected region is not reachable. Default is `true`
 
+**useTrickleIce** - Whether to enable Trickle ICE for the session: ICE candidates are gathered and exchanged while the phone is still ringing instead of beforehand, which speeds up call setup. Applies session-wide to every call made or accepted (including push-answered calls) and can be changed at runtime via `TelnyxClient.setUseTrickleIce()`. Default is `false`
+
 ```kotlin
 data class CredentialConfig(
     val sipUser: String,
@@ -52,7 +54,8 @@ data class CredentialConfig(
     val debug: Boolean = false,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
-    val fallbackOnRegionFailure: Boolean = true
+    val fallbackOnRegionFailure: Boolean = true,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig()
 ```
 
@@ -86,6 +89,8 @@ Represents a SIP user for login - Token based
 
 **fallbackOnRegionFailure** - Whether or not to connect to default region if the selected region is not reachable. Default is `true`
 
+**useTrickleIce** - Whether to enable Trickle ICE for the session: ICE candidates are gathered and exchanged while the phone is still ringing instead of beforehand, which speeds up call setup. Applies session-wide to every call made or accepted (including push-answered calls) and can be changed at runtime via `TelnyxClient.setUseTrickleIce()`. Default is `false`
+
 ```kotlin
 data class TokenConfig(
     val sipToken: String,
@@ -100,7 +105,8 @@ data class TokenConfig(
     val debug: Boolean = false,
     val reconnectionTimeout: Long = 60000,
     val region: Region = Region.AUTO,
-    val fallbackOnRegionFailure: Boolean = true
+    val fallbackOnRegionFailure: Boolean = true,
+    val useTrickleIce: Boolean = false
 ) : TelnyxConfig()
 ```
 
