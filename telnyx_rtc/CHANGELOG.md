@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Enhancement
+- Add aggregated ICE/DTLS diagnostics to the call report: every call now records the same events the `ICE_DIAG` logcat stream carries (ICE server configuration with redacted credentials, candidate generation, remote candidate additions, ICE gathering/connection and peer connection state transitions, selected candidate pair changes, and answer-sent timestamps) into a new `iceDiagnostics` section, regardless of the debug flag, bounded to 256 entries per call (VSUP-295)
 - Make Trickle ICE a session-wide option configured at login: new `useTrickleIce` flag in `CredentialConfig` and `TokenConfig` (defaults to `false`), applied to every call made or accepted in the session and toggleable at runtime via the new public `TelnyxClient.setUseTrickleIce()` (VSUP-305)
 
 ### Breaking
