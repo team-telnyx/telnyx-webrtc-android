@@ -52,7 +52,13 @@ internal class IceDiagnosticsCollector {
             val authority = rest.substringBefore('?')
             val query = if (rest.contains('?')) rest.substringAfter('?') else null
 
-            val redactedAuthority = authority.substringAfter('@', missingDelimiterValue = authority)
+            val redactedAuthority = if (authority.contains('@')) {
+                val userinfo = authority.substringBefore('@')
+                val host = authority.substringAfter('@')
+                userinfo.substringBefore(':') + ":" + CREDENTIAL_REPLACEMENT + "@" + host
+            } else {
+                authority
+            }
             val redactedQuery = query
                 ?.split('&')
                 ?.joinToString("&") { param ->

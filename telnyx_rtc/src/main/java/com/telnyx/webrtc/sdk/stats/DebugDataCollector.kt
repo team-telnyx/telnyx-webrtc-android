@@ -604,9 +604,7 @@ class DebugDataCollector(private val context: Context) {
 
         // Logs and Android-specific extra data
         json.add("logs", createLogsArray(data, dateFormat))
-        json.add("iceDiagnostics", createIceDiagnosticsArray(data.iceDiagnostics))
         json.add("android_extra", createAndroidExtraJson(data, dateFormat))
-
         return json
     }
 
@@ -614,6 +612,13 @@ class DebugDataCollector(private val context: Context) {
         val statsArray = JsonArray()
         data.intervalStats.forEach { interval ->
             statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, data.transportStats, dateFormat))
+        }
+        if (data.iceDiagnostics.snapshot.isNotEmpty()) {
+            statsArray.add(
+                JsonObject().apply {
+                    add("iceDiagnostic", createIceDiagnosticsArray(data.iceDiagnostics))
+                }
+            )
         }
         return statsArray
     }

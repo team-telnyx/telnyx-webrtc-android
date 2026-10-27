@@ -26,8 +26,22 @@ class IceDiagnosticsCollectorTest {
         return DebugDataCollector(context)
     }
 
+    /**
+     * The ICE diagnostics section is serialized as a NEW ITEM in the `stats`
+     * array (not a top-level key), keyed by `iceDiagnostic`, so backend
+     * whitelisting does not drop it.
+     */
+    private fun iceDiagnosticItem(report: com.google.gson.JsonObject): com.google.gson.JsonObject {
+        val stats = report.getAsJsonArray("stats")
+        for (element in stats) {
+            val item = element.asJsonObject
+            if (item.has("iceDiagnostic")) return item
+        }
+        throw AssertionError("stats array has no iceDiagnostic item")
+    }
+
     @Test
-    fun `ice diagnostics entries appear in the call report`() {
+    fun `ice diagnostics entries appear in the call report stats array`() {
         val collector = newCollector()
         val callId = UUID.randomUUID()
 
@@ -46,8 +60,9 @@ class IceDiagnosticsCollectorTest {
 
         val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
         val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
-        val diagnostics = report.getAsJsonArray("iceDiagnostics")
+        val item = iceDiagnosticItem(report)
 
+        val diagnostics = item.getAsJsonArray("iceDiagnostic")
         assertEquals(2, diagnostics.size())
         val first = diagnostics[0].asJsonObject
         assertEquals("ice_servers_config", first.get("event").asString)
@@ -56,6 +71,25 @@ class IceDiagnosticsCollectorTest {
         val second = diagnostics[1].asJsonObject
         assertEquals("ice_connection_state", second.get("event").asString)
         assertEquals("CONNECTED", second.get("state").asString)
+    }
+
+    @Test
+    fun `ice diagnostics item is omitted from stats when empty`() {
+        val collector = newCollector()
+        val callId = UUID.randomUUID()
+
+        collector.onCallStarted(callId)
+        collector.onCallEnded(callId, "NORMAL_CLEARING")
+
+        val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
+        val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
+        val stats = report.getAsJsonArray("stats")
+        for (element in stats) {
+            assertTrue(
+                !element.asJsonObject.has("iceDiagnostic"),
+                "empty iceDiagnostics must not emit an iceDiagnostic item"
+            )
+        }
     }
 
     @Test
@@ -71,9 +105,9 @@ class IceDiagnosticsCollectorTest {
 
         val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
         val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
-        val diagnostics = report.getAsJsonArray("iceDiagnostics")
+        val item = iceDiagnosticItem(report)
 
-        assertEquals(IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL, diagnostics.size())
+        assertEquals(IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL, item.getAsJsonArray("iceDiagnostic").size())
     }
 
     @Test
@@ -86,17 +120,22 @@ class IceDiagnosticsCollectorTest {
 
         val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
         val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
-        assertEquals(0, report.getAsJsonArray("iceDiagnostics").size())
+        val stats = report.getAsJsonArray("stats")
+        var hasItem = false
+        for (element in stats) {
+            if (element.asJsonObject.has("iceDiagnostic")) hasItem = true
+        }
+        assertTrue(!hasItem, "entries recorded before onCallStarted must not leak into the report")
     }
 
     @Test
     fun `turn url redaction strips userinfo credentials`() {
         assertEquals(
-            "turn:host.telnyx.com:3478?transport=udp",
+            "turn:user:<redacted>@host.telnyx.com:3478?transport=udp",
             IceDiagnosticsCollector.redactIceServerUrl("turn:user:pass@host.telnyx.com:3478?transport=udp")
         )
         assertEquals(
-            "turns:host.telnyx.com:443?transport=tcp",
+            "turns:user:<redacted>@host.telnyx.com:443?transport=tcp",
             IceDiagnosticsCollector.redactIceServerUrl("turns:user:secret@host.telnyx.com:443?transport=tcp")
         )
     }
