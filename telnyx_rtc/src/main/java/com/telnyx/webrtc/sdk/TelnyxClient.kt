@@ -576,6 +576,11 @@ class TelnyxClient private constructor(
                     Logger.d(tag = "ICE_DIAG", message = {
                         "ANSWER sent via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
                     })
+                    client.debugDataCollector.onIceDiagnostic(
+                        callId = callId,
+                        event = "answer_sent",
+                        fields = mapOf("mode" to "trickle"),
+                    )
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
 
                     // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
@@ -689,6 +694,11 @@ class TelnyxClient private constructor(
                                 Logger.d(tag = "ICE_DIAG", message = {
                                     "ANSWER sent (non-trickle) via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
                                 })
+                                client.debugDataCollector.onIceDiagnostic(
+                                    callId = callId,
+                                    event = "answer_sent",
+                                    fields = mapOf("mode" to "non_trickle"),
+                                )
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
                                 updateCallState(CallState.ACTIVE)
                                 

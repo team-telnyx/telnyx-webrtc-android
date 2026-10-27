@@ -204,6 +204,28 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * Records an aggregated ICE diagnostic entry that mirrors one `ICE_DIAG`
+     * logcat line (VSUP-295) into the call report.
+     *
+     * Entries are collected for every call regardless of the debug flag and are
+     * bounded by [IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL]. The
+     * [fields] map must already have credential material redacted by the
+     * caller — see [IceDiagnosticsCollector.redactIceServerUrl].
+     *
+     * @param callId The unique identifier for the call
+     * @param event The event discriminator (e.g. "ice_state_change", "candidate_generated")
+     * @param fields Additional event-specific fields for the report entry
+     */
+    fun onIceDiagnostic(callId: UUID, event: String, fields: Map<String, Any?> = emptyMap()) {
+        callDebugData[callId]?.let { data ->
+            val entry = LinkedHashMap<String, Any?>(fields.size + 1)
+            entry["event"] = event
+            entry.putAll(fields)
+            data.iceDiagnostics.add(entry)
+        }
+    }
+
+    /**
      * Records an ICE gathering state change.
      *
      * @param callId The unique identifier for the call
@@ -582,6 +604,7 @@ class DebugDataCollector(private val context: Context) {
 
         // Logs and Android-specific extra data
         json.add("logs", createLogsArray(data, dateFormat))
+        json.add("iceDiagnostics", createIceDiagnosticsArray(data.iceDiagnostics))
         json.add("android_extra", createAndroidExtraJson(data, dateFormat))
 
         return json
@@ -715,6 +738,29 @@ class DebugDataCollector(private val context: Context) {
             logsArray.add(logJson)
         }
         return logsArray
+    }
+
+    /**
+     * Serializes the aggregated ICE_DIAG diagnostics into a JSON array.
+     * Field values are mapped to string/number/boolean/null JSON properties;
+     * nested values fall back to their string representation.
+     */
+    private fun createIceDiagnosticsArray(collector: IceDiagnosticsCollector): JsonArray {
+        val array = JsonArray()
+        collector.snapshot.forEach { entry ->
+            val json = JsonObject()
+            entry.forEach { (key, value) ->
+                when (value) {
+                    null -> json.add(key, com.google.gson.JsonNull.INSTANCE)
+                    is Number -> json.addProperty(key, value)
+                    is Boolean -> json.addProperty(key, value)
+                    is String -> json.addProperty(key, value)
+                    else -> json.addProperty(key, value.toString())
+                }
+            }
+            array.add(json)
+        }
+        return array
     }
 
     private fun createAndroidExtraJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
@@ -1387,7 +1433,10 @@ internal data class CallDebugData(
     val intervalStats: MutableList<IntervalStats> = mutableListOf(),
 
     // Log entries for call reporting
-    val logs: MutableList<LogEntry> = mutableListOf()
+    val logs: MutableList<LogEntry> = mutableListOf(),
+
+    // Aggregated ICE_DIAG diagnostics (VSUP-295), bounded by MAX_ICE_DIAGNOSTICS_PER_CALL
+    val iceDiagnostics: IceDiagnosticsCollector = IceDiagnosticsCollector()
 )
 
 /**

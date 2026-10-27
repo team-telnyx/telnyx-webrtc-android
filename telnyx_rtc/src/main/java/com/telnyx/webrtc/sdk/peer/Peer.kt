@@ -21,6 +21,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
+import com.telnyx.webrtc.sdk.stats.IceDiagnosticsCollector
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
@@ -363,6 +364,20 @@ internal class Peer(
             )
         }
 
+        recordIceDiagnostic(
+            event = "ice_servers_config",
+            fields = mapOf(
+                "providedStun" to providedStun,
+                "providedTurn" to IceDiagnosticsCollector.redactIceServerUrl(providedTurn),
+                "forceRelay" to forceRelayCandidate,
+                "prefetchPoolSize" to iceCandidatePoolSize,
+                "derivedTurnUdp" to IceDiagnosticsCollector.redactIceServerUrl(turnUdp),
+                "derivedTurnTcp" to IceDiagnosticsCollector.redactIceServerUrl(turnTcp),
+                "derivedTurns443" to IceDiagnosticsCollector.redactIceServerUrl(turns443),
+                "serverCount" to iceServers.size,
+            ),
+        )
+
         // 1. Telnyx STUN (primary)
         iceServers.add(
             PeerConnection.IceServer.builder(providedStun)
@@ -547,6 +562,7 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
+            newState?.let { recordIceDiagnostic(event = "ice_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
             newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
@@ -581,6 +597,7 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection Receiving Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
+            recordIceDiagnostic(event = "ice_receiving_change", fields = mapOf("receiving" to p0))
             peerConnectionObserver?.onIceConnectionReceivingChange(p0)
         }
 
@@ -588,6 +605,7 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Gathering State Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
+            p0?.let { recordIceDiagnostic(event = "ice_gathering_state", fields = mapOf("state" to it.name)) }
 
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
@@ -633,6 +651,14 @@ internal class Peer(
                 "Event-IceCandidate Generated: $candidate [${SystemClock.elapsedRealtime()}ms]"
             })
             candidate?.let {
+                recordIceDiagnostic(
+                    event = "candidate_generated",
+                    fields = mapOf(
+                        "candidate" to describeCandidate(it),
+                        "sdpMid" to it.sdpMid,
+                        "sdpMLineIndex" to it.sdpMLineIndex,
+                    ),
+                )
                 Logger.d(tag = ICE_DIAG_TAG, message = {
                     "Processing ICE candidate: ${describeCandidate(it)} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${SystemClock.elapsedRealtime()}ms]"
                 })
@@ -706,6 +732,7 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Candidates Removed: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
+            recordIceDiagnostic(event = "candidates_removed", fields = mapOf("count" to (p0?.size ?: 0)))
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
         }
 
@@ -714,6 +741,16 @@ internal class Peer(
                 Logger.d(tag = ICE_DIAG_TAG, throwable = null, message = {
                     "SELECTED PAIR CHANGED: local=${describeCandidate(it.local)} remote=${describeCandidate(it.remote)} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${SystemClock.elapsedRealtime()}ms]"
                 })
+                recordIceDiagnostic(
+                    event = "selected_pair_changed",
+                    fields = mapOf(
+                        "local" to describeCandidate(it.local),
+                        "remote" to describeCandidate(it.remote),
+                        "reason" to it.reason?.toString(),
+                        "lastDataReceivedMs" to it.lastDataReceivedMs,
+                        "estimatedDisconnectedTimeMs" to it.estimatedDisconnectedTimeMs,
+                    ),
+                )
             }
             // No forward to peerConnectionObserver: the internal PeerConnectionObserver
             // does not override onSelectedCandidatePairChanged, so the call was a
@@ -744,6 +781,7 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "Peer Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
+            newState?.let { recordIceDiagnostic(event = "peer_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onConnectionChange(newState)
 
             // Drive the recovery monitor on peer-connection FAILED.
@@ -784,6 +822,17 @@ internal class Peer(
         Logger.d(tag = ICE_DIAG_TAG, message = {
             "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${SystemClock.elapsedRealtime()}ms]"
         })
+        recordIceDiagnostic(
+            event = "rtc_configuration",
+            fields = mapOf(
+                "sdpSemantics" to config.sdpSemantics.toString(),
+                "bundlePolicy" to config.bundlePolicy.toString(),
+                "continualGatheringPolicy" to config.continualGatheringPolicy.toString(),
+                "iceCandidatePoolSize" to config.iceCandidatePoolSize,
+                "iceTransportsType" to config.iceTransportsType.toString(),
+                "iceServerCount" to iceServer.size,
+            ),
+        )
 
         return peerConnectionFactory.createPeerConnection(config, observer)
     }
@@ -1126,6 +1175,13 @@ internal class Peer(
         Logger.d(tag = ICE_DIAG_TAG, message = {
             "REMOTE ICE candidate added: ${describeCandidate(iceCandidate)} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${SystemClock.elapsedRealtime()}ms]"
         })
+        recordIceDiagnostic(
+            event = "remote_candidate_added",
+            fields = mapOf(
+                "candidate" to describeCandidate(iceCandidate),
+                "sdpMid" to iceCandidate?.sdpMid,
+            ),
+        )
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
@@ -1888,6 +1944,22 @@ internal class Peer(
                 "callId" to callId.toString(),
                 "sessionId" to client.sessid,
             ),
+        )
+    }
+
+    /**
+     * Mirrors one `ICE_DIAG` logcat line into the call report (VSUP-295).
+     *
+     * Keeps the existing logcat output unchanged and additionally writes an
+     * aggregated, bounded entry via [DebugDataCollector.onIceDiagnostic].
+     * Credential material in ICE server URLs must be redacted before it
+     * reaches [fields] — see [IceDiagnosticsCollector.redactIceServerUrl].
+     */
+    private fun recordIceDiagnostic(event: String, fields: Map<String, Any?> = emptyMap()) {
+        client.debugDataCollector.onIceDiagnostic(
+            callId = callId,
+            event = event,
+            fields = fields,
         )
     }
 
