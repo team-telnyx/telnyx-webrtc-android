@@ -31,6 +31,16 @@ class IceDiagnosticsCollectorTest {
      * array (not a top-level key), keyed by `iceDiagnostic`, so backend
      * whitelisting does not drop it.
      */
+    private fun iceEvents(report: com.google.gson.JsonObject): List<com.google.gson.JsonObject> {
+        val stats = report.getAsJsonArray("stats")
+        for (element in stats) {
+            val item = element.asJsonObject
+            if (item.has("iceDiagnostic")) {
+                return item.getAsJsonArray("iceDiagnostic").map { it.asJsonObject }
+            }
+        }
+        throw AssertionError("stats array has no iceDiagnostic item")
+    }
     private fun iceDiagnosticItem(report: com.google.gson.JsonObject): com.google.gson.JsonObject {
         val stats = report.getAsJsonArray("stats")
         for (element in stats) {
@@ -71,6 +81,13 @@ class IceDiagnosticsCollectorTest {
         val second = diagnostics[1].asJsonObject
         assertEquals("ice_connection_state", second.get("event").asString)
         assertEquals("CONNECTED", second.get("state").asString)
+
+        // Every entry carries elapsedRealtime at the event moment and the
+        // offset from the call-start baseline.
+        assertTrue(first.has("tsMs"), "ice event missing tsMs")
+        assertTrue(first.has("msFromCallStart"), "ice event missing msFromCallStart")
+        assertEquals(0L, first.get("msFromCallStart").asLong)
+        assertEquals(first.get("tsMs").asLong, second.get("tsMs").asLong - second.get("msFromCallStart").asLong)
     }
 
     @Test
@@ -126,6 +143,25 @@ class IceDiagnosticsCollectorTest {
             if (element.asJsonObject.has("iceDiagnostic")) hasItem = true
         }
         assertTrue(!hasItem, "entries recorded before onCallStarted must not leak into the report")
+    }
+
+    @Test
+    fun `ice event timestamps are non-decreasing across entries`() {
+        val collector = newCollector()
+        val callId = UUID.randomUUID()
+
+        collector.onCallStarted(callId)
+        for (step in 0 until 5) {
+            collector.onIceDiagnostic(callId, "candidate_generated", mapOf("seq" to step), tsMs = 1_000L + step * 100)
+        }
+        collector.onCallEnded(callId, "NORMAL_CLEARING")
+
+        val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
+        val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
+        val events = iceEvents(report)
+        assertEquals(5, events.size)
+        val msFromStart = events.map { it.get("msFromCallStart").asLong }
+        assertEquals(msFromStart, msFromStart.sorted())
     }
 
     @Test

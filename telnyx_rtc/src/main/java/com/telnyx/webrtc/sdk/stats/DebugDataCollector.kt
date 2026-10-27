@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
@@ -70,6 +71,7 @@ class DebugDataCollector(private val context: Context) {
             telnyxSessionId = telnyxSessionId,
             telnyxLegId = telnyxLegId,
             startTimestamp = System.currentTimeMillis(),
+            startElapsedRealtime = SystemClock.elapsedRealtime(),
             sdkVersion = BuildConfig.SDK_VERSION,
             networkType = getNetworkType(),
             osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
@@ -216,10 +218,18 @@ class DebugDataCollector(private val context: Context) {
      * @param event The event discriminator (e.g. "ice_state_change", "candidate_generated")
      * @param fields Additional event-specific fields for the report entry
      */
-    fun onIceDiagnostic(callId: UUID, event: String, fields: Map<String, Any?> = emptyMap()) {
+    fun onIceDiagnostic(
+        callId: UUID,
+        event: String,
+        fields: Map<String, Any?> = emptyMap(),
+        tsMs: Long? = null,
+    ) {
         callDebugData[callId]?.let { data ->
-            val entry = LinkedHashMap<String, Any?>(fields.size + 1)
+            val stampMs = tsMs ?: SystemClock.elapsedRealtime()
+            val entry = LinkedHashMap<String, Any?>(fields.size + 3)
             entry["event"] = event
+            entry["tsMs"] = stampMs
+            entry["msFromCallStart"] = stampMs - data.startElapsedRealtime
             entry.putAll(fields)
             data.iceDiagnostics.add(entry)
         }
@@ -1439,6 +1449,9 @@ internal data class CallDebugData(
 
     // Log entries for call reporting
     val logs: MutableList<LogEntry> = mutableListOf(),
+
+    // SystemClock.elapsedRealtime() at call start — baseline for ICE diagnostics event timing
+    val startElapsedRealtime: Long = 0L,
 
     // Aggregated ICE_DIAG diagnostics (VSUP-295), bounded by MAX_ICE_DIAGNOSTICS_PER_CALL
     val iceDiagnostics: IceDiagnosticsCollector = IceDiagnosticsCollector()

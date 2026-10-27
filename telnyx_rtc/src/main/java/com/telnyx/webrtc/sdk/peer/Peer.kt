@@ -1960,6 +1960,7 @@ internal class Peer(
             callId = callId,
             event = event,
             fields = fields,
+            tsMs = SystemClock.elapsedRealtime(),
         )
     }
 

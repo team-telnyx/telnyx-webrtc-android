@@ -580,6 +580,7 @@ class TelnyxClient private constructor(
                         callId = callId,
                         event = "answer_sent",
                         fields = mapOf("mode" to "trickle"),
+                        tsMs = SystemClock.elapsedRealtime(),
                     )
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
 
@@ -698,6 +699,7 @@ class TelnyxClient private constructor(
                                     callId = callId,
                                     event = "answer_sent",
                                     fields = mapOf("mode" to "non_trickle"),
+                                    tsMs = SystemClock.elapsedRealtime(),
                                 )
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
                                 updateCallState(CallState.ACTIVE)
