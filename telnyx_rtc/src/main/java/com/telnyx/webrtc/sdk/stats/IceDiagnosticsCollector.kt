@@ -10,8 +10,9 @@ package com.telnyx.webrtc.sdk.stats
  *
  * Each entry is a flat map with an "event" discriminator plus the fields the
  * corresponding logcat line already contained. Entries are collected for every
- * call regardless of the debug flag - the payload is bounded by
- * [MAX_ICE_DIAGNOSTICS_PER_CALL], so the added cost is negligible.
+ * call regardless of the debug flag - the per-call volume is naturally small
+ * (tens of entries, dominated by candidate gathering), so the added cost is
+ * negligible.
  *
  * TURN credential material is redacted in [redactIceServerUrl] so uploaded
  * reports never carry ICE server credentials; the logcat stream keeps full
@@ -20,9 +21,6 @@ package com.telnyx.webrtc.sdk.stats
 internal class IceDiagnosticsCollector {
 
     companion object {
-        /** Upper bound on entries per call; keeps the report payload bounded. */
-        const val MAX_ICE_DIAGNOSTICS_PER_CALL = 256
-
         /** Replaces credential material in redacted URLs and query params. */
         const val CREDENTIAL_REPLACEMENT = "<redacted>"
 
@@ -91,16 +89,10 @@ internal class IceDiagnosticsCollector {
     val size: Int
         get() = synchronized(entries) { entries.size }
 
-    /** True once the per-call cap has been reached and further entries are dropped. */
-    val isFull: Boolean
-        get() = size >= MAX_ICE_DIAGNOSTICS_PER_CALL
-
-    /** Adds one diagnostic entry. Silently drops once the per-call cap is reached. */
+    /** Adds one diagnostic entry. */
     fun add(entry: Map<String, Any?>) {
         synchronized(entries) {
-            if (entries.size < MAX_ICE_DIAGNOSTICS_PER_CALL) {
-                entries.add(entry)
-            }
+            entries.add(entry)
         }
     }
 }

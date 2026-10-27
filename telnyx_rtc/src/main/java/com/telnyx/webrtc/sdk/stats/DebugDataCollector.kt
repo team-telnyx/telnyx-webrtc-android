@@ -209,10 +209,10 @@ class DebugDataCollector(private val context: Context) {
      * Records an aggregated ICE diagnostic entry that mirrors one `ICE_DIAG`
      * logcat line (VSUP-295) into the call report.
      *
-     * Entries are collected for every call regardless of the debug flag and are
-     * bounded by [IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL]. The
-     * [fields] map must already have credential material redacted by the
-     * caller — see [IceDiagnosticsCollector.redactIceServerUrl].
+     * Entries are collected for every call regardless of the debug flag. The
+     * per-call volume is naturally small (tens of entries), so no cap is
+     * applied. The [fields] map must already have credential material redacted
+     * by the caller — see [IceDiagnosticsCollector.redactIceServerUrl].
      *
      * @param callId The unique identifier for the call
      * @param event The event discriminator (e.g. "ice_state_change", "candidate_generated")
@@ -1453,7 +1453,7 @@ internal data class CallDebugData(
     // SystemClock.elapsedRealtime() at call start — baseline for ICE diagnostics event timing
     val startElapsedRealtime: Long = 0L,
 
-    // Aggregated ICE_DIAG diagnostics (VSUP-295), bounded by MAX_ICE_DIAGNOSTICS_PER_CALL
+    // Aggregated ICE_DIAG diagnostics (VSUP-295)
     val iceDiagnostics: IceDiagnosticsCollector = IceDiagnosticsCollector()
 )
 

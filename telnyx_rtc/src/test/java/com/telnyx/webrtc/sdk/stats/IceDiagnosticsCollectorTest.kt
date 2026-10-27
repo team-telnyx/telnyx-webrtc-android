@@ -110,21 +110,32 @@ class IceDiagnosticsCollectorTest {
     }
 
     @Test
-    fun `ice diagnostics cap keeps the report bounded`() {
+    fun `all ice diagnostics entries are retained - no cap drops terminal state events`() {
         val collector = newCollector()
         val callId = UUID.randomUUID()
 
         collector.onCallStarted(callId)
-        repeat(IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL + 50) { index ->
+        // Far more events than a normal call would ever produce
+        repeat(300) { index ->
             collector.onIceDiagnostic(callId, "candidate_generated", mapOf("seq" to index))
         }
+        // Terminal events arrive last and must survive
+        collector.onIceDiagnostic(callId, "peer_connection_state", mapOf("state" to "FAILED"))
+        collector.onIceDiagnostic(callId, "ice_connection_state", mapOf("state" to "FAILED"))
         collector.onCallEnded(callId, "NORMAL_CLEARING")
 
         val reportPath = requireNotNull(collector.getLastGeneratedJsonFilePath())
         val report = JsonParser.parseString(java.io.File(reportPath).readText()).asJsonObject
         val item = iceDiagnosticItem(report)
+        val diagnostics = item.getAsJsonArray("iceDiagnostic")
 
-        assertEquals(IceDiagnosticsCollector.MAX_ICE_DIAGNOSTICS_PER_CALL, item.getAsJsonArray("iceDiagnostic").size())
+        assertEquals(302, diagnostics.size())
+        val last = diagnostics.last().asJsonObject
+        assertEquals("ice_connection_state", last.get("event").asString)
+        assertEquals("FAILED", last.get("state").asString)
+        val secondToLast = diagnostics[diagnostics.size() - 2].asJsonObject
+        assertEquals("peer_connection_state", secondToLast.get("event").asString)
+        assertEquals("FAILED", secondToLast.get("state").asString)
     }
 
     @Test
