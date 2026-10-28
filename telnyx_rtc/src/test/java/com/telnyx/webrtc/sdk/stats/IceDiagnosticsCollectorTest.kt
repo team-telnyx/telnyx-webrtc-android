@@ -82,12 +82,17 @@ class IceDiagnosticsCollectorTest {
         assertEquals("ice_connection_state", second.get("event").asString)
         assertEquals("CONNECTED", second.get("state").asString)
 
-        // Every entry carries elapsedRealtime at the event moment and the
+        // Every entry carries the UTC wall-clock time of the event and the
         // offset from the call-start baseline.
         assertTrue(first.has("tsMs"), "ice event missing tsMs")
         assertTrue(first.has("msFromCallStart"), "ice event missing msFromCallStart")
         assertEquals(0L, first.get("msFromCallStart").asLong)
-        assertEquals(first.get("tsMs").asLong, second.get("tsMs").asLong - second.get("msFromCallStart").asLong)
+        val utcFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val firstTs = utcFormat.parse(first.get("tsMs").asString)!!.time
+        val secondTs = utcFormat.parse(second.get("tsMs").asString)!!.time
+        assertEquals(firstTs, secondTs - second.get("msFromCallStart").asLong)
     }
 
     @Test

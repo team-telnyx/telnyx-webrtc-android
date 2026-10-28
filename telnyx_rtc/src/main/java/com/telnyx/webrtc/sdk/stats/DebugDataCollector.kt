@@ -228,8 +228,11 @@ class DebugDataCollector(private val context: Context) {
             val stampMs = tsMs ?: SystemClock.elapsedRealtime()
             val entry = LinkedHashMap<String, Any?>(fields.size + 3)
             entry["event"] = event
-            entry["tsMs"] = stampMs
-            entry["msFromCallStart"] = stampMs - data.startElapsedRealtime
+            val msFromCallStart = stampMs - data.startElapsedRealtime
+            // Anchor the monotonic stamp to the call-start wall clock so the
+            // report shows UTC time like the other stats entries.
+            entry["tsMs"] = Date(data.startTimestamp + msFromCallStart)
+            entry["msFromCallStart"] = msFromCallStart
             entry.putAll(fields)
             data.iceDiagnostics.add(entry)
         }
@@ -626,7 +629,7 @@ class DebugDataCollector(private val context: Context) {
         if (data.iceDiagnostics.snapshot.isNotEmpty()) {
             statsArray.add(
                 JsonObject().apply {
-                    add("iceDiagnostic", createIceDiagnosticsArray(data.iceDiagnostics))
+                    add("iceDiagnostic", createIceDiagnosticsArray(data.iceDiagnostics, dateFormat))
                 }
             )
         }
@@ -757,10 +760,14 @@ class DebugDataCollector(private val context: Context) {
 
     /**
      * Serializes the aggregated ICE_DIAG diagnostics into a JSON array.
-     * Field values are mapped to string/number/boolean/null JSON properties;
-     * nested values fall back to their string representation.
+     * Field values are mapped to string/number/boolean/null JSON properties,
+     * dates are formatted as UTC ISO-8601; nested values fall back to their
+     * string representation.
      */
-    private fun createIceDiagnosticsArray(collector: IceDiagnosticsCollector): JsonArray {
+    private fun createIceDiagnosticsArray(
+        collector: IceDiagnosticsCollector,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
         val array = JsonArray()
         collector.snapshot.forEach { entry ->
             val json = JsonObject()
@@ -770,6 +777,7 @@ class DebugDataCollector(private val context: Context) {
                     is Number -> json.addProperty(key, value)
                     is Boolean -> json.addProperty(key, value)
                     is String -> json.addProperty(key, value)
+                    is Date -> json.addProperty(key, dateFormat.format(value))
                     else -> json.addProperty(key, value.toString())
                 }
             }
