@@ -59,7 +59,8 @@ class LatencyTrackerTest {
         tracker.startCallTracking(callId, isOutbound = false, useTrickleIce = false)
         tracker.markInviteReceived(callId)
 
-        // User calls acceptCall with useTrickleIce = true
+        // User changes the session-wide useTrickleIce flag (e.g. via
+        // TelnyxClient.setUseTrickleIce) before accepting
         // This should update the tracker's ICE mode
         tracker.updateIceMode(callId, useTrickleIce = true)
         tracker.markAnswerInitiated(callId)

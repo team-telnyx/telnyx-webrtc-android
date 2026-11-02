@@ -20,6 +20,7 @@ import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
 import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.testhelpers.*
@@ -348,13 +349,13 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
-        // Default direct-core identity: name = "android", version = core artifact version.
-        assertEquals("android", loginParam.mobileSdkName)
+        // Default direct-core identity: name = "webrtc-android", version = core artifact version.
+        assertEquals("webrtc-android", loginParam.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
         // Legacy User-Agent field is preserved unchanged.
         assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
         // The SdkIdentity exposed on the client is immutable and matches what was sent.
-        assertEquals("android", client.sdkIdentity.name)
+        assertEquals("webrtc-android", client.sdkIdentity.name)
         assertEquals(BuildConfig.SDK_VERSION, client.sdkIdentity.version)
     }
 
@@ -377,14 +378,14 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
-        assertEquals("android", loginParam.mobileSdkName)
+        assertEquals("webrtc-android", loginParam.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, loginParam.mobileSdkVersion)
         assertEquals("Android-${BuildConfig.SDK_VERSION}", loginParam.userAgent)
     }
 
     @Test
     fun `client constructed with custom identity emits that identity on credential login`() {
-        val customIdentity = SdkIdentity(name = "android_commons", version = "9.9.9-test")
+        val customIdentity = SdkIdentity(name = "webrtc-android-commons", version = "9.9.9-test")
         client = Mockito.spy(TelnyxClient(mockContext, customIdentity))
         client.socket = Mockito.mock(TxSocket::class.java)
 
@@ -404,7 +405,7 @@ class TelnyxClientTest : BaseTest() {
         Mockito.verify(client.socket).send(captor.capture())
         val loginParam = captor.value.params as LoginParam
         // Wrapper-overridden identity is forwarded on the wire.
-        assertEquals("android_commons", loginParam.mobileSdkName)
+        assertEquals("webrtc-android-commons", loginParam.mobileSdkName)
         assertEquals("9.9.9-test", loginParam.mobileSdkVersion)
         // Legacy User-Agent field stays anchored to the core artifact version
         // so existing server-side UA matching continues to work for wrapper apps.
@@ -423,7 +424,7 @@ class TelnyxClientTest : BaseTest() {
         val captor = ArgumentCaptor.forClass(SendingMessageBody::class.java)
         Mockito.verify(client.socket).send(captor.capture())
         val anonParams = captor.value.params as AnonymousLoginParams
-        assertEquals("android", anonParams.mobileSdkName)
+        assertEquals("webrtc-android", anonParams.mobileSdkName)
         assertEquals(BuildConfig.SDK_VERSION, anonParams.mobileSdkVersion)
         // Legacy nested User-Agent block is preserved unchanged.
         assertEquals(BuildConfig.SDK_VERSION, anonParams.userAgent.sdkVersion)
@@ -1058,6 +1059,7 @@ class TelnyxClientTest : BaseTest() {
         // Writer threads: add/remove entries concurrently.
         repeat(writerCount) {
             val fakeCall = Mockito.mock(Call::class.java)
+            Mockito.`when`(fakeCall.callId).thenReturn(UUID.randomUUID())
             executor.submit {
                 try {
                     latch.await()
@@ -1134,6 +1136,103 @@ class TelnyxClientTest : BaseTest() {
 
         assertEquals(appCallId, client.signalingCallId(appCallId))
         assertEquals(socketCallId, client.appCallId(socketCallId))
+    }
+
+    @Test
+    fun `recovery relay override is retained while reattach is already in progress`() {
+        val config = CredentialConfig(
+            sipUser = MOCK_USERNAME_TEST,
+            sipPassword = MOCK_PASSWORD,
+            sipCallerIDName = "Test",
+            sipCallerIDNumber = "000000000",
+            fcmToken = "fcm-token",
+            ringtone = null,
+            ringBackTone = null,
+        )
+        setPrivateField("credentialSessionConfig", config)
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callId = UUID.randomUUID()
+
+        assertTrue(client.requestCallRecoveryReattach(callId, forceRelayCandidateForRecovery = true))
+
+        assertTrue(client.consumeRecoveryRelayOverride(callId))
+    }
+
+    @Test
+    fun `recovery relay override is consumed only by the requesting call's attach`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callA = UUID.randomUUID()
+        val callB = UUID.randomUUID()
+
+        // B's failed direct VPN path asks for relay; A does not.
+        assertTrue(client.requestCallRecoveryReattach(callB, forceRelayCandidateForRecovery = true))
+
+        // A's attach arrives first and must not take B's override.
+        assertFalse(client.consumeRecoveryRelayOverride(callA))
+        assertTrue(client.consumeRecoveryRelayOverride(callB))
+        assertFalse(client.consumeRecoveryRelayOverride(callB))
+    }
+
+    @Test
+    fun `every call that requests relay keeps its own recovery override`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callA = UUID.randomUUID()
+        val callB = UUID.randomUUID()
+
+        client.requestCallRecoveryReattach(callA, forceRelayCandidateForRecovery = true)
+        client.requestCallRecoveryReattach(callB, forceRelayCandidateForRecovery = true)
+
+        assertTrue(client.consumeRecoveryRelayOverride(callB))
+        assertTrue(client.consumeRecoveryRelayOverride(callA))
+    }
+
+    @Test
+    fun `removing a call clears its pending recovery relay override`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        val callId = UUID.randomUUID()
+        client.requestCallRecoveryReattach(callId, forceRelayCandidateForRecovery = true)
+
+        client.removeFromCalls(callId)
+
+        assertFalse(client.consumeRecoveryRelayOverride(callId))
+    }
+
+    private fun recoveryTestConfig() = CredentialConfig(
+        sipUser = MOCK_USERNAME_TEST,
+        sipPassword = MOCK_PASSWORD,
+        sipCallerIDName = "Test",
+        sipCallerIDNumber = "000000000",
+        fcmToken = "fcm-token",
+        ringtone = null,
+        ringBackTone = null,
+    )
+
+    @Test
+    fun `network path change is forwarded to every call peer`() {
+        val firstPeer = mockk<Peer>(relaxed = true)
+        val secondPeer = mockk<Peer>(relaxed = true)
+        val firstCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns firstPeer
+        }
+        val secondCall = mockk<Call>(relaxed = true) {
+            every { peerConnection } returns secondPeer
+        }
+        client.calls[UUID.randomUUID()] = firstCall
+        client.calls[UUID.randomUUID()] = secondCall
+
+        val method = TelnyxClient::class.java.getDeclaredMethod("notifyCallPeersOfNetworkPathChange")
+        method.isAccessible = true
+        method.invoke(client)
+
+        verify(exactly = 1) { firstPeer.onNetworkPathDidChange() }
+        verify(exactly = 1) { secondPeer.onNetworkPathDidChange() }
     }
 
     @Test

@@ -5,36 +5,42 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.telnyx.webrtc.sdk.Call
 import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.SocketMethod
+import com.telnyx.webrtc.sdk.socket.TxSocket
+import com.telnyx.webrtc.sdk.stats.DebugDataCollector
 import com.telnyx.webrtc.sdk.testhelpers.BaseTest
-import com.telnyx.webrtc.sdk.testhelpers.extensions.CoroutinesTestExtension
-import com.telnyx.webrtc.sdk.testhelpers.extensions.InstantExecutorExtension
+import com.telnyx.webrtc.sdk.verto.send.SendingMessageBody
+import com.telnyx.webrtc.lib.AudioSource
+import com.telnyx.webrtc.lib.AudioTrack
 import com.telnyx.webrtc.lib.MediaConstraints
+import com.telnyx.webrtc.lib.IceCandidate
+import com.telnyx.webrtc.lib.MediaStream
 import com.telnyx.webrtc.lib.PeerConnection
+import com.telnyx.webrtc.lib.PeerConnectionFactory
 import com.telnyx.webrtc.lib.SdpObserver
 import com.telnyx.webrtc.lib.SessionDescription
 import io.mockk.*
-import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import org.junit.jupiter.api.BeforeEach
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.Test
 import org.junit.rules.TestRule
 import java.util.*
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Unit tests for ICE renegotiation functionality in the Peer class.
  * Tests cover ICE state transitions, renegotiation process, error handling,
  * and call state management during ICE restart scenarios.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
-@ExtendWith(InstantExecutorExtension::class, CoroutinesTestExtension::class)
 class IceRenegotiationTest : BaseTest() {
 
-    @MockK
+    @RelaxedMockK
     private lateinit var mockContext: Context
 
     @RelaxedMockK
@@ -46,13 +52,23 @@ class IceRenegotiationTest : BaseTest() {
     @RelaxedMockK
     private lateinit var mockPeerConnection: PeerConnection
 
+    @RelaxedMockK
+    private lateinit var mockSocket: TxSocket
+
+    @RelaxedMockK
+    private lateinit var mockPeerConnectionFactory: PeerConnectionFactory
+
+    @RelaxedMockK
+    private lateinit var mockDebugDataCollector: DebugDataCollector
+
     @get:Rule
     val rule: TestRule = InstantTaskExecutorRule()
 
     private lateinit var peer: Peer
+    private lateinit var webRtcObserver: PeerConnection.Observer
     private val testCallId = UUID.randomUUID()
 
-    @BeforeEach
+    @Before
     fun setup() {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
@@ -66,25 +82,177 @@ class IceRenegotiationTest : BaseTest() {
         every { mockCall.updateCallState(any()) } just Runs
 
         // Setup TelnyxClient methods
-        every { mockTelnyxClient.sendUpdateMediaMessage(any(), any()) } just Runs
+        every { mockTelnyxClient.sendUpdateMediaMessage(any(), any(), any()) } just Runs
+        every {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        } just Runs
+        every { mockTelnyxClient.isSocketConnected() } returns true
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        every { mockTelnyxClient.debugDataCollector } returns mockDebugDataCollector
+        every { mockTelnyxClient.sessid } returns "session-id"
+        every { mockTelnyxClient.socket } returns mockSocket
 
-        // Mock PeerConnection creation and methods
-        mockkConstructor(PeerConnection::class)
-        every { anyConstructed<PeerConnection>().createOffer(any(), any()) } just Runs
-        every { anyConstructed<PeerConnection>().setLocalDescription(any(), any()) } just Runs
-        every { anyConstructed<PeerConnection>().setRemoteDescription(any(), any()) } just Runs
+        // Capture the actual observer installed by Peer while avoiding native
+        // WebRTC/EGL initialization in this local JVM test.
+        val observerSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(observerSlot),
+            )
+        } returns mockPeerConnection
 
         // Create peer instance with mocked dependencies
-        peer = spyk(
-            Peer(
-                context = mockContext,
-                client = mockTelnyxClient,
-                callId = testCallId
-            )
+        peer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        webRtcObserver = observerSlot.captured
+    }
+
+    @After
+    fun tearDown() {
+        peer.disconnect()
+    }
+
+    @Test
+    fun `outbound trickle call keeps its mode when client default changes during gathering`() {
+        val candidate = IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host",
         )
 
-        // Mock the peer connection field
-        every { peer.peerConnection } returns mockPeerConnection
+        // Constructed as a trickle call: the mode is captured per peer, so a
+        // mid-gathering change of the session default does not reroute this call.
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        val outboundObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(outboundObserverSlot),
+            )
+        } returns mockPeerConnection
+        val tricklePeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        webRtcObserver = outboundObserverSlot.captured
+
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        webRtcObserver.onIceCandidate(candidate)
+
+        verify {
+            mockSocket.send(
+                match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
+            )
+        }
+        verify(exactly = 0) { mockPeerConnection.addIceCandidate(candidate) }
+
+        tricklePeer.disconnect()
+    }
+
+    @Test
+    fun `inbound standard call keeps its mode when client default changes during gathering`() {
+        val candidate = IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host",
+        )
+        val candidateCallback = mockk<(String) -> Unit>(relaxed = true)
+        val answeringObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(answeringObserverSlot),
+            )
+        } returns mockPeerConnection
+
+        // Constructed as a standard-ICE call: candidates route to the peer
+        // connection even if the session default flips to trickle mid-gathering.
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        val standardPeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = false,
+            isAnswering = true,
+            onIceCandidateAdd = candidateCallback,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        val answeringObserver = answeringObserverSlot.captured
+        every { mockCall.sessionId } returns "session-id"
+        every { mockCall.callStateFlow.value } returns CallState.CONNECTING
+
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        answeringObserver.onIceCandidate(candidate)
+
+        verify { mockPeerConnection.addIceCandidate(candidate) }
+        verify { candidateCallback.invoke(any()) }
+        verify(exactly = 0) { mockSocket.send(any()) }
+
+        standardPeer.disconnect()
+    }
+
+    @Test
+    fun `inbound trickle call flushes queued candidates even if the session default flips off before the ANSWER`() {
+        val candidate = IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 udp 2122260223 192.0.2.1 50000 typ host",
+        )
+        val candidateCallback = mockk<(String) -> Unit>(relaxed = true)
+        val answeringObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(answeringObserverSlot),
+            )
+        } returns mockPeerConnection
+
+        // Constructed as a trickle answering call: candidates queue until the ANSWER.
+        val trickleAnsweringPeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            isAnswering = true,
+            onIceCandidateAdd = candidateCallback,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        val trickleObserver = answeringObserverSlot.captured
+        every { mockCall.sessionId } returns "session-id"
+
+        trickleObserver.onIceCandidate(candidate)
+
+        // Queue while the ANSWER has not been sent.
+        verify(exactly = 0) { mockSocket.send(any()) }
+
+        // The session default flips to standard ICE mid-ring, before the ANSWER
+        // goes out. The peer captured its mode at construction, so the flush must
+        // still drain the queue — the ANSWER was already marked trickle.
+        every { mockTelnyxClient.getUseTrickleIce() } returns false
+        trickleAnsweringPeer.flushQueuedCandidatesAfterAnswer()
+
+        verify(exactly = 1) {
+            mockSocket.send(
+                match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
+            )
+        }
+        // A candidate generated after the flush is sent immediately, not re-queued.
+        trickleObserver.onIceCandidate(candidate)
+        verify(exactly = 2) {
+            mockSocket.send(
+                match { it is SendingMessageBody && it.method == "telnyx_rtc.candidate" }
+            )
+        }
+
+        trickleAnsweringPeer.disconnect()
     }
 
     @Test
@@ -92,12 +260,8 @@ class IceRenegotiationTest : BaseTest() {
         // Arrange
         val newState = PeerConnection.IceConnectionState.FAILED
 
-        // Mock the private method call
-        every { peer["startIceRenegotiation"]() as Unit } just Runs
-
         // Act - simulate ICE connection state change through the observer
-        val observer = peer.peerConnectionObserver
-        observer?.onIceConnectionChange(newState)
+        webRtcObserver.onIceConnectionChange(newState)
 
         // Assert
         // Verify that renegotiation would be triggered after delay
@@ -107,12 +271,87 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
+    fun `starting local audio capture twice reuses the existing track`() {
+        val audioSource = mockk<AudioSource>(relaxed = true)
+        val audioTrack = mockk<AudioTrack>(relaxed = true)
+        val localStream = mockk<MediaStream>(relaxed = true)
+        every { mockPeerConnectionFactory.createAudioSource(any()) } returns audioSource
+        every {
+            mockPeerConnectionFactory.createAudioTrack(any(), audioSource)
+        } returns audioTrack
+        every {
+            mockPeerConnectionFactory.createLocalMediaStream(any())
+        } returns localStream
+
+        peer.startLocalAudioCapture()
+        peer.startLocalAudioCapture()
+
+        verify(exactly = 1) { mockPeerConnectionFactory.createAudioSource(any()) }
+        verify(exactly = 1) { mockPeerConnectionFactory.createAudioTrack(any(), audioSource) }
+        verify(exactly = 1) { mockPeerConnection.addTrack(audioTrack) }
+    }
+
+    @Test
+    fun `direct VPN candidate path requires relay fallback`() {
+        val statistics = candidatePathStatistics(networkType = "vpn", candidateType = "host")
+
+        assertTrue(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `VPN relay candidate path does not require another relay fallback`() {
+        val statistics = candidatePathStatistics(networkType = "VPN", candidateType = "relay")
+
+        assertFalse(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `non-VPN direct candidate path keeps configured ICE policy`() {
+        val statistics = candidatePathStatistics(networkType = "wifi", candidateType = "host")
+
+        assertFalse(Peer.selectedCandidateUsesDirectVpn(statistics))
+    }
+
+    @Test
+    fun `peer failure starts recovery and active cadence while ICE reports connected`() {
+        assertEquals(3_000L, peer.getPrivateField("recoveryTickIntervalMs"))
+        every { mockPeerConnection.iceConnectionState() } returns
+            PeerConnection.IceConnectionState.CONNECTED
+
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, peer.signalingHealthMonitor.state())
+        assertEquals(250L, peer.getPrivateField("recoveryTickIntervalMs"))
+    }
+
+    @Test
+    fun `network path change preempts peer recovery and stops recovery timer`() {
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.FAILED)
+        assertEquals(SignalingHealthMonitor.State.ICE_RESTARTING, peer.signalingHealthMonitor.state())
+
+        peer.onNetworkPathDidChange()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, peer.signalingHealthMonitor.state())
+        assertNull(peer.getPrivateField("recoveryTickIntervalMs"))
+    }
+
+    @Test
+    fun `peer state exclusively owns disconnected recovery debounce`() {
+        webRtcObserver.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.IDLE, peer.signalingHealthMonitor.state())
+        assertEquals(3_000L, peer.getPrivateField("recoveryTickIntervalMs"))
+
+        webRtcObserver.onConnectionChange(PeerConnection.PeerConnectionState.DISCONNECTED)
+
+        assertEquals(SignalingHealthMonitor.State.PROBING, peer.signalingHealthMonitor.state())
+        assertEquals(250L, peer.getPrivateField("recoveryTickIntervalMs"))
+    }
+
+    @Test
     fun `test startIceRenegotiation sets call state to RENEGOTIATING`() {
         // Arrange
-        val mockSessionDescription = mockk<SessionDescription> {
-            every { description } returns "test-sdp"
-            every { type } returns SessionDescription.Type.OFFER
-        }
+        val mockSessionDescription = SessionDescription(SessionDescription.Type.OFFER, "test-sdp")
 
         // Mock createOffer to immediately call onCreateSuccess
         every { mockPeerConnection.createOffer(any(), any()) } answers {
@@ -130,7 +369,7 @@ class IceRenegotiationTest : BaseTest() {
         every { mockPeerConnection.localDescription } returns mockSessionDescription
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
@@ -144,7 +383,7 @@ class IceRenegotiationTest : BaseTest() {
         every { mockPeerConnection.createOffer(any(), capture(capturedConstraints)) } just Runs
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockPeerConnection.createOffer(any(), any()) }
@@ -166,20 +405,29 @@ class IceRenegotiationTest : BaseTest() {
         }
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
         verify { mockCall.updateCallState(CallState.ACTIVE) } // Should reset state on failure
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                callId = testCallId,
+                level = "error",
+                message = "ICE restart offer creation failed",
+                context = match {
+                    it["callId"] == testCallId.toString() &&
+                        it["sessionId"] == "session-id" &&
+                        it["error"] == errorMessage
+                },
+            )
+        }
     }
 
     @Test
     fun `test startIceRenegotiation handles setLocalDescription failure`() {
         // Arrange
-        val mockSessionDescription = mockk<SessionDescription> {
-            every { description } returns "test-sdp"
-            every { type } returns SessionDescription.Type.OFFER
-        }
+        val mockSessionDescription = SessionDescription(SessionDescription.Type.OFFER, "test-sdp")
         val errorMessage = "Failed to set local description"
 
         every { mockPeerConnection.createOffer(any(), any()) } answers {
@@ -193,7 +441,7 @@ class IceRenegotiationTest : BaseTest() {
         }
 
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
@@ -216,6 +464,20 @@ class IceRenegotiationTest : BaseTest() {
         // Assert
         verify { mockPeerConnection.setRemoteDescription(any(), any()) }
         verify { mockCall.updateCallState(CallState.ACTIVE) }
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart Modify response received",
+                any(),
+            )
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart remote SDP applied",
+                any(),
+            )
+        }
     }
 
     @Test
@@ -235,31 +497,39 @@ class IceRenegotiationTest : BaseTest() {
         // Assert
         verify { mockPeerConnection.setRemoteDescription(any(), any()) }
         verify { mockCall.updateCallState(CallState.ACTIVE) } // Should reset state on failure
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                callId = testCallId,
+                level = "error",
+                message = "ICE restart remote SDP apply failed",
+                context = match { it["error"] == errorMessage },
+            )
+        }
     }
 
     @Test
-    fun `test forceIceRenegotiationForTesting calls startIceRenegotiation`() {
-        // Arrange
-        every { peer["startIceRenegotiation"]() as Unit } just Runs
+    fun `test restartIce starts ICE renegotiation`() {
+        every { mockPeerConnection.createOffer(any(), any()) } just Runs
 
         // Act
-        peer.forceIceRenegotiationForTesting()
+        peer.restartIce()
 
         // Assert
-        verify { peer["startIceRenegotiation"]() as Unit }
+        verify { mockPeerConnection.createOffer(any(), any()) }
     }
 
     @Test
     fun `test ICE candidate processing during RENEGOTIATING state`() {
         // Arrange
         every { mockCall.callStateFlow.value } returns CallState.RENEGOTIATING
-        val mockIceCandidate = mockk<com.telnyx.webrtc.lib.IceCandidate> {
-            every { serverUrl } returns "stun:stun.example.com:3478"
-        }
+        val mockIceCandidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
 
         // Act - simulate ICE candidate through the observer
-        val observer = peer.peerConnectionObserver
-        observer?.onIceCandidate(mockIceCandidate)
+        webRtcObserver.onIceCandidate(mockIceCandidate)
 
         // Assert
         verify { mockPeerConnection.addIceCandidate(mockIceCandidate) }
@@ -269,13 +539,14 @@ class IceRenegotiationTest : BaseTest() {
     fun `test ICE candidate ignored during ACTIVE state when not renegotiating`() {
         // Arrange
         every { mockCall.callStateFlow.value } returns CallState.ACTIVE
-        val mockIceCandidate = mockk<com.telnyx.webrtc.lib.IceCandidate> {
-            every { serverUrl } returns "stun:stun.example.com:3478"
-        }
+        val mockIceCandidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
 
         // Act - simulate ICE candidate through the observer
-        val observer = peer.peerConnectionObserver
-        observer?.onIceCandidate(mockIceCandidate)
+        webRtcObserver.onIceCandidate(mockIceCandidate)
 
         // Assert
         verify(exactly = 0) { mockPeerConnection.addIceCandidate(any()) }
@@ -284,10 +555,10 @@ class IceRenegotiationTest : BaseTest() {
     @Test
     fun `test successful renegotiation flow sends updateMedia message`() {
         // Arrange
-        val mockSessionDescription = mockk<SessionDescription> {
-            every { description } returns "test-sdp-with-candidates"
-            every { type } returns SessionDescription.Type.OFFER
-        }
+        val mockSessionDescription = SessionDescription(
+            SessionDescription.Type.OFFER,
+            "test-sdp-with-candidates",
+        )
 
         // Mock the complete flow
         every { mockPeerConnection.createOffer(any(), any()) } answers {
@@ -302,26 +573,156 @@ class IceRenegotiationTest : BaseTest() {
 
         every { mockPeerConnection.localDescription } returns mockSessionDescription
 
-        // Mock negotiation completion
-        every { peer["setOnNegotiationComplete"](any()) } answers {
-            val callback = firstArg<() -> Unit>()
-            callback.invoke() // Immediately invoke to simulate negotiation completion
-        }
-
         // Act
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
 
         // Assert
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
-        verify { mockTelnyxClient.sendUpdateMediaMessage(testCallId, "test-sdp-with-candidates") }
-        verify { mockCall.updateCallState(CallState.ACTIVE) }
+        verify(timeout = 1_000L) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-sdp-with-candidates",
+                any(),
+                null,
+            )
+        }
+        verify(timeout = 1_000L) { mockCall.updateCallState(CallState.ACTIVE) }
+        verify(timeout = 1_000L) {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart: initiated",
+                any(),
+            )
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "info",
+                "ICE restart: sending Modify with new offer SDP",
+                match { it["trickle"] == false },
+            )
+        }
+    }
+
+    @Test
+    fun `trickle ICE restart sends updateMedia immediately with trickle enabled`() {
+        val mockSessionDescription = SessionDescription(
+            SessionDescription.Type.OFFER,
+            "test-trickle-restart-sdp",
+        )
+        val restartCandidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
+        val mockSocket = mockk<TxSocket>(relaxed = true)
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        every { mockTelnyxClient.socket } returns mockSocket
+        every { mockCall.sessionId } returns "session-id"
+
+        // The trickle mode is captured per peer at construction, so build a
+        // dedicated trickle peer for this restart scenario.
+        val trickleObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(trickleObserverSlot),
+            )
+        } returns mockPeerConnection
+        val tricklePeer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        val trickleObserver = trickleObserverSlot.captured
+
+        every { mockPeerConnection.createOffer(any(), any()) } answers {
+            firstArg<SdpObserver>().onCreateSuccess(mockSessionDescription)
+        }
+        every { mockPeerConnection.setLocalDescription(any(), any()) } answers {
+            // libwebrtc may emit a candidate before setLocalDescription completes.
+            // The restart path must keep it behind the updateMedia offer.
+            trickleObserver.onIceCandidate(restartCandidate)
+            firstArg<SdpObserver>().onSetSuccess()
+        }
+        every { mockPeerConnection.localDescription } returns mockSessionDescription
+
+        tricklePeer.restartIce()
+
+        verify(timeout = 1_000L) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-trickle-restart-sdp",
+                any(),
+                true,
+            )
+        }
+        verifyOrder {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(
+                testCallId,
+                "test-trickle-restart-sdp",
+                any(),
+                true,
+            )
+            mockSocket.send(match<SendingMessageBody> {
+                it.method == SocketMethod.CANDIDATE.methodName
+            })
+        }
+        verify(exactly = 0) { mockTelnyxClient.setUseTrickleIce(false) }
+
+        tricklePeer.disconnect()
+    }
+
+    @Test
+    fun `terminal cancellation suppresses stale trickle restart callback`() {
+        val setLocalDescriptionObserver = startDelayedTrickleRestartWithQueuedCandidate()
+
+        peer.onCallStateChanged(CallState.DONE())
+        peer.disconnect()
+        setLocalDescriptionObserver.onSetSuccess()
+
+        verify(exactly = 0) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        }
+        verify(exactly = 0) { mockTelnyxClient.socket.send(any()) }
+        verify(exactly = 0) { mockCall.updateCallState(CallState.ACTIVE) }
+    }
+
+    @Test
+    fun `network path handoff suppresses stale trickle restart callback`() {
+        val setLocalDescriptionObserver = startDelayedTrickleRestartWithQueuedCandidate()
+
+        peer.onNetworkPathDidChange()
+        setLocalDescriptionObserver.onSetSuccess()
+
+        assertEquals(SignalingHealthMonitor.State.REATTACHING, peer.signalingHealthMonitor.state())
+        verify(exactly = 0) {
+            mockTelnyxClient.sendRecoveryUpdateMediaMessage(any(), any(), any(), any())
+        }
+        verify(exactly = 0) { mockTelnyxClient.socket.send(any()) }
+        verify(exactly = 0) { mockCall.updateCallState(CallState.ACTIVE) }
+    }
+
+    @Test
+    fun `empty updateMedia answer is reported without applying SDP`() {
+        peer.handleUpdateMediaResponse("")
+
+        verify(exactly = 0) { mockPeerConnection.setRemoteDescription(any(), any()) }
+        verify {
+            mockDebugDataCollector.addLogEntry(
+                testCallId,
+                "error",
+                "ICE restart Modify response missing SDP",
+                any(),
+            )
+        }
     }
 
     @Test
     fun `test audio device module reset on ICE state transitions`() {
         // Arrange - Test CONNECTED -> DISCONNECTED transition
-        val observer = peer.peerConnectionObserver
-        observer?.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
+        webRtcObserver.onIceConnectionChange(PeerConnection.IceConnectionState.DISCONNECTED)
 
         // Assert audio track is disabled and re-enabled (with delay)
         // Note: Due to Timer usage, we can't directly verify the delayed calls
@@ -339,9 +740,8 @@ class IceRenegotiationTest : BaseTest() {
             PeerConnection.IceConnectionState.DISCONNECTED to PeerConnection.IceConnectionState.FAILED
         )
 
-        val observer = peer.peerConnectionObserver
         stateTransitions.forEach { (_, newState) ->
-            observer?.onIceConnectionChange(newState)
+            webRtcObserver.onIceConnectionChange(newState)
             verify { mockCall.callStateFlow.value }
         }
     }
@@ -349,12 +749,11 @@ class IceRenegotiationTest : BaseTest() {
     @Test
     fun `test renegotiation with null peer connection handles gracefully`() {
         // Arrange
-        every { peer.peerConnection } returns null
+        peer.peerConnection = null
 
         // Act & Assert - should not throw exception
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         peer.handleUpdateMediaResponse("test-sdp")
-        peer.forceIceRenegotiationForTesting()
     }
 
     @Test
@@ -367,17 +766,15 @@ class IceRenegotiationTest : BaseTest() {
             observer.onCreateFailure("Create offer failed")
         }
 
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         verify { mockCall.updateCallState(CallState.ACTIVE) }
 
         // Reset mocks
-        clearMocks(mockCall)
+        clearMocks(mockCall, answers = false)
+        peer.signalingHealthMonitor.cancel("test-reset")
 
         // Scenario 2: setLocalDescription fails
-        val mockSessionDescription = mockk<SessionDescription> {
-            every { description } returns "test-sdp"
-            every { type } returns SessionDescription.Type.OFFER
-        }
+        val mockSessionDescription = SessionDescription(SessionDescription.Type.OFFER, "test-sdp")
 
         every { mockPeerConnection.createOffer(any(), any()) } answers {
             val observer = firstArg<SdpObserver>()
@@ -389,17 +786,79 @@ class IceRenegotiationTest : BaseTest() {
             observer.onSetFailure("Set local description failed")
         }
 
-        peer.invokePrivate("startIceRenegotiation")
+        peer.restartIce()
         verify { mockCall.updateCallState(CallState.RENEGOTIATING) }
         verify { mockCall.updateCallState(CallState.ACTIVE) }
     }
 
-    /**
-     * Helper extension function to invoke private methods for testing
-     */
-    private fun Any.invokePrivate(methodName: String, vararg args: Any?): Any? {
-        val method = this::class.java.getDeclaredMethod(methodName, *args.map { it?.javaClass ?: Any::class.java }.toTypedArray())
-        method.isAccessible = true
-        return method.invoke(this, *args)
+    private fun candidatePathStatistics(
+        networkType: String,
+        candidateType: String,
+    ): Map<String, Map<String, Any?>> = mapOf(
+        "transport" to mapOf(
+            "type" to "transport",
+            "selectedCandidatePairId" to "pair",
+        ),
+        "pair" to mapOf(
+            "type" to "candidate-pair",
+            "localCandidateId" to "local",
+        ),
+        "local" to mapOf(
+            "type" to "local-candidate",
+            "networkType" to networkType,
+            "candidateType" to candidateType,
+        ),
+    )
+
+    private fun startDelayedTrickleRestartWithQueuedCandidate(): SdpObserver {
+        val offer = SessionDescription(SessionDescription.Type.OFFER, "delayed-trickle-sdp")
+        val candidate = com.telnyx.webrtc.lib.IceCandidate(
+            "audio",
+            0,
+            "candidate:1 1 UDP 1 192.0.2.1 5000 typ host",
+        )
+        val setLocalDescriptionObserver = slot<SdpObserver>()
+        val socket = mockk<TxSocket>(relaxed = true)
+        every { mockTelnyxClient.getUseTrickleIce() } returns true
+        every { mockTelnyxClient.socket } returns socket
+        every { mockCall.sessionId } returns "session-id"
+
+        // The trickle mode is captured per peer at construction, so the restart
+        // scenario runs on a dedicated trickle peer.
+        val trickleObserverSlot = slot<PeerConnection.Observer>()
+        every {
+            mockPeerConnectionFactory.createPeerConnection(
+                any<PeerConnection.RTCConfiguration>(),
+                capture(trickleObserverSlot),
+            )
+        } returns mockPeerConnection
+        peer = Peer(
+            context = mockContext,
+            client = mockTelnyxClient,
+            callId = testCallId,
+            useTrickleIce = true,
+            peerConnectionFactoryOverride = mockPeerConnectionFactory,
+        )
+        webRtcObserver = trickleObserverSlot.captured
+
+        every { mockPeerConnection.createOffer(any(), any()) } answers {
+            firstArg<SdpObserver>().onCreateSuccess(offer)
+        }
+        every {
+            mockPeerConnection.setLocalDescription(capture(setLocalDescriptionObserver), offer)
+        } just Runs
+        every { mockPeerConnection.localDescription } returns offer
+
+        assertTrue(peer.restartIce())
+        webRtcObserver.onIceCandidate(candidate)
+        webRtcObserver.onIceGatheringChange(PeerConnection.IceGatheringState.COMPLETE)
+
+        return setLocalDescriptionObserver.captured
+    }
+
+    private fun Any.getPrivateField(fieldName: String): Any? {
+        val field = Peer::class.java.getDeclaredField(fieldName)
+        field.isAccessible = true
+        return field.get(this)
     }
 }

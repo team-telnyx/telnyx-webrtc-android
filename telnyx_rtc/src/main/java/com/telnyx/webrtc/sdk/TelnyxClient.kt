@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.gson.Gson
@@ -157,6 +158,10 @@ class TelnyxClient private constructor(
     private var useTrickleIce: Boolean = false
     @Volatile
     private var reconnecting = false
+    // Signaling call IDs whose recovery reattach must rebuild the peer with
+    // relay-only ICE (a failed direct VPN path). Kept per call so another
+    // call's attach can never consume the override.
+    private val forceRelayRecoveredCallIds: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     // Counter for reconnection retries when server closes connection during reconnection
     private var reconnectionRetryCounter = AtomicInteger(0)
@@ -276,6 +281,13 @@ class TelnyxClient private constructor(
      * Helper function to emit socket response to both SharedFlow and deprecated LiveData
      */
     fun emitWsMessage(message: JsonObject) {
+        // Match iOS SignalingHealthMonitor: every inbound frame updates liveness,
+        // but only the exact JSON-RPC id resolves a recovery probe.
+        calls.values
+            .mapNotNull { it.peerConnection }
+            .toSet()
+            .forEach { it.onSignalingMessage(message) }
+
         _wsMessagesResponseFlow.tryEmit(message)
         wsMessagesResponseLiveData.postValue(message)
     }
@@ -492,7 +504,6 @@ class TelnyxClient private constructor(
      * @param destinationNumber The phone number or SIP address that received the call
      * @param customHeaders Optional custom SIP headers to include in the response
      * @param debug When true, enables real-time call quality metrics
-     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
@@ -510,7 +521,6 @@ class TelnyxClient private constructor(
         destinationNumber: String,
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
-        useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
         mutedMicOnStart: Boolean = false,
         answeredDeviceToken: String? = null
@@ -527,7 +537,6 @@ class TelnyxClient private constructor(
                 destinationNumber = destinationNumber,
                 customHeaders = customHeaders,
                 debug = debug,
-                useTrickleIce = useTrickleIce,
                 audioConstraints = audioConstraints,
                 mutedMicOnStart = mutedMicOnStart,
                 answeredDeviceToken = answeredDeviceToken
@@ -536,15 +545,16 @@ class TelnyxClient private constructor(
 
         val socketPortalDebug = isSocketDebug
 
-        // Set trickle ICE for this call
-        this.useTrickleIce = useTrickleIce
+        val acceptCall =
+            calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
+
+        // The mode was captured when the inbound Call was created. Changing
+        // the client default while it gathers candidates affects only future calls.
+        val acceptUseTrickleIce = acceptCall.useTrickleIce
 
         // Update the per-call tracker's ICE mode since the inbound tracker was
         // started in onOfferReceived with the previous client-level value.
-        latencyTracker.updateIceMode(callId, useTrickleIce)
-
-        val acceptCall =
-            calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
+        latencyTracker.updateIceMode(callId, acceptUseTrickleIce)
 
         // Start benchmark for inbound call
         CallTimingBenchmark.start(isOutbound = false)
@@ -625,6 +635,15 @@ class TelnyxClient private constructor(
                     )
                     socket.send(answerBodyMessage)
                     CallTimingBenchmark.mark("answer_sent")
+                    Logger.d(tag = "ICE_DIAG", message = {
+                        "ANSWER sent via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
+                    })
+                    client.debugDataCollector.onIceDiagnostic(
+                        callId = callId,
+                        event = "answer_sent",
+                        fields = mapOf("mode" to "trickle"),
+                        tsMs = SystemClock.elapsedRealtime(),
+                    )
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
 
                     // Flush queued ICE candidates after sending ANSWER (for trickle ICE)
@@ -665,7 +684,7 @@ class TelnyxClient private constructor(
 
             launchAcceptCallJob(callId) {
                 try {
-                    if (useTrickleIce) {
+                    if (acceptUseTrickleIce) {
                         // For trickle ICE, send ANSWER immediately without waiting for candidates
                         Logger.d(
                             tag = "AcceptCall",
@@ -702,7 +721,7 @@ class TelnyxClient private constructor(
                                 )
 
                                 // Add trickle ICE capability to SDP if trickle ICE is enabled
-                                if (useTrickleIce) {
+                                if (acceptUseTrickleIce) {
                                     finalAnswerSdp =
                                         SdpUtils.addTrickleIceCapability(finalAnswerSdp)
                                 }
@@ -729,13 +748,22 @@ class TelnyxClient private constructor(
                                             customHeaders = customHeaders?.toCustomHeaders()
                                                 ?: arrayListOf(),
                                         ),
-                                        trickle = if (useTrickleIce) true else null,
+                                        trickle = if (acceptUseTrickleIce) true else null,
                                         mobileSdkName = sdkIdentity.name,
                                         mobileSdkVersion = sdkIdentity.version,
                                     )
                                 )
                                 socket.send(answerBodyMessage)
                                 CallTimingBenchmark.mark("answer_sdp_sent")
+                                Logger.d(tag = "ICE_DIAG", message = {
+                                    "ANSWER sent (non-trickle) via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
+                                })
+                                client.debugDataCollector.onIceDiagnostic(
+                                    callId = callId,
+                                    event = "answer_sent",
+                                    fields = mapOf("mode" to "non_trickle"),
+                                    tsMs = SystemClock.elapsedRealtime(),
+                                )
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_ANSWER_SENT)
                                 updateCallState(CallState.ACTIVE)
                                 
@@ -877,7 +905,6 @@ class TelnyxClient private constructor(
      *
      * @param debug When true, enables real-time call quality metrics
      * @param preferredCodecs Optional list of preferred audio codecs for the call
-     * @param useTrickleIce When true, enables trickle ICE for faster call setup
      * @param audioConstraints Optional audio processing constraints for the call. Controls echo
      * cancellation, noise suppression, and automatic gain control. If null, defaults to all enabled.
      * @param mutedMicOnStart When true, starts the call with the microphone muted
@@ -913,7 +940,6 @@ class TelnyxClient private constructor(
         customHeaders: Map<String, String>? = null,
         debug: Boolean = false,
         preferredCodecs: List<AudioCodec>? = null,
-        useTrickleIce: Boolean = false,
         audioConstraints: AudioConstraints? = null,
         mutedMicOnStart: Boolean = false
     ): Call {
@@ -921,11 +947,12 @@ class TelnyxClient private constructor(
         val socketPortalDebug = isSocketDebug
         val inviteCallId: UUID = UUID.randomUUID()
 
-        // Set trickle ICE for this call
-        this.useTrickleIce = useTrickleIce
+        // Trickle ICE is session-wide: read the value configured on the client
+        // (set at login via CredentialConfig/TokenConfig, or through setUseTrickleIce()).
+        val inviteUseTrickleIce = useTrickleIce
 
         // Start latency tracking for outbound call
-        latencyTracker.startCallTracking(inviteCallId, isOutbound = true, useTrickleIce = useTrickleIce)
+        latencyTracker.startCallTracking(inviteCallId, isOutbound = true, useTrickleIce = inviteUseTrickleIce)
         
         val inviteCall = Call(
             context = context,
@@ -1118,6 +1145,8 @@ class TelnyxClient private constructor(
      */
     internal fun removeFromCalls(callId: UUID) {
         cancelAcceptCallJob(callId)
+        forceRelayRecoveredCallIds.remove(callId)
+        forceRelayRecoveredCallIds.remove(signalingCallId(callId))
         calls.remove(callId)
         appCallIdBySocketCallId.remove(callId)?.let { socketCallIdByAppCallId.remove(it) }
         socketCallIdByAppCallId.remove(callId)?.let { appCallIdBySocketCallId.remove(it) }
@@ -1173,6 +1202,7 @@ class TelnyxClient private constructor(
                     this@TelnyxClient.javaClass.simpleName
                 )
             )
+            notifyCallPeersOfNetworkPathChange()
             reconnecting = true
 
             Handler(Looper.getMainLooper()).postDelayed({
@@ -1191,6 +1221,13 @@ class TelnyxClient private constructor(
                 }
             }, RECONNECT_DELAY)
         }
+    }
+
+    private fun notifyCallPeersOfNetworkPathChange() {
+        calls.values
+            .mapNotNull { it.peerConnection }
+            .toSet()
+            .forEach { it.onNetworkPathDidChange() }
     }
 
     private fun launchReconnectJob(delayMs: Long = 0L) {
@@ -1375,10 +1412,14 @@ class TelnyxClient private constructor(
     }
 
     /**
-     * Set the flag to indicate whether to use trickle ICE
+     * Set the flag to indicate whether to use trickle ICE.
+     *
+     * This applies session-wide to all subsequent calls made or accepted by this client.
+     * The value is also initialized from [CredentialConfig]/[TokenConfig] at login time.
+     *
      * @param enabled The new value for useTrickleIce
      */
-    internal fun setUseTrickleIce(enabled: Boolean) {
+    fun setUseTrickleIce(enabled: Boolean) {
         this.useTrickleIce = enabled
     }
 
@@ -1997,6 +2038,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2209,6 +2251,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2383,7 +2426,39 @@ class TelnyxClient private constructor(
      * @param sdp the new local SDP for ICE restart
      */
     fun sendUpdateMediaMessage(callId: UUID, sdp: String) {
-        val uuid: String = UUID.randomUUID().toString()
+        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString(), null)
+    }
+
+    /** Sends updateMedia with explicit trickle ICE signaling semantics. */
+    internal fun sendUpdateMediaMessage(callId: UUID, sdp: String, trickle: Boolean?) {
+        sendUpdateMediaMessage(callId, sdp, UUID.randomUUID().toString(), trickle)
+    }
+
+    /** Sends a monitor-owned updateMedia request with a retained id. */
+    internal fun sendRecoveryUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+    ) {
+        sendUpdateMediaMessage(callId, sdp, requestId, null)
+    }
+
+    /** Sends a monitor-owned updateMedia request with explicit trickle ICE semantics. */
+    internal fun sendRecoveryUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+        trickle: Boolean?,
+    ) {
+        sendUpdateMediaMessage(callId, sdp, requestId, trickle)
+    }
+
+    private fun sendUpdateMediaMessage(
+        callId: UUID,
+        sdp: String,
+        requestId: String,
+        trickle: Boolean?,
+    ) {
 
         val callDialogParams = CallDialogParams(
             callId = callId,
@@ -2394,17 +2469,37 @@ class TelnyxClient private constructor(
             sessid = sessid,
             action = "updateMedia",
             dialogParams = callDialogParams,
-            sdp = sdp
+            sdp = sdp,
+            trickle = trickle,
         )
 
         val modifyMessage = SendingMessageBody(
-            id = uuid,
+            id = requestId,
             method = SocketMethod.MODIFY.methodName,
             params = modifyParams
         )
 
         Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
         socket.send(modifyMessage)
+    }
+
+    /**
+     * Sends the same authenticated JSON-RPC signaling probe used by iOS.
+     * The caller-generated id is preserved so only its matching result/error
+     * can authorize an ICE restart.
+     */
+    internal fun sendRecoveryProbe(probeId: String): Boolean {
+        if (!socket.isConnected) return false
+
+        val probe = JsonObject().apply {
+            addProperty("id", probeId)
+            addProperty("jsonrpc", "2.0")
+            addProperty("method", SocketMethod.PINGPONG.methodName)
+            add("params", JsonObject())
+            voiceSDKID?.let { addProperty("voice_sdk_id", it) }
+        }
+        socket.send(probe)
+        return true
     }
 
     /**
@@ -2436,6 +2531,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -2507,6 +2603,7 @@ class TelnyxClient private constructor(
         enableCallQualityReports = config.enableCallQualityReports
         callQualityReportInterval = config.callQualityReportInterval
         sendWebRTCStatsViaSocket = config.sendWebRTCStatsViaSocket
+        useTrickleIce = config.useTrickleIce
 
         setSDKLogLevel(logLevel, customLogger)
 
@@ -3256,7 +3353,7 @@ class TelnyxClient private constructor(
                             tag = "TrickleICE",
                             message = "Remote party supports trickle ICE in ANSWER"
                         )
-                    } else if (useTrickleIce) {
+                    } else if (this.useTrickleIce) {
                         Logger.w(
                             tag = "TrickleICE",
                             message = "Local trickle ICE enabled but remote party does not support it"
@@ -3264,7 +3361,7 @@ class TelnyxClient private constructor(
                     }
 
                     // Extract ICE parameters from the answer SDP for candidate enhancement
-                    if (useTrickleIce) {
+                    if (this.useTrickleIce) {
                         remoteIceParameters = SdpUtils.extractIceParameters(stringSdp)
                         Logger.d(
                             tag = "TrickleICE",
@@ -3366,7 +3463,7 @@ class TelnyxClient private constructor(
                         // Enhance candidate string with ICE parameters for consistency if trickle ICE is enabled
                         // Now we have access to remoteIceParameters since the remote description has been set
                         val finalCandidateString =
-                            if (useTrickleIce && it.remoteIceParameters != null) {
+                            if (it.useTrickleIce && it.remoteIceParameters != null) {
                                 SdpUtils.enhanceCandidateString(
                                     pendingCandidate.candidateString,
                                     it.remoteIceParameters!!
@@ -3500,8 +3597,8 @@ class TelnyxClient private constructor(
                         message = "Remote party supports trickle ICE in OFFER"
                     )
                     // Only enable trickle ICE if both parties support it
-                    // Note: We should respect the user's trickle ICE setting
-                    // useTrickleIce is already set by the user in acceptCall
+                    // The Call captured the client default when this OFFER arrived;
+                    // later default changes apply only to future calls.
                 }
 
                 // Extract ICE parameters from the offer SDP for candidate enhancement
@@ -3531,7 +3628,11 @@ class TelnyxClient private constructor(
                 signalingCallId = offerCallId
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
-                client.latencyTracker.startCallTracking(offerCallId, isOutbound = false, useTrickleIce = useTrickleIce)
+                client.latencyTracker.startCallTracking(
+                    offerCallId,
+                    isOutbound = false,
+                    useTrickleIce = this.useTrickleIce,
+                )
                 client.latencyTracker.markInviteReceived(offerCallId)
 
                 // Notify debug data collector that a new call has started
@@ -3584,8 +3685,6 @@ class TelnyxClient private constructor(
                     }
                 }
 
-                peerConnection?.startLocalAudioCapture()
-
                 peerConnection?.onRemoteSessionReceived(
                     SessionDescription(
                         SessionDescription.Type.OFFER,
@@ -3629,6 +3728,55 @@ class TelnyxClient private constructor(
     fun isSocketConnected(): Boolean {
         return socket.isConnected
     }
+
+    /**
+     * Uses the existing socket reconnect/login/attach flow as recovery fallback.
+     *
+     * @param callId the recovering call; a relay-only override is recorded for
+     * this call only and consumed by its own attach.
+     */
+    internal fun requestCallRecoveryReattach(
+        callId: UUID,
+        forceRelayCandidateForRecovery: Boolean = false
+    ): Boolean =
+        synchronized(this) {
+            val recoveringCallId = signalingCallId(callId)
+            when {
+                isDeclinePushConnection -> {
+                    Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
+                    false
+                }
+                credentialSessionConfig == null && tokenSessionConfig == null -> {
+                    Logger.e(message = "Cannot reattach call without a saved session configuration")
+                    false
+                }
+                reconnecting -> {
+                    if (forceRelayCandidateForRecovery) {
+                        forceRelayRecoveredCallIds.add(recoveringCallId)
+                    }
+                    Logger.d(message = "Call recovery reattach is already in progress")
+                    true
+                }
+                else -> {
+                    if (forceRelayCandidateForRecovery) {
+                        forceRelayRecoveredCallIds.add(recoveringCallId)
+                    } else {
+                        forceRelayRecoveredCallIds.remove(recoveringCallId)
+                    }
+                    reconnecting = true
+                    Logger.w(message = "Starting reconnect/reattach for call recovery")
+                    launchReconnectJob()
+                    true
+                }
+            }
+        }
+
+    /**
+     * Consume the relay-only override recorded for this call's recovery, if
+     * any. Only the attach for the requesting call receives it.
+     */
+    internal fun consumeRecoveryRelayOverride(callId: UUID): Boolean =
+        forceRelayRecoveredCallIds.remove(callId)
 
     override fun onRingingReceived(jsonObject: JsonObject) {
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.RINGING.methodName)) {
@@ -3770,15 +3918,23 @@ class TelnyxClient private constructor(
             callId = appCallId(offerCallId)
             signalingCallId = offerCallId
 
-            // Notify debug data collector that a new call has started (push notification reattach)
-            client.debugDataCollector.onCallStarted(offerCallId, telnyxSessionId, telnyxLegId)
-            client.debugDataCollector.updateCallMetadata(
-                callId = offerCallId,
-                callerNumber = callerNumber,
-                destinationNumber = "",
-                direction = "inbound"
+            // A recovery reattach is still the same call, so retain all previously collected
+            // report data. A cold-start push attach initializes a report here instead.
+            val resumedExistingReport = client.debugDataCollector.onCallReattached(
+                offerCallId,
+                telnyxSessionId,
+                telnyxLegId
             )
+            if (!resumedExistingReport) {
+                client.debugDataCollector.updateCallMetadata(
+                    callId = offerCallId,
+                    callerNumber = callerNumber,
+                    destinationNumber = "",
+                    direction = "inbound"
+                )
+            }
 
+            val forceRelayForRecoveredCall = consumeRecoveryRelayOverride(offerCallId)
             peerConnection = Peer(
                 context,
                 client,
@@ -3786,7 +3942,7 @@ class TelnyxClient private constructor(
                 providedStun,
                 offerCallId,
                 prefetchIceCandidates,
-                getForceRelayCandidate(),
+                getForceRelayCandidate() || forceRelayForRecoveredCall,
                 isAnswering = true,
                 onIceCandidateAdd = null,
                 audioConstraints = null // Use defaults for reattached calls
@@ -3930,6 +4086,7 @@ class TelnyxClient private constructor(
         
         // Reset reconnection state
         reconnecting = false
+        forceRelayRecoveredCallIds.clear()
         reconnectJob?.cancel()
         reconnectJob = null
         reconnectionRetryCounter.set(0)
@@ -4016,7 +4173,16 @@ class TelnyxClient private constructor(
                 val call = calls[callId]
                 val peer = call?.peerConnection
                 if (peer != null) {
-                    peer.handleUpdateMediaResponse(updateMediaResponse.sdp)
+                    val responseId = jsonObject.get("id")
+                        ?.takeUnless { it.isJsonNull }
+                        ?.asString
+                    if (responseId == null) {
+                        // Preserve compatibility with legacy responses that
+                        // omitted the JSON-RPC id.
+                        peer.handleUpdateMediaResponse(updateMediaResponse.sdp)
+                    } else {
+                        peer.handleUpdateMediaResponse(updateMediaResponse.sdp, responseId)
+                    }
                 } else {
                     Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
                 }

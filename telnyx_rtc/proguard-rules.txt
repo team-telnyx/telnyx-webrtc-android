@@ -1,0 +1,20 @@
+# Consumer ProGuard/R8 rules for apps using the Telnyx WebRTC SDK.
+# Wired in from telnyx_rtc/build.gradle defaultConfig:
+#   consumerProguardFiles 'proguard-rules.txt'
+# These ship inside the AAR and are applied automatically by consumer
+# apps with code shrinking (isMinifyEnabled = true) enabled.
+
+# SDK data models (login / verto / socket messages) are serialized and
+# deserialized via Gson reflection. R8 strips or renames the fields in
+# minified release builds, producing empty JSON payloads — the gateway
+# then answers "Authorization required" (-32000) and calls fail.
+# Verified on-device: minified release app with these keep rules
+# completes incoming and outgoing calls.
+-keep class com.telnyx.webrtc.sdk.** { *; }
+
+# Standard Gson backstops so reflected generic types survive shrinking.
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class sun.misc.Unsafe { *; }
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken

@@ -5,6 +5,8 @@
 package com.telnyx.webrtc.sdk.peer
 
 import android.content.Context
+import android.os.SystemClock
+import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.Config.DEFAULT_STUN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN
 import com.telnyx.webrtc.sdk.Config.DEFAULT_TURN_UDP
@@ -20,7 +22,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
-import com.telnyx.webrtc.sdk.model.TelnyxWarningCode
+import com.telnyx.webrtc.sdk.stats.IceDiagnosticsCollector
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
@@ -37,6 +39,7 @@ import com.telnyx.webrtc.lib.DataChannel
 import com.telnyx.webrtc.lib.DefaultVideoDecoderFactory
 import com.telnyx.webrtc.lib.DefaultVideoEncoderFactory
 import com.telnyx.webrtc.lib.EglBase
+import com.telnyx.webrtc.lib.CandidatePairChangeEvent
 import com.telnyx.webrtc.lib.IceCandidate
 import com.telnyx.webrtc.lib.MediaConstraints
 import com.telnyx.webrtc.lib.MediaStream
@@ -69,9 +72,17 @@ internal class Peer(
     private val callId: UUID,
     private val prefetchIceCandidate: Boolean = false,
     private val forceRelayCandidate: Boolean = false,
+    /**
+     * ICE mode captured when this peer is created, mirroring [com.telnyx.webrtc.sdk.Call]'s
+     * immutable per-call snapshot. A mid-call change of the session-wide default
+     * (TelnyxClient.setUseTrickleIce) must not reroute candidate transport for a
+     * call that already signaled its mode — e.g. an ANSWER already marked trickle.
+     */
+    private val useTrickleIce: Boolean = client.getUseTrickleIce(),
     private val isAnswering: Boolean = false,
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
-    private val audioConstraints: AudioConstraints? = null
+    private val audioConstraints: AudioConstraints? = null,
+    private val peerConnectionFactoryOverride: PeerConnectionFactory? = null,
 ) {
 
     companion object {
@@ -82,20 +93,87 @@ internal class Peer(
             3000L // 3 seconds timeout for end-of-candidates
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
+        private const val ICE_DIAG_TAG = "ICE_DIAG"
+        private const val ICE_CANDIDATE_MIN_PARTS = 8
+        private const val ICE_CANDIDATE_TRANSPORT_INDEX = 2
+        private const val ICE_CANDIDATE_ADDRESS_INDEX = 4
+        private const val ICE_CANDIDATE_PORT_INDEX = 5
 
-        // ICE renegotiation delay constants
-        private const val ICE_RESTART_DELAY_MS = 500L // 0.5 second delay for ICE restart
+        /**
+         * Formats an ICE candidate for diagnostic logs with the fields that are
+         * always populated: the candidate type and address parsed from the SDP
+         * candidate line. `serverUrl` is only set for STUN/TURN-derived
+         * candidates (empty for host candidates), so it says nothing about a
+         * direct connection — the SDP-derived summary does.
+         *
+         * Produces e.g. `host 192.168.1.10:50000/udp` or
+         * `srflx 84.x.x.x:50001/udp via stun:stun.l.google.com:19302`.
+         */
+        internal fun describeCandidate(candidate: IceCandidate?): String {
+            if (candidate == null) return "none"
+            val sdpParts = candidate.sdp?.trim()?.split(" ")
+            var type: String? = null
+            var address: String? = null
+            var protocol: String? = null
+            if (sdpParts != null && sdpParts.size >= ICE_CANDIDATE_MIN_PARTS) {
+                // candidate:<foundation> <component-id> <transport> <priority> <ip> <port> typ <type> ...
+                protocol = sdpParts[ICE_CANDIDATE_TRANSPORT_INDEX]
+                address =
+                    "${sdpParts[ICE_CANDIDATE_ADDRESS_INDEX]}:${sdpParts[ICE_CANDIDATE_PORT_INDEX]}"
+                val typIndex = sdpParts.indexOf("typ")
+                if (typIndex >= 0 && typIndex + 1 < sdpParts.size) {
+                    type = sdpParts[typIndex + 1]
+                }
+            }
+            val summary = buildString {
+                append(type ?: "unknown")
+                append(' ')
+                append(address ?: candidate.sdp ?: "no-address")
+                protocol?.let {
+                    append('/')
+                    append(it.lowercase())
+                }
+                // For STUN/TURN-derived candidates, include which server produced us
+                candidate.serverUrl?.takeIf { it.isNotBlank() }?.let {
+                    append(" via ")
+                    append(it)
+                }
+            }
+            return summary
+        }
 
         private const val AUDIO_BUFFER_RESET_DELAY_MS =
             200L // 0.2 second delay for audio buffer reset
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
 
+        // Recovery monitor cadence. IDLE only needs to match the signaling
+        // health interval; active recovery uses a tighter deadline cadence.
+        private const val RECOVERY_ACTIVE_TICK_MS = 250L
+        private const val RECOVERY_IDLE_TICK_MS = 3_000L
+        private const val RECOVERY_RTP_SAMPLE_MS = 1_000L
+
 
         // ICE candidate parsing constants
         private const val TYP_PREFIX = "typ "
         private const val PROTOCOL_INDEX = 2
         private const val UNKNOWN_VALUE = "unknown"
+
+        /** Mirrors iOS candidate-path selection for the VPN relay fallback. */
+        internal fun selectedCandidateUsesDirectVpn(
+            statistics: Map<String, Map<String, Any?>>,
+        ): Boolean {
+            val transport = statistics.values.firstOrNull { it["type"] == "transport" }
+            val candidatePair = (transport?.get("selectedCandidatePairId") as? String)
+                ?.let(statistics::get)
+            val localCandidate = (candidatePair?.get("localCandidateId") as? String)
+                ?.let(statistics::get)
+            val networkType = localCandidate?.get("networkType") as? String
+            val candidateType = localCandidate?.get("candidateType") as? String
+
+            return networkType?.equals("vpn", ignoreCase = true) == true &&
+                candidateType?.equals("relay", ignoreCase = true) == false
+        }
 
         /**
          * Shared PeerConnectionFactory used for codec queries and peer connections.
@@ -234,11 +312,16 @@ internal class Peer(
     private val queuedCandidates = mutableListOf<IceCandidate>()
     private var answerSent = false
 
+    // A trickle ICE restart must send its updateMedia offer before any new
+    // generation candidates. WebRTC can emit candidates immediately after
+    // setLocalDescription(), so hold them until the Modify is on the socket.
+    private val queuedIceRestartCandidates = mutableListOf<IceCandidate>()
+    private var iceRestartModifyPending = false
+    private var iceRestartEndOfCandidatesPending = false
+
     // End-of-candidates timer management
     private var endOfCandidatesTimer: Timer? = null
     private var endOfCandidatesSent = false
-
-    private val rootEglBase: EglBase = EglBase.create()
 
     private val mediaConstraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -266,7 +349,9 @@ internal class Peer(
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
         val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Logger.d(message = "Start collection of ice servers")
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "Start collection of ice servers | providedStun=$providedStun | providedTurn=$providedTurn | forceRelay=$forceRelayCandidate | prefetchPool=$iceCandidatePoolSize [${SystemClock.elapsedRealtime()}ms]"
+        })
 
         // Determine UDP, TCP and TURNS 443 URLs
         // Use predefined constants for default Telnyx servers, derive for custom servers
@@ -279,6 +364,20 @@ internal class Peer(
                 deriveTurns443Url(providedTurn)
             )
         }
+
+        recordIceDiagnostic(
+            event = "ice_servers_config",
+            fields = mapOf(
+                "providedStun" to providedStun,
+                "providedTurn" to IceDiagnosticsCollector.redactIceServerUrl(providedTurn),
+                "forceRelay" to forceRelayCandidate,
+                "prefetchPoolSize" to iceCandidatePoolSize,
+                "derivedTurnUdp" to IceDiagnosticsCollector.redactIceServerUrl(turnUdp),
+                "derivedTurnTcp" to IceDiagnosticsCollector.redactIceServerUrl(turnTcp),
+                "derivedTurns443" to IceDiagnosticsCollector.redactIceServerUrl(turns443),
+                "serverCount" to iceServers.size,
+            ),
+        )
 
         // 1. Telnyx STUN (primary)
         iceServers.add(
@@ -363,7 +462,7 @@ internal class Peer(
      * This improves efficiency by reusing the factory across all peers.
      */
     private val peerConnectionFactory: PeerConnectionFactory
-        get() = sharedPeerConnectionFactory
+        get() = peerConnectionFactoryOverride ?: sharedPeerConnectionFactory
 
     internal var peerConnection: PeerConnection? = null
 
@@ -377,6 +476,29 @@ internal class Peer(
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
+
+    /**
+     * Per-call ICE-restart and peer-connection recovery monitor. The
+     * monitor owns the state machine, debouncing, and one-at-a-time
+     * decisions; the [Peer] still owns the actual SDP offer creation, the
+     * updateMedia exchange, and the answer application. Construction is
+     * deferred until [init] runs so the underlying [peerConnection] is
+     * available for the Actions adapter.
+     */
+    internal lateinit var signalingHealthMonitor: SignalingHealthMonitor
+    private var recoveryTickTimer: Timer? = null
+    private var recoveryTickIntervalMs: Long? = null
+    private val recoveryRequestLock = Any()
+    private var pendingRecoveryRequestId: String? = null
+    private var pendingRecoveryGeneration: Long? = null
+    private val recoveryStatsRequestInFlight = AtomicBoolean(false)
+    @Volatile
+    private var lastRecoveryRtpSampleAtMs: Long = 0L
+
+    private data class RecoveryResponseContext(
+        val generation: Long?,
+        val stale: Boolean,
+    )
 
     /**
      * Gets the supported audio codec capabilities from the shared factory.
@@ -438,7 +560,10 @@ internal class Peer(
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            Logger.d(tag = "Observer", message = "ICE Connection State Change: $newState")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
+            })
+            newState?.let { recordIceDiagnostic(event = "ice_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
             newState?.let { client.debugDataCollector.onIceConnectionStateChange(callId, it.name) }
@@ -460,17 +585,28 @@ internal class Peer(
             // Handle ICE connection state transitions
             handleIceConnectionStateTransition(previousIceConnectionState, newState)
 
+            // Drive the recovery monitor. Duplicate callbacks against a
+            // current recovery generation are no-ops at the monitor.
+            signalingHealthMonitor.onIceConnectionChange(newState)
+            scheduleRecoveryTickIfNeeded()
+
             // Update previous state
             previousIceConnectionState = newState
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
-            Logger.d(tag = "Observer", message = "ICE Connection Receiving Change: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Connection Receiving Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
+            recordIceDiagnostic(event = "ice_receiving_change", fields = mapOf("receiving" to p0))
             peerConnectionObserver?.onIceConnectionReceivingChange(p0)
         }
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
-            Logger.d(tag = "Observer", message = "ICE Gathering State Change: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Gathering State Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
+            p0?.let { recordIceDiagnostic(event = "ice_gathering_state", fields = mapOf("state" to it.name)) }
 
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
@@ -485,10 +621,11 @@ internal class Peer(
                 milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
             }
 
-            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled
-            if (p0 == PeerConnection.IceGatheringState.COMPLETE && client.getUseTrickleIce()) {
-                sendEndOfCandidates()
-                Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+            // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled.
+            // During a restart it must follow the updateMedia offer, just like
+            // the individual candidates.
+            if (p0 == PeerConnection.IceGatheringState.COMPLETE && useTrickleIce) {
+                sendOrQueueIceRestartEndOfCandidates()
             }
 
             peerConnectionObserver?.onIceGatheringChange(p0)
@@ -511,13 +648,32 @@ internal class Peer(
                 )
             }
 
-            Logger.d(tag = "Observer", message = "Event-IceCandidate Generated: $candidate")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "Event-IceCandidate Generated: $candidate [${SystemClock.elapsedRealtime()}ms]"
+            })
             candidate?.let {
-                Logger.d(tag = "Observer", message = "Processing ICE candidate: ${it.serverUrl}")
-                if (client.getUseTrickleIce()) {
+                recordIceDiagnostic(
+                    event = "candidate_generated",
+                    fields = mapOf(
+                        "candidate" to describeCandidate(it),
+                        "sdpMid" to it.sdpMid,
+                        "sdpMLineIndex" to it.sdpMLineIndex,
+                    ),
+                )
+                Logger.d(tag = ICE_DIAG_TAG, message = {
+                    "Processing ICE candidate: ${describeCandidate(it)} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${SystemClock.elapsedRealtime()}ms]"
+                })
+                if (useTrickleIce) {
+                    var sendImmediately = false
                     candidateLock.lock()
                     try {
-                        if (isAnswering && !answerSent) {
+                        if (iceRestartModifyPending) {
+                            queuedIceRestartCandidates.add(it)
+                            Logger.d(
+                                tag = "Observer",
+                                message = "ICE restart candidate queued until updateMedia is sent: $it",
+                            )
+                        } else if (isAnswering && !answerSent) {
                             // Answering side: Queue candidate until ANSWER is sent
                             queuedCandidates.add(it)
                             Logger.d(
@@ -525,23 +681,20 @@ internal class Peer(
                                 message = "ICE candidate queued for answering side (ANSWER not sent yet): $it"
                             )
                         } else {
-                            // Calling side OR answering side after ANSWER sent: Send immediately
-                            // Release lock before sending to avoid holding it during network I/O
-                            candidateLock.unlock()
-                            sendIceCandidate(it)
-                            Logger.d(
-                                tag = "Observer",
-                                message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
-                            )
-                            // Start/restart the end-of-candidates timer when sending candidates
-                            startEndOfCandidatesTimer()
-                            // Re-acquire lock so the finally block can unlock cleanly
-                            candidateLock.lock()
+                            sendImmediately = true
                         }
                     } finally {
-                        if (candidateLock.isHeldByCurrentThread) {
-                            candidateLock.unlock()
-                        }
+                        candidateLock.unlock()
+                    }
+
+                    if (sendImmediately) {
+                        sendIceCandidate(it)
+                        Logger.d(
+                            tag = "Observer",
+                            message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
+                        )
+                        // Start/restart the end-of-candidates timer when sending candidates
+                        startEndOfCandidatesTimer()
                     }
 
                     // Notify debug data collector about ICE candidate
@@ -577,8 +730,32 @@ internal class Peer(
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-            Logger.d(tag = "Observer", message = "ICE Candidates Removed: $p0")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "ICE Candidates Removed: $p0 [${SystemClock.elapsedRealtime()}ms]"
+            })
+            recordIceDiagnostic(event = "candidates_removed", fields = mapOf("count" to (p0?.size ?: 0)))
             peerConnectionObserver?.onIceCandidatesRemoved(p0)
+        }
+
+        override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent?) {
+            event?.let {
+                Logger.d(tag = ICE_DIAG_TAG, throwable = null, message = {
+                    "SELECTED PAIR CHANGED: local=${describeCandidate(it.local)} remote=${describeCandidate(it.remote)} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${SystemClock.elapsedRealtime()}ms]"
+                })
+                recordIceDiagnostic(
+                    event = "selected_pair_changed",
+                    fields = mapOf(
+                        "local" to describeCandidate(it.local),
+                        "remote" to describeCandidate(it.remote),
+                        "reason" to it.reason?.toString(),
+                        "lastDataReceivedMs" to it.lastDataReceivedMs,
+                        "estimatedDisconnectedTimeMs" to it.estimatedDisconnectedTimeMs,
+                    ),
+                )
+            }
+            // No forward to peerConnectionObserver: the internal PeerConnectionObserver
+            // does not override onSelectedCandidatePairChanged, so the call was a
+            // guaranteed no-op. Selected-pair data remains available via these logs.
         }
 
         override fun onAddStream(p0: MediaStream?) {
@@ -602,8 +779,15 @@ internal class Peer(
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
-            Logger.d(tag = "Observer", message = "Peer Connection State Change: $newState")
+            Logger.d(tag = ICE_DIAG_TAG, message = {
+                "Peer Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
+            })
+            newState?.let { recordIceDiagnostic(event = "peer_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onConnectionChange(newState)
+
+            // Drive the recovery monitor on peer-connection FAILED.
+            signalingHealthMonitor.onConnectionChange(newState)
+            scheduleRecoveryTickIfNeeded()
 
             // Mark benchmark milestone for peer connection state changes
             newState?.let {
@@ -636,6 +820,21 @@ internal class Peer(
             }
         }
 
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${SystemClock.elapsedRealtime()}ms]"
+        })
+        recordIceDiagnostic(
+            event = "rtc_configuration",
+            fields = mapOf(
+                "sdpSemantics" to config.sdpSemantics.toString(),
+                "bundlePolicy" to config.bundlePolicy.toString(),
+                "continualGatheringPolicy" to config.continualGatheringPolicy.toString(),
+                "iceCandidatePoolSize" to config.iceCandidatePoolSize,
+                "iceTransportsType" to config.iceTransportsType.toString(),
+                "iceServerCount" to iceServer.size,
+            ),
+        )
+
         return peerConnectionFactory.createPeerConnection(config, observer)
     }
 
@@ -649,6 +848,14 @@ internal class Peer(
      */
     fun startLocalAudioCapture(constraints: AudioConstraints? = null) {
         Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
+
+        if (localAudioTrack != null) {
+            Logger.d(
+                tag = "Peer:Audio",
+                message = "Local audio capture is already active; reusing the existing track.",
+            )
+            return
+        }
 
         // Use provided constraints, fall back to constructor constraints, or default to all enabled
         val effectiveConstraints = constraints ?: audioConstraints ?: AudioConstraints()
@@ -968,6 +1175,16 @@ internal class Peer(
      * @see [IceCandidate]
      */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
+        Logger.d(tag = ICE_DIAG_TAG, message = {
+            "REMOTE ICE candidate added: ${describeCandidate(iceCandidate)} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${SystemClock.elapsedRealtime()}ms]"
+        })
+        recordIceDiagnostic(
+            event = "remote_candidate_added",
+            fields = mapOf(
+                "candidate" to describeCandidate(iceCandidate),
+                "sdpMid" to iceCandidate?.sdpMid,
+            ),
+        )
         peerConnection?.addIceCandidate(iceCandidate)
     }
 
@@ -1061,6 +1278,19 @@ internal class Peer(
             // from calling getStats() on a freed native PeerConnection (SIGSEGV).
             // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
             isDisposed.set(true)
+            // Tear down the recovery monitor first so no in-flight timer
+            // can reach into a disposed peer.
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            recoveryTickIntervalMs = null
+            synchronized(recoveryRequestLock) {
+                pendingRecoveryRequestId = null
+                pendingRecoveryGeneration = null
+            }
+            recoveryStatsRequestInFlight.set(false)
+            if (::signalingHealthMonitor.isInitialized) {
+                signalingHealthMonitor.cancel("peer_disconnect")
+            }
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
@@ -1118,18 +1348,30 @@ internal class Peer(
         Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
     }
 
-    /**
-     * Starts ICE renegotiation when ICE connection fails
-     * Creates a new offer with ICE restart enabled
-     */
-    private fun startIceRenegotiation() {
+    /** Starts a monitor-owned ICE restart for one recovery generation. */
+    private fun startRecoveryIceRenegotiation(recoveryGeneration: Long) {
+        startIceRenegotiationInternal(recoveryGeneration)
+    }
+
+    private fun startIceRenegotiationInternal(recoveryGeneration: Long?) {
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
+
+        if (isDisposed.get() || peerConnection == null) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart failed - missing required parameters",
+            )
+            notifyIceRestartFailure(recoveryGeneration, "peer_unavailable")
+            return
+        }
+
+        recordIceRestartEvent(level = "info", message = "ICE restart: initiated")
 
         // Set call state to RENEGOTIATING to allow ICE candidate processing
         client.calls[callId]?.updateCallState(CallState.RENEGOTIATING)
 
-        // turn off IceTrickle, as it is not required for renegotiation:
-        client.setUseTrickleIce(false)
+        val trickle = useTrickleIce
+        prepareIceRestartCandidateDispatch(trickle)
 
         val iceRestartConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
@@ -1137,6 +1379,9 @@ internal class Peer(
 
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer success")) {
+                    return
+                }
                 sessionDescription?.let { sdp ->
                     Logger.d(
                         tag = "ICE_RENEGOTIATION",
@@ -1144,39 +1389,86 @@ internal class Peer(
                     )
                     peerConnection?.setLocalDescription(object : SdpObserver {
                         override fun onSetSuccess() {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription success",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.d(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Local description set for ICE restart"
                             )
 
-                            // Start negotiation timer to wait for ICE candidates before sending updateMedia
-                            // This is the same mechanism used for invite/accept flow
-                            setOnNegotiationComplete {
-                                Logger.d(
-                                    tag = "ICE_RENEGOTIATION",
-                                    message = "ICE negotiation complete for renegotiation, sending updateMedia message"
-                                )
-                                // Get the current local description which should now include candidates
+                            if (trickle) {
+                                // Match the JS/RN flow: send the restart offer immediately,
+                                // then trickle this ICE generation's candidates separately.
                                 val currentSdp = peerConnection?.localDescription?.description
-                                if (currentSdp != null) {
-                                    sendUpdateMediaMessage(currentSdp)
-                                } else {
-                                    Logger.e(
+                                    ?: sdp.description
+                                sendUpdateMediaMessage(
+                                    sdp = currentSdp,
+                                    recoveryGeneration = recoveryGeneration,
+                                    trickle = true,
+                                )
+                            } else {
+                                // Traditional ICE waits for candidate gathering and sends
+                                // one complete SDP without the trickle field.
+                                setOnNegotiationComplete {
+                                    if (!isCurrentRecoveryGeneration(recoveryGeneration)) {
+                                        Logger.d(
+                                            tag = "ICE_RENEGOTIATION",
+                                            message = "Ignoring negotiation completion for stale recovery generation",
+                                        )
+                                        return@setOnNegotiationComplete
+                                    }
+                                    Logger.d(
                                         tag = "ICE_RENEGOTIATION",
-                                        message = "Failed to get local description after negotiation"
+                                        message = "ICE negotiation complete for renegotiation, sending updateMedia message"
                                     )
-                                    client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                    val currentSdp = peerConnection?.localDescription?.description
+                                    if (currentSdp != null) {
+                                        sendUpdateMediaMessage(
+                                            sdp = currentSdp,
+                                            recoveryGeneration = recoveryGeneration,
+                                            trickle = false,
+                                        )
+                                    } else {
+                                        Logger.e(
+                                            tag = "ICE_RENEGOTIATION",
+                                            message = "Failed to get local description after negotiation"
+                                        )
+                                        recordIceRestartEvent(
+                                            level = "error",
+                                            message = "ICE restart failed - no SDP generated",
+                                        )
+                                        client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                                        notifyIceRestartFailure(recoveryGeneration, "local_sdp_unavailable")
+                                    }
                                 }
                             }
                         }
 
                         override fun onSetFailure(error: String?) {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription failure",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Failed to set local description for ICE restart: $error"
                             )
+                            recordIceRestartEvent(
+                                level = "error",
+                                message = "ICE restart offer creation failed",
+                                context = recoveryErrorContext(error),
+                            )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                            notifyIceRestartFailure(recoveryGeneration, "set_local_description_failed")
                         }
 
                         override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1187,24 +1479,52 @@ internal class Peer(
                         }
 
                         override fun onCreateFailure(p0: String?) {
+                            if (shouldIgnoreStaleRecoveryCallback(
+                                    recoveryGeneration,
+                                    "setLocalDescription create failure",
+                                )
+                            ) {
+                                return
+                            }
                             Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateFailure called in setLocalDescription: $p0"
                             )
+                            recordIceRestartEvent(
+                                level = "error",
+                                message = "ICE restart offer creation failed",
+                                context = recoveryErrorContext(p0),
+                            )
                             // Reset call state back to ACTIVE on failure
                             client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                            notifyIceRestartFailure(recoveryGeneration, "set_local_description_create_failed")
                         }
                     }, sdp)
+                } ?: run {
+                    recordIceRestartEvent(
+                        level = "error",
+                        message = "ICE restart failed - no SDP generated",
+                    )
+                    notifyIceRestartFailure(recoveryGeneration, "offer_sdp_unavailable")
                 }
             }
 
             override fun onCreateFailure(error: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer failure")) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to create ICE restart offer: $error"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart offer creation failed",
+                    context = recoveryErrorContext(error),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "create_offer_failed")
             }
 
             override fun onSetSuccess() {
@@ -1215,12 +1535,21 @@ internal class Peer(
             }
 
             override fun onSetFailure(p0: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer set failure")) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetFailure called in createOffer: $p0"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart offer creation failed",
+                    context = recoveryErrorContext(p0),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "create_offer_set_failed")
             }
         }, iceRestartConstraints)
     }
@@ -1228,13 +1557,135 @@ internal class Peer(
     /**
      * Sends the updateMedia modify message with the new SDP for ICE renegotiation
      */
-    private fun sendUpdateMediaMessage(sdp: String) {
+    private fun sendUpdateMediaMessage(
+        sdp: String,
+        recoveryGeneration: Long?,
+        trickle: Boolean,
+    ) {
+        if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "updateMedia send")) {
+            return
+        }
+
         Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+
+        recordIceRestartEvent(
+            level = "info",
+            message = "ICE restart: sending ${if (trickle) "trickle " else ""}Modify with new offer SDP",
+            context = mapOf("trickle" to trickle),
+        )
 
         // Reset call state back to ACTIVE after sending the updateMedia message
         client.calls[callId]?.updateCallState(CallState.ACTIVE)
 
-        client.sendUpdateMediaMessage(callId, sdp)
+        if (recoveryGeneration == null) {
+            client.sendUpdateMediaMessage(callId, sdp, trickle.takeIf { it })
+            flushQueuedIceRestartCandidatesAfterModify(trickle)
+            return
+        }
+
+        val requestId = UUID.randomUUID().toString()
+        synchronized(recoveryRequestLock) {
+            pendingRecoveryRequestId = requestId
+            pendingRecoveryGeneration = recoveryGeneration
+        }
+        client.sendRecoveryUpdateMediaMessage(
+            callId = callId,
+            sdp = sdp,
+            requestId = requestId,
+            trickle = trickle.takeIf { it },
+        )
+        flushQueuedIceRestartCandidatesAfterModify(trickle)
+    }
+
+    private fun prepareIceRestartCandidateDispatch(trickle: Boolean) {
+        stopEndOfCandidatesTimer()
+        candidateLock.lock()
+        try {
+            queuedIceRestartCandidates.clear()
+            iceRestartModifyPending = trickle
+            iceRestartEndOfCandidatesPending = false
+            if (trickle) {
+                // The initial negotiation may already have sent end-of-candidates.
+                // A restart is a new ICE generation and needs its own signal.
+                endOfCandidatesSent = false
+            }
+        } finally {
+            candidateLock.unlock()
+        }
+    }
+
+    private fun flushQueuedIceRestartCandidatesAfterModify(trickle: Boolean) {
+        if (!trickle) return
+
+        val candidates: List<IceCandidate>
+        val shouldSendEndOfCandidates: Boolean
+        candidateLock.lock()
+        try {
+            iceRestartModifyPending = false
+            candidates = queuedIceRestartCandidates.toList()
+            queuedIceRestartCandidates.clear()
+            shouldSendEndOfCandidates = iceRestartEndOfCandidatesPending
+            iceRestartEndOfCandidatesPending = false
+        } finally {
+            candidateLock.unlock()
+        }
+
+        candidates.forEach { candidate ->
+            sendIceCandidate(candidate)
+            startEndOfCandidatesTimer()
+        }
+        if (shouldSendEndOfCandidates) {
+            sendEndOfCandidates()
+            Logger.d(tag = "Observer", message = "Queued end-of-candidates sent after updateMedia")
+        }
+    }
+
+    private fun sendOrQueueIceRestartEndOfCandidates() {
+        var sendImmediately = false
+        candidateLock.lock()
+        try {
+            if (iceRestartModifyPending) {
+                iceRestartEndOfCandidatesPending = true
+                Logger.d(
+                    tag = "Observer",
+                    message = "End-of-candidates queued until ICE restart updateMedia is sent",
+                )
+            } else {
+                sendImmediately = true
+            }
+        } finally {
+            candidateLock.unlock()
+        }
+
+        if (sendImmediately) {
+            sendEndOfCandidates()
+            Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+        }
+    }
+
+    private fun isCurrentRecoveryGeneration(recoveryGeneration: Long?): Boolean =
+        !isDisposed.get() &&
+            (recoveryGeneration == null ||
+                (signalingHealthMonitor.generation() == recoveryGeneration &&
+                    signalingHealthMonitor.state() == SignalingHealthMonitor.State.ICE_RESTARTING))
+
+    private fun shouldIgnoreStaleRecoveryCallback(
+        recoveryGeneration: Long?,
+        callback: String,
+    ): Boolean {
+        if (isCurrentRecoveryGeneration(recoveryGeneration)) return false
+        Logger.d(
+            tag = "ICE_RENEGOTIATION",
+            message = "Ignoring $callback for stale recovery generation=$recoveryGeneration",
+        )
+        return true
+    }
+
+    private fun notifyIceRestartFailure(recoveryGeneration: Long?, reason: String) {
+        prepareIceRestartCandidateDispatch(trickle = false)
+        if (recoveryGeneration == null) return
+        signalingHealthMonitor.onIceRestartFailed(recoveryGeneration, reason)
+        scheduleRecoveryTickIfNeeded()
     }
 
     /**
@@ -1260,25 +1711,10 @@ internal class Peer(
             message = "ICE state transition: $previousState -> $newState"
         )
 
-        // Case 1: disconnected -> failed: Attempt ICE restart/renegotiation
-        if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
-            newState == PeerConnection.IceConnectionState.FAILED
-        ) {
-            Logger.w(
-                tag = "IceStateTransition",
-                message = "ICE connection failed after disconnect - attempting ICE restart"
-            )
-            client.emitWarning(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code) // ICE_CONNECTIVITY_LOST
+        // Recovery decisions are owned exclusively by SignalingHealthMonitor.
+        // This method retains only audio-buffer maintenance and diagnostics.
 
-            // Trigger ICE restart to recover from failed state with delay
-            Timer().schedule(object : TimerTask() {
-                override fun run() {
-                    startIceRenegotiation()
-                }
-            }, ICE_RESTART_DELAY_MS)
-        }
-
-        // Case 2: connected -> disconnected: Reset audio buffers
+        // Case 1: connected -> disconnected: Reset audio buffers
         if (previousState == PeerConnection.IceConnectionState.CONNECTED &&
             newState == PeerConnection.IceConnectionState.DISCONNECTED
         ) {
@@ -1295,7 +1731,7 @@ internal class Peer(
             }, AUDIO_BUFFER_RESET_DELAY_MS)
         }
 
-        // Case 3: disconnected -> connected: Reset audio buffers
+        // Case 2: disconnected -> connected: Reset audio buffers
         if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
             newState == PeerConnection.IceConnectionState.CONNECTED
         ) {
@@ -1342,30 +1778,128 @@ internal class Peer(
      * This completes the ICE renegotiation process
      */
     fun handleUpdateMediaResponse(remoteSdp: String) {
+        handleUpdateMediaResponse(remoteSdp, responseId = null)
+    }
+
+    internal fun handleUpdateMediaResponse(remoteSdp: String, responseId: String?) {
         Logger.d(
             tag = "ICE_RENEGOTIATION",
             message = "Handling updateMedia response with remote SDP"
         )
 
+        val responseContext = synchronized(recoveryRequestLock) {
+            val expectedRequestId = pendingRecoveryRequestId
+            if (responseId != null && expectedRequestId != null && responseId != expectedRequestId) {
+                Logger.w(
+                    tag = "ICE_RENEGOTIATION",
+                    message = "Ignoring stale updateMedia response id=$responseId expected=$expectedRequestId",
+                )
+                RecoveryResponseContext(generation = null, stale = true)
+            } else if (expectedRequestId != null &&
+                (responseId == null || responseId == expectedRequestId)
+            ) {
+                // Older gateways may omit the JSON-RPC id. There is no exact
+                // correlation available in that case, so consume the single
+                // in-flight recovery request to preserve compatibility.
+                val generationAtSend = pendingRecoveryGeneration
+                pendingRecoveryRequestId = null
+                pendingRecoveryGeneration = null
+                RecoveryResponseContext(generation = generationAtSend, stale = false)
+            } else {
+                RecoveryResponseContext(generation = null, stale = false)
+            }
+        }
+        val recoveryGeneration = responseContext.generation
+
+        if (responseContext.stale ||
+            (recoveryGeneration != null && !isCurrentRecoveryGeneration(recoveryGeneration))
+        ) {
+            Logger.w(
+                tag = "ICE_RENEGOTIATION",
+                message = "Ignoring stale updateMedia response generation=$recoveryGeneration",
+            )
+            return
+        }
+
+        if (remoteSdp.isBlank()) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart Modify response missing SDP",
+            )
+            notifyIceRestartFailure(recoveryGeneration, "remote_sdp_unavailable")
+            return
+        }
+
+        recordIceRestartEvent(level = "info", message = "ICE restart Modify response received")
+
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            recordIceRestartEvent(
+                level = "error",
+                message = "ICE restart remote SDP apply failed",
+                context = recoveryErrorContext("Peer connection unavailable"),
+            )
+            notifyIceRestartFailure(recoveryGeneration, "peer_unavailable_for_remote_sdp")
+        } else {
+            applyRemoteIceRestartDescription(connection, remoteSdp, recoveryGeneration)
+        }
+    }
+
+    private fun applyRemoteIceRestartDescription(
+        connection: PeerConnection,
+        remoteSdp: String,
+        recoveryGeneration: Long?,
+    ) {
         val remoteSessionDescription = SessionDescription(SessionDescription.Type.ANSWER, remoteSdp)
-        peerConnection?.setRemoteDescription(object : SdpObserver {
+        connection.setRemoteDescription(object : SdpObserver {
             override fun onSetSuccess() {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription success",
+                    )
+                ) {
+                    return
+                }
                 Logger.d(
                     tag = "ICE_RENEGOTIATION",
                     message = "ICE renegotiation completed successfully"
                 )
+                recordIceRestartEvent(
+                    level = "info",
+                    message = "ICE restart remote SDP applied",
+                )
                 // Ensure call state is reset to ACTIVE on successful completion
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                // Signal the recovery monitor that the updateMedia answer
+                // is applied. The monitor advances from ICE_RESTARTING
+                // into VERIFYING_MEDIA (or returns to IDLE if recovery is no
+                // longer the current generation).
+                recoveryGeneration?.let { generationAtSend ->
+                    signalingHealthMonitor.onUpdateMediaAnswerApplied(generationAtSend)
+                }
+                scheduleRecoveryTickIfNeeded()
             }
 
             override fun onSetFailure(error: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription failure",
+                    )
+                ) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to set remote description for ICE renegotiation: $error"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart remote SDP apply failed",
+                    context = recoveryErrorContext(error),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
-                client.emitWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code) // Warning: hold/resume SDP renegotiation failed — call continues on existing SDP
+                notifyIceRestartFailure(recoveryGeneration, "set_remote_description_failed")
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1376,15 +1910,65 @@ internal class Peer(
             }
 
             override fun onCreateFailure(p0: String?) {
+                if (shouldIgnoreStaleRecoveryCallback(
+                        recoveryGeneration,
+                        "setRemoteDescription create failure",
+                    )
+                ) {
+                    return
+                }
                 Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateFailure called in setRemoteDescription: $p0"
                 )
+                recordIceRestartEvent(
+                    level = "error",
+                    message = "ICE restart remote SDP apply failed",
+                    context = recoveryErrorContext(p0),
+                )
                 // Reset call state back to ACTIVE on failure
                 client.calls[callId]?.updateCallState(CallState.ACTIVE)
+                notifyIceRestartFailure(recoveryGeneration, "set_remote_description_create_failed")
             }
         }, remoteSessionDescription)
     }
+
+    /** Mirrors the iOS ICE-restart lifecycle entries in the call-report logs array. */
+    private fun recordIceRestartEvent(
+        level: String,
+        message: String,
+        context: Map<String, Any> = emptyMap(),
+    ) {
+        client.debugDataCollector.addLogEntry(
+            callId = callId,
+            level = level,
+            message = message,
+            context = context + mapOf(
+                "callId" to callId.toString(),
+                "sessionId" to client.sessid,
+            ),
+        )
+    }
+
+    /**
+     * Mirrors one `ICE_DIAG` logcat line into the call report (VSUP-295).
+     *
+     * Keeps the existing logcat output unchanged and additionally writes an
+     * aggregated, bounded entry via [DebugDataCollector.onIceDiagnostic].
+     * Credential material in ICE server URLs must be redacted before it
+     * reaches [fields] — see [IceDiagnosticsCollector.redactIceServerUrl].
+     */
+    private fun recordIceDiagnostic(event: String, fields: Map<String, Any?> = emptyMap()) {
+        client.debugDataCollector.onIceDiagnostic(
+            callId = callId,
+            event = event,
+            fields = fields,
+            tsMs = SystemClock.elapsedRealtime(),
+        )
+    }
+
+    private fun recoveryErrorContext(error: String?): Map<String, Any> =
+        mapOf("error" to (error ?: "Unknown error"))
 
     /**
      * Flushes all queued ICE candidates after ANSWER is sent.
@@ -1395,10 +1979,10 @@ internal class Peer(
      * and is sent immediately instead of being queued (and then lost on clear()).
      */
     internal fun flushQueuedCandidatesAfterAnswer() {
-        if (!client.getUseTrickleIce() || !isAnswering) {
+        if (!useTrickleIce || !isAnswering) {
             Logger.d(
                 tag = "CandidateFlush",
-                message = "Not flushing - trickleIce=${client.getUseTrickleIce()}, isAnswering=$isAnswering"
+                message = "Not flushing - trickleIce=$useTrickleIce, isAnswering=$isAnswering"
             )
             return
         }
@@ -1441,7 +2025,7 @@ internal class Peer(
      */
     private fun startEndOfCandidatesTimer() {
         // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
-        if (!client.getUseTrickleIce()) {
+        if (!useTrickleIce) {
             Logger.d(
                 tag = "EndOfCandidatesTimer",
                 message = "Timer not started - Trickle ICE disabled"
@@ -1469,7 +2053,7 @@ internal class Peer(
                 )
 
                 // Send end-of-candidates if not already sent
-                if (!endOfCandidatesSent && client.getUseTrickleIce()) {
+                if (!endOfCandidatesSent && useTrickleIce) {
                     Logger.d(
                         tag = "EndOfCandidatesTimer",
                         message = "Sending end-of-candidates via timer"
@@ -1557,7 +2141,10 @@ internal class Peer(
         candidateLock.lock()
         try {
             queuedCandidates.clear()
+            queuedIceRestartCandidates.clear()
             answerSent = false
+            iceRestartModifyPending = false
+            iceRestartEndOfCandidatesPending = false
         } finally {
             candidateLock.unlock()
         }
@@ -1576,12 +2163,32 @@ internal class Peer(
     }
 
     /**
-     * Forces ICE renegotiation for testing purposes.
-     * This method directly calls startIceRenegotiation() to test the renegotiation logic.
+     * Requests an ICE restart through the active-call recovery coordinator.
+     *
+     * @return `true` when the request was accepted, or `false` when the call
+     * is not active, signaling is unavailable, or recovery is already active.
      */
-    fun forceIceRenegotiationForTesting() {
-        Logger.w(tag = "IceRenegotiationTest", message = "Forcing ICE renegotiation for testing")
-        startIceRenegotiation()
+    fun restartIce(): Boolean {
+        val started = signalingHealthMonitor.requestIceRestart()
+        if (started) {
+            Logger.i(tag = "ICE_RENEGOTIATION", message = "Application requested ICE restart")
+            scheduleRecoveryTickIfNeeded()
+        } else {
+            Logger.w(tag = "ICE_RENEGOTIATION", message = "Application ICE restart request was rejected")
+        }
+        return started
+    }
+
+    /** Forwards every inbound signaling frame to the health monitor. */
+    internal fun onSignalingMessage(message: JsonObject) {
+        val idElement = if (message.has("id")) message.get("id") else null
+        val messageId = if (idElement == null || idElement.isJsonNull) null else idElement.asString
+        signalingHealthMonitor.onSignalingMessage(
+            messageId = messageId,
+            hasResult = message.has("result"),
+            hasError = message.has("error"),
+        )
+        scheduleRecoveryTickIfNeeded()
     }
 
     /**
@@ -1633,8 +2240,11 @@ internal class Peer(
      * Uses the shared PeerConnectionFactory from the companion object.
      */
     init {
-        // Ensure WebRTC is initialized using companion's method
-        initPeerConnectionFactory(context)
+        // Tests can inject a factory to exercise the real signaling wiring
+        // without loading native WebRTC/EGL in the local JVM.
+        if (peerConnectionFactoryOverride == null) {
+            initPeerConnectionFactory(context)
+        }
         peerConnection = buildPeerConnection()
         CallTimingBenchmark.mark("peer_connection_created")
         // Track peer connection created milestone
@@ -1648,6 +2258,231 @@ internal class Peer(
             queuedCandidates.clear()
         } finally {
             candidateLock.unlock()
+        }
+        // Construct the signaling health monitor. The adapter bridges the
+        // monitor's policy decisions onto this Peer's existing
+        // startRecoveryIceRenegotiation primitive without duplicating any SDP or
+        // socket logic.
+        signalingHealthMonitor = SignalingHealthMonitor(
+            callId = callId,
+            actions = peerRecoveryActions(),
+        )
+        scheduleRecoveryTickIfNeeded()
+    }
+
+    /**
+     * Adapts this [Peer] to the [SignalingHealthMonitor.Actions] surface. Every
+     * call is best-effort: if the underlying peer has been disposed or the
+     * call is no longer active, the action is a no-op.
+     */
+    private fun peerRecoveryActions(): SignalingHealthMonitor.Actions =
+        object : SignalingHealthMonitor.Actions {
+            override fun isCallActive(): Boolean {
+                if (isDisposed.get()) return false
+                return client.calls[callId]?.callStateFlow?.value?.let {
+                    it is CallState.ACTIVE || it is CallState.RENEGOTIATING
+                } ?: false
+            }
+
+            override fun isSignalingAvailable(): Boolean {
+                return client.isSocketConnected()
+            }
+
+            override fun startIceRestart(generation: Long) {
+                if (isDisposed.get()) return
+                startRecoveryIceRenegotiation(generation)
+            }
+
+            override fun sendProbePing(probeId: String): Boolean {
+                if (isDisposed.get()) return false
+                return client.sendRecoveryProbe(probeId)
+            }
+
+            override fun shouldForceRelayForRecovery(onResult: (Boolean) -> Unit) {
+                evaluateRelayFallback(onResult)
+            }
+
+            override fun requestReattach(forceRelay: Boolean): Boolean =
+                client.requestCallRecoveryReattach(callId, forceRelay)
+
+            override fun snapshotForLog(): Map<String, String> {
+                val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")
+                return mapOf("iceState" to iceState)
+            }
+        }
+
+    private fun evaluateRelayFallback(onResult: (Boolean) -> Unit) {
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            onResult(false)
+            return
+        }
+
+        try {
+            connection.getStats { report ->
+                val statistics = report.statsMap.mapValues { (_, stat) ->
+                    stat.members.toMutableMap<String, Any?>().apply {
+                        this["type"] = stat.type
+                    }
+                }
+                val forceRelay = selectedCandidateUsesDirectVpn(statistics)
+                if (forceRelay) {
+                    Logger.w(
+                        tag = "SignalingHealthMonitor",
+                        message = "Failed VPN direct path; forcing relay for replacement call",
+                    )
+                }
+                onResult(forceRelay)
+            }
+        } catch (error: RuntimeException) {
+            Logger.e(
+                tag = "SignalingHealthMonitor",
+                message = "Unable to inspect recovery candidate path: ${error.message}",
+            )
+            onResult(false)
+        }
+    }
+
+    /** Tick interval for the monitor's current state, or null to stop ticking. */
+    private fun desiredRecoveryTickIntervalMs(): Long? = when (signalingHealthMonitor.state()) {
+        SignalingHealthMonitor.State.PROBING,
+        SignalingHealthMonitor.State.ICE_RESTARTING,
+        SignalingHealthMonitor.State.VERIFYING_MEDIA -> RECOVERY_ACTIVE_TICK_MS
+        SignalingHealthMonitor.State.IDLE -> {
+            if (isCallActiveForRecovery()) RECOVERY_IDLE_TICK_MS else null
+        }
+        SignalingHealthMonitor.State.REATTACHING -> {
+            // Keep ticking only while the relay evaluation deadline runs.
+            if (signalingHealthMonitor.isAwaitingRelayEvaluation()) RECOVERY_ACTIVE_TICK_MS else null
+        }
+    }
+
+    /**
+     * Starts the recovery tick timer if the monitor is in a watchable
+     * state. Idempotent and safe to call from any state. The timer drives
+     * active-call health checks as well as recovery deadlines, and tears
+     * itself down when the call is no longer active or recovery is terminal.
+     */
+    @Synchronized
+    private fun scheduleRecoveryTickIfNeeded() {
+        if (isDisposed.get()) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            recoveryTickIntervalMs = null
+            return
+        }
+        val desiredIntervalMs = desiredRecoveryTickIntervalMs()
+
+        if (recoveryTickTimer != null && recoveryTickIntervalMs != desiredIntervalMs) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            recoveryTickIntervalMs = null
+        }
+
+        if (desiredIntervalMs != null && recoveryTickTimer == null) {
+            // Repeating timer so the monitor's debounce / restart-timeout /
+            // media-verify deadlines elapse without depending on external
+            // scheduleRecoveryTickIfNeeded() calls. Cancellation is handled by
+            // the null-interval branch below and the isDisposed guard above.
+            recoveryTickIntervalMs = desiredIntervalMs
+            recoveryTickTimer = Timer()
+            recoveryTickTimer?.schedule(
+                timerTask {
+                    try {
+                        if (!isDisposed.get()) {
+                            signalingHealthMonitor.onTick()
+                            sampleRecoveryInboundRtpIfNeeded()
+                        }
+                        // A tick may finish verification or escalate to
+                        // reattach. Re-evaluate here so the repeating Timer
+                        // cannot survive a terminal monitor state.
+                        scheduleRecoveryTickIfNeeded()
+                    } catch (e: Exception) {
+                        Logger.e(
+                            tag = "SignalingHealthMonitor",
+                            message = "tick error: ${e.message}",
+                        )
+                    }
+                },
+                desiredIntervalMs,
+                desiredIntervalMs,
+            )
+        } else if (desiredIntervalMs == null && recoveryTickTimer != null) {
+            recoveryTickTimer?.cancel()
+            recoveryTickTimer = null
+            recoveryTickIntervalMs = null
+        }
+    }
+
+    /** Keeps active-call health checks aligned with the Call lifecycle. */
+    internal fun onCallStateChanged(state: CallState) {
+        if (!::signalingHealthMonitor.isInitialized || isDisposed.get()) return
+        when (state) {
+            is CallState.DONE,
+            is CallState.DROPPED,
+            CallState.ERROR -> signalingHealthMonitor.cancel("terminal_call_state")
+            else -> Unit
+        }
+        scheduleRecoveryTickIfNeeded()
+    }
+
+    /** Preempts per-peer recovery before the client reconnects for a path change. */
+    internal fun onNetworkPathDidChange() {
+        if (!::signalingHealthMonitor.isInitialized || isDisposed.get()) return
+        signalingHealthMonitor.onNetworkPathDidChange()
+        scheduleRecoveryTickIfNeeded()
+    }
+
+    private fun isCallActiveForRecovery(): Boolean =
+        client.calls[callId]?.callStateFlow?.value?.let {
+            it is CallState.ACTIVE || it is CallState.RENEGOTIATING
+        } ?: false
+
+    private fun sampleRecoveryInboundRtpIfNeeded() {
+        val now = System.currentTimeMillis()
+        val shouldSample = signalingHealthMonitor.state() == SignalingHealthMonitor.State.VERIFYING_MEDIA &&
+            now - lastRecoveryRtpSampleAtMs >= RECOVERY_RTP_SAMPLE_MS &&
+            recoveryStatsRequestInFlight.compareAndSet(false, true)
+        if (!shouldSample) return
+        lastRecoveryRtpSampleAtMs = now
+
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            recoveryStatsRequestInFlight.set(false)
+        } else {
+            try {
+                connection.getStats { report ->
+                    try {
+                        if (!isDisposed.get()) {
+                            var packetsReceived = 0L
+                            var foundInboundAudio = false
+                            report.statsMap.values.forEach { stat ->
+                                if (stat.type == "inbound-rtp") {
+                                    val kind = stat.members["kind"]?.toString()
+                                        ?: stat.members["mediaType"]?.toString()
+                                    val packets = stat.members["packetsReceived"] as? Number
+                                    if (kind == "audio" && packets != null) {
+                                        packetsReceived += packets.toLong()
+                                        foundInboundAudio = true
+                                    }
+                                }
+                            }
+                            if (foundInboundAudio) {
+                                signalingHealthMonitor.onInboundRtpSample(packetsReceived)
+                            }
+                        }
+                    } finally {
+                        recoveryStatsRequestInFlight.set(false)
+                        scheduleRecoveryTickIfNeeded()
+                    }
+                }
+            } catch (error: RuntimeException) {
+                recoveryStatsRequestInFlight.set(false)
+                Logger.e(
+                    tag = "SignalingHealthMonitor",
+                    message = "Unable to sample inbound RTP: ${error.message}",
+                )
+            }
         }
     }
 }

@@ -303,6 +303,33 @@ fun HomeScreen(
                                     }
                                 )
 
+                                if (callState is CallState.ACTIVE) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.restart_ice)) },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            val message = if (telnyxViewModel.iceRestart()) {
+                                                R.string.ice_restart_started
+                                            } else {
+                                                R.string.ice_restart_unavailable
+                                            }
+                                            Toast.makeText(
+                                                context,
+                                                message,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = R.drawable.baseline_refresh_24
+                                                ),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+
                                 // Copy FCM Token option
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.copy_fcm_token_menu)) },
@@ -378,40 +405,6 @@ fun HomeScreen(
                                     }
                                 )
 
-                                // Trickle ICE option
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (telnyxViewModel.useTrickleIce) {
-                                                stringResource(R.string.disable_trickle_ice)
-                                            } else {
-                                                stringResource(R.string.enable_trickle_ice)
-                                            }
-                                        )
-                                    },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        val newState = !telnyxViewModel.useTrickleIce
-                                        telnyxViewModel.toggleTrickleIce(newState)
-                                        val message = if (newState) {
-                                            context.getString(R.string.enable_trickle_ice)
-                                        } else {
-                                            context.getString(R.string.disable_trickle_ice)
-                                        }
-                                        Toast.makeText(
-                                            context,
-                                            message,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.baseline_call_24),
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
-
                                 // Preferred Codecs option
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.preferred_codecs)) },
@@ -470,26 +463,6 @@ fun HomeScreen(
                                     }
                                 )
 
-                                // Force ICE Renegotiation option (for testing)
-                                DropdownMenuItem(
-                                    text = { Text("Force ICE Renegotiation (Test)") },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        val success = telnyxViewModel.forceIceRenegotiationForTesting()
-                                        val message = if (success) {
-                                            "ICE renegotiation triggered successfully"
-                                        } else {
-                                            "Failed to trigger ICE renegotiation - no active call"
-                                        }
-                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_handshake),
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
                             } else {
                                 // Non-logged user options - only
 
@@ -512,6 +485,40 @@ fun HomeScreen(
                                                 ?: Region.AUTO.displayName,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                )
+
+                                // Trickle ICE toggle (session-wide, applied at login)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (telnyxViewModel.useTrickleIce) {
+                                                stringResource(R.string.disable_trickle_ice)
+                                            } else {
+                                                stringResource(R.string.enable_trickle_ice)
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        val newState = !telnyxViewModel.useTrickleIce
+                                        telnyxViewModel.toggleTrickleIce(context, newState)
+                                        val message = if (newState) {
+                                            context.getString(R.string.enable_trickle_ice)
+                                        } else {
+                                            context.getString(R.string.disable_trickle_ice)
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            message,
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.baseline_call_24),
+                                            contentDescription = null
                                         )
                                     }
                                 )

@@ -9,7 +9,7 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 /**
  * Immutable SDK identity carried on every outbound verto message.
  *
- * Direct core usage defaults to [DEFAULT_NAME] ("android") with the core artifact
+ * Direct core usage defaults to [DEFAULT_NAME] ("webrtc-android") with the core artifact
  * version ([BuildConfig.SDK_VERSION]). Higher-level wrappers (e.g.
  * `telnyx_common`) override these defaults with their own published identity so
  * Telnyx can distinguish wrapper traffic from direct core traffic on the wire.
@@ -20,7 +20,7 @@ import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
  * [SdkIdentity.copy] only at construction time when assembling a new client.
  *
  * @property name short SDK identifier emitted as `mobile_sdk_name` (e.g.
- *   "android", "android_commons").
+ *   "webrtc-android", "webrtc-android-commons").
  * @property version exact published version of the SDK emitting traffic,
  *   emitted as `mobile_sdk_version`.
  */
@@ -30,10 +30,10 @@ data class SdkIdentity(
 ) {
     companion object {
         /** Identity for direct core (telnyx_rtc) usage. */
-        const val DEFAULT_NAME: String = "android"
+        const val DEFAULT_NAME: String = "webrtc-android"
 
         /**
-         * Returns the default identity for direct core usage: name = "android"
+         * Returns the default identity for direct core usage: name = "webrtc-android"
          * and version = [BuildConfig.SDK_VERSION] (the core artifact version
          * sourced from the telnyx_rtc publishing/build metadata).
          */

@@ -74,8 +74,7 @@ fun CallHistoryBottomSheet(
                                 telnyxViewModel.sendInvite(
                                     context,
                                     number,
-                                    true,
-                                    trickleIce = telnyxViewModel.useTrickleIce
+                                    true
                                 )
                                 onDismiss(number)
                             }

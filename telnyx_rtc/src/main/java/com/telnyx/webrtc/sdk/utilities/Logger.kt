@@ -29,6 +29,18 @@ object Logger {
         log(LogLevel.DEBUG, tag, message, throwable)
     }
 
+    /**
+     * Debug log with a lazily-evaluated message. The lambda is only invoked
+     * (and the message string only built) when the configured log level
+     * actually emits DEBUG output — use for hot-path diagnostics whose
+     * interpolation would otherwise cost allocations on every event even
+     * when logging is silenced.
+     */
+    fun d(tag: String? = null, throwable: Throwable? = null, message: () -> String) {
+        if (!shouldLog(LogLevel.DEBUG)) return
+        log(LogLevel.DEBUG, tag, message(), throwable)
+    }
+
     fun i(tag: String? = null, message: String, throwable: Throwable? = null) {
         log(LogLevel.INFO, tag, message, throwable)
     }

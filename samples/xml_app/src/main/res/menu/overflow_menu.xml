@@ -7,6 +7,12 @@
         android:title="@string/websocket_messages"
         android:icon="@drawable/ic_message"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_restart_ice"
+        android:title="@string/restart_ice"
+        android:icon="@drawable/baseline_refresh_24"
+        app:showAsAction="never" />
         
     <item
         android:id="@+id/action_copy_fcm_token"

@@ -53,7 +53,8 @@ class AuthenticateBySIPCredentials(private val context: Context) {
                 isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = credentialConfig.fcmToken,
                 region = credentialConfig.region,
-                forceRelayCandidate = credentialConfig.forceRelayCandidate
+                forceRelayCandidate = credentialConfig.forceRelayCandidate,
+                useTrickleIce = credentialConfig.useTrickleIce
             )
         )
 
@@ -90,7 +91,8 @@ class AuthenticateBySIPCredentials(private val context: Context) {
                 isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = credentialConfig.fcmToken,
                 region = credentialConfig.region,
-                forceRelayCandidate = credentialConfig.forceRelayCandidate
+                forceRelayCandidate = credentialConfig.forceRelayCandidate,
+                useTrickleIce = credentialConfig.useTrickleIce
             )
         )
 

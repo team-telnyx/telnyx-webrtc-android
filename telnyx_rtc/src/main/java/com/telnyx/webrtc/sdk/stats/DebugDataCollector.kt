@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
@@ -70,6 +71,7 @@ class DebugDataCollector(private val context: Context) {
             telnyxSessionId = telnyxSessionId,
             telnyxLegId = telnyxLegId,
             startTimestamp = System.currentTimeMillis(),
+            startElapsedRealtime = SystemClock.elapsedRealtime(),
             sdkVersion = BuildConfig.SDK_VERSION,
             networkType = getNetworkType(),
             osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
@@ -79,6 +81,40 @@ class DebugDataCollector(private val context: Context) {
         )
         callDebugData[callId] = debugData
         Timber.tag(TAG).d("Call started - collecting debug data for call: $callId")
+    }
+
+    /**
+     * Continues collecting into an existing call report after a reattach.
+     *
+     * A recovery reattach replaces the peer connection, but it does not start a new call. The
+     * existing report must therefore retain its original start time, stats, logs, and metadata.
+     * If the SDK was cold-started for an attach and has no report yet, this initializes one.
+     *
+     * @return `true` when an existing report was resumed, or `false` when a new report was created
+     */
+    @Synchronized
+    fun onCallReattached(
+        callId: UUID,
+        telnyxSessionId: UUID? = null,
+        telnyxLegId: UUID? = null
+    ): Boolean {
+        val existingData = callDebugData[callId]
+        if (existingData == null) {
+            onCallStarted(callId, telnyxSessionId, telnyxLegId)
+            return false
+        }
+
+        telnyxSessionId?.let { existingData.telnyxSessionId = it }
+        telnyxLegId?.let { existingData.telnyxLegId = it }
+        existingData.logs.add(
+            LogEntry(
+                timestamp = System.currentTimeMillis(),
+                level = "info",
+                message = "Call reattached - continuing existing debug data"
+            )
+        )
+        Timber.tag(TAG).d("Call reattached - continuing debug data for call: $callId")
+        return true
     }
 
     /**
@@ -166,6 +202,39 @@ class DebugDataCollector(private val context: Context) {
             timingsLogs.forEach { entry ->
                 data.logs.add(LogEntry(entry.timestamp, entry.level, entry.message, null))
             }
+        }
+    }
+
+    /**
+     * Records an aggregated ICE diagnostic entry that mirrors one `ICE_DIAG`
+     * logcat line (VSUP-295) into the call report.
+     *
+     * Entries are collected for every call regardless of the debug flag. The
+     * per-call volume is naturally small (tens of entries), so no cap is
+     * applied. The [fields] map must already have credential material redacted
+     * by the caller — see [IceDiagnosticsCollector.redactIceServerUrl].
+     *
+     * @param callId The unique identifier for the call
+     * @param event The event discriminator (e.g. "ice_state_change", "candidate_generated")
+     * @param fields Additional event-specific fields for the report entry
+     */
+    fun onIceDiagnostic(
+        callId: UUID,
+        event: String,
+        fields: Map<String, Any?> = emptyMap(),
+        tsMs: Long? = null,
+    ) {
+        callDebugData[callId]?.let { data ->
+            val stampMs = tsMs ?: SystemClock.elapsedRealtime()
+            val entry = LinkedHashMap<String, Any?>(fields.size + 3)
+            entry["event"] = event
+            val msFromCallStart = stampMs - data.startElapsedRealtime
+            // Anchor the monotonic stamp to the call-start wall clock so the
+            // report shows UTC time like the other stats entries.
+            entry["tsMs"] = Date(data.startTimestamp + msFromCallStart)
+            entry["msFromCallStart"] = msFromCallStart
+            entry.putAll(fields)
+            data.iceDiagnostics.add(entry)
         }
     }
 
@@ -549,7 +618,6 @@ class DebugDataCollector(private val context: Context) {
         // Logs and Android-specific extra data
         json.add("logs", createLogsArray(data, dateFormat))
         json.add("android_extra", createAndroidExtraJson(data, dateFormat))
-
         return json
     }
 
@@ -557,6 +625,13 @@ class DebugDataCollector(private val context: Context) {
         val statsArray = JsonArray()
         data.intervalStats.forEach { interval ->
             statsArray.add(createIntervalJson(interval, data.selectedCandidatePair, data.transportStats, dateFormat))
+        }
+        if (data.iceDiagnostics.snapshot.isNotEmpty()) {
+            statsArray.add(
+                JsonObject().apply {
+                    add("iceDiagnostic", createIceDiagnosticsArray(data.iceDiagnostics, dateFormat))
+                }
+            )
         }
         return statsArray
     }
@@ -681,6 +756,34 @@ class DebugDataCollector(private val context: Context) {
             logsArray.add(logJson)
         }
         return logsArray
+    }
+
+    /**
+     * Serializes the aggregated ICE_DIAG diagnostics into a JSON array.
+     * Field values are mapped to string/number/boolean/null JSON properties,
+     * dates are formatted as UTC ISO-8601; nested values fall back to their
+     * string representation.
+     */
+    private fun createIceDiagnosticsArray(
+        collector: IceDiagnosticsCollector,
+        dateFormat: SimpleDateFormat
+    ): JsonArray {
+        val array = JsonArray()
+        collector.snapshot.forEach { entry ->
+            val json = JsonObject()
+            entry.forEach { (key, value) ->
+                when (value) {
+                    null -> json.add(key, com.google.gson.JsonNull.INSTANCE)
+                    is Number -> json.addProperty(key, value)
+                    is Boolean -> json.addProperty(key, value)
+                    is String -> json.addProperty(key, value)
+                    is Date -> json.addProperty(key, dateFormat.format(value))
+                    else -> json.addProperty(key, value.toString())
+                }
+            }
+            array.add(json)
+        }
+        return array
     }
 
     private fun createAndroidExtraJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
@@ -1353,7 +1456,13 @@ internal data class CallDebugData(
     val intervalStats: MutableList<IntervalStats> = mutableListOf(),
 
     // Log entries for call reporting
-    val logs: MutableList<LogEntry> = mutableListOf()
+    val logs: MutableList<LogEntry> = mutableListOf(),
+
+    // SystemClock.elapsedRealtime() at call start — baseline for ICE diagnostics event timing
+    val startElapsedRealtime: Long = 0L,
+
+    // Aggregated ICE_DIAG diagnostics (VSUP-295)
+    val iceDiagnostics: IceDiagnosticsCollector = IceDiagnosticsCollector()
 )
 
 /**

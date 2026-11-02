@@ -98,6 +98,7 @@ With the current call object, you can perform actions such as:
 2. Mute/UnMute `currentCall.onMuteUnmutePressed()`
 3. AcceptCall `currentCall.acceptCall(...)`
 4. EndCall `currentCall.endCall(callId: UUID)`
+5. Restart ICE `currentCall.iceRestart()`
 
 The `Call` class is a fundamental part of the Telnyx WebRTC SDK, representing an active or pending call session. It provides properties to observe the call's state and methods to control the call, such as ending it, muting/unmuting audio, and managing hold states.
 
@@ -128,6 +129,20 @@ The `Call` class is a fundamental part of the Telnyx WebRTC SDK, representing an
 - **`onLoudSpeakerPressed()`**: Toggles the loudspeaker state.
 - **`onHoldUnholdPressed(callId: UUID)`**: Toggles the hold state for the call.
 - **`dtmf(callId: UUID, tone: String)`**: Sends DTMF tones.
+- **`iceRestart(): Boolean`**: Requests ICE renegotiation for an active call. Returns `true` when the SDK accepts the request, or `false` if the call/signaling/peer state cannot start it.
+
+## Restarting ICE
+
+An application can explicitly renegotiate ICE candidates without replacing the active peer connection. This is useful for a user-triggered recovery control or when the application has detected a media-path problem:
+
+```kotlin
+val started = currentCall.iceRestart()
+if (!started) {
+    // The call is not active, signaling is disconnected, or recovery is busy.
+}
+```
+
+The SDK sends the new offer using `telnyx_rtc.modify` with the `updateMedia` action, applies the returned answer, and verifies that inbound media resumes. Only one recovery can run at a time.
 
 ## Observing Call State
 

@@ -52,7 +52,8 @@ class AuthenticateByToken(private val context: Context) {
                 isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = tokenConfig.fcmToken,
                 region = tokenConfig.region,
-                forceRelayCandidate = tokenConfig.forceRelayCandidate
+                forceRelayCandidate = tokenConfig.forceRelayCandidate,
+                useTrickleIce = tokenConfig.useTrickleIce
             )
         )
 
@@ -88,7 +89,8 @@ class AuthenticateByToken(private val context: Context) {
                 isDev = serverConfig.host == TxServerConfiguration.development().host,
                 fcmToken = tokenConfig.fcmToken,
                 region = tokenConfig.region,
-                forceRelayCandidate = tokenConfig.forceRelayCandidate
+                forceRelayCandidate = tokenConfig.forceRelayCandidate,
+                useTrickleIce = tokenConfig.useTrickleIce
             )
         )
 

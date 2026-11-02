@@ -22,6 +22,7 @@ fun Profile.toCredentialConfig(fcmToken: String, isDebug: Boolean = false): Cred
         region = this.region,
         forceRelayCandidate = this.forceRelayCandidate,
         pushWhenActive = false,
+        useTrickleIce = this.useTrickleIce
     )
 }
 
@@ -40,5 +41,6 @@ fun Profile.toTokenConfig(fcmToken: String, isDebug: Boolean = false): TokenConf
         region = this.region,
         forceRelayCandidate = this.forceRelayCandidate,
         pushWhenActive = false,
+        useTrickleIce = this.useTrickleIce
     )
 }

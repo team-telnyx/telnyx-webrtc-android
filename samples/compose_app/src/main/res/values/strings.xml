@@ -25,6 +25,9 @@
     <string name="unknown_label">Unknown</string>
 
     <string name="end">End</string>
+    <string name="restart_ice">Restart ICE</string>
+    <string name="ice_restart_started">ICE restart started</string>
+    <string name="ice_restart_unavailable">ICE restart unavailable for this call</string>
 
     <string name="telnyx_notification_channel_description">Telnyx WebRTC call notification</string>
     <string name="telnyx_notification_channel_id" translatable="false">telnyx_channel</string>
