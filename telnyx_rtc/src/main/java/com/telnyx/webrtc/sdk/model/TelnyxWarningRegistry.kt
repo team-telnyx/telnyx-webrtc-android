@@ -252,10 +252,15 @@ object TelnyxWarningRegistry {
     private val ANSWER_WHILE_PEER_ACTIVE = TelnyxWarning(
         code = 33006,
         name = "ANSWER_WHILE_PEER_ACTIVE",
-        message = "Call answer ignored — peer connection already active",
-        description = "An incoming call answer was ignored because a peer connection is already active for this session.",
-        causes = listOf("Duplicate answer from server", "Race condition in multi-call handling"),
-        solutions = listOf("No action needed — SDK handles automatically"),
+        // Android note (VSDK-393): JS emits this when answer() is called on a call
+        // whose own peer connection is already active (JS message says "ignored");
+        // Android emits it when answering one call while OTHER non-terminal calls
+        // exist (call-waiting) — the answer proceeds normally, so the text avoids
+        // the JS "ignored" wording.
+        message = "Call answered while another call was active",
+        description = "An incoming call was answered while other non-terminal calls were already active in this client. Android supports multi-call (call-waiting): the answer proceeds and the other calls remain active.",
+        causes = listOf("Call-waiting: second inbound call answered during an active call", "Race condition in multi-call handling"),
+        solutions = listOf("No action needed — call answered normally"),
     )
 
     private val DUPLICATE_INBOUND_ANSWER = TelnyxWarning(

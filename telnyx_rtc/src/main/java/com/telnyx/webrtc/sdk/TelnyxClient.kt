@@ -3458,40 +3458,46 @@ class TelnyxClient private constructor(
 
                     // JS parity (VSDK-393): a second inbound ANSWER while the peer
                     // already has remote media negotiated -> DUPLICATE_INBOUND_ANSWER.
-                    peerConnection?.getRemoteDescription()?.let { existingRemote ->
+                    // Matches JS _registerInboundAnswerAttempt (BaseCall.ts): the
+                    // answer() call is IGNORED on the duplicate path — applying a
+                    // second ANSWER in stable state is rejected by libwebrtc and
+                    // would surface SDP_SET_REMOTE_DESCRIPTION_FAILED (40004) with
+                    // the call showing ACTIVE on broken media.
+                    val duplicateAnswerGuard = peerConnection?.getRemoteDescription() != null
+                    if (duplicateAnswerGuard) {
                         Logger.w(
-                            message = "Duplicate inbound ANSWER for call $callId (remote description already set)"
+                            message = "Duplicate inbound ANSWER for call $callId (remote description already set) — answer ignored"
                         )
                         emitWarning(TelnyxWarningCode.DUPLICATE_INBOUND_ANSWER.code)
-                    }
+                    } else {
+                        peerConnection?.onRemoteSessionReceived(sdp)
+                        CallTimingBenchmark.mark("remote_description_set")
+                        client.latencyTracker.markCallMilestone(UUID.fromString(callId), LatencyTracker.MILESTONE_REMOTE_SDP_SET)
 
-                    peerConnection?.onRemoteSessionReceived(sdp)
-                    CallTimingBenchmark.mark("remote_description_set")
-                    client.latencyTracker.markCallMilestone(UUID.fromString(callId), LatencyTracker.MILESTONE_REMOTE_SDP_SET)
+                        // Process any queued ICE candidates after remote description is set
+                        processQueuedIceCandidates(UUID.fromString(callId))
 
-                    // Process any queued ICE candidates after remote description is set
-                    processQueuedIceCandidates(UUID.fromString(callId))
+                        updateCallState(CallState.ACTIVE)
 
-                    updateCallState(CallState.ACTIVE)
-                    
-                    // Complete call latency tracking
-                    client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
+                        // Complete call latency tracking
+                        client.debugDataCollector.addCallTimingsLogs(UUID.fromString(callId), client.latencyTracker.completeCallTracking(UUID.fromString(callId)))
 
-                    val answerResponse = AnswerResponse(
-                        appCallId(UUID.fromString(callId)),
-                        stringSdp,
-                        customHeaders?.toCustomHeaders() ?: arrayListOf(),
-                        callControlId
-                    )
-                    this.answerResponse = answerResponse
-                    client.emitSocketResponse(
-                        SocketResponse.messageReceived(
-                            ReceivedMessageBody(
-                                SocketMethod.ANSWER.methodName,
-                                answerResponse
+                        val answerResponse = AnswerResponse(
+                            appCallId(UUID.fromString(callId)),
+                            stringSdp,
+                            customHeaders?.toCustomHeaders() ?: arrayListOf(),
+                            callControlId
+                        )
+                        this.answerResponse = answerResponse
+                        client.emitSocketResponse(
+                            SocketResponse.messageReceived(
+                                ReceivedMessageBody(
+                                    SocketMethod.ANSWER.methodName,
+                                    answerResponse
+                                )
                             )
                         )
-                    )
+                    }
                 }
 
                 earlySDP -> {
