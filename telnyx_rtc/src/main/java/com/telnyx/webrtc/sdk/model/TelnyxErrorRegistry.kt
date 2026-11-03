@@ -170,6 +170,12 @@ object TelnyxErrorRegistry {
         solutions = listOf(
             "No call restart is required; inspect the original error if device identification remains unavailable",
         ),
+        // NOTE (VSDK-393 parity): defined for registry parity with the JS SDK,
+        // but NOT emitted on Android — there is no equivalent code path. The
+        // JS emit site replaces the WebRTC audio input track on mic device
+        // change (getUserMedia(deviceId) swap); Android does not switch input
+        // devices — the mic is managed by the AudioManager/voice-call audio
+        // routing, so this error can never occur.
         fatal = false,
     )
 
@@ -235,6 +241,10 @@ object TelnyxErrorRegistry {
             "Check network connectivity",
             "Retry the call",
         ),
+        // NOTE (VSDK-393 parity): defined for registry parity with the JS SDK,
+        // but NOT emitted on Android — the JS emit site is the conference
+        // liveArray subscription flow (VertoHandler), which the Android SDK
+        // does not implement. If conference support is added, wire this up.
         fatal = false,
     )
 

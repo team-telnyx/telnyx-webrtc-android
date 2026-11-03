@@ -322,7 +322,13 @@ data class Call(
                 )
             )
         )
-        socket.send(modifyMessageBody)
+        if (!socket.sendReturning(modifyMessageBody)) {
+            // JS parity (VSDK-393): hold/unhold send failure -> HOLD_FAILED
+            // (JS BaseCall.hold()/unhold() reject the sendMessage promise and
+            // call _handleHoldFailed, which emits HOLD_FAILED)
+            Logger.e(message = "Failed to send MODIFY ($holdAction) message")
+            client.emitError(TelnyxErrorCode.HOLD_FAILED.code)
+        }
     }
 
     /**
@@ -603,7 +609,11 @@ data class Call(
                     mobileSdkVersion = client.sdkIdentity.version,
                 )
             )
-            socket.send(inviteMessageBody)
+            if (!socket.sendReturning(inviteMessageBody)) {
+                // JS parity (VSDK-393): invite send failure -> SDP_SEND_FAILED
+                Logger.e(message = "Failed to send INVITE (trickle) for Call [${currentSignalingCallId()}]")
+                client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+            }
             // Track invite sent milestone
             client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
         } else {
@@ -659,7 +669,11 @@ data class Call(
                                 mobileSdkVersion = client.sdkIdentity.version,
                             )
                         )
-                        socket.send(inviteMessageBody)
+                        if (!socket.sendReturning(inviteMessageBody)) {
+                            // JS parity (VSDK-393): invite send failure -> SDP_SEND_FAILED
+                            Logger.e(message = "Failed to send INVITE (non-trickle) for Call [${currentSignalingCallId()}]")
+                            client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                        }
                         // Track invite sent milestone
                         client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
                         resetIceCandidateTimer() // Stop timer after sending

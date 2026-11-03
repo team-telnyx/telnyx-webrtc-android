@@ -22,6 +22,7 @@ import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.model.TelnyxWarningCode
 import com.telnyx.webrtc.sdk.stats.IceDiagnosticsCollector
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
@@ -146,6 +147,7 @@ internal class Peer(
             200L // 0.2 second delay for audio buffer reset
         private const val AUDIO_RE_ENABLE_DELAY_MS =
             100L // 0.1 second delay before re-enabling audio
+        private const val ICE_GATHERING_SAFETY_TIMEOUT_MS = 15000L // matches JS Peer.ICE_GATHERING_SAFETY_TIMEOUT_MS
 
         // Recovery monitor cadence. IDLE only needs to match the signaling
         // health interval; active recovery uses a tighter deadline cadence.
@@ -322,6 +324,12 @@ internal class Peer(
     // End-of-candidates timer management
     private var endOfCandidatesTimer: Timer? = null
     private var endOfCandidatesSent = false
+
+    // ICE gathering safety timeout (mirrors JS Peer.ICE_GATHERING_SAFETY_TIMEOUT_MS):
+    // if gathering has not completed within the window, warn ICE_GATHERING_TIMEOUT,
+    // or ICE_GATHERING_EMPTY when no candidates were gathered at all (VSDK-393).
+    private var iceGatheringSafetyTimer: Timer? = null
+    private var gatheredCandidatesCount = 0
 
     private val mediaConstraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -608,6 +616,17 @@ internal class Peer(
             })
             p0?.let { recordIceDiagnostic(event = "ice_gathering_state", fields = mapOf("state" to it.name)) }
 
+            // ICE gathering safety timeout (JS parity, VSDK-393): reset the candidate
+            // counter when gathering starts and arm a 15s watchdog; clear it on complete.
+            when (p0) {
+                PeerConnection.IceGatheringState.GATHERING -> {
+                    gatheredCandidatesCount = 0
+                    startIceGatheringSafetyTimeout()
+                }
+                PeerConnection.IceGatheringState.COMPLETE -> clearIceGatheringSafetyTimeout()
+                else -> Unit
+            }
+
             // Mark benchmark milestone for ICE gathering state changes
             p0?.let { CallTimingBenchmark.mark("ice_gathering_${it.name}") }
 
@@ -634,6 +653,10 @@ internal class Peer(
         }
 
         override fun onIceCandidate(candidate: IceCandidate?) {
+            // Count gathered candidates for the gathering safety watchdog (JS parity)
+            if (candidate != null) {
+                gatheredCandidatesCount++
+            }
             // Signal that the first candidate has been received (only once)
             if (!firstCandidateReceived) {
                 firstCandidateReceived = true
@@ -800,6 +823,16 @@ internal class Peer(
                     CallTimingBenchmark.end()
                 }
             }
+
+            // Structured warnings mirror the JS SDK Peer.ts behavior (VSDK-393):
+            // 'disconnected' -> ICE_CONNECTIVITY_LOST, 'failed' -> PEER_CONNECTION_FAILED.
+            when (newState) {
+                PeerConnection.PeerConnectionState.DISCONNECTED ->
+                    client.emitWarning(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code)
+                PeerConnection.PeerConnectionState.FAILED ->
+                    client.emitWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code)
+                else -> Unit
+            }
         }
     }
 
@@ -958,6 +991,10 @@ internal class Peer(
                                 Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
                                 // Track local SDP set milestone
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
+                                // JS parity (VSDK-393): warn when local SDP contains
+                                // only host candidates (no srflx/relay) — likely
+                                // to fail connectivity outside same network.
+                                warnIfOnlyHostIceCandidates()
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1283,6 +1320,7 @@ internal class Peer(
             recoveryTickTimer?.cancel()
             recoveryTickTimer = null
             recoveryTickIntervalMs = null
+            clearIceGatheringSafetyTimeout()
             synchronized(recoveryRequestLock) {
                 pendingRecoveryRequestId = null
                 pendingRecoveryGeneration = null
@@ -1951,6 +1989,66 @@ internal class Peer(
     }
 
     /**
+     * Arms the ICE gathering safety watchdog (mirrors JS
+     * `Peer.ICE_GATHERING_SAFETY_TIMEOUT_MS`, VSDK-393 parity).
+     *
+     * Fires a structured warning when gathering does not complete within
+     * [ICE_GATHERING_SAFETY_TIMEOUT_MS]: [TelnyxWarningCode.ICE_GATHERING_EMPTY]
+     * when no candidates were gathered at all, otherwise
+     * [TelnyxWarningCode.ICE_GATHERING_TIMEOUT].
+     */
+    private fun startIceGatheringSafetyTimeout() {
+        clearIceGatheringSafetyTimeout()
+        iceGatheringSafetyTimer = Timer().apply {
+            schedule(object : TimerTask() {
+                override fun run() {
+                    if (isDisposed.get()) return
+                    if (gatheredCandidatesCount == 0) {
+                        Logger.w(
+                            tag = ICE_DIAG_TAG,
+                            message = "ICE gathering produced no candidates within timeout",
+                        )
+                        client.emitWarning(TelnyxWarningCode.ICE_GATHERING_EMPTY.code)
+                    } else {
+                        Logger.w(
+                            tag = ICE_DIAG_TAG,
+                            message = "ICE gathering did not complete within timeout",
+                        )
+                        client.emitWarning(TelnyxWarningCode.ICE_GATHERING_TIMEOUT.code)
+                    }
+                }
+            }, ICE_GATHERING_SAFETY_TIMEOUT_MS)
+        }
+    }
+
+    /** Cancels the pending ICE gathering safety watchdog, if any. */
+    private fun clearIceGatheringSafetyTimeout() {
+        iceGatheringSafetyTimer?.cancel()
+        iceGatheringSafetyTimer = null
+    }
+
+    /**
+     * Mirrors JS `BaseCall._warnIfOnlyHostIceCandidates` (VSDK-393 parity):
+     * fires [TelnyxWarningCode.ONLY_HOST_ICE_CANDIDATES] when the local SDP
+     * has at least one `a=candidate:` line and every one of them is
+     * `typ host` (no srflx/relay candidates gathered).
+     */
+    private fun warnIfOnlyHostIceCandidates() {
+        val sdp = peerConnection?.getLocalDescription()?.description ?: return
+        val candidateLines = sdp
+            .split("\r\n", "\n")
+            .filter { it.startsWith("a=candidate:", ignoreCase = true) }
+        if (candidateLines.isEmpty()) return
+        if (candidateLines.all { Regex("\\styp\\s+host(\\s|$)", RegexOption.IGNORE_CASE).containsMatchIn(it) }) {
+            Logger.w(
+                tag = ICE_DIAG_TAG,
+                message = "Local SDP contains only host ICE candidates — connectivity may be limited",
+            )
+            client.emitWarning(TelnyxWarningCode.ONLY_HOST_ICE_CANDIDATES.code)
+        }
+    }
+
+    /**
      * Mirrors one `ICE_DIAG` logcat line into the call report (VSUP-295).
      *
      * Keeps the existing logcat output unchanged and additionally writes an
@@ -2266,6 +2364,8 @@ internal class Peer(
         signalingHealthMonitor = SignalingHealthMonitor(
             callId = callId,
             actions = peerRecoveryActions(),
+            onWarning = { warningCode -> client.emitWarning(warningCode.code) },
+            onError = { errorCode -> client.emitError(errorCode.code) },
         )
         scheduleRecoveryTickIfNeeded()
     }

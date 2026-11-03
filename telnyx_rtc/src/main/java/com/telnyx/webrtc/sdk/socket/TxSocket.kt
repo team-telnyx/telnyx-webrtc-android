@@ -480,6 +480,35 @@ class TxSocket(
     }
 
     /**
+     * Sends data to the socket and reports whether the frame was accepted for
+     * delivery. Mirrors the JS SDK's `sendMessage` promise-rejection surface
+     * (VSDK-393 parity): OkHttp's `WebSocket.send` returns `false` when the
+     * connection is closed or the outgoing queue is full, which previously
+     * failed silently.
+     */
+    internal fun sendReturning(dataObject: Any?): Boolean = runBlocking {
+        if (isDestroyed) {
+            Logger.w(
+                message = Logger.formatMessage(
+                    "[%s] Attempted to send on destroyed socket — ignoring",
+                    this@TxSocket.javaClass.simpleName
+                )
+            )
+            return@runBlocking false
+        }
+        Logger.v(
+            message = Logger.formatMessage("[%s] Sending [%s]",
+                this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
+        )
+        try {
+            webSocket.send(gson.toJson(dataObject))
+        } catch (e: Exception) {
+            Logger.e(message = "Socket send threw: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {

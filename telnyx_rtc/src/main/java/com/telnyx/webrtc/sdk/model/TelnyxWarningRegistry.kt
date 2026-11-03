@@ -283,6 +283,10 @@ object TelnyxWarningRegistry {
         description = "An audio input device change was skipped because the new device could not be resolved or was unavailable.",
         causes = listOf("Device disconnected during switch", "Invalid device ID"),
         solutions = listOf("Verify the audio device is connected", "Retry the device switch"),
+        // NOTE (VSDK-393 parity): defined for registry parity with the JS SDK,
+        // but NOT emitted on Android — Android has no audio input device
+        // switching at all (mic is managed by AudioManager routing); the JS
+        // emit site (setInputDevice / getUserMedia swap) has no counterpart.
     )
 
     private val MULTIPLE_ACTIVE_CALLS_DETECTED = TelnyxWarning(
@@ -301,6 +305,10 @@ object TelnyxWarningRegistry {
         description = "A shared remote media element was overwritten by another call's audio stream.",
         causes = listOf("Multiple calls sharing the same media element"),
         solutions = listOf("Use separate media elements per call"),
+        // NOTE (VSDK-393 parity): defined for registry parity with the JS SDK,
+        // but NOT emitted on Android — the JS emit site guards a shared <audio>
+        // DOM element across concurrent calls; Android plays remote audio
+        // through AudioTrack/audio routing, so no shared element exists.
     )
 
     private val REMOTE_AUDIO_ELEMENT_UNRESOLVED = TelnyxWarning(
@@ -310,6 +318,9 @@ object TelnyxWarningRegistry {
         description = "The configured remote media element could not be resolved. Audio may not play for the current call.",
         causes = listOf("Media element was removed from the DOM", "Invalid media element reference"),
         solutions = listOf("Verify the media element is valid", "Reconfigure the audio output"),
+        // NOTE (VSDK-393 parity): defined for registry parity with the JS SDK,
+        // but NOT emitted on Android — there is no media element to resolve;
+        // Android plays remote audio through AudioTrack/audio routing.
     )
 
     // ── Authentication warnings (340xx) ─────────────────────────────────

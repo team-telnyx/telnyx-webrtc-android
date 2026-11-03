@@ -32,6 +32,7 @@ import com.telnyx.webrtc.sdk.stats.WebRTCReporter
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingBenchmark
 import com.telnyx.webrtc.sdk.utilities.CandidateUtils
+import com.telnyx.webrtc.sdk.utilities.JwtUtils
 import com.telnyx.webrtc.sdk.utilities.LatencyTracker
 import com.telnyx.webrtc.sdk.utilities.ConnectivityHelper
 import com.telnyx.webrtc.sdk.utilities.Logger
@@ -175,6 +176,10 @@ class TelnyxClient private constructor(
     private var socketConnectJob: Job? = null
     private val acceptCallJobs = ConcurrentHashMap<UUID, Job>()
     private var reconnectJob: Job? = null
+
+    // JS parity (VSDK-393): token expiry warning timer — fires TOKEN_EXPIRING_SOON
+    // TOKEN_EXPIRY_WARNING_SECONDS before the login_token JWT expires.
+    private var tokenExpiryJob: Job? = null
 
     // Gateway registration variables
     private var autoReconnectLogin: Boolean = true
@@ -548,6 +553,16 @@ class TelnyxClient private constructor(
         val acceptCall =
             calls[callId] ?: throw IllegalStateException("Call not found for ID: $callId")
 
+        // JS parity (VSDK-393): warn when accepting a call while other
+        // non-terminal calls are still active (ANSWER_WHILE_PEER_ACTIVE).
+        val otherActiveCalls = calls.values.filter { it.currentSignalingCallId() != callId }
+        if (otherActiveCalls.isNotEmpty()) {
+            Logger.w(
+                message = "Answering call $callId while ${otherActiveCalls.size} other call(s) active"
+            )
+            emitWarning(TelnyxWarningCode.ANSWER_WHILE_PEER_ACTIVE.code)
+        }
+
         // The mode was captured when the inbound Call was created. Changing
         // the client default while it gathers candidates affects only future calls.
         val acceptUseTrickleIce = acceptCall.useTrickleIce
@@ -633,7 +648,11 @@ class TelnyxClient private constructor(
                             mobileSdkVersion = sdkIdentity.version,
                         )
                     )
-                    socket.send(answerBodyMessage)
+                    if (!socket.sendReturning(answerBodyMessage)) {
+                        // JS parity (VSDK-393): send failure -> SDP_SEND_FAILED
+                        Logger.e(message = "Failed to send ANSWER (trickle) for call $callId")
+                        emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                    }
                     CallTimingBenchmark.mark("answer_sent")
                     Logger.d(tag = "ICE_DIAG", message = {
                         "ANSWER sent via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
@@ -753,7 +772,11 @@ class TelnyxClient private constructor(
                                         mobileSdkVersion = sdkIdentity.version,
                                     )
                                 )
-                                socket.send(answerBodyMessage)
+                                if (!socket.sendReturning(answerBodyMessage)) {
+                                    // JS parity (VSDK-393): send failure -> SDP_SEND_FAILED
+                                    Logger.e(message = "Failed to send ANSWER (non-trickle) for call $callId")
+                                    emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                                }
                                 CallTimingBenchmark.mark("answer_sdp_sent")
                                 Logger.d(tag = "ICE_DIAG", message = {
                                     "ANSWER sent (non-trickle) via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
@@ -1103,7 +1126,11 @@ class TelnyxClient private constructor(
 
             client.removeFromCalls(signalingCallId)
             client.callNotOngoing()
-            socket.send(byeMessageBody)
+            if (!socket.sendReturning(byeMessageBody)) {
+                // JS parity (VSDK-393): BYE send failure -> BYE_SEND_FAILED
+                Logger.e(message = "Failed to send BYE for call $signalingCallId")
+                client.emitError(TelnyxErrorCode.BYE_SEND_FAILED.code)
+            }
             resetCallOptions()
             client.stopMediaPlayer()
             peerConnection?.release()
@@ -1120,6 +1147,15 @@ class TelnyxClient private constructor(
      * @param call, and instance of [Call]
      */
     internal fun addToCalls(call: Call) {
+        // JS parity (VSDK-393): warn when a call is added while another
+        // non-terminal call is already in progress.
+        val otherActiveCalls = calls.values.filter { it.currentSignalingCallId() != call.currentSignalingCallId() }
+        if (otherActiveCalls.isNotEmpty()) {
+            Logger.w(
+                message = "Multiple active calls detected: ${otherActiveCalls.size} existing call(s) while adding ${call.currentSignalingCallId()}"
+            )
+            emitWarning(TelnyxWarningCode.MULTIPLE_ACTIVE_CALLS_DETECTED.code)
+        }
         calls[call.currentSignalingCallId()] = call
     }
 
@@ -1246,6 +1282,44 @@ class TelnyxClient private constructor(
                 reconnectJob = null
             }
         }
+    }
+
+    /**
+     * JS parity (VSDK-393): mirrors BaseSession._checkTokenExpiry.
+     *
+     * Parses the login_token JWT and emits TOKEN_EXPIRING_SOON 120s before it
+     * expires. Called after every successful login response (including
+     * re-authentications), so a refreshed token re-arms the timer.
+     *
+     * - Already-expired tokens are skipped silently — the gateway will reject
+     *   the login with LOGIN_FAILED via the normal error path.
+     * - Tokens expiring within the 120s window emit immediately.
+     * - Invalid / non-JWT tokens are skipped silently (no warning).
+     */
+    private fun checkTokenExpiry() {
+        cancelTokenExpiryTimeout()
+        val secondsUntilExpiry = JwtUtils.secondsUntilExpiry(tokenSessionConfig?.sipToken)
+            ?: return
+        if (secondsUntilExpiry <= 0L) {
+            // Already expired — the login response will fail with LOGIN_FAILED.
+            return
+        }
+        val delayMs = (secondsUntilExpiry - JwtUtils.TOKEN_EXPIRY_WARNING_SECONDS) * 1000L
+        if (delayMs <= 0L) {
+            emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
+            return
+        }
+        tokenExpiryJob = clientScope.launch {
+            delay(delayMs)
+            tokenExpiryJob = null
+            emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
+        }
+    }
+
+    /** JS parity (VSDK-393): mirrors BaseSession._clearTokenExpiryTimeout. */
+    private fun cancelTokenExpiryTimeout() {
+        tokenExpiryJob?.cancel()
+        tokenExpiryJob = null
     }
 
     /**
@@ -2867,6 +2941,9 @@ class TelnyxClient private constructor(
             )
         )
         sessid = receivedLoginSessionId
+        // JS parity (VSDK-393): re-check token expiry after every successful
+        // login — a refreshed token re-arms the TOKEN_EXPIRING_SOON timer.
+        checkTokenExpiry()
         emitSocketResponse(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
@@ -3203,7 +3280,15 @@ class TelnyxClient private constructor(
             "Unknown error"
         } ?: "Unknown error"
         Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
-        val mappedCode = mapServerErrorCode(errorCode)
+        // JS parity (VSDK-393): the gateway returns JSON-RPC -32000 both for
+        // unauthenticated requests and for auth loss mid-session. JS splits by
+        // phase: pre-login -> LOGIN_FAILED (_handleLoginError), in-session ->
+        // AUTHENTICATION_REQUIRED (auto re-login when autoReconnect is on).
+        val mappedCode = if (errorCode == -32000 && socket.isLoggedIn) {
+            TelnyxErrorCode.AUTHENTICATION_REQUIRED.code
+        } else {
+            mapServerErrorCode(errorCode)
+        }
         emitError(mappedCode, errorMessage)
         disconnectTransientDeclinePushConnection()
 
@@ -3370,6 +3455,15 @@ class TelnyxClient private constructor(
                     }
 
                     val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
+
+                    // JS parity (VSDK-393): a second inbound ANSWER while the peer
+                    // already has remote media negotiated -> DUPLICATE_INBOUND_ANSWER.
+                    peerConnection?.getRemoteDescription()?.let { existingRemote ->
+                        Logger.w(
+                            message = "Duplicate inbound ANSWER for call $callId (remote description already set)"
+                        )
+                        emitWarning(TelnyxWarningCode.DUPLICATE_INBOUND_ANSWER.code)
+                    }
 
                     peerConnection?.onRemoteSessionReceived(sdp)
                     CallTimingBenchmark.mark("remote_description_set")
@@ -3997,6 +4091,9 @@ class TelnyxClient private constructor(
             }
         } ?: run {
             Logger.e(message = "Call not found for Attach")
+            // JS parity (VSDK-393): attach response for an unknown callID during
+            // reattach recovery -> UNKNOWN_REATTACHED_SESSION warning.
+            emitWarning(TelnyxWarningCode.UNKNOWN_REATTACHED_SESSION.code)
         }
     }
 
@@ -4452,6 +4549,8 @@ class TelnyxClient private constructor(
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         cancelReconnectionTimer()
+        // JS parity (VSDK-393): clear any scheduled token expiry warning.
+        cancelTokenExpiryTimeout()
         disconnectInternal(allowReconnectRetry = false)
         // Keep clientScope reusable for later reconnects; socket.destroy() cancels socket-owned work.
         clientScope.coroutineContext.cancelChildren()
