@@ -1468,14 +1468,29 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Starts collecting structured errors and warnings from TelnyxClient.
-     * Must be called after login (when telnyxClient is non-null) to capture
-     * post-login errors and warnings (VSDK-393). Called from handleLogin().
+     * Must be called once a TelnyxClient exists (a socket response implies the
+     * client exists, as does a successful login) to capture pre- and post-login
+     * errors and warnings (VSDK-393). Invoked from handleSocketResponse() (first
+     * socket response, pre-login) and handleLogin().
+     *
+     * Idempotent: no-ops when a collector is already active, so the
+     * handleSocketResponse() call site (which runs on every socket response)
+     * never re-subscribes to the replay-1 [TelnyxClient.errorFlow] — a
+     * re-subscription would replay the most recent [TelnyxError] (e.g. a stale
+     * NETWORK_OFFLINE or failed-login error) into [_structuredError] after
+     * recovery succeeded.
      */
     fun startErrorCollection() {
+        if (errorCollectorJob?.isActive == true && warningCollectorJob?.isActive == true) {
+            return
+        }
         errorCollectorJob?.cancel()
         errorCollectorJob = viewModelScope.launch {
             val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            telnyxClient?.errorFlow?.collect { error ->
+            checkNotNull(telnyxClient) {
+                "startErrorCollection() called before login — no TelnyxClient exists yet"
+            }
+            telnyxClient.errorFlow.collect { error ->
                 Timber.w("Structured error: ${error.name} (${error.code}) — fatal=${error.fatal}")
                 _structuredError.emit(error)
             }
@@ -1484,7 +1499,10 @@ class TelnyxViewModel : ViewModel() {
         warningCollectorJob?.cancel()
         warningCollectorJob = viewModelScope.launch {
             val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            telnyxClient?.warningFlow?.collect { warning ->
+            checkNotNull(telnyxClient) {
+                "startErrorCollection() called before login — no TelnyxClient exists yet"
+            }
+            telnyxClient.warningFlow.collect { warning ->
                 Timber.w("Structured warning: ${warning.name} (${warning.code})")
                 _structuredWarning.emit(warning)
             }
