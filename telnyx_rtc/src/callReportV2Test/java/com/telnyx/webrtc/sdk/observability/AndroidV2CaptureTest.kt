@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming", "MagicNumber")
+
 package com.telnyx.webrtc.sdk.observability
 
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -14,6 +16,8 @@ class AndroidV2CaptureTest {
     private fun client(id: String): TelnyxClient {
         val client = mockk<TelnyxClient>(relaxed = true)
         var sink: CallReportV2Ingress? = null
+        val sequence = java.util.concurrent.atomic.AtomicLong()
+        every { client.nextCallReportV2Sequence() } answers { sequence.incrementAndGet() }
         every { client.callReportV2InstanceId } returns id
         every { client.callReportV2 } answers { sink }
         every { client.callReportV2 = any() } answers { sink = firstArg() }
@@ -69,8 +73,8 @@ class AndroidV2CaptureTest {
             client.callReportV2!!.state(replacement, CallState.ACTIVE)
             val events = params(capture.capturedFrames())
             assertEquals(0, events.count { it["name"]!!.jsonPrimitive.content == "call_ended" })
-            assertEquals("call_state", events.last()["name"]!!.jsonPrimitive.content)
-            assertEquals("active", events.last()["payload"]!!.jsonObject["state"]!!.jsonPrimitive.content)
+            val state = events.last { it["name"]!!.jsonPrimitive.content == "call_state" }
+            assertEquals("active", state["payload"]!!.jsonObject["state"]!!.jsonPrimitive.content)
         } finally { capture.shutdown() }
     }
 }

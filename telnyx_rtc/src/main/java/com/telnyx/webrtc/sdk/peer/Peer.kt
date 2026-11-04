@@ -82,6 +82,7 @@ internal class Peer(
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
     private val audioConstraints: AudioConstraints? = null,
     private val peerConnectionFactoryOverride: PeerConnectionFactory? = null,
+    private val initialV2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null,
 ) {
 
     companion object {
@@ -579,7 +580,14 @@ internal class Peer(
                     PeerConnection.IceConnectionState.COMPLETED -> LatencyTracker.MILESTONE_ICE_COMPLETED
                     else -> null
                 }
-                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+                milestone?.let {
+                    client.latencyTracker.markCallMilestone(callId, it)
+                    when (it) {
+                        LatencyTracker.MILESTONE_ICE_CONNECTED -> reportV2Timing("ice_connected_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_STARTED -> reportV2Timing("ice_gathering_started_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE -> reportV2Timing("all_ice_candidates_gathered_ms")
+                    }
+                }
             }
 
             // Handle ICE connection state transitions
@@ -618,7 +626,14 @@ internal class Peer(
                     PeerConnection.IceGatheringState.COMPLETE -> LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE
                     else -> null
                 }
-                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+                milestone?.let {
+                    client.latencyTracker.markCallMilestone(callId, it)
+                    when (it) {
+                        LatencyTracker.MILESTONE_ICE_CONNECTED -> reportV2Timing("ice_connected_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_STARTED -> reportV2Timing("ice_gathering_started_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE -> reportV2Timing("all_ice_candidates_gathered_ms")
+                    }
+                }
             }
 
             // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled.
@@ -642,6 +657,7 @@ internal class Peer(
                 CallTimingBenchmark.markFirstCandidate()
                 // Track latency milestone for first ICE candidate
                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_FIRST_ICE_CANDIDATE)
+                    reportV2Timing("first_ice_candidate_ms")
                 Logger.d(
                     tag = "Observer",
                     message = "First ICE candidate processed, completing deferred."
@@ -704,6 +720,7 @@ internal class Peer(
                     
                     // Track first server-reflexive or relay candidate
                     client.latencyTracker.markFirstSrflxRelayCandidate(callId, candidateType)
+                    reportV2Timing("first_srflx_or_relay_candidate_ms")
                 } else {
                     // Traditional ICE: Only process if call is not ACTIVE or RENEGOTIATING yet
                     val currentCallState = client.calls[callId]?.callStateFlow?.value
@@ -919,6 +936,7 @@ internal class Peer(
         
         // Mark media devices acquired milestone
         client.latencyTracker.markMediaDevicesAcquired(callId)
+        reportV2Timing("media_devices_acquired_ms")
     }
 
     /**
@@ -937,12 +955,14 @@ internal class Peer(
         
         // Mark SDP negotiation started milestone
         client.latencyTracker.markSdpNegotiationStarted(callId)
+        reportV2Timing("sdp_negotiation_started_ms")
         
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     // Track local SDP created milestone
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
+                    reportV2Timing("sdp_local_created_ms")
                     
                     setLocalDescription(
                         object : SdpObserver {
@@ -957,6 +977,7 @@ internal class Peer(
                                 Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
                                 // Track local SDP set milestone
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
+                    reportV2Timing("local_description_applied_ms")
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
@@ -1040,6 +1061,7 @@ internal class Peer(
         
         // Mark SDP negotiation started milestone
         client.latencyTracker.markSdpNegotiationStarted(callId)
+        reportV2Timing("sdp_negotiation_started_ms")
 
         createAnswer(
             object : SdpObserver by sdpObserver {
@@ -1047,6 +1069,7 @@ internal class Peer(
                     CallTimingBenchmark.mark("local_answer_created")
                     // Track local SDP created milestone
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
+                    reportV2Timing("sdp_local_created_ms")
                     logAllTransceiverStates("After createAnswer success, before setLocalDescription")
 
                     setLocalDescription(
@@ -1066,6 +1089,7 @@ internal class Peer(
                                 CallTimingBenchmark.mark("local_answer_sdp_set")
                                 // Track local SDP set milestone
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
+                    reportV2Timing("local_description_applied_ms")
                                 logAllTransceiverStates("After setLocalDescription success")
                             }
 
@@ -1269,9 +1293,13 @@ internal class Peer(
     /**
      * Closes and disposes of current [PeerConnection]
      */
+    private fun reportV2Timing(field: String) {
+        v2CaptureToken?.let { client.callReportV2?.timing(it, field) }
+    }
+
     internal fun v2CaptureEnabled(): Boolean = client.callReportV2 != null
 
-    internal var v2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null
+    internal var v2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = initialV2CaptureToken
 
     internal fun captureV2Stats(token: com.telnyx.webrtc.sdk.observability.V2CaptureToken,
                                 report: com.telnyx.webrtc.lib.RTCStatsReport) {
@@ -2281,6 +2309,7 @@ internal class Peer(
         CallTimingBenchmark.mark("peer_connection_created")
         // Track peer connection created milestone
         client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_PEER_CREATED)
+        reportV2Timing("peer_created_ms")
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
         endOfCandidatesSent = false

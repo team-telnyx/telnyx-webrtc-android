@@ -81,6 +81,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'proguard-rules.txt'
 
+        buildConfigField "boolean", "CALL_REPORT_V2_LINKED", project.hasProperty('callReportV2SharedDir').toString()
         buildConfigField("String", "SDK_VERSION", "\"${getVersionName()}\"" ?: "1.0")
         buildConfigField "java.util.concurrent.atomic.AtomicBoolean", "IS_TESTING", "new java.util.concurrent.atomic.AtomicBoolean(false)"
     }
@@ -263,5 +264,6 @@ if (project.hasProperty('callReportV2SharedDir')) {
     dependencies {
         implementation 'com.telnyx.webrtc.mobile.shared:core:0.1.0-SNAPSHOT'
         implementation 'com.telnyx.webrtc.mobile.shared:contract:0.1.0-SNAPSHOT'
+        implementation 'com.telnyx.webrtc.mobile.shared:transport-ws:0.1.0-SNAPSHOT'
     }
 }

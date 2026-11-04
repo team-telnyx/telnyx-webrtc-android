@@ -70,8 +70,23 @@ class TelnyxClient private constructor(
     constructor(context: Context, sdkIdentity: SdkIdentity) : this(context, false, sdkIdentity)
 
     /** Stable per-client identity; never an account ID or signaling session ID. */
+    internal val callReportV2CreatedAtMs: Long = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime())
     internal val callReportV2InstanceId: String = UUID.randomUUID().toString()
+    private val callReportV2Sequence = java.util.concurrent.atomic.AtomicLong()
+    internal fun nextCallReportV2Sequence(): Long = callReportV2Sequence.incrementAndGet()
+    private var callReportV2ServerSessionId: String? = null
     @Volatile internal var callReportV2: com.telnyx.webrtc.sdk.observability.CallReportV2Ingress? = null
+
+    /** Enable/disable is effective only with the explicitly selected V2 shared integration. */
+    fun configureCallReportV2(config: com.telnyx.webrtc.sdk.observability.CallReportV2Config): Boolean {
+        if (!BuildConfig.CALL_REPORT_V2_LINKED) return false
+        return try {
+            val installer = Class.forName("com.telnyx.webrtc.sdk.observability.AndroidV2Installer")
+            installer.getMethod("install", TelnyxClient::class.java,
+                com.telnyx.webrtc.sdk.observability.CallReportV2Config::class.java).invoke(null, this, config)
+            true
+        } catch (_: Exception) { false } catch (_: LinkageError) { false }
+    }
 
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
@@ -931,7 +946,8 @@ class TelnyxClient private constructor(
                 onIceCandidateAdd = { candidate ->
                     addIceCandidateInternal(candidate)
                 },
-                audioConstraints = audioConstraints
+                audioConstraints = audioConstraints,
+                initialV2CaptureToken = v2CaptureToken
             ).also {
                 it.v2CaptureToken = v2CaptureToken
 
@@ -1321,6 +1337,9 @@ class TelnyxClient private constructor(
         )
         if (!isDeclinePushConnection) {
             registerNetworkCallback()
+        }
+        if (BuildConfig.CALL_REPORT_V2_LINKED && !BuildConfig.IS_TESTING.get()) {
+            configureCallReportV2(com.telnyx.webrtc.sdk.observability.CallReportV2Config())
         }
     }
 
@@ -2037,7 +2056,8 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
-        callReportV2?.loginType("sip_credentials")
+        callReportV2ServerSessionId = null
+        callReportV2?.authenticate("sip_credentials", user, password)
         targetSocket.send(loginMessage)
     }
 
@@ -2251,7 +2271,8 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
-        callReportV2?.loginType("token")
+        callReportV2ServerSessionId = null
+        callReportV2?.authenticate("token", null, token)
         targetSocket.send(loginMessage)
     }
 
@@ -2331,7 +2352,8 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
-        callReportV2?.loginType("anonymous")
+        callReportV2ServerSessionId = null
+        callReportV2?.authenticate("anonymous", targetId, targetType)
         targetSocket.send(loginMessage)
     }
 
@@ -2817,7 +2839,7 @@ class TelnyxClient private constructor(
      * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
      * @param receivedLoginSessionId, the session ID of the successfully registered session.
      */
-    internal fun onLoginSuccessful(receivedLoginSessionId: String) {
+    internal fun onLoginSuccessful(receivedLoginSessionId: String, providerConfirmed: Boolean = true) {
         Logger.d(
             message = Logger.formatMessage(
                 "[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
@@ -2826,7 +2848,8 @@ class TelnyxClient private constructor(
             )
         )
         sessid = receivedLoginSessionId
-        callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
+        if (providerConfirmed) callReportV2ServerSessionId = receivedLoginSessionId
+        callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
         emitSocketResponse(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
@@ -2868,6 +2891,7 @@ class TelnyxClient private constructor(
                 )
             )
 
+            callReportV2?.ready()
             emitConnectionStatus(ConnectionStatus.CLIENT_READY)
         }
     }
@@ -2878,7 +2902,7 @@ class TelnyxClient private constructor(
         if (voiceSdkID != null) {
             Logger.d(message = "Voice SDK ID _ $voiceSdkID")
             this@TelnyxClient.voiceSDKID = voiceSdkID
-            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
             updateDebugDataCollectorUploadConfig()
         } else {
             Logger.e(message = "No Voice SDK ID")
@@ -2940,11 +2964,13 @@ class TelnyxClient private constructor(
                 )
             )
 
+            callReportV2?.ready()
             emitConnectionStatus(ConnectionStatus.CLIENT_READY)
         }
     }
 
     override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
+        callReportV2?.gateway(gatewayState)
         when (gatewayState) {
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
@@ -2954,7 +2980,7 @@ class TelnyxClient private constructor(
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
                     resetGatewayCounters()
-                    onLoginSuccessful(sessid)
+                    onLoginSuccessful(sessid, providerConfirmed = false)
                 }
             }
 
@@ -3605,7 +3631,7 @@ class TelnyxClient private constructor(
                 if (voiceSdkID != null) {
                     Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
-                    callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
+                    callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
                     updateDebugDataCollectorUploadConfig()
                 } else {
                     Logger.e(message = "No Voice SDK ID")
@@ -3654,7 +3680,8 @@ class TelnyxClient private constructor(
                     onIceCandidateAdd = { candidate ->
                         addIceCandidateInternal(candidate)
                     },
-                    audioConstraints = null // Use defaults for incoming calls
+                    audioConstraints = null, // Use defaults for incoming calls
+                    initialV2CaptureToken = v2CaptureToken
                 ).also {
                     it.v2CaptureToken = v2CaptureToken
                     // Create reporter — always start so quality metrics are available
@@ -3895,7 +3922,7 @@ class TelnyxClient private constructor(
             if (voiceSdkID != null) {
                 Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
-            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
                 updateDebugDataCollectorUploadConfig()
             } else {
                 Logger.e(message = "No Voice SDK ID")
@@ -3943,7 +3970,8 @@ class TelnyxClient private constructor(
                 getForceRelayCandidate() || forceRelayForRecoveredCall,
                 isAnswering = true,
                 onIceCandidateAdd = null,
-                audioConstraints = null // Use defaults for reattached calls
+                audioConstraints = null, // Use defaults for reattached calls
+                initialV2CaptureToken = v2CaptureToken
             ).also {
                 it.v2CaptureToken = v2CaptureToken
                 // Create reporter — always start so quality metrics are available
@@ -4450,6 +4478,7 @@ class TelnyxClient private constructor(
      * This method should be called when the client is no longer needed or when the user logs out.
      */
     fun disconnect() {
+        callReportV2?.suspendTelemetry()
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         cancelReconnectionTimer()
         disconnectInternal(allowReconnectRetry = false)

@@ -39,6 +39,7 @@ providers.gradleProperty("callReportV2SharedDir").orNull?.let { sharedDir ->
     includeBuild(sharedDir) {
         dependencySubstitution {
             substitute(module("com.telnyx.webrtc.mobile.shared:core")).using(project(":modules:observability:core"))
+            substitute(module("com.telnyx.webrtc.mobile.shared:transport-ws")).using(project(":modules:observability:transport-ws"))
             substitute(module("com.telnyx.webrtc.mobile.shared:contract")).using(project(":modules:observability:contract"))
         }
     }

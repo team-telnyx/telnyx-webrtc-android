@@ -37,6 +37,7 @@ class TxSocket(
     internal var port: Int
 ) : CoroutineScope {
 
+    private var reportingClient: TelnyxClient? = null
     private var job: Job = SupervisorJob()
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
@@ -93,6 +94,7 @@ class TxSocket(
         onConnected:(Boolean) -> Unit = {}
     ): Job {
         isDestroyed = false
+        reportingClient = listener
 
         return launch(Dispatchers.IO) {
         val loggingInterceptor = HttpLoggingInterceptor()
@@ -142,6 +144,8 @@ class TxSocket(
         }
         Logger.d(message = "request: $client.")
 
+        listener.callReportV2?.socketStarting(requestUrl.toString())
+
         val request: Request =
             Request.Builder().url(requestUrl).build()
 
@@ -171,6 +175,7 @@ class TxSocket(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
                     )
+                    listener.callReportV2?.socketOpened(requestUrl.toString())
                     isConnected = true
                     onConnected(true)
                     listener.onConnectionEstablished()
@@ -179,6 +184,7 @@ class TxSocket(
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
+                    listener.callReportV2?.signalingFrame(text, outbound = false)
                     super.onMessage(webSocket, text)
                     Logger.v(
                         message = Logger.formatMessage("[%s] Receiving [%s]",
@@ -375,6 +381,7 @@ class TxSocket(
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
+                    listener.callReportV2?.socketClosed(code, reason, failed = false)
                     super.onClosed(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     // Only cleanup if not already disconnected (prevents double cleanup)
@@ -386,6 +393,7 @@ class TxSocket(
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+                    listener.callReportV2?.socketClosed(null, null, failed = true)
 
                     Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
@@ -476,13 +484,16 @@ class TxSocket(
             message = Logger.formatMessage("[%s] Sending [%s]", 
             this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
         )
-        webSocket.send(gson.toJson(dataObject))
+        val text = gson.toJson(dataObject)
+        reportingClient?.callReportV2?.signalingFrame(text, outbound = true)
+        webSocket.send(text)
     }
 
     /**
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        reportingClient?.callReportV2?.socketClosed(WEBSOCKET_NORMAL_CLOSURE, "client_disconnect", failed = false, byClient = true)
         isDestroyed = true
         isConnected = false
         isLoggedIn = false

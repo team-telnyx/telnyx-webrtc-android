@@ -131,10 +131,15 @@ data class Call(
      * Sets the call state to the provided value
      * @param value the new call state
      */
+    private fun CallState.isV2Terminal(): Boolean = when (this) {
+        is CallState.DONE, CallState.ERROR, is CallState.DROPPED -> true
+        else -> false
+    }
+
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
         client.callReportV2?.state(v2CaptureToken, value)
-        if (peerConnection == null && (value is CallState.DONE || value is CallState.ERROR || value is CallState.DROPPED)) {
+        if (peerConnection == null && value.isV2Terminal()) {
             client.callReportV2?.peerClosing(v2CaptureToken, null)
         }
         peerConnection?.onCallStateChanged(value)
@@ -609,6 +614,7 @@ data class Call(
             socket.send(inviteMessageBody)
             // Track invite sent milestone
             client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+            client.callReportV2?.timing(v2CaptureToken, "sdp_sent_ms")
         } else {
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
@@ -664,6 +670,7 @@ data class Call(
                         socket.send(inviteMessageBody)
                         // Track invite sent milestone
                         client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+            client.callReportV2?.timing(v2CaptureToken, "sdp_sent_ms")
                         resetIceCandidateTimer() // Stop timer after sending
                     } else {
                          if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
