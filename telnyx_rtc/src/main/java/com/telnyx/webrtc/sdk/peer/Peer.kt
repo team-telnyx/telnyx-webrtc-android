@@ -463,6 +463,11 @@ internal class Peer(
     private val peerConnectionFactory: PeerConnectionFactory
         get() = peerConnectionFactoryOverride ?: sharedPeerConnectionFactory
 
+    // VSUP-324: volatile so teardown on one thread (disconnect()) is visible
+    // to stats/collector threads reading via the snapshot guard in
+    // get*Description()/getStats() — without the volatile, a reader could
+    // keep a stale non-null reference while disconnect() already ran.
+    @Volatile
     internal var peerConnection: PeerConnection? = null
 
     /**
@@ -1251,30 +1256,64 @@ internal class Peer(
 
     /**
      * Returns the current local SDP
-     * @return [SessionDescription]
+     *
+     * Uses a snapshot of the [PeerConnection] reference guarded by [isDisposed].
+     * A bare `peerConnection?.localDescription` is unsafe during teardown
+     * (VSUP-324): the disconnecting thread runs `close()` → `dispose()` and only
+     * clears the reference afterwards, so a collector reading the SDP through an
+     * async stats event can reach a PeerConnection whose native object is already
+     * freed (use-after-free → SIGSEGV). Kotlin null-checks cannot prevent this,
+     * because the Java wrapper still routes the call into freed native memory.
+     *
+     * @return [SessionDescription] or null when the peer is being disconnected
      */
     fun getLocalDescription(): SessionDescription? {
-        return peerConnection?.localDescription
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            return null
+        }
+        return connection.localDescription
     }
 
     /**
      * Returns the current remote SDP
-     * @return [SessionDescription]
+     *
+     * Uses the same guarded-snapshot pattern as [getLocalDescription] (VSUP-324).
+     *
+     * @return [SessionDescription] or null when the peer is being disconnected
      */
     fun getRemoteDescription(): SessionDescription? {
-        return peerConnection?.remoteDescription
+        val connection = peerConnection
+        if (connection == null || isDisposed.get()) {
+            return null
+        }
+        return connection.remoteDescription
     }
 
     /**
      * Closes and disposes of current [PeerConnection]
+     *
+     * Idempotent: exactly one caller proceeds with the teardown (VSUP-324).
+     * Overlapping teardown callers previously raced here — e.g. `endCall` →
+     * `release()` while `onByeReceived` → `release()` lands on the socket
+     * thread — and the second `dispose()` on an already-freed native
+     * PeerConnection crashed (SIGILL in nativeFreeOwnedPeerConnection,
+     * SIGBUS, or JniCommon.nativeReleaseRef during transceiver teardown).
+     *
+     * The reference is also cleared BEFORE `close()`/`dispose()` so that
+     * asynchronous observers (e.g. the WebRTCReporter SIGNALING_CHANGE
+     * handler, which is triggered by `close()` itself) never reach a freed
+     * native object: once the reference is gone, their guarded reads return
+     * null instead of faulting.
      */
     fun disconnect() {
+        // Claim teardown atomically. MUST be the first statement; a caller
+        // that loses this race returns without touching any teardown state.
+        if (!isDisposed.compareAndSet(false, true)) {
+            return
+        }
         try {
             cancelFirstCandidateAwaiter()
-            // Mark as disposed BEFORE closing/disposing to prevent the stats timer
-            // from calling getStats() on a freed native PeerConnection (SIGSEGV).
-            // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
-            isDisposed.set(true)
             // Tear down the recovery monitor first so no in-flight timer
             // can reach into a disposed peer.
             recoveryTickTimer?.cancel()
@@ -1288,9 +1327,13 @@ internal class Peer(
             if (::signalingHealthMonitor.isInitialized) {
                 signalingHealthMonitor.cancel("peer_disconnect")
             }
-            peerConnection?.close()
-            peerConnection?.dispose()
+            // Clear the reference BEFORE close()/dispose(): any asynchronous
+            // get*Description()/getStats() reader that observes this Peer now
+            // sees a null/snapshotted reference instead of freed native memory.
+            val connection = peerConnection
             peerConnection = null
+            connection?.close()
+            connection?.dispose()
         } catch (e: IllegalStateException) {
             Logger.e(message = "Error during peer connection disconnect: $e")
         }
@@ -2146,6 +2189,9 @@ internal class Peer(
             candidateLock.unlock()
         }
         endOfCandidatesSent = false
+        // VSUP-324: read the reference once — a bare `peerConnection != null`
+        // check races with disconnect() clearing it; the CAS guard inside
+        // disconnect() makes this belt-and-braces, not load-bearing.
         if (peerConnection != null) {
             disconnect()
         }

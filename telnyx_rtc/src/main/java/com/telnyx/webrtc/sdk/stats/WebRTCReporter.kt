@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.telnyx.webrtc.lib.IceCandidate
@@ -93,6 +94,13 @@ internal class WebRTCReporter(
 
     private var debugReportJob: Job? = null
 
+    // VSUP-324: handle to the collector job (and the untracked stats-timer
+    // child it spawns) so stopStats() can actually drain them instead of only
+    // cancelling the outer launch. Without this, an in-flight
+    // SIGNALING_CHANGE handler could still run against a disposed peer.
+    private var statsEventsFlowSubscription: Job? = null
+    private var statsTimerScope: CoroutineScope? = null
+
     private var codecName: String? = null
     
     // Track DTLS state for latency milestones (avoid duplicate tracking)
@@ -159,15 +167,32 @@ internal class WebRTCReporter(
 
         sendAddConnectionMessage()
 
-        debugReportJob = CoroutineScope(Dispatchers.IO).launch {
-            startTimer()
+        // VSUP-324: single tracked scope owns BOTH the stats timer and the
+        // collector (previously the collector startTimer() spun an UNTRACKED
+        // CoroutineScope(IO) inside debugReportJob, so cancelling debugReportJob
+        // left the collector running). stopStats() cancels the whole scope.
+        statsTimerScope = CoroutineScope(Dispatchers.IO).also { scope ->
+            debugReportJob = scope.launch {
+                startTimer()
+            }
+            statsEventsFlowSubscription = scope.launch {
+                observeStatsFlow()
+            }
         }
-
     }
 
     internal fun stopStats() {
-        // Cancel the stats coroutine. The isDisposed flag on Peer provides an
-        // additional guard in case the coroutine is mid-flight when cancelled.
+        // VSUP-324: cancelling the tracked scope stops the stats timer AND the
+        // collector. Cancellation is cooperative and takes effect at the next
+        // suspend point, so an in-flight handler may briefly survive here —
+        // that is safe because Peer.disconnect() (called right after this in
+        // every teardown path) clears peerConnection BEFORE close()/dispose(),
+        // and all get*Description()/getStats() readers use a
+        // snapshot-and-guard pattern that returns null once the reference is
+        // gone. A blocking join here would risk ANRs (stopStats is invoked
+        // from endCall / onByeReceived / the main-looper reconnection handler).
+        statsTimerScope?.let { it.coroutineContext.cancelChildren() }
+        statsEventsFlowSubscription?.cancel()
         debugReportJob?.cancel()
 
         val debugStopMessage = InitiateOrStopStatPrams(
@@ -183,10 +208,18 @@ internal class WebRTCReporter(
     }
 
     internal fun pauseStats() {
+        // VSUP-324: pause previously cancelled ONLY the timer loop; the
+        // collector job (observeStatsFlow) kept running. With both jobs in one
+        // tracked scope, cancel the collector as well so no stats processing
+        // runs during reconnection while the peer may be mid-teardown.
         debugReportJob?.cancel()
+        statsEventsFlowSubscription?.cancel()
     }
 
     internal fun onStatsDataEvent(event: StatsData) {
+        // VSUP-324: typed EVENTS use a short-lived emitter on a tracked job.
+        // The collector itself is joined by stopStats(); the emitter here only
+        // forwards the event into the flow, so no extra tracking is needed.
         CoroutineScope(Dispatchers.IO).launch {
             statsDataFlow.emit(event)
         }
@@ -250,11 +283,16 @@ internal class WebRTCReporter(
                 // The native PeerConnection may have been freed during call teardown,
                 // and calling nativeNewGetStats on a null native pointer causes SIGSEGV.
                 // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
-                if (peer.isDisposed.get()) {
+                // VSUP-324: snapshot the reference AND check isDisposed so the
+                // timer never re-enters a peer that started disconnecting
+                // between iterations (the scope-based cancellation in
+                // stopStats() is the primary protection; this is defence in depth).
+                val connection = peer.peerConnection
+                if (connection == null || peer.isDisposed.get()) {
                     Logger.d(tag = "stats", "Peer connection disposed, stopping stats timer")
                     return@launch
                 }
-                peer.peerConnection?.getStats {
+                connection.getStats {
                     val statsData = JsonObject()
                     val data = JsonObject()
                     val audio = JsonObject()
