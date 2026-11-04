@@ -1,5 +1,7 @@
 package com.telnyx.webrtc.sdk
 
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import android.content.Context
 import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
@@ -89,6 +91,21 @@ class CallTest : BaseTest() {
                 mockContext
             )
         )
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `V2 accepts server confirmed echoed sessid but not local gateway fallback`() {
+        kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.Dispatchers.Unconfined)
+        try {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val initialSession = client.sessid
+        client.onGatewayStateReceived("REGED", null)
+        verify { capture.signaling(any(), any(), null) }
+        client.onGatewayStateReceived("REGED", initialSession)
+        verify { capture.signaling(any(), any(), initialSession) }
+        } finally { kotlinx.coroutines.Dispatchers.resetMain() }
     }
 
     @Test

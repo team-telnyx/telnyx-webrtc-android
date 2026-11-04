@@ -14,6 +14,17 @@ internal interface CallReportV2Ingress {
     fun started(token: V2CaptureToken, callId: String, inbound: Boolean, reattach: Boolean, trickle: Boolean, options: V2CaptureOptions)
     fun state(token: V2CaptureToken, state: CallState)
     fun stats(token: V2CaptureToken, report: RTCStatsReport)
+    fun authenticate(type: String, identity: String?, secret: String?) {}
+    fun socketStarting(url: String) {}
+    fun socketOpened(url: String) {}
+    fun socketClosed(code: Int?, reason: String?, failed: Boolean, byClient: Boolean = false) {}
+    fun signalingFrame(text: String, outbound: Boolean) {}
+    fun ready() {}
+    fun gateway(state: String) {}
+    fun timing(token: V2CaptureToken, field: String) {}
+    fun suspendTelemetry() {}
+    fun dispose() {}
+    fun isActive(): Boolean = true
     fun loginType(type: String)
     fun signaling(generation: Long, voiceSdkId: String?, sessionId: String?)
     fun peerClosing(token: V2CaptureToken, report: RTCStatsReport?)
