@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming", "MagicNumber")
+
 package com.telnyx.webrtc.sdk.observability
 
 import com.telnyx.webrtc.sdk.TelnyxClient
