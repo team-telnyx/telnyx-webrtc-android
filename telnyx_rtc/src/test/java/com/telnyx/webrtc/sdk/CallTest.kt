@@ -92,6 +92,74 @@ class CallTest : BaseTest() {
     }
 
     @Test
+    fun `native INVITE binds V2 token even with quality reports disabled`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        client.providedTurn = Config.DEFAULT_TURN
+        client.providedStun = Config.DEFAULT_STUN
+        client.socket = socket
+        every { client.playRingtone() } just Runs
+        val id = UUID.randomUUID()
+        val message = JsonObject().apply {
+            addProperty("voice_sdk_id", "voice-id")
+            add("params", JsonObject().apply {
+                addProperty("callID", id.toString())
+                addProperty("sdp", "v=0\r\n")
+                addProperty("caller_id_name", "Caller")
+                addProperty("caller_id_number", "100")
+                addProperty("telnyx_session_id", UUID.randomUUID().toString())
+                addProperty("telnyx_leg_id", UUID.randomUUID().toString())
+            })
+        }
+        org.mockito.Mockito.mockConstruction(Peer::class.java).use { peers ->
+            org.mockito.Mockito.mockConstruction(com.telnyx.webrtc.sdk.stats.WebRTCReporter::class.java).use { reporters ->
+                client.onOfferReceived(message)
+                assertEquals(1, peers.constructed().size)
+                assertEquals(1, reporters.constructed().size)
+                val call = client.getActiveCalls().values.single()
+                verify { capture.started(call.v2CaptureToken, id.toString(), true, false, any(), any()) }
+                org.mockito.Mockito.verify(peers.constructed().single()).v2CaptureToken = call.v2CaptureToken
+            }
+        }
+    }
+
+    @Test
+    fun `V2 captures setup failure without a native peer and recovery setters use actual ingress`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val failed = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            beginV2Capture(inbound = true)
+            setCallRecovering()
+            setReconnectionTimeout()
+        }
+        verify { capture.state(failed.v2CaptureToken, CallState.RECONNECTING(com.telnyx.webrtc.sdk.model.CallNetworkChangeReason.NETWORK_SWITCH)) }
+        verify { capture.state(failed.v2CaptureToken, CallState.ERROR) }
+        verify { capture.peerClosing(failed.v2CaptureToken, null) }
+    }
+
+    @Test
+    fun `V2 ingress retains distinct call tokens and signaling identity on reattach`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val signaling = UUID.randomUUID()
+        val first = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            signalingCallId = signaling
+            beginV2Capture(inbound = true, reattach = true)
+            updateCallState(CallState.ACTIVE)
+        }
+        val second = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = signaling
+            beginV2Capture(inbound = false)
+        }
+        verify { capture.started(first.v2CaptureToken, signaling.toString(), true, true, any(), any()) }
+        verify { capture.state(first.v2CaptureToken, CallState.ACTIVE) }
+        verify { capture.started(second.v2CaptureToken, signaling.toString(), false, false, any(), any()) }
+        assertFalse(first.v2CaptureToken === second.v2CaptureToken)
+    }
+
+    @Test
     fun `test call listen doesn't throw exception`() {
         assertDoesNotThrow {
             val newCall = Call(

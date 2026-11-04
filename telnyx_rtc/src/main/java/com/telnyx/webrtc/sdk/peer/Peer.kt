@@ -85,6 +85,7 @@ internal class Peer(
 ) {
 
     companion object {
+        private const val V2_FINAL_STATS_TIMEOUT_MS = 250L
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
@@ -1268,13 +1269,22 @@ internal class Peer(
     /**
      * Closes and disposes of current [PeerConnection]
      */
+    internal fun v2CaptureEnabled(): Boolean = client.callReportV2 != null
+
+    internal var v2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null
+
+    internal fun captureV2Stats(token: com.telnyx.webrtc.sdk.observability.V2CaptureToken,
+                                report: com.telnyx.webrtc.lib.RTCStatsReport) {
+        client.callReportV2?.stats(token, report)
+    }
+
     fun disconnect() {
         try {
             cancelFirstCandidateAwaiter()
             // Mark as disposed BEFORE closing/disposing to prevent the stats timer
             // from calling getStats() on a freed native PeerConnection (SIGSEGV).
             // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
-            isDisposed.set(true)
+            if (isDisposed.getAndSet(true)) return
             // Tear down the recovery monitor first so no in-flight timer
             // can reach into a disposed peer.
             recoveryTickTimer?.cancel()
@@ -1288,9 +1298,34 @@ internal class Peer(
             if (::signalingHealthMonitor.isInitialized) {
                 signalingHealthMonitor.cancel("peer_disconnect")
             }
-            peerConnection?.close()
-            peerConnection?.dispose()
+            val connection = peerConnection
             peerConnection = null
+            val capture = client.callReportV2
+            val token = v2CaptureToken
+            val dispose = {
+                try { connection?.close() } catch (failure: IllegalStateException) {
+                    Logger.e(message = "Error closing peer after final stats: $failure")
+                } finally {
+                    try { connection?.dispose() } catch (failure: IllegalStateException) {
+                        Logger.e(message = "Error disposing peer after final stats: $failure")
+                    }
+                }
+                Unit
+            }
+            if (capture != null && token != null && connection != null) {
+                com.telnyx.webrtc.sdk.observability.FinalStatsCapture<com.telnyx.webrtc.lib.RTCStatsReport> { timeout ->
+                    val timer = java.util.Timer("telnyx-v2-final-stats", true)
+                    timer.schedule(object : java.util.TimerTask() {
+                        override fun run() { timeout(); timer.cancel() }
+                    }, V2_FINAL_STATS_TIMEOUT_MS)
+                    val cancel: () -> Unit = { timer.cancel() }
+                    cancel
+                }.finish(request = { callback -> connection.getStats { callback(it) } },
+                    capture = { capture.peerClosing(token, it) }, dispose = dispose)
+            } else {
+                token?.let { capture?.peerClosing(it, null) }
+                dispose()
+            }
         } catch (e: IllegalStateException) {
             Logger.e(message = "Error during peer connection disconnect: $e")
         }

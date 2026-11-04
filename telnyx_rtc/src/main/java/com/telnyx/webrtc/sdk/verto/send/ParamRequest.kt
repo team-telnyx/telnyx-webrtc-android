@@ -34,6 +34,8 @@ data class LoginParam(
     val mobileSdkName: String = "webrtc-android",
     @SerializedName("mobile_sdk_version")
     val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
+    @SerializedName("sdk_instance_id")
+    val sdkInstanceId: String? = null,
 ) : ParamRequest()
 
 data class StatPrams(

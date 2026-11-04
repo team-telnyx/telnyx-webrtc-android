@@ -33,3 +33,13 @@ include(":telnyx_common")
 include(":samples:connection_service_app")
 include(":samples:xml_app")
 include(":samples:compose_app")
+
+// Review the unpublished V2 stack locally without changing the SDK's published dependencies.
+providers.gradleProperty("callReportV2SharedDir").orNull?.let { sharedDir ->
+    includeBuild(sharedDir) {
+        dependencySubstitution {
+            substitute(module("com.telnyx.webrtc.mobile.shared:core")).using(project(":modules:observability:core"))
+            substitute(module("com.telnyx.webrtc.mobile.shared:contract")).using(project(":modules:observability:contract"))
+        }
+    }
+}

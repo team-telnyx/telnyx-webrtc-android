@@ -69,6 +69,10 @@ class TelnyxClient private constructor(
     constructor(context: Context) : this(context, false, SdkIdentity.default())
     constructor(context: Context, sdkIdentity: SdkIdentity) : this(context, false, sdkIdentity)
 
+    /** Stable per-client identity; never an account ID or signaling session ID. */
+    internal val callReportV2InstanceId: String = UUID.randomUUID().toString()
+    @Volatile internal var callReportV2: com.telnyx.webrtc.sdk.observability.CallReportV2Ingress? = null
+
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
 
@@ -604,7 +608,8 @@ class TelnyxClient private constructor(
                             enableCallQualityReports,
                             callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                            debugDataCollector
+                            debugDataCollector,
+                            v2CaptureToken
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -719,7 +724,8 @@ class TelnyxClient private constructor(
                                         enableCallQualityReports,
                                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                                        debugDataCollector
+                                        debugDataCollector,
+                                        v2CaptureToken
                                     )
                                     webRTCReporter.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
@@ -901,6 +907,7 @@ class TelnyxClient private constructor(
             providedStun = providedStun!!
         ).apply {
             callId = inviteCallId
+            beginV2Capture(inbound = false)
             updateCallState(CallState.RINGING)
 
             // Notify debug data collector that a new call has started
@@ -926,6 +933,7 @@ class TelnyxClient private constructor(
                 },
                 audioConstraints = audioConstraints
             ).also {
+                it.v2CaptureToken = v2CaptureToken
 
                 // Create reporter - interval is adjusted internally based on debug flags
                 val webRTCReporter =
@@ -939,7 +947,8 @@ class TelnyxClient private constructor(
                         enableCallQualityReports,
                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                        client.debugDataCollector
+                        client.debugDataCollector,
+                        v2CaptureToken
                     )
                 webRTCReporter.onCallQualityChange = { metrics ->
                     onCallQualityChange?.invoke(metrics)
@@ -2008,6 +2017,7 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2?.let { callReportV2InstanceId },
                 loginToken = null,
                 login = user,
                 passwd = password,
@@ -2027,6 +2037,7 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
+        callReportV2?.loginType("sip_credentials")
         targetSocket.send(loginMessage)
     }
 
@@ -2221,6 +2232,7 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2?.let { callReportV2InstanceId },
                 loginToken = token,
                 login = null,
                 passwd = null,
@@ -2239,6 +2251,7 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
+        callReportV2?.loginType("token")
         targetSocket.send(loginMessage)
     }
 
@@ -2295,6 +2308,7 @@ class TelnyxClient private constructor(
         )
 
         val anonymousLoginParams = AnonymousLoginParams(
+            sdkInstanceId = callReportV2?.let { callReportV2InstanceId },
             targetType = targetType,
             targetId = targetId,
             targetVersionId = targetVersionId,
@@ -2317,6 +2331,7 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
+        callReportV2?.loginType("anonymous")
         targetSocket.send(loginMessage)
     }
 
@@ -2501,6 +2516,7 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2?.let { callReportV2InstanceId },
                 loginToken = null,
                 login = user,
                 passwd = password,
@@ -2573,6 +2589,7 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2?.let { callReportV2InstanceId },
                 loginToken = token,
                 login = null,
                 passwd = null,
@@ -2809,6 +2826,7 @@ class TelnyxClient private constructor(
             )
         )
         sessid = receivedLoginSessionId
+        callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
         emitSocketResponse(
             SocketResponse.messageReceived(
                 ReceivedMessageBody(
@@ -2860,6 +2878,7 @@ class TelnyxClient private constructor(
         if (voiceSdkID != null) {
             Logger.d(message = "Voice SDK ID _ $voiceSdkID")
             this@TelnyxClient.voiceSDKID = voiceSdkID
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
             updateDebugDataCollectorUploadConfig()
         } else {
             Logger.e(message = "No Voice SDK ID")
@@ -3586,6 +3605,7 @@ class TelnyxClient private constructor(
                 if (voiceSdkID != null) {
                     Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
+                    callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
                     updateDebugDataCollectorUploadConfig()
                 } else {
                     Logger.e(message = "No Voice SDK ID")
@@ -3599,6 +3619,7 @@ class TelnyxClient private constructor(
                 // Expose the app-facing ID while keeping the signaling ID for socket operations.
                 callId = appCallId
                 signalingCallId = offerCallId
+                beginV2Capture(inbound = true)
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
                 client.latencyTracker.startCallTracking(
@@ -3635,9 +3656,10 @@ class TelnyxClient private constructor(
                     },
                     audioConstraints = null // Use defaults for incoming calls
                 ).also {
+                    it.v2CaptureToken = v2CaptureToken
                     // Create reporter — always start so quality metrics are available
                     // (independent of debug flag since VSDK-608)
-                    if (enableCallQualityReports || isSocketDebug) {
+                    if (enableCallQualityReports || isSocketDebug || callReportV2 != null) {
                         val webRTCReporter = WebRTCReporter(
                             socket,
                             callId,
@@ -3648,7 +3670,8 @@ class TelnyxClient private constructor(
                             enableCallQualityReports,
                             callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                            debugDataCollector
+                            debugDataCollector,
+                            v2CaptureToken
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -3872,6 +3895,7 @@ class TelnyxClient private constructor(
             if (voiceSdkID != null) {
                 Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, sessid)
                 updateDebugDataCollectorUploadConfig()
             } else {
                 Logger.e(message = "No Voice SDK ID")
@@ -3890,6 +3914,7 @@ class TelnyxClient private constructor(
             // Preserve the app-facing ID across reattach while continuing to signal with callID.
             callId = appCallId(offerCallId)
             signalingCallId = offerCallId
+            beginV2Capture(inbound = true, reattach = true)
 
             // A recovery reattach is still the same call, so retain all previously collected
             // report data. A cold-start push attach initializes a report here instead.
@@ -3920,9 +3945,10 @@ class TelnyxClient private constructor(
                 onIceCandidateAdd = null,
                 audioConstraints = null // Use defaults for reattached calls
             ).also {
+                it.v2CaptureToken = v2CaptureToken
                 // Create reporter — always start so quality metrics are available
                 // (independent of debug flag since VSDK-608)
-                if (enableCallQualityReports || isSocketDebug) {
+                if (enableCallQualityReports || isSocketDebug || callReportV2 != null) {
                     val webRTCReporter = WebRTCReporter(
                         socket,
                         callId,
@@ -3933,7 +3959,8 @@ class TelnyxClient private constructor(
                         enableCallQualityReports,
                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                        debugDataCollector
+                        debugDataCollector,
+                        v2CaptureToken
                     )
                     webRTCReporter.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
@@ -4257,7 +4284,7 @@ class TelnyxClient private constructor(
     /**
      * Gets the forceRelayCandidate setting from the current session config
      */
-    private fun getForceRelayCandidate(): Boolean {
+    internal fun getForceRelayCandidate(): Boolean {
         return credentialSessionConfig?.forceRelayCandidate
             ?: tokenSessionConfig?.forceRelayCandidate
             ?: false
