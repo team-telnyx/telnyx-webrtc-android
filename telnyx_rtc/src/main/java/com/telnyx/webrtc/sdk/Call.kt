@@ -75,6 +75,13 @@ data class Call(
         const val ICE_CANDIDATE_PERIOD: Long = 400L
     }
 
+    internal val v2CaptureToken = com.telnyx.webrtc.sdk.observability.V2CaptureToken()
+    internal fun beginV2Capture(inbound: Boolean, reattach: Boolean = false) {
+        client.callReportV2?.started(v2CaptureToken, currentSignalingCallId().toString(), inbound, reattach, useTrickleIce,
+            com.telnyx.webrtc.sdk.observability.V2CaptureOptions(client.getForceRelayCandidate(),
+                client.prefetchIceCandidates, providedTurn != Config.DEFAULT_TURN || providedStun != Config.DEFAULT_STUN,
+                listOf(providedTurn, providedStun).count { it.isNotBlank() }))
+    }
     internal var peerConnection: Peer? = null
 
     /** Immutable ICE mode captured when this call is created. */
@@ -126,6 +133,10 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        client.callReportV2?.state(v2CaptureToken, value)
+        if (peerConnection == null && (value is CallState.DONE || value is CallState.ERROR || value is CallState.DROPPED)) {
+            client.callReportV2?.peerClosing(v2CaptureToken, null)
+        }
         peerConnection?.onCallStateChanged(value)
     }
 
@@ -202,7 +213,7 @@ data class Call(
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
-            mutableCallStateFlow.value = CallState.ERROR
+            updateCallState(CallState.ERROR)
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -478,14 +489,14 @@ data class Call(
      * Sets the call state to RECONNECTING when a call is being recovered
      */
     fun setCallRecovering() {
-        mutableCallStateFlow.value = CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)
+        updateCallState(CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH))
     }
     
     /**
      * Sets the call state to ERROR when reconnection timeout occurs
      */
     fun setReconnectionTimeout() {
-        mutableCallStateFlow.value = CallState.ERROR
+        updateCallState(CallState.ERROR)
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
 

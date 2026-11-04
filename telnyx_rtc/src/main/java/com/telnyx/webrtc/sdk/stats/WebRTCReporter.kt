@@ -64,10 +64,12 @@ internal class WebRTCReporter(
     val enableCallQualityReports: Boolean = false,
     val callQualityReportInterval: Long = 5000L,
     val sendWebRTCStatsViaSocket: Boolean = false,
-    val debugDataCollector: DebugDataCollector? = null
+    val debugDataCollector: DebugDataCollector? = null,
+    val v2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null
 ) {
 
     companion object {
+        private const val STATS_INTERVAL_V2: Long = 1000L
         private const val STATS_INTERVAL_DEBUG: Long = 100L // 100ms when debug is enabled
         private const val STATS_INTERVAL_NORMAL: Long = 10000L // 10 seconds when debug is disabled
         private const val AUDIO_SAMPLE_INTERVAL: Long = 5000L // 5 seconds for audio sampling
@@ -255,6 +257,7 @@ internal class WebRTCReporter(
                     return@launch
                 }
                 peer.peerConnection?.getStats {
+                    v2CaptureToken?.let { token -> peer.captureV2Stats(token, it) }
                     val statsData = JsonObject()
                     val data = JsonObject()
                     val audio = JsonObject()
@@ -602,7 +605,7 @@ internal class WebRTCReporter(
                     onStatsDataEvent(StatsData.WebRTCEvent(statsEvent.toJson()))
                 }
 
-                delay(statsInterval)
+                delay(if (v2CaptureToken != null && peer.v2CaptureEnabled()) minOf(statsInterval, STATS_INTERVAL_V2) else statsInterval)
             }
         }
 
