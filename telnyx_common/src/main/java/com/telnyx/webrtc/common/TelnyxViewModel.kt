@@ -26,6 +26,7 @@ import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.common.model.WebsocketMessage
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
@@ -289,6 +290,14 @@ class TelnyxViewModel : ViewModel() {
     private var wsMessagesCollectorJob: Job? = null
     private var errorCollectorJob: Job? = null
     private var warningCollectorJob: Job? = null
+
+    /**
+     * Client instance the collector jobs are currently bound to. Compared
+     * (referentially) against [TelnyxCommon.telnyxClient] so a singleton reset
+     * (Disconnect) makes the next startErrorCollection() relaunch against the
+     * fresh client instead of keeping a stale binding.
+     */
+    private var errorCollectorClient: TelnyxClient? = null
 
     /**
      * Call history repository for managing call history data.
@@ -1468,41 +1477,55 @@ class TelnyxViewModel : ViewModel() {
 
     /**
      * Starts collecting structured errors and warnings from TelnyxClient.
-     * Must be called once a TelnyxClient exists (a socket response implies the
-     * client exists, as does a successful login) to capture pre- and post-login
-     * errors and warnings (VSDK-393). Invoked from handleSocketResponse() (first
-     * socket response, pre-login) and handleLogin().
+     * A socket response implies the client exists, as does a successful login —
+     * invoked from handleSocketResponse() (first socket response, pre-login) and
+     * handleLogin() so collection also covers post-login emissions (VSDK-393).
      *
-     * Idempotent: no-ops when a collector is already active, so the
-     * handleSocketResponse() call site (which runs on every socket response)
-     * never re-subscribes to the replay-1 [TelnyxClient.errorFlow] — a
-     * re-subscription would replay the most recent [TelnyxError] (e.g. a stale
-     * NETWORK_OFFLINE or failed-login error) into [_structuredError] after
-     * recovery succeeded.
+     * Idempotent per [TelnyxCommon.telnyxClient] instance: no-ops while the
+     * collectors still track the *current* client, so the handleSocketResponse()
+     * call site (which runs on every socket response) never re-subscribes to the
+     * replay-1 [TelnyxClient.errorFlow] — a re-subscription would replay the
+     * most recent [TelnyxError] (e.g. a stale NETWORK_OFFLINE or failed-login
+     * error) into [_structuredError] after recovery succeeded.
+     *
+     * After [Disconnect] resets the singleton (and on any future call-site
+     * change), the binding differs from the fresh client, so collectors are
+     * relaunched against the new client's flows instead of keeping the stale
+     * binding (a stale collector would silently drop every emission of the new
+     * session).
      */
     fun startErrorCollection() {
-        if (errorCollectorJob?.isActive == true && warningCollectorJob?.isActive == true) {
+        val currentClient = TelnyxCommon.getInstance().telnyxClient
+        if (errorCollectorJob?.isActive == true &&
+            warningCollectorJob?.isActive == true &&
+            errorCollectorClient?.let { it === currentClient } == true
+        ) {
             return
         }
         errorCollectorJob?.cancel()
+        warningCollectorJob?.cancel()
+        if (currentClient == null) {
+            // Diagnostics-only subscription: an emission with no attached UI
+            // subscriber is dropped anyway (_structuredError has no replay),
+            // so a missing client must degrade to a logged warning, never the
+            // unrecoverable crash an exception inside viewModelScope.launch
+            // would cause. The pair of jobs now references no client and stays
+            // inactive, so the next socket response re-launches the collectors
+            // against the fresh client (self-healing on the existing per-
+            // response call site).
+            Timber.w("startErrorCollection() skipped — no TelnyxClient exists yet (pre-login?)")
+            return
+        }
+        errorCollectorClient = currentClient
         errorCollectorJob = viewModelScope.launch {
-            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            checkNotNull(telnyxClient) {
-                "startErrorCollection() called before login — no TelnyxClient exists yet"
-            }
-            telnyxClient.errorFlow.collect { error ->
+            currentClient.errorFlow.collect { error ->
                 Timber.w("Structured error: ${error.name} (${error.code}) — fatal=${error.fatal}")
                 _structuredError.emit(error)
             }
         }
 
-        warningCollectorJob?.cancel()
         warningCollectorJob = viewModelScope.launch {
-            val telnyxClient = TelnyxCommon.getInstance().telnyxClient
-            checkNotNull(telnyxClient) {
-                "startErrorCollection() called before login — no TelnyxClient exists yet"
-            }
-            telnyxClient.warningFlow.collect { warning ->
+            currentClient.warningFlow.collect { warning ->
                 Timber.w("Structured warning: ${warning.name} (${warning.code})")
                 _structuredWarning.emit(warning)
             }
@@ -1595,6 +1618,7 @@ class TelnyxViewModel : ViewModel() {
         wsMessagesCollectorJob?.cancel()
         errorCollectorJob?.cancel()
         warningCollectorJob?.cancel()
+        errorCollectorClient = null
         userSessionJob?.cancel()
         precallDiagnosisCollectorJob?.cancel()
     }
