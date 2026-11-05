@@ -53,7 +53,9 @@ import com.telnyx.webrtc.sdk.model.AudioCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import java.util.*
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.timerTask
 
@@ -93,6 +95,10 @@ internal class Peer(
         private const val ENABLE_PREFETCH_CANDIDATES = 10
         private const val DISABLE_PREFETCH_CANDIDATES = 0
         private const val ICE_DIAG_TAG = "ICE_DIAG"
+
+        // Upper bound for disconnect() waiting on in-flight native readers before
+        // dispose(). Kept well below the 5 s ANR threshold (VSUP-324).
+        private const val DISPOSE_LOCK_TIMEOUT_MS = 1000L
         private const val ICE_CANDIDATE_MIN_PARTS = 8
         private const val ICE_CANDIDATE_TRANSPORT_INDEX = 2
         private const val ICE_CANDIDATE_ADDRESS_INDEX = 4
@@ -463,6 +469,11 @@ internal class Peer(
     private val peerConnectionFactory: PeerConnectionFactory
         get() = peerConnectionFactoryOverride ?: sharedPeerConnectionFactory
 
+    // VSUP-324: volatile so teardown on one thread (disconnect()) is visible
+    // to stats/collector threads reading via the snapshot guard in
+    // get*Description()/getStats() — without the volatile, a reader could
+    // keep a stale non-null reference while disconnect() already ran.
+    @Volatile
     internal var peerConnection: PeerConnection? = null
 
     /**
@@ -471,6 +482,17 @@ internal class Peer(
      * See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
      */
     internal val isDisposed = AtomicBoolean(false)
+
+    /**
+     * Serialises native reads of [peerConnection] against `dispose()` (VSUP-324).
+     *
+     * Readers go through [withLiveConnection] and hold the read lock only for the
+     * duration of a single native call, so `dispose()` (write lock) can never free
+     * the native object underneath them. Readers use a non-blocking `tryLock()`:
+     * a reader on the WebRTC signaling thread must never wait for the disposing
+     * thread, which itself may be waiting on the signaling thread inside dispose().
+     */
+    private val disposeLock = ReentrantReadWriteLock()
 
     internal var peerConnectionObserver: PeerConnectionObserver? = null
     private var localAudioTrack: AudioTrack? = null
@@ -1251,30 +1273,74 @@ internal class Peer(
 
     /**
      * Returns the current local SDP
-     * @return [SessionDescription]
+     *
+     * Read through [withLiveConnection] (VSUP-324): a bare
+     * `peerConnection?.localDescription` could race a concurrent [disconnect]
+     * and call into a PeerConnection whose native object was already freed
+     * (use-after-free → SIGSEGV). A Kotlin null-check alone cannot prevent this,
+     * because the Java wrapper still routes the call into freed native memory.
+     *
+     * @return [SessionDescription] or null when the peer is being disconnected
      */
-    fun getLocalDescription(): SessionDescription? {
-        return peerConnection?.localDescription
-    }
+    fun getLocalDescription(): SessionDescription? =
+        withLiveConnection { it.localDescription }
 
     /**
      * Returns the current remote SDP
-     * @return [SessionDescription]
+     *
+     * Read through [withLiveConnection], like [getLocalDescription] (VSUP-324).
+     *
+     * @return [SessionDescription] or null when the peer is being disconnected
      */
-    fun getRemoteDescription(): SessionDescription? {
-        return peerConnection?.remoteDescription
+    fun getRemoteDescription(): SessionDescription? =
+        withLiveConnection { it.remoteDescription }
+
+    /**
+     * Runs [block] against the live [PeerConnection] while guaranteeing that
+     * [disconnect] cannot `dispose()` it until [block] returns (VSUP-324).
+     *
+     * Returns null without running [block] when the peer is disposed, being
+     * disposed, or has no connection. Never blocks: if teardown currently holds
+     * the write lock, the read is skipped. Keep [block] to short native calls —
+     * asynchronous callbacks it registers (e.g. getStats) run after the lock is
+     * released and must not touch the connection.
+     */
+    internal fun <T> withLiveConnection(block: (PeerConnection) -> T): T? {
+        val readLock = disposeLock.readLock()
+        if (!readLock.tryLock()) return null
+        try {
+            val connection = peerConnection
+            return if (connection == null || isDisposed.get()) null else block(connection)
+        } finally {
+            readLock.unlock()
+        }
     }
 
     /**
      * Closes and disposes of current [PeerConnection]
+     *
+     * Idempotent: exactly one caller proceeds with the teardown (VSUP-324).
+     * Overlapping teardown callers previously raced here — e.g. `endCall` →
+     * `release()` while `onByeReceived` → `release()` lands on the socket
+     * thread — and the second `dispose()` on an already-freed native
+     * PeerConnection crashed (SIGILL in nativeFreeOwnedPeerConnection,
+     * SIGBUS, or JniCommon.nativeReleaseRef during transceiver teardown).
+     *
+     * The reference is cleared and [isDisposed] set BEFORE `close()`, so new
+     * [withLiveConnection] readers (e.g. the WebRTCReporter SIGNALING_CHANGE
+     * handler, which is triggered by `close()` itself) bail out with null.
+     * `dispose()` then runs under the write lock of [disposeLock], so a reader
+     * that passed the guard just before teardown finishes its native call
+     * before the native object is freed.
      */
     fun disconnect() {
+        // Claim teardown atomically. MUST be the first statement; a caller
+        // that loses this race returns without touching any teardown state.
+        if (!isDisposed.compareAndSet(false, true)) {
+            return
+        }
         try {
             cancelFirstCandidateAwaiter()
-            // Mark as disposed BEFORE closing/disposing to prevent the stats timer
-            // from calling getStats() on a freed native PeerConnection (SIGSEGV).
-            // See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
-            isDisposed.set(true)
             // Tear down the recovery monitor first so no in-flight timer
             // can reach into a disposed peer.
             recoveryTickTimer?.cancel()
@@ -1288,11 +1354,42 @@ internal class Peer(
             if (::signalingHealthMonitor.isInitialized) {
                 signalingHealthMonitor.cancel("peer_disconnect")
             }
-            peerConnection?.close()
-            peerConnection?.dispose()
+            // Clear the reference BEFORE close()/dispose() so new readers bail out.
+            // close() leaves the native object alive, so it needs no lock.
+            val connection = peerConnection
             peerConnection = null
+            connection?.close()
+            connection?.let { disposeWhenNoReaders(it) }
         } catch (e: IllegalStateException) {
             Logger.e(message = "Error during peer connection disconnect: $e")
+        }
+    }
+
+    /**
+     * Disposes [connection] once in-flight [withLiveConnection] readers finish.
+     *
+     * If they do not finish within [DISPOSE_LOCK_TIMEOUT_MS] (e.g. disconnect()
+     * was invoked on the signaling thread while a reader waits on that same
+     * thread), the native object is deliberately leaked: a leaked, already
+     * closed PeerConnection is preferable to a use-after-free crash or a deadlock.
+     */
+    private fun disposeWhenNoReaders(connection: PeerConnection) {
+        val writeLock = disposeLock.writeLock()
+        val acquired = try {
+            writeLock.tryLock(DISPOSE_LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            Logger.e(message = "Interrupted while waiting to dispose peer connection: $e")
+            false
+        }
+        if (!acquired) {
+            Logger.e(message = "Peer connection readers still active; skipping dispose() to avoid use-after-free")
+            return
+        }
+        try {
+            connection.dispose()
+        } finally {
+            writeLock.unlock()
         }
     }
 
@@ -2146,6 +2243,8 @@ internal class Peer(
             candidateLock.unlock()
         }
         endOfCandidatesSent = false
+        // disconnect() is idempotent (VSUP-324); this check only skips the call
+        // for peers that never built a connection.
         if (peerConnection != null) {
             disconnect()
         }
@@ -2303,34 +2402,37 @@ internal class Peer(
                 client.requestCallRecoveryReattach(callId, forceRelay)
 
             override fun snapshotForLog(): Map<String, String> {
-                val iceState = if (isDisposed.get()) "disposed" else (peerConnection?.iceConnectionState()?.name ?: "null")
+                val iceState = if (isDisposed.get()) {
+                    "disposed"
+                } else {
+                    withLiveConnection { it.iceConnectionState()?.name } ?: "null"
+                }
                 return mapOf("iceState" to iceState)
             }
         }
 
     private fun evaluateRelayFallback(onResult: (Boolean) -> Unit) {
-        val connection = peerConnection
-        if (connection == null || isDisposed.get()) {
-            onResult(false)
-            return
-        }
-
         try {
-            connection.getStats { report ->
-                val statistics = report.statsMap.mapValues { (_, stat) ->
-                    stat.members.toMutableMap<String, Any?>().apply {
-                        this["type"] = stat.type
+            // VSUP-324: the native getStats() call runs under the dispose read lock.
+            val requested = withLiveConnection { connection ->
+                connection.getStats { report ->
+                    val statistics = report.statsMap.mapValues { (_, stat) ->
+                        stat.members.toMutableMap<String, Any?>().apply {
+                            this["type"] = stat.type
+                        }
                     }
+                    val forceRelay = selectedCandidateUsesDirectVpn(statistics)
+                    if (forceRelay) {
+                        Logger.w(
+                            tag = "SignalingHealthMonitor",
+                            message = "Failed VPN direct path; forcing relay for replacement call",
+                        )
+                    }
+                    onResult(forceRelay)
                 }
-                val forceRelay = selectedCandidateUsesDirectVpn(statistics)
-                if (forceRelay) {
-                    Logger.w(
-                        tag = "SignalingHealthMonitor",
-                        message = "Failed VPN direct path; forcing relay for replacement call",
-                    )
-                }
-                onResult(forceRelay)
-            }
+                true
+            } ?: false
+            if (!requested) onResult(false)
         } catch (error: RuntimeException) {
             Logger.e(
                 tag = "SignalingHealthMonitor",
@@ -2443,11 +2545,9 @@ internal class Peer(
         if (!shouldSample) return
         lastRecoveryRtpSampleAtMs = now
 
-        val connection = peerConnection
-        if (connection == null || isDisposed.get()) {
-            recoveryStatsRequestInFlight.set(false)
-        } else {
-            try {
+        try {
+            // VSUP-324: the native getStats() call runs under the dispose read lock.
+            val requested = withLiveConnection { connection ->
                 connection.getStats { report ->
                     try {
                         if (!isDisposed.get()) {
@@ -2473,13 +2573,15 @@ internal class Peer(
                         scheduleRecoveryTickIfNeeded()
                     }
                 }
-            } catch (error: RuntimeException) {
-                recoveryStatsRequestInFlight.set(false)
-                Logger.e(
-                    tag = "SignalingHealthMonitor",
-                    message = "Unable to sample inbound RTP: ${error.message}",
-                )
-            }
+                true
+            } ?: false
+            if (!requested) recoveryStatsRequestInFlight.set(false)
+        } catch (error: RuntimeException) {
+            recoveryStatsRequestInFlight.set(false)
+            Logger.e(
+                tag = "SignalingHealthMonitor",
+                message = "Unable to sample inbound RTP: ${error.message}",
+            )
         }
     }
 }
