@@ -1,3 +1,8 @@
+## [3.8.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.1) (2026-11-05)
+
+### Bug Fixing
+- Fix native crashes during call teardown (double dispose and use-after-free): overlapping teardown paths (local hangup racing a remote BYE, or a network-recovery reset) could both run the peer close/dispose sequence, or the async stats handler could call `getLocalDescription()`/`getRemoteDescription()` on an already-freed native peer connection — teardown is now claimed atomically so a second caller is a no-op, the peer connection reference is cleared before close/dispose so late async readers see `null` instead of freed memory, and all SDP readers plus the stats timer use a null/disposed snapshot guard (VSUP-324)
+
 ## [3.8.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.0) (2026-10-23)
 
 ### Enhancement
