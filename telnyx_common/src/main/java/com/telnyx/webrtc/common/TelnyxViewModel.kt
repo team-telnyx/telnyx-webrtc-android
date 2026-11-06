@@ -22,10 +22,12 @@ import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.data.CallHistoryRepository
+import com.telnyx.webrtc.common.BuildConfig
 import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.common.model.WebsocketMessage
 import com.telnyx.webrtc.sdk.Call
+import com.telnyx.webrtc.sdk.TelnyxClient
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.SocketStatus
 import com.telnyx.webrtc.sdk.verto.receive.AnswerResponse
@@ -45,6 +47,9 @@ import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
 import com.telnyx.webrtc.sdk.model.CallState
+import com.telnyx.webrtc.sdk.model.TelnyxError
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.model.TelnyxWarning
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.model.AudioConstraints
 import com.telnyx.webrtc.sdk.stats.CallQuality
@@ -123,6 +128,13 @@ class TelnyxViewModel : ViewModel() {
     private val _sessionStateError = MutableSharedFlow<String?>()
     val sessionStateError: SharedFlow<String?> = _sessionStateError
 
+    // Structured error/warning flows (VSDK-393 Phase 4)
+    private val _structuredError = MutableSharedFlow<TelnyxError>()
+    val structuredError: SharedFlow<TelnyxError> = _structuredError
+
+    private val _structuredWarning = MutableSharedFlow<TelnyxWarning>()
+    val structuredWarning: SharedFlow<TelnyxWarning> = _structuredWarning
+
     /**
      * State flow for loading state.
      * Observe this flow to show/hide loading indicators in the UI.
@@ -158,6 +170,13 @@ class TelnyxViewModel : ViewModel() {
      * Server configuration for the Telnyx WebRTC SDK.
      */
     private var serverConfiguration = TxServerConfiguration.production()
+
+    /**
+     * Debug-only mock server configuration override. When set, all connections use
+     * this configuration instead of the production/development defaults. Only
+     * assignable in debug builds — see [configureMockServer].
+     */
+    private var mockServerConfig: TxServerConfiguration? = null
 
     /**
      * Flag indicating whether the server configuration is in development environment.
@@ -277,6 +296,16 @@ class TelnyxViewModel : ViewModel() {
      * Job for collecting websocket messages.
      */
     private var wsMessagesCollectorJob: Job? = null
+    private var errorCollectorJob: Job? = null
+    private var warningCollectorJob: Job? = null
+
+    /**
+     * Client instance the collector jobs are currently bound to. Compared
+     * (referentially) against [TelnyxCommon.telnyxClient] so a singleton reset
+     * (Disconnect) makes the next startErrorCollection() relaunch against the
+     * fresh client instead of keeping a stale binding.
+     */
+    private var errorCollectorClient: TelnyxClient? = null
 
     /**
      * Call history repository for managing call history data.
@@ -569,7 +598,6 @@ class TelnyxViewModel : ViewModel() {
         userSessionJob?.cancel()
         userSessionJob = null
 
-
         userSessionJob = viewModelScope.launch {
             // Ensure the token is fetched before proceeding
             if (fcmToken == null) {
@@ -686,11 +714,42 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        mockServerConfig?.let { return it }
         return if (isDev) {
             TxServerConfiguration.development()
         } else {
             TxServerConfiguration.production()
         }
+    }
+
+    /**
+     * Debug-only: injects a mock server configuration (WebSocket signaling host/port +
+     * STUN/TURN URLs) so the SDK connects to a local mock instead of the production
+     * backend. Intended for the VSDK-393 error/warning test harness — release builds
+     * throw, so production binaries can never be pointed at a local endpoint.
+     *
+     * @param host Mock WebSocket signaling host (e.g. "10.0.2.2" from the emulator).
+     * @param port Mock WebSocket signaling port.
+     * @param stun Mock STUN URL (e.g. "stun:10.0.2.2:3478").
+     * @param turn Mock TURN URL (e.g. "turn:10.0.2.2:3478?transport=udp").
+     */
+    fun configureMockServer(host: String, port: Int, stun: String, turn: String) {
+        check(BuildConfig.DEBUG) { "configureMockServer is debug-only" }
+        val config = TxServerConfiguration(host = host, port = port, stun = stun, turn = turn)
+        mockServerConfig = config
+        mockServerConfigOverride = config
+        serverConfiguration = config
+        Timber.i("Mock server configured: host=$host port=$port stun=$stun turn=$turn")
+    }
+
+    /** Clears a previously-set mock server configuration (debug-only no-op in release). */
+    fun clearMockServer() {
+        if (!BuildConfig.DEBUG) return
+        mockServerConfig = null
+        mockServerConfigOverride = null
+        serverConfiguration =
+            if (serverConfigurationIsDev) TxServerConfiguration.development() else TxServerConfiguration.production()
+        Timber.i("Mock server configuration cleared")
     }
 
     /**
@@ -919,6 +978,12 @@ class TelnyxViewModel : ViewModel() {
         if (handlingResponses) {
             return
         }
+
+        // Start structured error collection as soon as we receive any socket response
+        // — this ensures auth/transport errors (bad credentials, network issues)
+        // are captured even before login succeeds (VSDK-393)
+        startErrorCollection()
+
         when (response.status) {
             SocketStatus.ESTABLISHED -> handleEstablished()
             SocketStatus.MESSAGERECEIVED -> handleMessageReceived(response)
@@ -964,6 +1029,9 @@ class TelnyxViewModel : ViewModel() {
 
         // Start collecting websocket messages
         collectWebsocketMessages()
+
+        // Start collecting structured errors/warnings (VSDK-393 Phase 4)
+        startErrorCollection()
     }
 
     private fun handleInvite(data: ReceivedMessageBody) {
@@ -1026,7 +1094,10 @@ class TelnyxViewModel : ViewModel() {
      * @param response The error response to handle.
      */
     private fun handleError(response: SocketResponse<ReceivedMessageBody>) {
-        if (disconnectedByUser && response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode) {
+        // Check both legacy (-32004) and new (45004) gateway failure codes
+        val isGatewayFailure = response.errorCode == SocketError.GATEWAY_FAILURE_ERROR.errorCode ||
+            response.errorCode == TelnyxErrorCode.GATEWAY_FAILED.code
+        if (disconnectedByUser && isGatewayFailure) {
             handleDisconnect()
             disconnectedByUser = false
             return
@@ -1444,6 +1515,63 @@ class TelnyxViewModel : ViewModel() {
     }
 
     /**
+     * Starts collecting structured errors and warnings from TelnyxClient.
+     * A socket response implies the client exists, as does a successful login —
+     * invoked from handleSocketResponse() (first socket response, pre-login) and
+     * handleLogin() so collection also covers post-login emissions (VSDK-393).
+     *
+     * Idempotent per [TelnyxCommon.telnyxClient] instance: no-ops while the
+     * collectors still track the *current* client, so the handleSocketResponse()
+     * call site (which runs on every socket response) never re-subscribes to the
+     * replay-1 [TelnyxClient.errorFlow] — a re-subscription would replay the
+     * most recent [TelnyxError] (e.g. a stale NETWORK_OFFLINE or failed-login
+     * error) into [_structuredError] after recovery succeeded.
+     *
+     * After [Disconnect] resets the singleton (and on any future call-site
+     * change), the binding differs from the fresh client, so collectors are
+     * relaunched against the new client's flows instead of keeping the stale
+     * binding (a stale collector would silently drop every emission of the new
+     * session).
+     */
+    fun startErrorCollection() {
+        val currentClient = TelnyxCommon.getInstance().telnyxClient
+        if (errorCollectorJob?.isActive == true &&
+            warningCollectorJob?.isActive == true &&
+            errorCollectorClient?.let { it === currentClient } == true
+        ) {
+            return
+        }
+        errorCollectorJob?.cancel()
+        warningCollectorJob?.cancel()
+        if (currentClient == null) {
+            // Diagnostics-only subscription: an emission with no attached UI
+            // subscriber is dropped anyway (_structuredError has no replay),
+            // so a missing client must degrade to a logged warning, never the
+            // unrecoverable crash an exception inside viewModelScope.launch
+            // would cause. The pair of jobs now references no client and stays
+            // inactive, so the next socket response re-launches the collectors
+            // against the fresh client (self-healing on the existing per-
+            // response call site).
+            Timber.w("startErrorCollection() skipped — no TelnyxClient exists yet (pre-login?)")
+            return
+        }
+        errorCollectorClient = currentClient
+        errorCollectorJob = viewModelScope.launch {
+            currentClient.errorFlow.collect { error ->
+                Timber.w("Structured error: ${error.name} (${error.code}) — fatal=${error.fatal}")
+                _structuredError.emit(error)
+            }
+        }
+
+        warningCollectorJob = viewModelScope.launch {
+            currentClient.warningFlow.collect { warning ->
+                Timber.w("Structured warning: ${warning.name} (${warning.code})")
+                _structuredWarning.emit(warning)
+            }
+        }
+    }
+
+    /**
      * Clears the websocket messages list.
      */
     fun clearWebsocketMessages() {
@@ -1527,6 +1655,9 @@ class TelnyxViewModel : ViewModel() {
         super.onCleared()
         audioLevelCollectorJob?.cancel()
         wsMessagesCollectorJob?.cancel()
+        errorCollectorJob?.cancel()
+        warningCollectorJob?.cancel()
+        errorCollectorClient = null
         userSessionJob?.cancel()
         precallDiagnosisCollectorJob?.cancel()
     }
@@ -1535,5 +1666,16 @@ class TelnyxViewModel : ViewModel() {
         private const val MAX_AUDIO_LEVELS = 100
         private const val MAX_WS_MESSAGES = 100
         private const val AI_ASSISTANT_NUMBER = "AI_ASSISTANT"
+
+        /**
+         * Process-wide debug-only mock server configuration. Set via
+         * [configureMockServer]; read by push-handling paths
+         * ([com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall],
+         * [com.telnyx.webrtc.common.notification.BackgroundCallDeclineService])
+         * that build their own server configuration outside this ViewModel.
+         */
+        @Volatile
+        internal var mockServerConfigOverride: TxServerConfiguration? = null
+            private set
     }
 }

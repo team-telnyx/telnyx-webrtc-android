@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.IBinder
 import com.google.gson.Gson
 import com.telnyx.webrtc.common.ProfileManager
+import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
 import com.telnyx.webrtc.sdk.TelnyxClient
@@ -307,6 +308,7 @@ class BackgroundCallDeclineService : Service() {
     }
 
     private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        TelnyxViewModel.mockServerConfigOverride?.let { return it }
         return if (isDev) {
             TxServerConfiguration.development()
         } else {

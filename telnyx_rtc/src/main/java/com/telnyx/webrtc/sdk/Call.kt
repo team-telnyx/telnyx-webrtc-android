@@ -17,6 +17,7 @@ import com.telnyx.webrtc.sdk.TelnyxClient.Companion.TIMEOUT_DIVISOR
 import com.telnyx.webrtc.sdk.model.AudioCodec
 import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CallNetworkChangeReason
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
 import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
@@ -203,6 +204,7 @@ data class Call(
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
             mutableCallStateFlow.value = CallState.ERROR
+            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS — null SDP on reattach is a session precondition failure, not an SDP operation failure
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -320,7 +322,17 @@ data class Call(
                 )
             )
         )
-        socket.send(modifyMessageBody)
+        if (!socket.sendReturning(modifyMessageBody)) {
+            // JS parity (VSDK-393): hold/unhold send failure -> HOLD_FAILED
+            // (JS BaseCall.hold()/unhold() reject the sendMessage promise and
+            // call _handleChangeHoldStateError, which emits HOLD_FAILED; call
+            // state changes only on the server response there, so roll back
+            // the optimistic local state here to keep UI and server aligned)
+            Logger.e(message = "Failed to send MODIFY ($holdAction) message")
+            holdLiveData.postValue(!holdLiveData.value!!)
+            updateCallState(if (holdAction == "hold") CallState.ACTIVE else CallState.HELD)
+            client.emitError(TelnyxErrorCode.HOLD_FAILED.code)
+        }
     }
 
     /**
@@ -486,6 +498,10 @@ data class Call(
      */
     fun setReconnectionTimeout() {
         mutableCallStateFlow.value = CallState.ERROR
+        client.emitError(
+            TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+            "Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
+        ) // RECONNECTION_EXHAUSTED
         Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
 
@@ -517,6 +533,7 @@ data class Call(
         if (peerConnection == null) {
             Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
             updateCallState(CallState.ERROR)
+            client.emitError(TelnyxErrorCode.PEER_CLOSED_DURING_INIT.code) // PEER_CLOSED_DURING_INIT
             return
         }
 
@@ -553,6 +570,7 @@ data class Call(
             override fun onCreateFailure(p0: String?) {
                  Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
                  updateCallState(CallState.ERROR)
+                 client.emitError(TelnyxErrorCode.SDP_CREATE_OFFER_FAILED.code) // SDP_CREATE_OFFER_FAILED
             }
         })
     }
@@ -595,13 +613,21 @@ data class Call(
                     mobileSdkVersion = client.sdkIdentity.version,
                 )
             )
-            socket.send(inviteMessageBody)
-            // Track invite sent milestone
-            client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+            if (!socket.sendReturning(inviteMessageBody)) {
+                // JS parity (VSDK-393): invite send failure -> SDP_SEND_FAILED.
+                // Skip the INVITE_SENT milestone so latency reporting does not
+                // coexist with the send-failure error.
+                Logger.e(message = "Failed to send INVITE (trickle) for Call [${currentSignalingCallId()}]")
+                client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+            } else {
+                // Track invite sent milestone
+                client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+            }
         } else {
             if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
             if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
             updateCallState(CallState.ERROR)
+            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
         }
     }
 
@@ -650,15 +676,23 @@ data class Call(
                                 mobileSdkVersion = client.sdkIdentity.version,
                             )
                         )
-                        socket.send(inviteMessageBody)
-                        // Track invite sent milestone
-                        client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+                        if (!socket.sendReturning(inviteMessageBody)) {
+                            // JS parity (VSDK-393): invite send failure -> SDP_SEND_FAILED.
+                            // Skip the INVITE_SENT milestone so latency reporting
+                            // does not coexist with the send-failure error.
+                            Logger.e(message = "Failed to send INVITE (non-trickle) for Call [${currentSignalingCallId()}]")
+                            client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                        } else {
+                            // Track invite sent milestone
+                            client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+                        }
                         resetIceCandidateTimer() // Stop timer after sending
                     } else {
                          if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          resetIceCandidateTimer() // Reset timer even on failure
                          updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
+                         client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
                     }
                 } else {
                     Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")

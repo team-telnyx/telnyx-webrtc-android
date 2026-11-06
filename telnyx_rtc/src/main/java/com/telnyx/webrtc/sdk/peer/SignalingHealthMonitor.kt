@@ -4,6 +4,8 @@
 
 package com.telnyx.webrtc.sdk.peer
 
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
+import com.telnyx.webrtc.sdk.model.TelnyxWarningCode
 import com.telnyx.webrtc.sdk.utilities.Logger
 import com.telnyx.webrtc.lib.PeerConnection
 import java.util.UUID
@@ -47,7 +49,9 @@ internal class SignalingHealthMonitor(
     private val config: Config = Config(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val random: Random = Random.Default,
-    private val actions: Actions
+    private val actions: Actions,
+    private val onWarning: (TelnyxWarningCode) -> Unit = {},
+    private val onError: (TelnyxErrorCode) -> Unit = {},
 ) {
 
     /**
@@ -426,6 +430,9 @@ internal class SignalingHealthMonitor(
             hasRecentSignalingActivity() -> {
                 transitionTo(State.ICE_RESTARTING, "trigger_$trigger")
                 restartStartedAtMs = clock()
+                // JS parity (VSDK-393): media-only recovery underway
+                // (signaling healthy, ICE restart requested).
+                onWarning(TelnyxWarningCode.MEDIA_RECOVERY_REQUIRED)
                 actions.startIceRestart(generation.get())
             }
             else -> startProbe(trigger = trigger, purpose = ProbePurpose.MEDIA_RECOVERY)
@@ -656,6 +663,9 @@ internal class SignalingHealthMonitor(
         val evaluateRelayFallback = shouldEvaluateRelayFallback
         shouldEvaluateRelayFallback = false
         transitionTo(State.REATTACHING, "reattach_$reason")
+        // JS parity (VSDK-393): signaling is unhealthy, socket-level
+        // recovery is being forced (JS _triggerSignalingRecovery).
+        onWarning(TelnyxWarningCode.SIGNALING_RECOVERY_REQUIRED)
 
         if (evaluateRelayFallback) {
             relayEvaluationStartedAtMs = clock()
@@ -689,6 +699,9 @@ internal class SignalingHealthMonitor(
                 tag = TAG,
                 message = logLine("reattach_rejected", "reason" to reason),
             )
+            // JS parity (VSDK-393): recovery request rejected by the
+            // underlying session (JS _onIceRestartFailed -> ICE_RESTART_FAILED error).
+            onError(TelnyxErrorCode.ICE_RESTART_FAILED)
             cancelInternal(reason = "reattach_rejected")
         }
     }

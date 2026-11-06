@@ -19,6 +19,7 @@ import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.LogLevel
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.SocketError
+import com.telnyx.webrtc.sdk.model.TelnyxErrorCode
 import com.telnyx.webrtc.sdk.peer.Peer
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
@@ -188,7 +189,7 @@ class TelnyxClientTest : BaseTest() {
         client.connect(txPushMetaData = null)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("No Network Connection")
+            SocketResponse.error("Device is offline", TelnyxErrorCode.NETWORK_OFFLINE.code)
         )
     }
 
@@ -531,7 +532,7 @@ class TelnyxClientTest : BaseTest() {
         Thread.sleep(1000)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect", -32001)
+            SocketResponse.error("Login Incorrect", TelnyxErrorCode.INVALID_CREDENTIALS.code)
         )
     }
 
@@ -555,7 +556,7 @@ class TelnyxClientTest : BaseTest() {
         client.onGatewayStateReceived(GatewayState.NOREG.state, sessid)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Gateway registration has timed out", SocketError.GATEWAY_TIMEOUT_ERROR.errorCode)
+            SocketResponse.error("Gateway connection failed", TelnyxErrorCode.GATEWAY_FAILED.code)
         )
     }
 
@@ -728,9 +729,10 @@ class TelnyxClientTest : BaseTest() {
         errorMessageBody.addProperty("message", "my error message")
         errorJson.add("error", errorMessageBody)
         client.onErrorReceived(errorJson, 0)
+        // mapServerErrorCode(0) → 49001 UNEXPECTED_ERROR (catch-all)
         assertEquals(
             client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("my error message", 0)
+            SocketResponse.error("my error message", TelnyxErrorCode.UNEXPECTED_ERROR.code)
         )
     }
 
@@ -1026,7 +1028,8 @@ class TelnyxClientTest : BaseTest() {
     fun `Test onRemoteSessionErrorReceived posts LiveData to socketResponseLiveData`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.onRemoteSessionErrorReceived("error")
-        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("error"))
+        // onRemoteSessionErrorReceived now emits SDP_SET_REMOTE_DESCRIPTION_FAILED (40004)
+        assertEquals(client.socketResponseLiveData.getOrAwaitValue(), SocketResponse.error("error", TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code))
     }
 
     @Test
