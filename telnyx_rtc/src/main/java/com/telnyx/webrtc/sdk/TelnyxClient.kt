@@ -134,6 +134,9 @@ class TelnyxClient private constructor(
         /** Minimum delay in ms before retrying after a WebSocket parse error */
         private const val RECONNECT_AFTER_PARSE_ERROR_MIN_MS: Long = 500
 
+        /** JSON-RPC server error code for auth failures (Token_Error in the Verto protocol). */
+        const val JSON_RPC_AUTH_ERROR = -32000
+
         /** Jitter range in ms added to [RECONNECT_AFTER_PARSE_ERROR_MIN_MS] for parse-error retries */
         private const val RECONNECT_AFTER_PARSE_ERROR_JITTER_MS: Long = 1500
 
@@ -1299,20 +1302,21 @@ class TelnyxClient private constructor(
     private fun checkTokenExpiry() {
         cancelTokenExpiryTimeout()
         val secondsUntilExpiry = JwtUtils.secondsUntilExpiry(tokenSessionConfig?.sipToken)
-            ?: return
-        if (secondsUntilExpiry <= 0L) {
+        val delayMs = (secondsUntilExpiry ?: 0L).let { remaining ->
+            (remaining - JwtUtils.TOKEN_EXPIRY_WARNING_SECONDS) * JwtUtils.MS_PER_SECOND
+        }
+        when {
+            // Unknown expiry — nothing to schedule.
+            secondsUntilExpiry == null -> Unit
             // Already expired — the login response will fail with LOGIN_FAILED.
-            return
-        }
-        val delayMs = (secondsUntilExpiry - JwtUtils.TOKEN_EXPIRY_WARNING_SECONDS) * 1000L
-        if (delayMs <= 0L) {
-            emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
-            return
-        }
-        tokenExpiryJob = clientScope.launch {
-            delay(delayMs)
-            tokenExpiryJob = null
-            emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
+            delayMs <= 0L && secondsUntilExpiry <= 0L -> Unit
+            // Expiring within the warning window — emit immediately.
+            delayMs <= 0L -> emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
+            else -> tokenExpiryJob = clientScope.launch {
+                delay(delayMs)
+                tokenExpiryJob = null
+                emitWarning(TelnyxWarningCode.TOKEN_EXPIRING_SOON.code)
+            }
         }
     }
 
@@ -3284,7 +3288,7 @@ class TelnyxClient private constructor(
         // unauthenticated requests and for auth loss mid-session. JS splits by
         // phase: pre-login -> LOGIN_FAILED (_handleLoginError), in-session ->
         // AUTHENTICATION_REQUIRED (auto re-login when autoReconnect is on).
-        val mappedCode = if (errorCode == -32000 && socket.isLoggedIn) {
+        val mappedCode = if (errorCode == JSON_RPC_AUTH_ERROR && socket.isLoggedIn) {
             TelnyxErrorCode.AUTHENTICATION_REQUIRED.code
         } else {
             mapServerErrorCode(errorCode)

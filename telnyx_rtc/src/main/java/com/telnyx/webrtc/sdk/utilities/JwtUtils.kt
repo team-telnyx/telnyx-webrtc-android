@@ -20,6 +20,12 @@ internal object JwtUtils {
     /** Warning lead time before expiry, in seconds (mirrors JS BaseSession constant). */
     const val TOKEN_EXPIRY_WARNING_SECONDS: Long = 120L
 
+    /** A well-formed JWT has exactly header.payload signature segments. */
+    private const val JWT_PART_COUNT = 3
+
+    /** Epoch seconds per epoch millisecond (Date.time is ms; JWT `exp` is s). */
+    internal const val MS_PER_SECOND = 1000L
+
     /**
      * Extracts the `exp` claim from a JWT, if the token is well-formed.
      *
@@ -28,24 +34,19 @@ internal object JwtUtils {
      * decodable 3-part JWT with a numeric `exp`.
      */
     fun parseTokenExpiry(token: String?): Long? {
-        if (token.isNullOrBlank()) return null
-        val parts = token.split('.')
-        if (parts.size != 3) return null
-        return try {
+        val parts = token?.split('.') ?: emptyList()
+        if (parts.size != JWT_PART_COUNT) return null
+        return runCatching {
             val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))
             val exp = JSONObject(payload).optLong("exp", -1L)
             if (exp > 0) exp else null
-        } catch (e: Exception) {
-            null
-        }
+        }.getOrNull()
     }
 
     /**
      * Seconds from now until the token expires, or null when unknown.
      * Negative values mean the token is already expired.
      */
-    fun secondsUntilExpiry(token: String?): Long? {
-        val exp = parseTokenExpiry(token) ?: return null
-        return exp - Date().time / 1000L
-    }
+    fun secondsUntilExpiry(token: String?): Long? =
+        parseTokenExpiry(token)?.let { exp -> exp - Date().time / MS_PER_SECOND }
 }
