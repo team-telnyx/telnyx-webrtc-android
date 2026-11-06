@@ -5,6 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import com.telnyx.webrtc.common.ProfileManager
 import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.common.TelnyxViewModel
 import com.telnyx.webrtc.common.domain.call.AcceptCall
 import com.telnyx.webrtc.common.util.toCredentialConfig
 import com.telnyx.webrtc.common.util.toTokenConfig
@@ -182,6 +183,7 @@ class AnswerIncomingPushCall(private val context: Context) {
     }
 
     private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        TelnyxViewModel.mockServerConfigOverride?.let { return it }
         return if (isDev) {
             TxServerConfiguration.development()
         } else {

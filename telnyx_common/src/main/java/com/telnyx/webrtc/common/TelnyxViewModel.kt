@@ -22,6 +22,7 @@ import com.telnyx.webrtc.common.domain.call.SendInvite
 import com.telnyx.webrtc.common.model.Profile
 import com.telnyx.webrtc.sdk.model.Region
 import com.telnyx.webrtc.common.data.CallHistoryRepository
+import com.telnyx.webrtc.common.BuildConfig
 import com.telnyx.webrtc.common.model.CallHistoryItem
 import com.telnyx.webrtc.common.model.CallType
 import com.telnyx.webrtc.common.model.WebsocketMessage
@@ -169,6 +170,13 @@ class TelnyxViewModel : ViewModel() {
      * Server configuration for the Telnyx WebRTC SDK.
      */
     private var serverConfiguration = TxServerConfiguration.production()
+
+    /**
+     * Debug-only mock server configuration override. When set, all connections use
+     * this configuration instead of the production/development defaults. Only
+     * assignable in debug builds — see [configureMockServer].
+     */
+    private var mockServerConfig: TxServerConfiguration? = null
 
     /**
      * Flag indicating whether the server configuration is in development environment.
@@ -706,11 +714,42 @@ class TelnyxViewModel : ViewModel() {
     }
 
     private fun serverConfigurationFor(isDev: Boolean): TxServerConfiguration {
+        mockServerConfig?.let { return it }
         return if (isDev) {
             TxServerConfiguration.development()
         } else {
             TxServerConfiguration.production()
         }
+    }
+
+    /**
+     * Debug-only: injects a mock server configuration (WebSocket signaling host/port +
+     * STUN/TURN URLs) so the SDK connects to a local mock instead of the production
+     * backend. Intended for the VSDK-393 error/warning test harness — release builds
+     * throw, so production binaries can never be pointed at a local endpoint.
+     *
+     * @param host Mock WebSocket signaling host (e.g. "10.0.2.2" from the emulator).
+     * @param port Mock WebSocket signaling port.
+     * @param stun Mock STUN URL (e.g. "stun:10.0.2.2:3478").
+     * @param turn Mock TURN URL (e.g. "turn:10.0.2.2:3478?transport=udp").
+     */
+    fun configureMockServer(host: String, port: Int, stun: String, turn: String) {
+        check(BuildConfig.DEBUG) { "configureMockServer is debug-only" }
+        val config = TxServerConfiguration(host = host, port = port, stun = stun, turn = turn)
+        mockServerConfig = config
+        mockServerConfigOverride = config
+        serverConfiguration = config
+        Timber.i("Mock server configured: host=$host port=$port stun=$stun turn=$turn")
+    }
+
+    /** Clears a previously-set mock server configuration (debug-only no-op in release). */
+    fun clearMockServer() {
+        if (!BuildConfig.DEBUG) return
+        mockServerConfig = null
+        mockServerConfigOverride = null
+        serverConfiguration =
+            if (serverConfigurationIsDev) TxServerConfiguration.development() else TxServerConfiguration.production()
+        Timber.i("Mock server configuration cleared")
     }
 
     /**
@@ -1627,5 +1666,16 @@ class TelnyxViewModel : ViewModel() {
         private const val MAX_AUDIO_LEVELS = 100
         private const val MAX_WS_MESSAGES = 100
         private const val AI_ASSISTANT_NUMBER = "AI_ASSISTANT"
+
+        /**
+         * Process-wide debug-only mock server configuration. Set via
+         * [configureMockServer]; read by push-handling paths
+         * ([com.telnyx.webrtc.common.domain.push.AnswerIncomingPushCall],
+         * [com.telnyx.webrtc.common.notification.BackgroundCallDeclineService])
+         * that build their own server configuration outside this ViewModel.
+         */
+        @Volatile
+        internal var mockServerConfigOverride: TxServerConfiguration? = null
+            private set
     }
 }
