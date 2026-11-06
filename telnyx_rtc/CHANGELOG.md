@@ -1,13 +1,7 @@
-## Unreleased
+## [3.8.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.1) (2026-11-05)
 
-### Enhancement
-- Structured error and warning taxonomy (VSDK-393): add `TelnyxError` and `TelnyxWarning` models with code, name, message, description, causes, solutions, and fatal flag
-- Add `errorFlow: SharedFlow<TelnyxError>` and `warningFlow: SharedFlow<TelnyxWarning>` to `TelnyxClient` for structured error/warning handling
-- Port JS SDK error registry (25 error codes across 9 categories) and warning registry (27 warning codes across 6 categories)
-- `SocketResponse.error()` is now `@Deprecated` — use `errorFlow` for structured errors with causes, solutions, and fatal flag
-- `TelnyxViewModel` now exposes `structuredError` and `structuredWarning` flows for compose_app consumers
-- See `docs/error-migration-guide.md` for migration guide
-- All legacy error emit sites migrated to use structured registry codes
+### Bug Fixing
+- Fix native crashes during call teardown (double dispose and use-after-free): overlapping teardown paths (local hangup racing a remote BYE, or a network-recovery reset) could both run the peer close/dispose sequence, or the async stats handler could call `getLocalDescription()`/`getRemoteDescription()` on an already-freed native peer connection — teardown is now claimed atomically so a second caller is a no-op, the peer connection reference is cleared before close/dispose so late async readers see `null` instead of freed memory, and all SDP readers plus the stats timer use a null/disposed snapshot guard (VSUP-324)
 
 ## [3.8.0](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.0) (2026-10-23)
 
