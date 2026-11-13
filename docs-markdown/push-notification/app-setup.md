@@ -47,6 +47,28 @@ telnyxClient.acceptCall(
 
 You can still pass `answeredDeviceToken` explicitly to `acceptCall(...)` if your app manages a custom device-token source separate from the configured `fcmToken`.
 
+### When a web client is also connected
+
+Enable `pushWhenActive: true` on the **JavaScript web client as well as this mobile client** when they use the same credential identity. The JavaScript default is `false`: a browser logged in with that default can receive the call over its active WebSocket without triggering mobile push. Enabling the option only in the mobile app does not change the browser's login configuration.
+
+```javascript
+import { TelnyxRTC } from '@telnyx/webrtc';
+
+const webClient = new TelnyxRTC({
+  login: 'your_sip_username',
+  password: 'your_sip_password',
+  pushWhenActive: true,
+});
+
+webClient.connect();
+```
+
+For token authentication, use `login_token` with the same `pushWhenActive: true` option. Each mobile app registers its own push token; do not copy a mobile token into the browser configuration. Disconnect the existing browser before replacing it, then reconnect so a fresh login sends both `userVariables.push_when_active: true` and `userVariables.pn_late_fanout: true`. Apply the option to every browser client that can remain connected for this identity.
+
+These login flags are distinct from the connection-level `simultaneous_ringing` setting. Push wake-up and delivery of the call invitation over WebSocket are separate steps; registering several tokens does not by itself enable push alongside an active browser.
+
+See [cross-client setup and verification](https://developers.telnyx.com/docs/voice/webrtc/push-notifications#ring-mobile-devices-while-a-browser-is-connected) for the shared flow and troubleshooting. If mobile push works with web disconnected but stops when web connects, inspect the **web login flags first**. Retest with a fresh inbound call after reconnecting; if it still fails with both flags enabled, collect the call ID, UTC timestamp, and SDK versions without including credentials or complete push tokens.
+
 ### Handling calls answered on another device
 
 When `pushWhenActive` is enabled, an incoming call can be delivered to more than one client or device. A web client may receive the call over an active WebSocket while Android devices receive FCM pushes. When one device answers, the Telnyx backend ends the call attempts on the remaining devices.
