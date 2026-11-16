@@ -310,24 +310,40 @@ data class Call(
     fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
-            // VSDK-1145 (A10): record hold/unhold transitions in the call report
-            client.debugDataCollector.addLogEntry(
-                callId,
-                "info",
-                "Call held (onHoldUnholdPressed)",
-            )
             updateCallState(CallState.HELD)
-            sendHoldModifier(callId, "hold")
+            // VSDK-1145 (A10): record hold/unhold transitions in the call report —
+            // log only after the send is confirmed; a failed send (HOLD_FAILED)
+            // logs the failure instead so the report never asserts a hold that
+            // did not happen.
+            if (!sendHoldModifier(callId, "hold")) {
+                client.debugDataCollector.addLogEntry(
+                    callId,
+                    "error",
+                    "Call hold failed to send (onHoldUnholdPressed)",
+                )
+            } else {
+                client.debugDataCollector.addLogEntry(
+                    callId,
+                    "info",
+                    "Call held (onHoldUnholdPressed)",
+                )
+            }
         } else {
             holdLiveData.postValue(false)
-            // VSDK-1145 (A10): record hold/unhold transitions in the call report
-            client.debugDataCollector.addLogEntry(
-                callId,
-                "info",
-                "Call unheld (onHoldUnholdPressed)",
-            )
             updateCallState(CallState.ACTIVE)
-            sendHoldModifier(callId, "unhold")
+            if (!sendHoldModifier(callId, "unhold")) {
+                client.debugDataCollector.addLogEntry(
+                    callId,
+                    "error",
+                    "Call unhold failed to send (onHoldUnholdPressed)",
+                )
+            } else {
+                client.debugDataCollector.addLogEntry(
+                    callId,
+                    "info",
+                    "Call unheld (onHoldUnholdPressed)",
+                )
+            }
         }
     }
 
@@ -336,7 +352,7 @@ data class Call(
      * @param callId, unique UUID of the call to modify
      * @param holdAction, the modification action to perform
      */
-    private fun sendHoldModifier(callId: UUID, holdAction: String) {
+    private fun sendHoldModifier(callId: UUID, holdAction: String): Boolean {
         val signalingCallId = client.signalingCallId(callId)
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
@@ -360,7 +376,9 @@ data class Call(
             holdLiveData.postValue(!holdLiveData.value!!)
             updateCallState(if (holdAction == "hold") CallState.ACTIVE else CallState.HELD)
             client.emitError(TelnyxErrorCode.HOLD_FAILED.code)
+            return false
         }
+        return true
     }
 
     /**

@@ -15,10 +15,10 @@ import androidx.core.content.ContextCompat
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.telnyx.webrtc.sdk.model.CauseCode
 import com.telnyx.webrtc.sdk.model.CallTerminationReason
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingsLogEntry
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
@@ -70,6 +70,25 @@ class DebugDataCollector(private val context: Context) {
         telnyxSessionId: UUID? = null,
         telnyxLegId: UUID? = null
     ) {
+        // VSDK-1145 (A9): a push-created entry may already exist for this callId
+        // (processCallFromPush -> onPushNotificationReceived). Merge into it and
+        // keep its pushReceivedMs / startTimestamp so push-to-answer latency
+        // stays computable; only create a fresh entry when there is none.
+        val existing = callDebugData[callId]
+        if (existing != null) {
+            telnyxSessionId?.let { existing.telnyxSessionId = it }
+            telnyxLegId?.let { existing.telnyxLegId = it }
+            existing.startElapsedRealtime = SystemClock.elapsedRealtime()
+            existing.logs.add(
+                LogEntry(
+                    timestamp = System.currentTimeMillis(),
+                    level = "info",
+                    message = "Call started - continuing push-created debug data"
+                )
+            )
+            Timber.tag(TAG).d("Call started - continuing existing debug data for call: $callId")
+            return
+        }
         val debugData = CallDebugData(
             callId = callId,
             telnyxSessionId = telnyxSessionId,
@@ -778,6 +797,10 @@ class DebugDataCollector(private val context: Context) {
                 cause.contains("CONNECTION") ||
                 cause.contains("TIMED_OUT") ||
                 cause.contains("RECONNECT") -> "failed"
+            // VSDK-1145 (A2): a declined (USER_BUSY / CALL_REJECTED) call was
+            // never answered — count it as failed, not done, so the done/failed
+            // split does not overstate connected calls.
+            cause.contains("USER_BUSY") || cause.contains("CALL_REJECTED") -> "failed"
             else -> "done"
         }
     }
@@ -1616,9 +1639,14 @@ class DebugDataCollector(private val context: Context) {
      * VSDK-1145 (A4): retries uploading reports that were queued (manifest in
      * [PENDING_REPORTS_DIR]) because their call ended without a usable upload
      * config (missing callReportId / voiceSDKID / uploader), e.g. the process
-     * was recreated before the REGED response arrived. Reports are uploaded
-     * as-is; the file and its manifest entry are removed afterwards — the
-     * payload won't get better with age.
+     * was recreated before the REGED response arrived.
+     *
+     * The upload runs asynchronously on the uploader's IO scope. A queued file
+     * is deleted (and its manifest entry dropped) only after its upload has
+     * actually succeeded; failed entries stay queued for the next config
+     * arrival. Files whose name is not a valid `call_stats_<UUID>.json` entry
+     * are skipped with an error log — a synthetic call_id would make the
+     * report impossible to correlate in VSD.
      */
     private fun retryPendingReportUploads() {
         val uploader = callStatsUploader ?: return
@@ -1629,37 +1657,52 @@ class DebugDataCollector(private val context: Context) {
             return
         }
         val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
-        val remaining = StringBuilder()
-        manifest.readText().lines().filter { it.isNotBlank() }.forEach { fileName ->
-            val file = File(callStatsDir, fileName)
-            if (!file.exists()) {
-                return@forEach
-            }
-            try {
-                val jsonContent = file.readText()
+        val queued = manifest.readText().lines().filter { it.isNotBlank() }
+        uploader.launch {
+            val remaining = mutableListOf<String>()
+            queued.forEach { fileName ->
+                val file = File(callStatsDir, fileName)
+                if (!file.exists()) {
+                    return@forEach
+                }
                 val callIdPart = fileName
                     .removePrefix(JSON_FILE_PREFIX)
                     .removeSuffix(JSON_FILE_EXTENSION)
                 val callId = runCatching { UUID.fromString(callIdPart) }.getOrNull()
-                    // Fall back to a deterministic pseudo-UUID derived from the file name
-                    ?: UUID.nameUUIDFromBytes(callIdPart.toByteArray())
-                uploader.uploadCallStats(
-                    callReportId = reportId,
-                    callId = callId,
-                    voiceSdkId = voiceSdkId,
-                    jsonContent = jsonContent
-                )
-                file.delete()
-                Timber.tag(TAG).i("Retried pending call report upload: $fileName")
-            } catch (e: Exception) {
-                remaining.appendLine(fileName)
-                Timber.tag(TAG).e(e, "Failed to retry pending call report: $fileName")
+                if (callId == null) {
+                    // Writer only ever produces call_stats_<UUID>.json names; a
+                    // non-UUID name means on-disk state diverged. Skip it so it
+                    // surfaces in triage instead of polluting metrics.
+                    remaining.add(fileName)
+                    Timber.tag(TAG).e(
+                        "Pending call report has non-UUID name, skipping upload: $fileName"
+                    )
+                    return@forEach
+                }
+                try {
+                    val jsonContent = file.readText()
+                    val succeeded = uploader.uploadCallStatsSuspending(
+                        callReportId = reportId,
+                        callId = callId,
+                        voiceSdkId = voiceSdkId,
+                        jsonContent = jsonContent
+                    )
+                    if (succeeded) {
+                        file.delete()
+                        Timber.tag(TAG).i("Retried pending call report upload: $fileName")
+                    } else {
+                        remaining.add(fileName)
+                    }
+                } catch (e: Exception) {
+                    remaining.add(fileName)
+                    Timber.tag(TAG).e(e, "Failed to retry pending call report: $fileName")
+                }
             }
-        }
-        if (remaining.isBlank()) {
-            manifest.delete()
-        } else {
-            manifest.writeText(remaining.toString())
+            if (remaining.isEmpty()) {
+                manifest.delete()
+            } else {
+                manifest.writeText(remaining.joinToString(separator = "\n", postfix = "\n"))
+            }
         }
     }
 }
@@ -1757,7 +1800,8 @@ internal data class CallDebugData(
     val logs: MutableList<LogEntry> = mutableListOf(),
 
     // SystemClock.elapsedRealtime() at call start — baseline for ICE diagnostics event timing
-    val startElapsedRealtime: Long = 0L,
+    // (var: onCallStarted refreshes it when continuing a push-created entry)
+    var startElapsedRealtime: Long = 0L,
 
     // Aggregated ICE_DIAG diagnostics (VSUP-295)
     val iceDiagnostics: IceDiagnosticsCollector = IceDiagnosticsCollector()

@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -98,6 +99,41 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
     }
 
     /**
+     * Suspending variant of [uploadCallStats] for callers that need to know the
+     * outcome (e.g. the pending-report retry path, which must not delete a
+     * queued file until the upload has actually succeeded).
+     *
+     * @return true when every chunk was uploaded successfully, false otherwise.
+     */
+    suspend fun uploadCallStatsSuspending(
+        callReportId: String,
+        callId: UUID,
+        voiceSdkId: String,
+        jsonContent: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val payloadSize = jsonContent.toByteArray().size
+
+        if (payloadSize <= MAX_PAYLOAD_SIZE_BYTES) {
+            uploadWithRetry(callReportId, callId, voiceSdkId, jsonContent)
+        } else {
+            Timber.tag(TAG).i(
+                "Call stats for call $callId exceed 2MB ($payloadSize bytes), splitting into chunks"
+            )
+            val chunks = splitIntoChunks(jsonContent)
+            Timber.tag(TAG).i("Split into ${chunks.size} chunks for call $callId")
+
+            var allSucceeded = true
+            chunks.forEachIndexed { index, chunk ->
+                Timber.tag(TAG).d("Uploading chunk ${index + 1}/${chunks.size} for call $callId")
+                if (!uploadWithRetry(callReportId, callId, voiceSdkId, chunk)) {
+                    allSucceeded = false
+                }
+            }
+            allSucceeded
+        }
+    }
+
+    /**
      * Splits the JSON content into multiple chunks, each under the size limit.
      * Each chunk contains the same base structure but with a subset of the stats array.
      */
@@ -168,7 +204,7 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
         callId: UUID,
         voiceSdkId: String,
         jsonContent: String
-    ) {
+    ): Boolean {
         var lastException: Exception? = null
         var attempt = 0
 
@@ -176,7 +212,7 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
             try {
                 val success = executeUpload(callReportId, callId, voiceSdkId, jsonContent)
                 if (success) {
-                    return
+                    return true
                 }
                 // Non-retryable HTTP error (4xx), don't retry
                 break
@@ -196,6 +232,7 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
         lastException?.let {
             Timber.tag(TAG).e(it, "Failed to upload call stats for call $callId after $MAX_RETRY_ATTEMPTS attempts")
         }
+        return false
     }
 
     /**

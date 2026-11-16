@@ -1100,8 +1100,11 @@ class TelnyxClient private constructor(
             //   (cause 17 USER_BUSY preserved from the previous behaviour).
             // - Everything else: normal clearing (16).
             val (causeCode, causeName) = when {
+                // Declining an inbound ringing call: keep the historical wire
+                // literal ("USER_BUSY", code 17) — parity with iOS/JS and with
+                // previous Android releases; do not introduce a new cause name.
                 !isOutboundCall && callStateFlow.value is CallState.RINGING ->
-                    CauseCode.USER_BUSY.code to "USER_BUSY_DECLINED"
+                    CauseCode.USER_BUSY.code to CauseCode.USER_BUSY.name
                 callStateFlow.value is CallState.CONNECTING ||
                     callStateFlow.value is CallState.RINGING ->
                     CauseCode.ORIGINATOR_CANCEL.code to CauseCode.ORIGINATOR_CANCEL.name
