@@ -77,6 +77,15 @@ internal class WebRTCReporter(
         private const val MS_IN_SECONDS = 1000.0
         private const val BITS_PER_BYTE = 8
         private const val MAX_LOG_ENTRIES = 1000
+
+        // VSDK-1145 (A8): first bidirectional media detection. The stats poll
+        // runs at FIRST_MEDIA_POLL_INTERVAL until first media is found or the
+        // detection window elapses, then relaxes to the regular stats interval.
+        private const val FIRST_MEDIA_POLL_INTERVAL: Long = 250L
+        private const val FIRST_MEDIA_WINDOW_MS: Long = 10_000L
+        // VSDK-1145 (A6): upload an intermediate report segment every 180 s
+        // while the call is active (matches iOS cadence)
+        private const val SEGMENT_INTERVAL_MS: Long = 180_000L
     }
 
     // Dynamic stats interval: debug mode uses 100ms; quality reports use the configured
@@ -106,15 +115,19 @@ internal class WebRTCReporter(
     // Track DTLS state for latency milestones (avoid duplicate tracking)
     private var lastTrackedDtlsState: String? = null
 
-    private var lastAudioSampleTime: Long = 0L
-    private var previousPacketsLost: Long = 0L
-
     // Interval stats tracking
     private var lastIntervalTime: Long = 0L
     private var previousInboundBytes: Long = 0L
     private var previousOutboundBytes: Long = 0L
     private var previousConnectionBytesReceived: Long = 0L
     private var previousConnectionBytesSent: Long = 0L
+    private var previousPacketsLost: Long = 0L
+    private var lastAudioSampleTime: Long = 0L
+    // VSDK-1145 (A6): last time an intermediate segment was uploaded
+    private var lastSegmentUploadTime: Long = 0L
+    // VSDK-1145 (A8): first bidirectional media detection state
+    private var firstMediaFound = false
+    private var statsPollStartTimeMs: Long = 0L
 
     val statsDataFlow: MutableSharedFlow<StatsData> = MutableSharedFlow()
 
@@ -142,6 +155,16 @@ internal class WebRTCReporter(
         previousOutboundBytes = 0L
         previousConnectionBytesReceived = 0L
         previousConnectionBytesSent = 0L
+        previousPacketsLost = 0L
+        lastAudioSampleTime = 0L
+
+        // VSDK-1145 (A8): reset first bidirectional media detection
+        firstMediaFound = false
+
+        // VSDK-1145 (A6): reset the segment clock — the first segment goes out
+        // SEGMENT_INTERVAL_MS after stats started (not at start itself)
+        lastSegmentUploadTime = System.currentTimeMillis()
+        statsPollStartTimeMs = System.currentTimeMillis()
 
         // Add initial log entry
         debugDataCollector?.addLogEntry(
@@ -419,6 +442,19 @@ internal class WebRTCReporter(
                             )
                             debugDataCollector?.updateMediaStats(peerId, mediaStats)
 
+                            // VSDK-1145 (A8): first bidirectional media
+                            // detection — first poll after answer with both
+                            // inbound and outbound packets flowing. Once found
+                            // (or the detection window elapses) the poll
+                            // interval relaxes back to statsInterval.
+                            if (!firstMediaFound &&
+                                mediaStats.inboundPacketsReceived > 0 &&
+                                mediaStats.outboundPacketsSent > 0
+                            ) {
+                                firstMediaFound = true
+                                debugDataCollector?.onFirstBidirectionalMedia(peerId)
+                            }
+
                             // Record audio sample and interval stats every 5 seconds
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - lastAudioSampleTime >= AUDIO_SAMPLE_INTERVAL) {
@@ -514,6 +550,16 @@ internal class WebRTCReporter(
 
                                 lastAudioSampleTime = currentTime
                                 previousPacketsLost = currentPacketsLost
+                            }
+
+                            // VSDK-1145 (A6): upload an intermediate segment
+                            // every 180 s while the call is active (matches
+                            // iOS); a mid-call kill loses at most the last
+                            // 180 s of stats.
+                            val segmentCheckTime = System.currentTimeMillis()
+                            if (segmentCheckTime - lastSegmentUploadTime >= SEGMENT_INTERVAL_MS) {
+                                debugDataCollector?.uploadSegmentIfPossible(peerId)
+                                lastSegmentUploadTime = segmentCheckTime
                             }
                         }
 
@@ -638,7 +684,17 @@ internal class WebRTCReporter(
                     return@coroutineScope
                 }
 
-                delay(statsInterval)
+                // VSDK-1145 (A8): poll faster while first bidirectional media
+                // has not been observed yet (bounded by the detection window),
+                // then fall back to the regular stats interval.
+                val currentDelay = if (!firstMediaFound &&
+                    System.currentTimeMillis() - statsPollStartTimeMs < FIRST_MEDIA_WINDOW_MS
+                ) {
+                    FIRST_MEDIA_POLL_INTERVAL.coerceAtMost(statsInterval)
+                } else {
+                    statsInterval
+                }
+                delay(currentDelay)
             }
         }
     }
