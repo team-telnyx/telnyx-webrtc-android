@@ -133,6 +133,16 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        // VSDK-1145: record the real call-state lifecycle so the debug summary
+        // `state` and its transitions reflect connecting/ringing/active flows.
+        // Best-effort: callId is lateinit and may be unset when the state flow
+        // is driven directly in unit tests.
+        runCatching {
+            client.debugDataCollector.onCallStateChange(
+                currentSignalingCallId(),
+                value
+            )
+        }
         // VSDK-1145 (A1): when the call enters ERROR, no endCall flow follows
         // (no BYE / terminate), so the debug report would never be closed.
         // Close it here with finalState=failed so failed/dropped calls still

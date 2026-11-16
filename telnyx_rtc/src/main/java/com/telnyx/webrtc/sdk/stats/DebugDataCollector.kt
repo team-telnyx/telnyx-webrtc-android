@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CallState
 import com.telnyx.webrtc.sdk.model.CallTerminationReason
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingsLogEntry
@@ -306,6 +307,18 @@ class DebugDataCollector(private val context: Context) {
             entry["msFromCallStart"] = msFromCallStart
             entry.putAll(fields)
             data.iceDiagnostics.add(entry)
+        }
+    }
+
+    /**
+     * VSDK-1145: records a call-level state transition (NEW/CONNECTING/RINGING/
+     * ACTIVE/DONE/...) so the summary `state` reflects the real last call state
+     * and the transitions list shows the full lifecycle.
+     */
+    fun onCallStateChange(callId: UUID, state: CallState) {
+        callDebugData[callId]?.let { data ->
+            data.state = state.value.lowercase()
+            data.callStateChanges.add(StateChange(state.value.lowercase(), System.currentTimeMillis()))
         }
     }
 
@@ -938,7 +951,7 @@ class DebugDataCollector(private val context: Context) {
             addProperty("startTimestamp", dateFormat.format(Date(data.startTimestamp)))
             data.endTimestamp?.let { addProperty("endTimestamp", dateFormat.format(Date(it))) }
             addProperty("sdkVersion", data.sdkVersion)
-            addProperty("state", if (data.endTimestamp != null) "done" else data.state)
+            addProperty("state", data.state)
             data.telnyxLegId?.let { addProperty("telnyxLegId", it.toString()) }
             data.telnyxSessionId?.let { addProperty("telnyxSessionId", it.toString()) }
 
@@ -1083,6 +1096,7 @@ class DebugDataCollector(private val context: Context) {
 
     private fun createStateTransitionsJson(data: CallDebugData, dateFormat: SimpleDateFormat): JsonObject {
         return JsonObject().apply {
+            add("callState", createStateChangeArray(data.callStateChanges, dateFormat))
             add("iceGathering", createStateChangeArray(data.iceGatheringStates, dateFormat))
             add("iceConnection", createStateChangeArray(data.iceConnectionStates, dateFormat))
             add("signaling", createStateChangeArray(data.signalingStates, dateFormat))
@@ -1727,6 +1741,7 @@ internal data class CallDebugData(
     var destinationNumber: String = "",
     var direction: String = "",
     var state: String = "active",
+    val callStateChanges: MutableList<StateChange> = mutableListOf(),
 
     // VSDK-1145 (A2/A5): final call state + termination details for the summary.
     // finalState is one of done|dropped|failed; finalStateReason is a short
