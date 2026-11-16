@@ -464,6 +464,14 @@ class TelnyxClient private constructor(
             // Pass the config's pushWhenActive directly because the session config may not be saved yet
             // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
             pendingPushAppCallId = pushAppCallId(metaData, pushWhenActive)
+            // VSDK-1145 (A9): record the push delivery time as the "ring"
+            // anchor. The push call_id becomes the signaling callId when the
+            // INVITE arrives, so the debug data entry is created here under
+            // the push call_id and later reattached via onCallStarted's
+            // existing reattach logic.
+            metaData.callId.toUuidOrNull()?.let { pushCallId ->
+                debugDataCollector.onPushNotificationReceived(pushCallId)
+            }
         }
     }
 
@@ -581,6 +589,9 @@ class TelnyxClient private constructor(
         // Mark that user initiated answering the call (for answer delay calculation)
         // Note: Tracking already started in onOfferReceived when invite was received
         latencyTracker.markAnswerInitiated(callId)
+
+        // VSDK-1145 (A9): record the user tap (answer) for the push funnel.
+        debugDataCollector.onUserAnswered(callId)
 
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
@@ -990,6 +1001,7 @@ class TelnyxClient private constructor(
             providedStun = providedStun!!
         ).apply {
             callId = inviteCallId
+            isOutboundCall = true
             updateCallState(CallState.RINGING)
 
             // Notify debug data collector that a new call has started
@@ -1076,13 +1088,24 @@ class TelnyxClient private constructor(
         val endCall = calls[signalingCallId]
         endCall?.apply {
             val uuid: String = UUID.randomUUID().toString()
-            // Determine cause code and name based on call state
-            val (causeCode, causeName) = when (callStateFlow.value) {
-                // When Active or Connecting, use NORMAL_CLEARING
-                CallState.ACTIVE -> CauseCode.NORMAL_CLEARING.code to CauseCode.NORMAL_CLEARING.name
-                // When Ringing (ie. Rejecting an incoming call), use USER_BUSY
-                CallState.RINGING, CallState.CONNECTING -> CauseCode.USER_BUSY.code to CauseCode.USER_BUSY.name
-                // Default to NORMAL_CLEARING for other states
+            // VSDK-1145 (A9): user tapped decline while the inbound call was
+            // still ringing.
+            if (callStateFlow.value is CallState.RINGING) {
+                debugDataCollector.onUserDeclined(signalingCallId)
+            }
+            // VSDK-1145 (A7): pre-answer local termination depends on intent.
+            // - Outbound call not yet answered (CONNECTING / RINGING): the caller
+            //   is cancelling the call -> ORIGINATOR_CANCEL / 487.
+            // - Inbound call still ringing: the callee is declining -> 603
+            //   (cause 17 USER_BUSY preserved from the previous behaviour).
+            // - Everything else: normal clearing (16).
+            val (causeCode, causeName) = when {
+                !isOutboundCall && callStateFlow.value is CallState.RINGING ->
+                    CauseCode.USER_BUSY.code to "USER_BUSY_DECLINED"
+                callStateFlow.value is CallState.CONNECTING ||
+                    callStateFlow.value is CallState.RINGING ->
+                    CauseCode.ORIGINATOR_CANCEL.code to CauseCode.ORIGINATOR_CANCEL.name
+                callStateFlow.value is CallState.ACTIVE -> CauseCode.NORMAL_CLEARING.code to CauseCode.NORMAL_CLEARING.name
                 else -> CauseCode.NORMAL_CLEARING.code to CauseCode.NORMAL_CLEARING.name
             }
             val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCode)
@@ -1125,7 +1148,11 @@ class TelnyxClient private constructor(
             removeWebRTCReporter(signalingCallId)?.stopStats()
 
             // Log debug data for the ended call
-            client.debugDataCollector.onCallEnded(signalingCallId, causeName)
+            client.debugDataCollector.onCallEnded(
+                signalingCallId,
+                causeName,
+                CallTerminationReason(cause = causeName, causeCode = causeCode)
+            )
 
             client.removeFromCalls(signalingCallId)
             client.callNotOngoing()
@@ -3376,7 +3403,16 @@ class TelnyxClient private constructor(
                 removeWebRTCReporter(callId)?.stopStats()
 
                 // Log debug data for the ended call
-                client.debugDataCollector.onCallEnded(callId, cause ?: "REMOTE_BYE")
+                client.debugDataCollector.onCallEnded(
+                    callId,
+                    cause ?: "REMOTE_BYE",
+                    CallTerminationReason(
+                        cause = cause,
+                        causeCode = causeCode,
+                        sipCode = sipCode,
+                        sipReason = sipReason
+                    )
+                )
 
                 client.removeFromCalls(callId)
                 client.callNotOngoing()

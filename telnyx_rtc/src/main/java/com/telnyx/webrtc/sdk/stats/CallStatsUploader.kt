@@ -248,8 +248,16 @@ internal class CallStatsUploader(private val host: String) : CoroutineScope {
                 "Failed to upload call stats for call $callId: HTTP ${response.code} - $errorMessage"
             )
 
+            // VSDK-1145 (A3): 5xx responses are retryable. They used to be
+            // returned as `true` (= success), so uploadWithRetry treated the
+            // upload as done and never retried a 5xx. Throwing here routes the
+            // error into the retry loop, which applies exponential backoff.
+            if (response.code >= HTTP_INTERNAL_SERVER_ERROR) {
+                throw java.io.IOException("Server error HTTP ${response.code}: $errorMessage")
+            }
+
             // 4xx errors are not retryable
-            return response.code >= HTTP_INTERNAL_SERVER_ERROR
+            return false
         }
     }
 

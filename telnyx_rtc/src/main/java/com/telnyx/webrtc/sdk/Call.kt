@@ -88,6 +88,12 @@ data class Call(
     lateinit var callId: UUID
     internal var signalingCallId: UUID? = null
 
+    // VSDK-1145 (A7): set when this Call represents an outgoing INVITE
+    // (newInvite) vs an incoming call (CALL_RECEIVED). Used at endCall time to
+    // report pre-answer local termination as a caller cancel (487
+    // ORIGINATOR_CANCEL) instead of a callee decline (603).
+    internal var isOutboundCall: Boolean = false
+
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
     internal var telnyxCallControlId: String? = null
@@ -127,6 +133,16 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        // VSDK-1145 (A1): when the call enters ERROR, no endCall flow follows
+        // (no BYE / terminate), so the debug report would never be closed.
+        // Close it here with finalState=failed so failed/dropped calls still
+        // produce a report.
+        if (value is CallState.ERROR) {
+            client.debugDataCollector.onCallFailed(
+                currentSignalingCallId(),
+                "SDK_CALL_ERROR"
+            )
+        }
         peerConnection?.onCallStateChanged(value)
     }
 
@@ -294,10 +310,22 @@ data class Call(
     fun onHoldUnholdPressed(callId: UUID) {
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
+            // VSDK-1145 (A10): record hold/unhold transitions in the call report
+            client.debugDataCollector.addLogEntry(
+                callId,
+                "info",
+                "Call held (onHoldUnholdPressed)",
+            )
             updateCallState(CallState.HELD)
             sendHoldModifier(callId, "hold")
         } else {
             holdLiveData.postValue(false)
+            // VSDK-1145 (A10): record hold/unhold transitions in the call report
+            client.debugDataCollector.addLogEntry(
+                callId,
+                "info",
+                "Call unheld (onHoldUnholdPressed)",
+            )
             updateCallState(CallState.ACTIVE)
             sendHoldModifier(callId, "unhold")
         }

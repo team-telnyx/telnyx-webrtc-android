@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.telnyx.webrtc.sdk.model.CauseCode
+import com.telnyx.webrtc.sdk.model.CallTerminationReason
 import com.telnyx.webrtc.sdk.telnyx_rtc.BuildConfig
 import com.telnyx.webrtc.sdk.utilities.CallTimingsLogEntry
 import timber.log.Timber
@@ -40,6 +42,8 @@ class DebugDataCollector(private val context: Context) {
         private const val MILLIS_PER_SECOND = 1000
         private const val PERCENT_FACTOR = 100.0
         private const val CALL_STATS_DIR = "call_stats"
+        private const val PENDING_REPORTS_DIR = "pending_reports"
+        private const val PENDING_MANIFEST = "pending.txt"
         private const val JSON_FILE_PREFIX = "call_stats_"
         private const val JSON_FILE_EXTENSION = ".json"
     }
@@ -140,7 +144,7 @@ class DebugDataCollector(private val context: Context) {
      *
      * @param callId The unique identifier for the call
      * @param callerNumber The caller's phone number
-     * @param destinationNumber The destination phone number
+     * @param destinationNumber The destination number
      * @param direction The call direction ("inbound" or "outbound")
      */
     fun updateCallMetadata(
@@ -153,6 +157,54 @@ class DebugDataCollector(private val context: Context) {
             callerNumber?.let { data.callerNumber = it }
             destinationNumber?.let { data.destinationNumber = it }
             direction?.let { data.direction = it }
+        }
+    }
+
+    /**
+     * VSDK-1145 (A9): records the wall-clock timestamp of the inbound push
+     * notification (ring) for a call. Call it from processCallFromPush.
+     *
+     * @param callId The unique identifier for the call (push call_id)
+     * @param timestampMs Wall clock in millis when the notification arrived
+     */
+    fun onPushNotificationReceived(callId: UUID, timestampMs: Long = System.currentTimeMillis()) {
+        callDebugData.getOrPut(callId) {
+            CallDebugData(
+                callId = callId,
+                startTimestamp = timestampMs,
+                sdkVersion = BuildConfig.SDK_VERSION,
+                networkType = getNetworkType(),
+                osVersion = Build.VERSION.SDK_INT.toString(),
+                deviceModel = Build.MODEL,
+                recordAudioPermissionGranted = checkPermission(Manifest.permission.RECORD_AUDIO),
+                postNotificationsPermissionGranted =
+                    checkPermission(Manifest.permission.POST_NOTIFICATIONS),
+                startElapsedRealtime = SystemClock.elapsedRealtime(),
+            )
+        }.pushReceivedMs = timestampMs
+    }
+
+    /**
+     * VSDK-1145 (A9): records the wall-clock timestamp when the user tapped
+     * accept on the ringing notification / in-call UI.
+     *
+     * @param callId The unique identifier for the call
+     */
+    fun onUserAnswered(callId: UUID) {
+        callDebugData[callId]?.let { data ->
+            data.userAnsweredMs = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * VSDK-1145 (A9): records the wall-clock timestamp when the user tapped
+     * decline on the ringing notification / in-call UI.
+     *
+     * @param callId The unique identifier for the call
+     */
+    fun onUserDeclined(callId: UUID) {
+        callDebugData[callId]?.let { data ->
+            data.userDeclinedMs = System.currentTimeMillis()
         }
     }
 
@@ -556,13 +608,87 @@ class DebugDataCollector(private val context: Context) {
     }
 
     /**
+     * VSDK-1145 (A1): reports a call that never connected (or was dropped by an
+     * unrecoverable error) so a report is still generated for failed calls.
+     * Marks the debug entry as failed and closes it like onCallEnded would.
+     *
+     * @param callId The unique identifier for the call
+     * @param reason Short machine-readable failure reason, e.g.
+     * "SDK_INTERNAL_ERROR", "SDP_SEND_FAILED", "ANSWER_FAILED"
+     */
+    fun onCallFailed(callId: UUID, reason: String) {
+        callDebugData[callId]?.let { data ->
+            if (data.finalState == null) {
+                data.finalState = "failed"
+                data.finalStateReason = reason
+            }
+            onCallEnded(callId, reason)
+        }
+    }
+
+    /**
+     * VSDK-1145 (A8): records the moment the first bidirectional media was
+     * observed (both inbound and outbound packets flowing). The delta to the
+     * call start is reported as firstMediaMs in the summary.
+     *
+     * @param callId The unique identifier for the call
+     */
+    fun onFirstBidirectionalMedia(callId: UUID) {
+        callDebugData[callId]?.let { data ->
+            if (data.firstMediaMs == null) {
+                data.firstMediaMs = System.currentTimeMillis() - data.startTimestamp
+            }
+        }
+    }
+
+    /**
+     * VSDK-1145 (A6): uploads an intermediate segment of the current call
+     * report while the call is still active (every 180 s from WebRTCReporter),
+     * matching iOS behaviour. A mid-call kill then loses at most the last
+     * 180 s of stats; VSD stores each segment separately under
+     * `{call_report_id}/{call_id}/rtc_stats_reports/{segment_id}.json`.
+     * Unlike [onCallEnded] this does not finalise the call: it snapshots
+     * whatever has accumulated so far and leaves the call data in the map.
+     */
+    fun uploadSegmentIfPossible(callId: UUID) {
+        val data = callDebugData[callId] ?: return
+        if (data.endTimestamp != null) {
+            // Call already finalised; onCallEnded owns the final upload.
+            return
+        }
+        if (callReportId == null || voiceSDKID == null || callStatsUploader == null) {
+            Timber.tag(TAG).d("Segment upload skipped - upload config not ready for call $callId")
+            return
+        }
+        try {
+            val jsonContent = gson.toJson(convertToJson(data))
+            callStatsUploader?.uploadCallStats(
+                callReportId = callReportId!!,
+                callId = callId,
+                voiceSdkId = voiceSDKID!!,
+                jsonContent = jsonContent
+            )
+            Timber.tag(TAG).d("Intermediate segment uploaded for call $callId")
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to upload intermediate segment for call $callId")
+        }
+    }
+
+    /**
      * Called when a call ends. Logs all collected debug data using Timber
      * and creates a JSON file with the call statistics.
      *
      * @param callId The unique identifier for the call
      * @param endReason The reason the call ended (optional)
+     * @param terminationReason Full termination details (optional) — used to
+     *        populate the summary with the final call state (A2) and the SIP
+     *        code / cause when known (A5).
      */
-    fun onCallEnded(callId: UUID, endReason: String? = null) {
+    fun onCallEnded(
+        callId: UUID,
+        endReason: String? = null,
+        terminationReason: CallTerminationReason? = null,
+    ) {
         val data = callDebugData.remove(callId) ?: run {
             Timber.tag(TAG).w("No debug data found for call: $callId")
             return
@@ -570,6 +696,18 @@ class DebugDataCollector(private val context: Context) {
 
         data.endTimestamp = System.currentTimeMillis()
         data.endReason = endReason
+
+        // VSDK-1145 (A2/A5): record the final call state and, when known,
+        // the SIP code / cause that terminated the call.
+        // onCallFailed(A1) already set finalState="failed" + reason — keep it.
+        if (data.finalState == null) {
+            data.finalState = finalStateFor(terminationReason)
+            data.finalStateReason = data.endReason
+        }
+        terminationReason?.let { reason ->
+            data.sipCause = reason.cause
+            data.sipCode = reason.sipCode ?: reason.causeCode
+        }
 
         logCallDebugData(data)
         saveCallStatsToJsonFile(data)
@@ -584,6 +722,63 @@ class DebugDataCollector(private val context: Context) {
                 voiceSdkId = voiceSDKID!!,
                 jsonContent = jsonContent
             )
+        } else {
+            // VSDK-1145 (A4): upload config incomplete — persist the report so
+            // it can be retried when the config arrives (setUploadConfig).
+            queueReportForRetry(callId)
+        }
+    }
+
+    /**
+     * VSDK-1145 (A4): records that an already-generated call stats JSON file
+     * in [CALL_STATS_DIR] still needs an upload. The file stays in place —
+     * it is only queued in a manifest so [retryPendingReportUploads] can pick
+     * it up once the upload config arrives.
+     */
+    private fun queueReportForRetry(callId: UUID) {
+        try {
+            val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
+            val source = File(callStatsDir, "$JSON_FILE_PREFIX$callId$JSON_FILE_EXTENSION")
+            if (!source.exists()) {
+                return
+            }
+            val pendingDir = File(context.cacheDir, PENDING_REPORTS_DIR)
+            if (!pendingDir.exists()) {
+                pendingDir.mkdirs()
+            }
+            File(pendingDir, PENDING_MANIFEST).let { manifest ->
+                val existing = if (manifest.exists()) manifest.readText() else ""
+                val line = source.name
+                if (!existing.contains(line)) {
+                    manifest.appendText("$line\n")
+                }
+            }
+            Timber.tag(TAG).d("Call report queued for retry: ${source.name}")
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Failed to queue call report for retry")
+        }
+    }
+
+    /**
+     * VSDK-1145 (A2): map the terminal state + termination reason into the
+     * report's finalState (done | dropped | failed).
+     *
+     * - failed: the SDK actively failed the call (e.g. AnswerError, media error,
+     *   connection failure) or was never answered.
+     * - dropped: the call was established and the remote side went away
+     *   (BYE carrying DROPPED cause, ICE failure, network change).
+     * - done: everything else — normal clearing in either direction.
+     */
+    private fun finalStateFor(reason: CallTerminationReason?): String {
+        val cause = reason?.cause?.uppercase().orEmpty()
+        return when {
+            cause.contains("DROP") -> "dropped"
+            cause.contains("ANSWER_ERROR") ||
+                cause.contains("MEDIA_ERROR") ||
+                cause.contains("CONNECTION") ||
+                cause.contains("TIMED_OUT") ||
+                cause.contains("RECONNECT") -> "failed"
+            else -> "done"
         }
     }
 
@@ -723,6 +918,32 @@ class DebugDataCollector(private val context: Context) {
             addProperty("state", if (data.endTimestamp != null) "done" else data.state)
             data.telnyxLegId?.let { addProperty("telnyxLegId", it.toString()) }
             data.telnyxSessionId?.let { addProperty("telnyxSessionId", it.toString()) }
+
+            // VSDK-1145 (A2/A5): the true final call state and, when known,
+            // the SIP code / cause that ended the call.
+            data.finalState?.let { addProperty("finalState", it) }
+            data.finalStateReason?.let { addProperty("finalStateReason", it) }
+            data.sipCause?.let { addProperty("sipCause", it) }
+            data.sipCode?.let { addProperty("sipCode", it) }
+
+            // VSDK-1145 (A9): inbound push funnel timestamps.
+            if (data.direction == "inbound") {
+                data.pushReceivedMs?.let {
+                    addProperty("pushNotificationReceivedMs", it)
+                    addProperty("ringTs", dateFormat.format(Date(it)))
+                }
+                data.userAnsweredMs?.let {
+                    addProperty("userAnsweredMs", it)
+                    addProperty("answerTs", dateFormat.format(Date(it)))
+                }
+                data.userDeclinedMs?.let {
+                    addProperty("userDeclinedMs", it)
+                    addProperty("declineTs", dateFormat.format(Date(it)))
+                }
+            }
+
+            // VSDK-1145 (A8): first bidirectional media latency.
+            data.firstMediaMs?.let { addProperty("firstMediaMs", it) }
         }
     }
 
@@ -1383,6 +1604,63 @@ class DebugDataCollector(private val context: Context) {
             callStatsUploader = CallStatsUploader(hostAddress)
         }
         this.hostAddress = hostAddress
+        // VSDK-1145 (A4): upload config is now (probably) complete — retry any
+        // reports that were saved to disk but could not be uploaded when their
+        // call ended (e.g. app killed before the session was up).
+        if (callReportId != null && voiceSDKID != null && callStatsUploader != null) {
+            retryPendingReportUploads()
+        }
+    }
+
+    /**
+     * VSDK-1145 (A4): retries uploading reports that were queued (manifest in
+     * [PENDING_REPORTS_DIR]) because their call ended without a usable upload
+     * config (missing callReportId / voiceSDKID / uploader), e.g. the process
+     * was recreated before the REGED response arrived. Reports are uploaded
+     * as-is; the file and its manifest entry are removed afterwards — the
+     * payload won't get better with age.
+     */
+    private fun retryPendingReportUploads() {
+        val uploader = callStatsUploader ?: return
+        val reportId = callReportId ?: return
+        val voiceSdkId = voiceSDKID ?: return
+        val manifest = File(File(context.cacheDir, PENDING_REPORTS_DIR), PENDING_MANIFEST)
+        if (!manifest.exists()) {
+            return
+        }
+        val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
+        val remaining = StringBuilder()
+        manifest.readText().lines().filter { it.isNotBlank() }.forEach { fileName ->
+            val file = File(callStatsDir, fileName)
+            if (!file.exists()) {
+                return@forEach
+            }
+            try {
+                val jsonContent = file.readText()
+                val callIdPart = fileName
+                    .removePrefix(JSON_FILE_PREFIX)
+                    .removeSuffix(JSON_FILE_EXTENSION)
+                val callId = runCatching { UUID.fromString(callIdPart) }.getOrNull()
+                    // Fall back to a deterministic pseudo-UUID derived from the file name
+                    ?: UUID.nameUUIDFromBytes(callIdPart.toByteArray())
+                uploader.uploadCallStats(
+                    callReportId = reportId,
+                    callId = callId,
+                    voiceSdkId = voiceSdkId,
+                    jsonContent = jsonContent
+                )
+                file.delete()
+                Timber.tag(TAG).i("Retried pending call report upload: $fileName")
+            } catch (e: Exception) {
+                remaining.appendLine(fileName)
+                Timber.tag(TAG).e(e, "Failed to retry pending call report: $fileName")
+            }
+        }
+        if (remaining.isBlank()) {
+            manifest.delete()
+        } else {
+            manifest.writeText(remaining.toString())
+        }
     }
 }
 
@@ -1406,6 +1684,26 @@ internal data class CallDebugData(
     var destinationNumber: String = "",
     var direction: String = "",
     var state: String = "active",
+
+    // VSDK-1145 (A2/A5): final call state + termination details for the summary.
+    // finalState is one of done|dropped|failed; finalStateReason is a short
+    // machine-readable reason; sipCause/sipCode carry the SIP termination info.
+    var finalState: String? = null,
+    var finalStateReason: String? = null,
+    var sipCause: String? = null,
+    var sipCode: Int? = null,
+
+    // VSDK-1145 (A9): inbound push funnel timestamps.
+    // pushReceivedMs — wall clock when the push notification reached the SDK
+    // (processCallFromPush), i.e. the moment the ring should be shown.
+    // userAnsweredMs / userDeclinedMs — wall clock when the user tapped
+    // accept (acceptCall) or decline (endCall while ringing).
+    var pushReceivedMs: Long? = null,
+    var userAnsweredMs: Long? = null,
+    var userDeclinedMs: Long? = null,
+
+    // VSDK-1145 (A8): millis from call start to first bidirectional media.
+    var firstMediaMs: Long? = null,
 
     // Permissions
     val recordAudioPermissionGranted: Boolean,
