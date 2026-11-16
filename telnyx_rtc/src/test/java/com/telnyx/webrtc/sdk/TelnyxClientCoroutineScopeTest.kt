@@ -45,6 +45,12 @@ class TelnyxClientCoroutineScopeTest {
                 .containsMatchIn(socketSource),
             "TxSocket connect should return the owned Dispatchers.IO launch job."
         )
+
+        assertTrue(
+            Regex("""return\s+launch\s*\(\s*Dispatchers\.IO\s*\)\s*\{\s*reportingClient\s*=\s*listener""")
+                .containsMatchIn(socketSource),
+            "TxSocket connect must assign reportingClient first inside its owned coroutine."
+        )
     }
 
     @Test

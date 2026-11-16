@@ -1,5 +1,7 @@
 package com.telnyx.webrtc.sdk
 
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import android.content.Context
 import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
@@ -89,6 +91,151 @@ class CallTest : BaseTest() {
                 mockContext
             )
         )
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `V2 accepts server confirmed echoed sessid but not local gateway fallback`() {
+        kotlinx.coroutines.Dispatchers.setMain(kotlinx.coroutines.Dispatchers.Unconfined)
+        try {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val initialSession = client.sessid
+        client.socket = mockk<TxSocket>(relaxed = true)
+        // t027 B-GW: an uncorrelated REGED gateway push is an observation only — the
+        // local gateway fallback never binds a session and the recorder is not
+        // published with a null session.
+        client.onGatewayStateReceived("REGED", null)
+        verify(exactly = 0) { capture.signaling(any(), any(), any()) }
+        assertEquals(initialSession, client.sessid)
+        // the server-confirmed sessid binds via the correlated gateway RPC response
+        val gatewayRpcId = publishGatewayRpcForTest(client)
+        client.onGatewayStateResponseConfirmed(client.socket, gatewayRpcId, "REGED", "sess-confirmed")
+        verify(exactly = 1) { capture.signaling(any(), any(), "sess-confirmed") }
+        assertEquals("sess-confirmed", client.sessid)
+        } finally { kotlinx.coroutines.Dispatchers.resetMain() }
+    }
+
+    /** Publishes an outstanding gateway RPC on the client and returns its rpcId. */
+    private fun publishGatewayRpcForTest(client: TelnyxClient): String {
+        val rpcId = UUID.randomUUID().toString()
+        val field = TelnyxClient::class.java.getDeclaredField("v2LoginAttemptEpoch")
+        field.isAccessible = true
+        val next = (field.get(client) as Long) + 1
+        field.set(client, next)
+        val pendingClass = Class.forName("com.telnyx.webrtc.sdk.TelnyxClient\$PendingGatewayState")
+        val pending = pendingClass.getDeclaredConstructor(
+            String::class.java, TxSocket::class.java, Long::class.javaPrimitiveType, Int::class.javaPrimitiveType
+        ).newInstance(rpcId, client.socket, next, 0)
+        TelnyxClient::class.java.getDeclaredField("v2PendingGateway").apply { isAccessible = true }.set(client, pending)
+        return rpcId
+    }
+
+    @Test
+    fun `native INVITE binds V2 token even with quality reports disabled`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        client.providedTurn = Config.DEFAULT_TURN
+        client.providedStun = Config.DEFAULT_STUN
+        client.socket = socket
+        every { client.playRingtone() } just Runs
+        val id = UUID.randomUUID()
+        val message = JsonObject().apply {
+            addProperty("voice_sdk_id", "voice-id")
+            add("params", JsonObject().apply {
+                addProperty("callID", id.toString())
+                addProperty("sdp", "v=0\r\n")
+                addProperty("caller_id_name", "Caller")
+                addProperty("caller_id_number", "100")
+                addProperty("telnyx_session_id", UUID.randomUUID().toString())
+                addProperty("telnyx_leg_id", UUID.randomUUID().toString())
+            })
+        }
+        org.mockito.Mockito.mockConstruction(Peer::class.java).use { peers ->
+            org.mockito.Mockito.mockConstruction(com.telnyx.webrtc.sdk.stats.WebRTCReporter::class.java).use { reporters ->
+                client.onOfferReceived(message)
+                assertEquals(1, peers.constructed().size)
+                assertEquals(1, reporters.constructed().size)
+                val call = client.getActiveCalls().values.single()
+                verify { capture.started(call.v2CaptureToken, id.toString(), true, false, any(), any()) }
+                org.mockito.Mockito.verify(peers.constructed().single()).v2CaptureToken = call.v2CaptureToken
+            }
+        }
+    }
+
+    @Test
+    fun `V2 captures setup failure without a native peer and recovery setters use actual ingress`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val failed = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            beginV2Capture(inbound = true)
+            setCallRecovering()
+            setReconnectionTimeout()
+        }
+        verify { capture.state(failed.v2CaptureToken, CallState.RECONNECTING(com.telnyx.webrtc.sdk.model.CallNetworkChangeReason.NETWORK_SWITCH)) }
+        verify { capture.state(failed.v2CaptureToken, CallState.ERROR) }
+        verify { capture.peerClosing(failed.v2CaptureToken, null) }
+    }
+
+    @Test
+    fun `V2 ingress retains distinct call tokens and signaling identity on reattach`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val signaling = UUID.randomUUID()
+        val first = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            signalingCallId = signaling
+            beginV2Capture(inbound = true, reattach = true)
+            updateCallState(CallState.ACTIVE)
+        }
+        val second = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = signaling
+            beginV2Capture(inbound = false)
+        }
+        verify { capture.started(first.v2CaptureToken, signaling.toString(), true, true, any(), any()) }
+        verify { capture.state(first.v2CaptureToken, CallState.ACTIVE) }
+        verify { capture.started(second.v2CaptureToken, signaling.toString(), false, false, any(), any()) }
+        assertFalse(first.v2CaptureToken === second.v2CaptureToken)
+    }
+
+    @Test
+    fun `DROPPED with a live peer closes the V2 lease exactly once`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val newCall = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            beginV2Capture(inbound = false)
+            peerConnection = mockk<Peer>(relaxed = true)
+        }
+        newCall.updateCallState(CallState.DROPPED(com.telnyx.webrtc.sdk.model.CallNetworkChangeReason.NETWORK_LOST))
+        verify(exactly = 1) { capture.peerClosing(newCall.v2CaptureToken, null) }
+    }
+
+    @Test
+    fun `ERROR with a live peer closes the V2 lease on terminal state`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val newCall = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            beginV2Capture(inbound = false)
+            peerConnection = mockk<Peer>(relaxed = true)
+        }
+        newCall.updateCallState(CallState.ERROR)
+        verify(exactly = 1) { capture.peerClosing(newCall.v2CaptureToken, null) }
+    }
+
+    @Test
+    fun `DONE defers closure to peer teardown while the peer is live`() {
+        val capture = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = capture
+        val newCall = Call(mockContext, client, socket, "123", audioManager).apply {
+            callId = UUID.randomUUID()
+            beginV2Capture(inbound = false)
+            peerConnection = mockk<Peer>(relaxed = true)
+        }
+        newCall.updateCallState(CallState.DONE(com.telnyx.webrtc.sdk.model.CallTerminationReason(cause = com.telnyx.webrtc.sdk.model.CauseCode.NORMAL_CLEARING.name, causeCode = com.telnyx.webrtc.sdk.model.CauseCode.NORMAL_CLEARING.code)))
+        verify(exactly = 0) { capture.peerClosing(any(), any()) }
     }
 
     @Test

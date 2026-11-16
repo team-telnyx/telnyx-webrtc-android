@@ -33,3 +33,15 @@ include(":telnyx_common")
 include(":samples:connection_service_app")
 include(":samples:xml_app")
 include(":samples:compose_app")
+
+// Explicit local qualification only. Normal builds keep immutable public 0.2.3.
+providers.gradleProperty("callReportV2RuntimeDir").orNull?.let { candidate ->
+    includeBuild(candidate) {
+        dependencySubstitution {
+            for (capability in listOf("core", "contract", "transport-ws")) {
+                substitute(module("com.github.team-telnyx.telnyx-shared-module:observability-$capability"))
+                    .using(project(":modules:observability:$capability"))
+            }
+        }
+    }
+}

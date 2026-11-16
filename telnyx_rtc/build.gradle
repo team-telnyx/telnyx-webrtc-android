@@ -255,3 +255,13 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle_version"
     testImplementation deps.material
 }
+
+// Published V2 runtime by default; candidate substitution is explicit and qualification-only.
+dependencies {
+    implementation 'com.github.team-telnyx.telnyx-shared-module:observability-core:0.2.3'
+    implementation 'com.github.team-telnyx.telnyx-shared-module:observability-contract:0.2.3'
+    implementation 'com.github.team-telnyx.telnyx-shared-module:observability-transport-ws:0.2.3'
+}
+
+android.sourceSets.main.java.srcDir(providers.gradleProperty('callReportV2RuntimeDir').isPresent()
+    ? 'src/v2Candidate/kotlin' : 'src/v2Published/kotlin')

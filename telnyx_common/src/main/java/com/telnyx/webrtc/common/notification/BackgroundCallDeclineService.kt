@@ -4,6 +4,7 @@
 
 package com.telnyx.webrtc.common.notification
 
+import com.telnyx.webrtc.common.TelnyxCommon
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -121,7 +122,8 @@ class BackgroundCallDeclineService : Service() {
         }
 
         if (txPushMetadata != null) {
-            performBackgroundDecline(txPushMetadataJson, startId)
+            performBackgroundDecline(txPushMetadataJson, startId,
+                runCatching { java.util.UUID.fromString(txPushMetadata.callId) }.getOrNull())
         } else {
             Timber.w("No push metadata provided, stopping service")
             stopServiceForStart(startId, "No push metadata provided")
@@ -136,7 +138,7 @@ class BackgroundCallDeclineService : Service() {
      * @param txPushMetaData The push metadata as JSON string.
      * @param startId The service start id associated with this decline request.
      */
-    private fun performBackgroundDecline(txPushMetaData: String?, startId: Int) {
+    private fun performBackgroundDecline(txPushMetaData: String?, startId: Int, pushCallId: java.util.UUID?) {
         val operation = DeclineOperation(startId)
         activateOperation(operation)
 
@@ -158,6 +160,10 @@ class BackgroundCallDeclineService : Service() {
                         operation.disconnectClient(telnyxClient, "Superseded after background decline client creation")
                         return@launch
                     }
+
+                    // A cold-process Reject does not create the normal Common client.
+                    // Drain only this operation's call, never observations for another push.
+                    pushCallId?.let { TelnyxCommon.getInstance().drainPushTelemetry(it, telnyxClient) }
 
                     // Set up timeout to ensure service doesn't run indefinitely
                     operation.timeoutJob = launch {
@@ -241,7 +247,7 @@ class BackgroundCallDeclineService : Service() {
                     if (loginResponse != null) {
                         Timber.d("Login successful for decline operation, disconnecting")
                         // Login successful, now disconnect
-                        finishAndStop(operation, "Background decline operation completed")
+                        finishAndStop(operation, "Background decline operation completed", drainTelemetry = true)
                     }
                 }
             }
@@ -262,7 +268,8 @@ class BackgroundCallDeclineService : Service() {
     private fun finishAndStop(
         operation: DeclineOperation,
         reason: String,
-        disconnect: Boolean = true
+        disconnect: Boolean = true,
+        drainTelemetry: Boolean = false
     ) {
         if (!operation.markCompleting()) {
             Timber.d("Ignoring duplicate finish for background decline startId=${operation.startId}")
@@ -274,9 +281,9 @@ class BackgroundCallDeclineService : Service() {
                 operation.timeoutJob?.cancel()
                 operation.socketStatusJob?.cancel()
 
-                if (disconnect) {
-                    operation.disconnectClient(reason)
-                }
+                // Rejection/login has already completed. Only cleanup may wait, with a hard
+                // bounded best-effort budget; never wait for a server ACK or call action.
+                if (disconnect && drainTelemetry) operation.telnyxClient?.awaitCallReportV2Drain(1500L)
 
                 Timber.d("$reason, stopping service for startId=${operation.startId}")
             } catch (e: CancellationException) {
@@ -284,6 +291,8 @@ class BackgroundCallDeclineService : Service() {
             } catch (e: Exception) {
                 Timber.e(e, "Error during disconnect")
             } finally {
+                // Cancellation/supersession during the drain must still release this owner.
+                if (disconnect) operation.disconnectClient(reason)
                 clearActiveOperation(operation)
                 stopServiceForStart(operation.startId, reason)
             }

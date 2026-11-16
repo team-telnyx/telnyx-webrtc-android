@@ -21,6 +21,9 @@ object Logger {
         this.customLogger = customLogger
     }
 
+    /** Current log level, readable by observability capture (t027 SDK options reporting). */
+    val currentLevel: LogLevel get() = logLevel
+
     fun v(tag: String? = null, message: String, throwable: Throwable? = null) {
         log(LogLevel.VERTO, tag, message, throwable)
     }

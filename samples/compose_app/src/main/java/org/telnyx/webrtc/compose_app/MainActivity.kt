@@ -32,6 +32,11 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.telnyx.webrtc.common.TelnyxViewModel
+import com.telnyx.webrtc.common.TelnyxCommon
+import com.telnyx.webrtc.sdk.model.PushMetaData
+import com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent
+import com.google.gson.Gson
+import java.util.UUID
 import com.telnyx.webrtc.common.notification.MyFirebaseMessagingService
 import com.telnyx.webrtc.common.notification.LegacyCallNotificationService
 import kotlinx.coroutines.launch
@@ -137,9 +142,24 @@ class MainActivity : ComponentActivity(), DefaultLifecycleObserver {
         action?.let {
             val txPushMetaData =
                 intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
-            Timber.d("Action: $action  ${txPushMetaData ?: "No Metadata"}")
             when (action) {
                 MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
+                    // This PendingIntent targets the Activity directly, not the
+                    // notification receiver. Record the observed user action here.
+                    val observedAtEpochMs = System.currentTimeMillis()
+                    val observedAtMonotonicMs = android.os.SystemClock.elapsedRealtime()
+                    runCatching {
+                        val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
+                        TelnyxCommon.getInstance().recordPushTelemetry(
+                            CallReportV2PushEvent(
+                                fact = CallReportV2PushEvent.Fact.NOTIFICATION_ACTION,
+                                callId = UUID.fromString(metadata.callId),
+                                action = CallReportV2PushEvent.Action.ANSWER,
+                                observedAtEpochMs = observedAtEpochMs,
+                                observedAtMonotonicMs = observedAtMonotonicMs
+                            )
+                        )
+                    }
                     viewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
                 MyFirebaseMessagingService.ACT_OPEN_TO_REPLY -> {

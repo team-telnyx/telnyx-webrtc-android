@@ -61,6 +61,16 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.timerTask
 
+/** The role of a planned ICE server, in Peer's documented order. */
+internal enum class IceServerRole { PRIMARY_STUN, REDUNDANT_STUN, TURN_UDP, TURN_TCP, TURNS_443 }
+
+/** One planned ICE server: the exact URL plus Peer's original credential policy. */
+internal data class IceServerPlanEntry(
+    val role: IceServerRole,
+    val url: String,
+    val withCredentials: Boolean,
+)
+
 /**
  * Peer class that represents a peer connection which is required to initiate a call.
  *
@@ -86,9 +96,11 @@ internal class Peer(
     val onIceCandidateAdd: ((String) -> (Unit))? = null,
     private val audioConstraints: AudioConstraints? = null,
     private val peerConnectionFactoryOverride: PeerConnectionFactory? = null,
+    private val initialV2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null,
 ) {
 
     companion object {
+        private const val V2_FINAL_STATS_TIMEOUT_MS = 250L
         private const val AUDIO_LOCAL_TRACK_ID = "audio_local_track"
         private const val AUDIO_LOCAL_STREAM_ID = "audio_local_stream"
         private const val NEGOTIATION_TIMEOUT = 300L // 300ms timeout for negotiation
@@ -267,13 +279,69 @@ internal class Peer(
             }
         }
 
+        /** Derives the UDP and TCP variants of a TURN URL (single source for Peer and reporting). */
+        internal fun turnTransportVariants(turnUrl: String): Pair<String, String> {
+            val udp = when {
+                turnUrl.contains("transport=tcp") -> turnUrl.replace("transport=tcp", "transport=udp")
+                turnUrl.contains("transport=udp") -> turnUrl // Already UDP
+                turnUrl.contains("?") -> "$turnUrl&transport=udp" // Has other params, append
+                else -> "$turnUrl?transport=udp" // No params, add
+            }
+            val tcp = when {
+                turnUrl.contains("transport=") -> turnUrl // Already has transport param
+                turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
+                else -> "$turnUrl?transport=tcp" // No params, add
+            }
+            return udp to tcp
+        }
+
         /**
-         * Derives a TURNS 443 URL from a given TURN URL.
+         * The exact ICE server plan a Peer configures for the given provided TURN/STUN servers,
+         * defaults included, in Peer's documented order. This is the single source of truth:
+         * [buildIceServers] constructs the real servers from this plan and V2 call-started
+         * reporting counts it — so the reported count always matches the built list by
+         * construction, never by a separately maintained constant.
          *
-         * Maps `turn:` to `turns:`, replaces any port with 443, and ensures
-         * `transport=tcp` is set. The result is the last-resort fallback for
-         * restrictive firewalls that only allow outbound HTTPS traffic.
+         * Default production/development TURN hosts keep their predefined endpoint constants;
+         * a custom TURN URL derives all three endpoint variants. The credential policy is the
+         * original one: every planned server carries the configured TURN credentials except the
+         * redundant public STUN server, which stays credential-free.
          */
+        internal fun iceServerPlan(providedTurn: String, providedStun: String): List<IceServerPlanEntry> {
+            val (turnUdp, turnTcp, turns443) = when (providedTurn) {
+                DEFAULT_TURN -> Triple(DEFAULT_TURN_UDP, DEFAULT_TURN, DEFAULT_TURNS_443)
+                DEV_TURN -> Triple(DEV_TURN_UDP, DEV_TURN, DEV_TURNS_443)
+                else -> Triple(
+                    turnTransportVariants(providedTurn).first,
+                    turnTransportVariants(providedTurn).second,
+                    deriveTurns443Url(providedTurn)
+                )
+            }
+            return listOf(
+                IceServerPlanEntry(IceServerRole.PRIMARY_STUN, providedStun, withCredentials = true),
+                IceServerPlanEntry(IceServerRole.REDUNDANT_STUN, GOOGLE_STUN, withCredentials = false),
+                IceServerPlanEntry(IceServerRole.TURN_UDP, turnUdp, withCredentials = true),
+                IceServerPlanEntry(IceServerRole.TURN_TCP, turnTcp, withCredentials = true),
+                IceServerPlanEntry(IceServerRole.TURNS_443, turns443, withCredentials = true),
+            )
+        }
+
+        /** URL list of the plan (the ordered, defaults-included server URLs the call uses). */
+        internal fun iceServerPlanUrls(providedTurn: String, providedStun: String): List<String> =
+            iceServerPlan(providedTurn, providedStun).map { it.url }
+
+        /** Number of ICE servers a Peer actually configures for the given provided servers (defaults included). */
+        internal fun effectiveIceServerCount(providedTurn: String, providedStun: String): Int =
+            iceServerPlan(providedTurn, providedStun).size
+
+        /** Builds the real [PeerConnection.IceServer] list from the shared plan (single builder path). */
+        internal fun buildIceServers(plan: List<IceServerPlanEntry>): List<PeerConnection.IceServer> =
+            plan.map { entry ->
+                val builder = PeerConnection.IceServer.builder(entry.url)
+                if (entry.withCredentials) builder.setUsername(USERNAME).setPassword(PASSWORD)
+                builder.createIceServer()
+            }
+
         internal fun deriveTurns443Url(turnUrl: String): String {
             var derived = turnUrl
 
@@ -302,6 +370,20 @@ internal class Peer(
         }
     }
 
+    private fun emitCallError(code: Int, message: String? = null) =
+        client.emitError(code, message, v2CaptureToken)
+    private fun emitCallWarning(code: Int) = client.emitWarning(code, v2CaptureToken)
+
+    /**
+     * t027: warning with an owned measurement. [value] is the actual elapsed
+     * measurement that tripped the warning and [threshold] the configured limit
+     * — both read from the Peer's own state, never fabricated.
+     */
+    private fun emitCallWarning(code: Int, metric: String?, value: Double?, threshold: Double?) =
+        client.emitWarning(code, v2CaptureToken,
+            metric?.let { com.telnyx.webrtc.sdk.observability.V2WarningMeasurement(it, value, threshold) })
+
+    private val v2Logger = com.telnyx.webrtc.sdk.observability.V2ScopedLogger { client.callReportV2 }
     private var lastCandidateTime = System.currentTimeMillis()
     private var negotiationTimer: Timer? = null
     private var onNegotiationComplete: (() -> Unit)? = null
@@ -336,6 +418,8 @@ internal class Peer(
     // or ICE_GATHERING_EMPTY when no candidates were gathered at all (VSDK-393).
     private var iceGatheringSafetyTimer: Timer? = null
     private var gatheredCandidatesCount = 0
+    // t027: monotonic anchor for the measured elapsed reported with gathering warnings.
+    private var iceGatheringSafetyArmedElapsedMs: Long? = null
 
     private val mediaConstraints = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
@@ -353,8 +437,12 @@ internal class Peer(
      * 2. Google STUN - Redundancy fallback
      * 3. TURN UDP - Lower latency, preferred for real-time media
      * 4. TURN TCP - Fallback for restrictive firewalls
-     * 5. Primary TURNS 443 - Last-resort fallback for restrictive firewalls
-     * 6. Secondary production TURNS 443 - DNS migration fallback
+     * 5. TURNS 443 - Last-resort fallback for restrictive firewalls
+     *
+     * The exact URLs, order and credential policy come from the shared plan
+     * ([iceServerPlan] via [buildIceServers]); this method only attaches the plan to
+     * diagnostics and logging. V2 call-started reporting uses the same plan for the
+     * effective server count, so the reported count always matches the built list.
      *
      * @see [TxSocket]
      * @see [PeerConnection.IceServer]
@@ -362,22 +450,16 @@ internal class Peer(
      * @return [List] of [PeerConnection.IceServer]
      */
     private fun getIceServers(): List<PeerConnection.IceServer> {
-        val iceServers: MutableList<PeerConnection.IceServer> = ArrayList()
-        Logger.d(tag = ICE_DIAG_TAG, message = {
+        // The shared plan is the single source of truth: the real servers below are built
+        // from it (URLs, order, credentials), so the configured count and the built list
+        // can never drift apart.
+        val plan = iceServerPlan(providedTurn, providedStun)
+        val turnUdp = plan.first { it.role == IceServerRole.TURN_UDP }.url
+        val turnTcp = plan.first { it.role == IceServerRole.TURN_TCP }.url
+        val turns443 = plan.first { it.role == IceServerRole.TURNS_443 }.url
+        v2Logger.d(tag = ICE_DIAG_TAG, message = {
             "Start collection of ice servers | providedStun=$providedStun | providedTurn=$providedTurn | forceRelay=$forceRelayCandidate | prefetchPool=$iceCandidatePoolSize [${SystemClock.elapsedRealtime()}ms]"
         })
-
-        // Determine UDP, TCP and TURNS 443 URLs
-        // Use predefined constants for default Telnyx servers, derive for custom servers
-        val (turnUdp, turnTcp, turns443) = when (providedTurn) {
-            DEFAULT_TURN -> Triple(DEFAULT_TURN_UDP, DEFAULT_TURN, DEFAULT_TURNS_443)
-            DEV_TURN -> Triple(DEV_TURN_UDP, DEV_TURN, DEV_TURNS_443)
-            else -> Triple(
-                deriveUdpTurnUrl(providedTurn),
-                ensureTcpTransport(providedTurn),
-                deriveTurns443Url(providedTurn)
-            )
-        }
 
         recordIceDiagnostic(
             event = "ice_servers_config",
@@ -389,75 +471,14 @@ internal class Peer(
                 "derivedTurnUdp" to IceDiagnosticsCollector.redactIceServerUrl(turnUdp),
                 "derivedTurnTcp" to IceDiagnosticsCollector.redactIceServerUrl(turnTcp),
                 "derivedTurns443" to IceDiagnosticsCollector.redactIceServerUrl(turns443),
-                "serverCount" to iceServers.size,
+                "serverCount" to plan.size,
             ),
         )
-
-        // 1. Telnyx STUN (primary)
-        iceServers.add(
-            PeerConnection.IceServer.builder(providedStun)
-                .setUsername(USERNAME)
-                .setPassword(PASSWORD)
-                .createIceServer()
-        )
-
-        // 2. Google STUN (redundancy)
-        iceServers.add(
-            PeerConnection.IceServer.builder(GOOGLE_STUN)
-                .createIceServer()
-        )
-
-        // 3. TURN UDP (preferred - lower latency)
-        iceServers.add(
-            PeerConnection.IceServer.builder(turnUdp)
-                .setUsername(USERNAME)
-                .setPassword(PASSWORD)
-                .createIceServer()
-        )
-
-        // 4. TURN TCP (fallback for restrictive firewalls)
-        iceServers.add(
-            PeerConnection.IceServer.builder(turnTcp)
-                .setUsername(USERNAME)
-                .setPassword(PASSWORD)
-                .createIceServer()
-        )
-
-        // 5. TURNS 443 (last-resort fallback for highly restrictive firewalls)
-        iceServers.add(
-            PeerConnection.IceServer.builder(turns443)
-                .setUsername(USERNAME)
-                .setPassword(PASSWORD)
-                .createIceServer()
-        )
-
-        Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp, TURNS: $turns443)")
+        // The plan carries the exact URLs, order and the original credential policy; the real
+        // servers are built from it in one place.
+        val iceServers: List<PeerConnection.IceServer> = buildIceServers(plan)
+        v2Logger.d(message = "End collection of ice servers: ${iceServers.size} servers configured (UDP: $turnUdp, TCP: $turnTcp, TURNS: $turns443)")
         return iceServers
-    }
-
-    /**
-     * Derives a UDP TURN URL from a given TURN URL.
-     * Handles both URLs with existing transport param and those without.
-     */
-    private fun deriveUdpTurnUrl(turnUrl: String): String {
-        return when {
-            turnUrl.contains("transport=tcp") -> turnUrl.replace("transport=tcp", "transport=udp")
-            turnUrl.contains("transport=udp") -> turnUrl // Already UDP
-            turnUrl.contains("?") -> "$turnUrl&transport=udp" // Has other params, append
-            else -> "$turnUrl?transport=udp" // No params, add
-        }
-    }
-
-    /**
-     * Ensures a TURN URL has TCP transport specified.
-     * If no transport is specified, adds transport=tcp.
-     */
-    private fun ensureTcpTransport(turnUrl: String): String {
-        return when {
-            turnUrl.contains("transport=") -> turnUrl // Already has transport param
-            turnUrl.contains("?") -> "$turnUrl&transport=tcp" // Has other params, append
-            else -> "$turnUrl?transport=tcp" // No params, add
-        }
     }
 
     val iceCandidatePoolSize = getIceCandidatePool()
@@ -491,6 +512,7 @@ internal class Peer(
      * See: https://github.com/team-telnyx/telnyx-webrtc-android/issues/787
      */
     internal val isDisposed = AtomicBoolean(false)
+    private val v2PeerSnapshotLock = Any()
 
     /**
      * Serialises native reads of [peerConnection] against `dispose()` (VSUP-324).
@@ -543,12 +565,12 @@ internal class Peer(
 
     private fun logAudioTrackAndTransceiverState(contextTag: String) {
         if (peerConnection == null) {
-            Logger.w(tag = "Peer:AudioState", message = "$contextTag - PeerConnection is null.")
+            v2Logger.w(tag = "Peer:AudioState", message = "$contextTag - PeerConnection is null.")
             return
         }
-        Logger.d(tag = "Peer:AudioState", message = "$contextTag - Checking audio state...")
+        v2Logger.d(tag = "Peer:AudioState", message = "$contextTag - Checking audio state...")
         val localTrackId = localAudioTrack?.id()
-        Logger.d(
+        v2Logger.d(
             tag = "Peer:AudioState",
             message = "$contextTag - LocalAudioTrack ID: $localTrackId, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}"
         )
@@ -558,22 +580,23 @@ internal class Peer(
         }
 
         if (audioTransceiver == null) {
-            Logger.w(tag = "Peer:AudioState", message = "$contextTag - No audio transceiver found.")
+            v2Logger.w(tag = "Peer:AudioState", message = "$contextTag - No audio transceiver found.")
         } else {
+            reportV2PeerMedia(audioTransceiver)
             val senderTrackId = audioTransceiver.sender.track()?.id()
-            Logger.d(
+            v2Logger.d(
                 tag = "Peer:AudioState",
                 message = "$contextTag - Audio Transceiver Found: Mid: ${audioTransceiver.mid}, Direction: ${audioTransceiver.direction}, CurrentDirection: ${audioTransceiver.currentDirection}, Sender Track ID: $senderTrackId, Receiver Track ID: ${
                     audioTransceiver.receiver.track()?.id()
                 }, Stopped: ${audioTransceiver.isStopped}"
             )
             if (senderTrackId != null && localTrackId != null && senderTrackId != localTrackId) {
-                Logger.w(
+                v2Logger.w(
                     tag = "Peer:AudioState",
                     message = "$contextTag - Audio transceiver sender track ID [$senderTrackId] does NOT match localAudioTrack ID [$localTrackId]"
                 )
             } else if (senderTrackId == null && localTrackId != null) {
-                Logger.w(
+                v2Logger.w(
                     tag = "Peer:AudioState",
                     message = "$contextTag - Audio transceiver sender track is null, but localAudioTrack ID is [$localTrackId]"
                 )
@@ -583,14 +606,16 @@ internal class Peer(
 
     private val observer = object : PeerConnection.Observer {
         override fun onSignalingChange(p0: PeerConnection.SignalingState?) {
-            Logger.d(tag = "Observer", message = "Signaling State Change: $p0")
+            v2Logger.d(tag = "Observer", message = "Signaling State Change: $p0")
+            p0?.let { state -> v2CaptureToken?.let { client.callReportV2?.peerState(it, "signaling_state", state.name) } }
             peerConnectionObserver?.onSignalingChange(p0)
             // Notify debug data collector
             p0?.let { client.debugDataCollector.onSignalingStateChange(callId, it.name) }
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            newState?.let { state -> v2CaptureToken?.let { client.callReportV2?.iceConnectionState(it, state.name) } }
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
             newState?.let { recordIceDiagnostic(event = "ice_connection_state", fields = mapOf("state" to it.name)) }
@@ -609,7 +634,14 @@ internal class Peer(
                     PeerConnection.IceConnectionState.COMPLETED -> LatencyTracker.MILESTONE_ICE_COMPLETED
                     else -> null
                 }
-                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+                milestone?.let {
+                    client.latencyTracker.markCallMilestone(callId, it)
+                    when (it) {
+                        LatencyTracker.MILESTONE_ICE_CONNECTED -> reportV2Timing("ice_connected_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_STARTED -> reportV2Timing("ice_gathering_started_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE -> reportV2Timing("all_ice_candidates_gathered_ms")
+                    }
+                }
             }
 
             // Handle ICE connection state transitions
@@ -625,7 +657,7 @@ internal class Peer(
         }
 
         override fun onIceConnectionReceivingChange(p0: Boolean) {
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection Receiving Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
             recordIceDiagnostic(event = "ice_receiving_change", fields = mapOf("receiving" to p0))
@@ -633,7 +665,7 @@ internal class Peer(
         }
 
         override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Gathering State Change: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
             p0?.let { recordIceDiagnostic(event = "ice_gathering_state", fields = mapOf("state" to it.name)) }
@@ -659,7 +691,14 @@ internal class Peer(
                     PeerConnection.IceGatheringState.COMPLETE -> LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE
                     else -> null
                 }
-                milestone?.let { client.latencyTracker.markCallMilestone(callId, it) }
+                milestone?.let {
+                    client.latencyTracker.markCallMilestone(callId, it)
+                    when (it) {
+                        LatencyTracker.MILESTONE_ICE_CONNECTED -> reportV2Timing("ice_connected_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_STARTED -> reportV2Timing("ice_gathering_started_ms")
+                        LatencyTracker.MILESTONE_ICE_GATHERING_COMPLETE -> reportV2Timing("all_ice_candidates_gathered_ms")
+                    }
+                }
             }
 
             // Send end-of-candidates when ICE gathering is complete and trickle ICE is enabled.
@@ -669,6 +708,7 @@ internal class Peer(
                 sendOrQueueIceRestartEndOfCandidates()
             }
 
+            p0?.let { state -> v2CaptureToken?.let { client.callReportV2?.peerState(it, "ice_gathering_state", state.name) } }
             peerConnectionObserver?.onIceGatheringChange(p0)
             // Notify debug data collector
             p0?.let { client.debugDataCollector.onIceGatheringStateChange(callId, it.name) }
@@ -678,6 +718,13 @@ internal class Peer(
             // Count gathered candidates for the gathering safety watchdog (JS parity)
             if (candidate != null) {
                 gatheredCandidatesCount++
+                v2CaptureToken?.let { client.callReportV2?.candidate(it, candidate.sdp, remote = false,
+                    ufrag = peerConnection?.localDescription?.description?.lineSequence()?.firstOrNull { line -> line.startsWith("a=ice-ufrag:") }?.removePrefix("a=ice-ufrag:")?.trim(),
+                    // JS uses trickle || !peer.iceDone: this is eligibility, not write acceptance.
+                    // Native has no authoritative non-trickle SDP-freeze latch here, so omit it.
+                    signaled = true.takeIf { useTrickleIce },
+                    serverUrl = candidate.serverUrl?.takeIf { url -> url.isNotBlank() },
+                    adapterType = candidate.adapterType) }
             }
             // Signal that the first candidate has been received (only once)
             if (!firstCandidateReceived) {
@@ -687,13 +734,14 @@ internal class Peer(
                 CallTimingBenchmark.markFirstCandidate()
                 // Track latency milestone for first ICE candidate
                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_FIRST_ICE_CANDIDATE)
-                Logger.d(
+                reportV2Timing("first_ice_candidate_ms")
+                v2Logger.d(
                     tag = "Observer",
                     message = "First ICE candidate processed, completing deferred."
                 )
             }
 
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "Event-IceCandidate Generated: $candidate [${SystemClock.elapsedRealtime()}ms]"
             })
             candidate?.let {
@@ -705,23 +753,25 @@ internal class Peer(
                         "sdpMLineIndex" to it.sdpMLineIndex,
                     ),
                 )
-                Logger.d(tag = ICE_DIAG_TAG, message = {
+                v2Logger.d(tag = ICE_DIAG_TAG, message = {
                     "Processing ICE candidate: ${describeCandidate(it)} | sdpMid=${it.sdpMid} | sdpMLineIndex=${it.sdpMLineIndex} | sdp=${it.sdp} [${SystemClock.elapsedRealtime()}ms]"
                 })
+                val candidateType = extractCandidateType(it.sdp)
+                if (candidateType == "srflx" || candidateType == "relay") reportV2Timing("first_srflx_or_relay_candidate_ms")
                 if (useTrickleIce) {
                     var sendImmediately = false
                     candidateLock.lock()
                     try {
                         if (iceRestartModifyPending) {
                             queuedIceRestartCandidates.add(it)
-                            Logger.d(
+                            v2Logger.d(
                                 tag = "Observer",
                                 message = "ICE restart candidate queued until updateMedia is sent: $it",
                             )
                         } else if (isAnswering && !answerSent) {
                             // Answering side: Queue candidate until ANSWER is sent
                             queuedCandidates.add(it)
-                            Logger.d(
+                            v2Logger.d(
                                 tag = "Observer",
                                 message = "ICE candidate queued for answering side (ANSWER not sent yet): $it"
                             )
@@ -734,7 +784,7 @@ internal class Peer(
 
                     if (sendImmediately) {
                         sendIceCandidate(it)
-                        Logger.d(
+                        v2Logger.d(
                             tag = "Observer",
                             message = "ICE candidate sent via trickle ICE: $it (isAnswering=$isAnswering, answerSent=$answerSent)"
                         )
@@ -743,12 +793,12 @@ internal class Peer(
                     }
 
                     // Notify debug data collector about ICE candidate
-                    val candidateType = extractCandidateType(it.sdp)
                     val protocol = extractProtocol(it.sdp)
                     client.debugDataCollector.onIceCandidateAdded(callId, candidateType, protocol)
                     
                     // Track first server-reflexive or relay candidate
                     client.latencyTracker.markFirstSrflxRelayCandidate(callId, candidateType)
+
                 } else {
                     // Traditional ICE: Only process if call is not ACTIVE or RENEGOTIATING yet
                     val currentCallState = client.calls[callId]?.callStateFlow?.value
@@ -760,11 +810,11 @@ internal class Peer(
                         currentCallState == CallState.RENEGOTIATING
                     ) {
                         peerConnection?.addIceCandidate(it)
-                        Logger.d(tag = "Observer", message = "ICE candidate added: $it")
+                        v2Logger.d(tag = "Observer", message = "ICE candidate added: $it")
                         onIceCandidateAdd?.invoke(it.serverUrl)
                         lastCandidateTime = System.currentTimeMillis()
                     } else {
-                        Logger.d(
+                        v2Logger.d(
                             tag = "Observer",
                             message = "ICE candidate ignored - call is ACTIVE and not renegotiating"
                         )
@@ -775,7 +825,7 @@ internal class Peer(
         }
 
         override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Candidates Removed: $p0 [${SystemClock.elapsedRealtime()}ms]"
             })
             recordIceDiagnostic(event = "candidates_removed", fields = mapOf("count" to (p0?.size ?: 0)))
@@ -784,7 +834,7 @@ internal class Peer(
 
         override fun onSelectedCandidatePairChanged(event: CandidatePairChangeEvent?) {
             event?.let {
-                Logger.d(tag = ICE_DIAG_TAG, throwable = null, message = {
+                v2Logger.d(tag = ICE_DIAG_TAG, throwable = null, message = {
                     "SELECTED PAIR CHANGED: local=${describeCandidate(it.local)} remote=${describeCandidate(it.remote)} reason=${it.reason} lastDataReceivedMs=${it.lastDataReceivedMs} estDisconnectedMs=${it.estimatedDisconnectedTimeMs} [${SystemClock.elapsedRealtime()}ms]"
                 })
                 recordIceDiagnostic(
@@ -804,30 +854,37 @@ internal class Peer(
         }
 
         override fun onAddStream(p0: MediaStream?) {
-            Logger.d(tag = "Observer", message = "Stream Added: $p0")
+            v2Logger.d(tag = "Observer", message = "Stream Added: $p0")
             peerConnectionObserver?.onAddStream(p0)
         }
 
         override fun onRemoveStream(p0: MediaStream?) {
-            Logger.d(tag = "Observer", message = "Stream Removed: $p0")
+            v2Logger.d(tag = "Observer", message = "Stream Removed: $p0")
             peerConnectionObserver?.onRemoveStream(p0)
         }
 
+        override fun onAddTrack(receiver: com.telnyx.webrtc.lib.RtpReceiver?, streams: Array<out MediaStream>?) {
+            reportV2Timing("first_remote_track_ms")
+            v2CaptureToken?.let { client.callReportV2?.peerState(it, "remote_track", "added") }
+            peerConnectionObserver?.onAddTrack(receiver, streams)
+        }
+
         override fun onDataChannel(p0: DataChannel?) {
-            Logger.d(tag = "Observer", message = "Data Channel: $p0")
+            v2Logger.d(tag = "Observer", message = "Data Channel: $p0")
             peerConnectionObserver?.onDataChannel(p0)
         }
 
         override fun onRenegotiationNeeded() {
-            Logger.d(tag = "Observer", message = "Renegotiation Needed")
+            v2Logger.d(tag = "Observer", message = "Renegotiation Needed")
             peerConnectionObserver?.onRenegotiationNeeded()
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
-            Logger.d(tag = ICE_DIAG_TAG, message = {
+            v2Logger.d(tag = ICE_DIAG_TAG, message = {
                 "Peer Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
             newState?.let { recordIceDiagnostic(event = "peer_connection_state", fields = mapOf("state" to it.name)) }
+            newState?.let { state -> v2CaptureToken?.let { client.callReportV2?.peerState(it, "peer_connection_state", state.name) } }
             peerConnectionObserver?.onConnectionChange(newState)
 
             // Drive the recovery monitor on peer-connection FAILED.
@@ -850,9 +907,9 @@ internal class Peer(
             // 'disconnected' -> ICE_CONNECTIVITY_LOST, 'failed' -> PEER_CONNECTION_FAILED.
             when (newState) {
                 PeerConnection.PeerConnectionState.DISCONNECTED ->
-                    client.emitWarning(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code)
+                    emitCallWarning(TelnyxWarningCode.ICE_CONNECTIVITY_LOST.code)
                 PeerConnection.PeerConnectionState.FAILED ->
-                    client.emitWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code)
+                    emitCallWarning(TelnyxWarningCode.PEER_CONNECTION_FAILED.code)
                 else -> Unit
             }
         }
@@ -875,7 +932,7 @@ internal class Peer(
             }
         }
 
-        Logger.d(tag = ICE_DIAG_TAG, message = {
+        v2Logger.d(tag = ICE_DIAG_TAG, message = {
             "RTCConfiguration: sdpSemantics=${config.sdpSemantics} bundlePolicy=${config.bundlePolicy} continualGatheringPolicy=${config.continualGatheringPolicy} iceCandidatePoolSize=${config.iceCandidatePoolSize} iceTransportsType=${config.iceTransportsType} | iceServers=${iceServer.size} [${SystemClock.elapsedRealtime()}ms]"
         })
         recordIceDiagnostic(
@@ -890,7 +947,11 @@ internal class Peer(
             ),
         )
 
-        return peerConnectionFactory.createPeerConnection(config, observer)
+        v2CaptureToken?.let { client.callReportV2?.peerConfiguration(it,
+            com.telnyx.webrtc.sdk.observability.V2PeerConfiguration(forceRelayCandidate, config.iceCandidatePoolSize, iceServer.size)) }
+        return peerConnectionFactory.createPeerConnection(config, observer).also {
+            if (it != null) reportV2Timing("peer_setup_complete_ms")
+        }
     }
 
     /**
@@ -902,10 +963,10 @@ internal class Peer(
      * @see [RtpTransceiver]
      */
     fun startLocalAudioCapture(constraints: AudioConstraints? = null) {
-        Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
+        v2Logger.d(tag = "Peer:Audio", message = "Attempting to start local audio capture...")
 
         if (localAudioTrack != null) {
-            Logger.d(
+            v2Logger.d(
                 tag = "Peer:Audio",
                 message = "Local audio capture is already active; reusing the existing track.",
             )
@@ -914,7 +975,7 @@ internal class Peer(
 
         // Use provided constraints, fall back to constructor constraints, or default to all enabled
         val effectiveConstraints = constraints ?: audioConstraints ?: AudioConstraints()
-        Logger.d(
+        v2Logger.d(
             tag = "Peer:Audio",
             message = "Audio constraints: echoCancellation=${effectiveConstraints.echoCancellation}, " +
                     "noiseSuppression=${effectiveConstraints.noiseSuppression}, " +
@@ -943,7 +1004,7 @@ internal class Peer(
         )
 
         if (localAudioTrack == null) {
-            Logger.e(tag = "Peer:Audio", message = "Failed to create local audio track.")
+            v2Logger.e(tag = "Peer:Audio", message = "Failed to create local audio track.")
             // Track getUserMedia failure
             client.debugDataCollector.onMicrophoneAccessError(callId, "Failed to create local audio track")
             return
@@ -951,6 +1012,9 @@ internal class Peer(
 
         localAudioTrack?.setEnabled(true)
         localAudioTrack?.setVolume(1.0)
+        localAudioTrack?.let { track -> v2CaptureToken?.let { client.callReportV2?.inputTrack(it, track.enabled(), muted = runCatching {
+            (client.context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager)?.isMicrophoneMute
+        }.getOrNull()) } }
 
         // Track getUserMedia success with track details
         val track = localAudioTrack
@@ -962,7 +1026,7 @@ internal class Peer(
                 track.enabled()
             )
         }
-        Logger.d(
+        v2Logger.d(
             tag = "Peer:Audio",
             message = "Local audio track created. ID: ${localAudioTrack?.id()}, State: ${localAudioTrack?.state()}, Enabled: ${localAudioTrack?.enabled()}"
         )
@@ -974,6 +1038,7 @@ internal class Peer(
         
         // Mark media devices acquired milestone
         client.latencyTracker.markMediaDevicesAcquired(callId)
+        reportV2Timing("media_devices_acquired_ms")
     }
 
     /**
@@ -984,7 +1049,7 @@ internal class Peer(
      */
     private fun PeerConnection.call(sdpObserver: SdpObserver) {
         if (localAudioTrack == null) {
-            Logger.w(
+            v2Logger.w(
                 tag = "Call",
                 message = "Local audio track not initialized before creating offer."
             )
@@ -992,50 +1057,56 @@ internal class Peer(
         
         // Mark SDP negotiation started milestone
         client.latencyTracker.markSdpNegotiationStarted(callId)
+        reportV2Timing("sdp_negotiation_started_ms")
         
         createOffer(
             object : SdpObserver by sdpObserver {
                 override fun onCreateSuccess(desc: SessionDescription?) {
                     // Track local SDP created milestone
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
+                    reportV2Timing("sdp_local_created_ms")
                     
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(
+                                v2Logger.e(
                                     tag = "Call",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
-                                client.emitError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
+                                emitCallError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
+                                v2Logger.d(tag = "Call", message = "setLocalDescription onSetSuccess")
                                 // Track local SDP set milestone
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
                                 // JS parity (VSDK-393): warn when local SDP contains
                                 // only host candidates (no srflx/relay) — likely
                                 // to fail connectivity outside same network.
                                 warnIfOnlyHostIceCandidates()
+                                reportV2Timing("local_description_applied_ms")
+                                peerConnection?.localDescription?.description?.let { sdp ->
+                                    v2CaptureToken?.let { client.callReportV2?.description(it, sdp, remote = false) }
+                                }
                             }
 
                             override fun onCreateSuccess(p0: SessionDescription?) {
-                                Logger.d(tag = "Call", message = "createOffer onCreateSuccess")
+                                v2Logger.d(tag = "Call", message = "createOffer onCreateSuccess")
                             }
 
                             override fun onCreateFailure(p0: String?) {
-                                Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
+                                v2Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
                                 sdpObserver.onCreateFailure(p0)
                             }
                         },
                         desc
                     )
                     sdpObserver.onCreateSuccess(desc)
-                    Logger.d(tag = "SDP", message = "[Local Offer SDP]:\n${desc?.description}")
+                    v2Logger.d(tag = "SDP", message = "[Local Offer SDP]:\n${desc?.description}")
                 }
 
                 override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
+                    v2Logger.e(tag = "Call", message = "createOffer onCreateFailure $p0")
                     sdpObserver.onCreateFailure(p0)
                 }
             },
@@ -1050,23 +1121,24 @@ internal class Peer(
      * @see [SdpObserver]
      */
     private fun PeerConnection.answer(sdpObserver: SdpObserver) {
-        Logger.d(tag = "Answer", message = "Preparing to create answer...")
+        v2Logger.d(tag = "Answer", message = "Preparing to create answer...")
 
-        Logger.d(
+        v2Logger.d(
             tag = "Answer",
             message = "Adjusting transceiver directions before createAnswer..."
         )
         this.transceivers.forEach { transceiver ->
+            if (transceiver.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO) reportV2PeerMedia(transceiver)
             when (transceiver.mediaType) {
                 MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO -> {
                     if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.SEND_RECV) {
-                        Logger.w(
+                        v2Logger.w(
                             tag = "Answer",
                             message = "Audio transceiver direction was ${transceiver.direction}. Setting to SEND_RECV."
                         )
                         transceiver.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
                     } else {
-                        Logger.d(
+                        v2Logger.d(
                             tag = "Answer",
                             message = "Audio transceiver direction already SEND_RECV."
                         )
@@ -1076,12 +1148,12 @@ internal class Peer(
                 MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
                     if (transceiver.direction != RtpTransceiver.RtpTransceiverDirection.INACTIVE) {
                         transceiver.direction = RtpTransceiver.RtpTransceiverDirection.INACTIVE
-                        Logger.d(
+                        v2Logger.d(
                             tag = "Answer",
                             message = "Setting video transceiver [Mid: ${transceiver.mid}] direction to INACTIVE"
                         )
                     } else {
-                        Logger.d(
+                        v2Logger.d(
                             tag = "Answer",
                             message = "Video transceiver [Mid: ${transceiver.mid}] direction already INACTIVE."
                         )
@@ -1089,7 +1161,7 @@ internal class Peer(
                 }
 
                 else -> {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "Answer",
                         message = "Ignoring transceiver with unknown media type: ${transceiver.mediaType}"
                     )
@@ -1100,6 +1172,7 @@ internal class Peer(
         
         // Mark SDP negotiation started milestone
         client.latencyTracker.markSdpNegotiationStarted(callId)
+        reportV2Timing("sdp_negotiation_started_ms")
 
         createAnswer(
             object : SdpObserver by sdpObserver {
@@ -1107,26 +1180,31 @@ internal class Peer(
                     CallTimingBenchmark.mark("local_answer_created")
                     // Track local SDP created milestone
                     client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_CREATED)
+                    reportV2Timing("sdp_local_created_ms")
                     logAllTransceiverStates("After createAnswer success, before setLocalDescription")
 
                     setLocalDescription(
                         object : SdpObserver {
                             override fun onSetFailure(p0: String?) {
-                                Logger.e(
+                                v2Logger.e(
                                     tag = "Answer",
                                     message = "setLocalDescription onSetFailure $p0"
                                 )
-                                client.emitError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
+                                emitCallError(TelnyxErrorCode.SDP_SET_LOCAL_DESCRIPTION_FAILED.code) // SDP_SET_LOCAL_DESCRIPTION_FAILED
                             }
 
                             override fun onSetSuccess() {
-                                Logger.d(
+                                v2Logger.d(
                                     tag = "Answer",
                                     message = "setLocalDescription onSetSuccess"
                                 )
                                 CallTimingBenchmark.mark("local_answer_sdp_set")
                                 // Track local SDP set milestone
                                 client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_LOCAL_SDP_SET)
+                                reportV2Timing("local_description_applied_ms")
+                                peerConnection?.localDescription?.description?.let { sdp ->
+                                    v2CaptureToken?.let { client.callReportV2?.description(it, sdp, remote = false) }
+                                }
                                 logAllTransceiverStates("After setLocalDescription success")
                             }
 
@@ -1139,11 +1217,11 @@ internal class Peer(
                         desc
                     )
                     sdpObserver.onCreateSuccess(desc)
-                    Logger.d(tag = "SDP", message = "[Local Answer SDP]:\n${desc?.description}")
+                    v2Logger.d(tag = "SDP", message = "[Local Answer SDP]:\n${desc?.description}")
                 }
 
                 override fun onCreateFailure(p0: String?) {
-                    Logger.e(tag = "Answer", message = "createAnswer onCreateFailure $p0")
+                    v2Logger.e(tag = "Answer", message = "createAnswer onCreateFailure $p0")
                     sdpObserver.onCreateFailure(p0)
                 }
             },
@@ -1153,16 +1231,17 @@ internal class Peer(
 
     private fun logAllTransceiverStates(contextTag: String) {
         if (peerConnection == null) return
-        Logger.d(tag = "TransceiverState", message = "--- Transceiver States [$contextTag] ---")
+        v2Logger.d(tag = "TransceiverState", message = "--- Transceiver States [$contextTag] ---")
         peerConnection?.transceivers?.forEachIndexed { index, t ->
-            Logger.d(
+            if (t.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO) reportV2PeerMedia(t)
+            v2Logger.d(
                 tag = "TransceiverState",
                 message = "[$contextTag] Transceiver[$index]: Mid=${t.mid}, MediaType=${t.mediaType}, Direction=${t.direction}, CurrentDirection=${t.currentDirection}, Stopped=${t.isStopped}, SenderTrack=${
                     t.sender.track()?.id()
                 }, ReceiverTrack=${t.receiver.track()?.id()}"
             )
         }
-        Logger.d(tag = "TransceiverState", message = "--- End Transceiver States [$contextTag] ---")
+        v2Logger.d(tag = "TransceiverState", message = "--- End Transceiver States [$contextTag] ---")
     }
 
     /**
@@ -1185,22 +1264,22 @@ internal class Peer(
      * @see [SessionDescription]
      */
     fun onRemoteSessionReceived(sessionDescription: SessionDescription) {
-        Logger.d(
+        v2Logger.d(
             tag = "SDP",
             message = "[Remote Offer/Answer SDP Received]:\n${sessionDescription.description}"
         )
         peerConnection?.setRemoteDescription(
             object : SdpObserver {
                 override fun onSetFailure(p0: String?) {
-                    client.onRemoteSessionErrorReceived(p0)
-                    Logger.e(
+                    client.onRemoteSessionErrorReceived(p0, v2CaptureToken)
+                    v2Logger.e(
                         tag = "RemoteSessionReceived",
                         message = "Set Remote Description Failed: $p0"
                     )
                 }
 
                 override fun onSetSuccess() {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "RemoteSessionReceived",
                         message = "Set Remote Description Success"
                     )
@@ -1210,6 +1289,8 @@ internal class Peer(
                         SessionDescription.Type.ANSWER -> CallTimingBenchmark.mark("remote_answer_sdp_set")
                         else -> CallTimingBenchmark.mark("remote_sdp_set")
                     }
+                    reportV2Timing("remote_description_applied_ms")
+                    v2CaptureToken?.let { client.callReportV2?.description(it, sessionDescription.description, remote = true) }
                     logAllTransceiverStates("After setRemoteDescription success")
                 }
 
@@ -1217,11 +1298,11 @@ internal class Peer(
                 }
 
                 override fun onCreateFailure(p0: String?) {
-                    Logger.e(
+                    v2Logger.e(
                         tag = "RemoteSessionReceived",
                         message = "Set Remote Description reported onCreateFailure: $p0"
                     )
-                    client.onRemoteSessionErrorReceived(p0)
+                    client.onRemoteSessionErrorReceived(p0, v2CaptureToken)
                 }
             },
             sessionDescription
@@ -1234,7 +1315,7 @@ internal class Peer(
      * @see [IceCandidate]
      */
     fun addIceCandidate(iceCandidate: IceCandidate?) {
-        Logger.d(tag = ICE_DIAG_TAG, message = {
+        v2Logger.d(tag = ICE_DIAG_TAG, message = {
             "REMOTE ICE candidate added: ${describeCandidate(iceCandidate)} | sdpMid=${iceCandidate?.sdpMid} | sdp=${iceCandidate?.sdp} [${SystemClock.elapsedRealtime()}ms]"
         })
         recordIceDiagnostic(
@@ -1244,7 +1325,12 @@ internal class Peer(
                 "sdpMid" to iceCandidate?.sdpMid,
             ),
         )
-        peerConnection?.addIceCandidate(iceCandidate)
+        // Gathering/receipt is not successful application. A missing peer or rejected
+        // native add must not be recorded as an applied remote candidate.
+        val accepted = peerConnection?.addIceCandidate(iceCandidate) == true
+        if (accepted) iceCandidate?.let { candidate ->
+            v2CaptureToken?.let { client.callReportV2?.candidate(it, candidate.sdp, remote = true) }
+        }
     }
 
     /**
@@ -1271,7 +1357,7 @@ internal class Peer(
                 )
             )
 
-            Logger.d(
+            v2Logger.d(
                 tag = "CandidateSend",
                 message = "Sending cleaned candidate: $cleanedCandidateString"
             )
@@ -1285,7 +1371,7 @@ internal class Peer(
     private fun sendEndOfCandidates() {
         // Prevent sending duplicate end-of-candidates signals
         if (endOfCandidatesSent) {
-            Logger.d(tag = "EndOfCandidates", message = "Already sent, skipping duplicate")
+            v2Logger.d(tag = "EndOfCandidates", message = "Already sent, skipping duplicate")
             return
         }
 
@@ -1307,7 +1393,7 @@ internal class Peer(
             // Stop the timer since we've sent the signal
             stopEndOfCandidatesTimer()
 
-            Logger.d(tag = "EndOfCandidates", message = "Signal sent successfully")
+            v2Logger.d(tag = "EndOfCandidates", message = "Signal sent successfully")
         }
     }
 
@@ -1345,6 +1431,10 @@ internal class Peer(
      * asynchronous callbacks it registers (e.g. getStats) run after the lock is
      * released and must not touch the connection.
      */
+    private fun reportV2Timing(field: String) {
+        v2CaptureToken?.let { client.callReportV2?.timing(it, field) }
+    }
+
     internal fun <T> withLiveConnection(block: (PeerConnection) -> T): T? {
         val readLock = disposeLock.readLock()
         if (!readLock.tryLock()) return null
@@ -1353,6 +1443,30 @@ internal class Peer(
             return if (connection == null || isDisposed.get()) null else block(connection)
         } finally {
             readLock.unlock()
+        }
+    }
+
+    internal fun v2CaptureEnabled(): Boolean = client.callReportV2?.collectsStats() == true
+
+    internal var v2CaptureToken: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = initialV2CaptureToken
+
+    internal fun captureV2Stats(token: com.telnyx.webrtc.sdk.observability.V2CaptureToken,
+                                report: com.telnyx.webrtc.lib.RTCStatsReport) {
+        if (!v2CaptureEnabled()) return
+        client.callReportV2?.stats(token, report)
+        reportV2PeerMedia()
+    }
+
+    private fun reportV2PeerMedia(transceiver: RtpTransceiver? = null) {
+        val token = v2CaptureToken ?: return
+        val sink = client.callReportV2 ?: return
+        if (!sink.collectsStats()) return
+        synchronized(v2PeerSnapshotLock) {
+            if (!isDisposed.get()) peerConnection?.let { connection ->
+                com.telnyx.webrtc.sdk.observability.V2PeerMediaReader.snapshot(connection, localAudioTrack, transceiver)?.let {
+                    sink.peerMedia(token, it)
+                }
+            }
         }
     }
 
@@ -1399,10 +1513,27 @@ internal class Peer(
             // close() leaves the native object alive, so it needs no lock.
             val connection = peerConnection
             peerConnection = null
-            connection?.close()
-            connection?.let { disposeWhenNoReaders(it) }
+            val capture = client.callReportV2
+            val token = v2CaptureToken
+            if (capture?.collectsStats() == true && token != null && connection != null) {
+                // V2: capture one final stats snapshot before the native peer is
+                // freed; teardown runs exactly once afterwards, even on timeout.
+                com.telnyx.webrtc.sdk.observability.FinalStatsCapture<com.telnyx.webrtc.lib.RTCStatsReport> { timeout ->
+                    val timer = java.util.Timer("telnyx-v2-final-stats", true)
+                    timer.schedule(object : java.util.TimerTask() {
+                        override fun run() { timeout(); timer.cancel() }
+                    }, V2_FINAL_STATS_TIMEOUT_MS)
+                    val cancel: () -> Unit = { timer.cancel() }
+                    cancel
+                }.finish(request = { callback -> connection.getStats { callback(it) } },
+                    capture = { capture.peerClosing(token, it) },
+                    dispose = { closeAndDispose(connection) })
+            } else {
+                token?.let { capture?.peerClosing(it, null) }
+                connection?.let { closeAndDispose(it) }
+            }
         } catch (e: IllegalStateException) {
-            Logger.e(message = "Error during peer connection disconnect: $e")
+            v2Logger.e(message = "Error during peer connection disconnect: $e")
         }
     }
 
@@ -1435,6 +1566,22 @@ internal class Peer(
     }
 
     /**
+     * Closes then disposes [connection] once in-flight readers finish (VSUP-324).
+     * Used by V2 final-stats teardown so the capture runs before the native
+     * object is freed while keeping the same use-after-free protections.
+     */
+    private fun closeAndDispose(connection: PeerConnection) {
+        try {
+            connection.close()
+        } catch (failure: IllegalStateException) {
+            v2Logger.e(message = "Error closing peer after final stats: $failure")
+        }
+        synchronized(v2PeerSnapshotLock) {
+            disposeWhenNoReaders(connection)
+        }
+    }
+
+    /**
      * Sets a callback to be invoked when ICE negotiation is complete
      */
     fun setOnNegotiationComplete(callback: () -> Unit) {
@@ -1455,13 +1602,13 @@ internal class Peer(
                 val currentTime = System.currentTimeMillis()
                 val timeSinceLastCandidate = currentTime - lastCandidateTime
 
-                Logger.d(
+                v2Logger.d(
                     tag = "NegotiationTimer",
                     message = "Time since last candidate: ${timeSinceLastCandidate}ms"
                 )
 
                 if (timeSinceLastCandidate >= NEGOTIATION_TIMEOUT) {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "NegotiationTimer",
                         message = "Negotiation timeout reached - Invoking onNegotiationComplete"
                     )
@@ -1480,7 +1627,7 @@ internal class Peer(
         negotiationTimer?.cancel()
         negotiationTimer?.purge()
         negotiationTimer = null
-        Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
+        v2Logger.d(tag = "NegotiationTimer", message = "Negotiation timer stopped.")
     }
 
     /** Starts a monitor-owned ICE restart for one recovery generation. */
@@ -1489,7 +1636,7 @@ internal class Peer(
     }
 
     private fun startIceRenegotiationInternal(recoveryGeneration: Long?) {
-        Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
+        v2Logger.d(tag = "ICE_RENEGOTIATION", message = "Starting ICE renegotiation process")
 
         if (isDisposed.get() || peerConnection == null) {
             recordIceRestartEvent(
@@ -1518,7 +1665,7 @@ internal class Peer(
                     return
                 }
                 sessionDescription?.let { sdp ->
-                    Logger.d(
+                    v2Logger.d(
                         tag = "ICE_RENEGOTIATION",
                         message = "ICE restart offer created successfully"
                     )
@@ -1531,10 +1678,13 @@ internal class Peer(
                             ) {
                                 return
                             }
-                            Logger.d(
+                            v2Logger.d(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Local description set for ICE restart"
                             )
+                            v2CaptureToken?.let { token -> peerConnection?.localDescription?.description?.let {
+                                client.callReportV2?.description(token, it, remote = false)
+                            } }
 
                             if (trickle) {
                                 // Match the JS/RN flow: send the restart offer immediately,
@@ -1551,13 +1701,13 @@ internal class Peer(
                                 // one complete SDP without the trickle field.
                                 setOnNegotiationComplete {
                                     if (!isCurrentRecoveryGeneration(recoveryGeneration)) {
-                                        Logger.d(
+                                        v2Logger.d(
                                             tag = "ICE_RENEGOTIATION",
                                             message = "Ignoring negotiation completion for stale recovery generation",
                                         )
                                         return@setOnNegotiationComplete
                                     }
-                                    Logger.d(
+                                    v2Logger.d(
                                         tag = "ICE_RENEGOTIATION",
                                         message = "ICE negotiation complete for renegotiation, sending updateMedia message"
                                     )
@@ -1569,7 +1719,7 @@ internal class Peer(
                                             trickle = false,
                                         )
                                     } else {
-                                        Logger.e(
+                                        v2Logger.e(
                                             tag = "ICE_RENEGOTIATION",
                                             message = "Failed to get local description after negotiation"
                                         )
@@ -1592,7 +1742,7 @@ internal class Peer(
                             ) {
                                 return
                             }
-                            Logger.e(
+                            v2Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "Failed to set local description for ICE restart: $error"
                             )
@@ -1607,7 +1757,7 @@ internal class Peer(
                         }
 
                         override fun onCreateSuccess(p0: SessionDescription?) {
-                            Logger.i(
+                            v2Logger.i(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateSuccess called in setLocalDescription"
                             )
@@ -1621,7 +1771,7 @@ internal class Peer(
                             ) {
                                 return
                             }
-                            Logger.e(
+                            v2Logger.e(
                                 tag = "ICE_RENEGOTIATION",
                                 message = "onCreateFailure called in setLocalDescription: $p0"
                             )
@@ -1648,7 +1798,7 @@ internal class Peer(
                 if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer failure")) {
                     return
                 }
-                Logger.e(
+                v2Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to create ICE restart offer: $error"
                 )
@@ -1663,7 +1813,7 @@ internal class Peer(
             }
 
             override fun onSetSuccess() {
-                Logger.i(
+                v2Logger.i(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetSuccess called in createOffer"
                 )
@@ -1673,7 +1823,7 @@ internal class Peer(
                 if (shouldIgnoreStaleRecoveryCallback(recoveryGeneration, "createOffer set failure")) {
                     return
                 }
-                Logger.e(
+                v2Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onSetFailure called in createOffer: $p0"
                 )
@@ -1701,7 +1851,7 @@ internal class Peer(
             return
         }
 
-        Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
+        v2Logger.d(tag = "ICE_RENEGOTIATION", message = "Sending updateMedia message")
 
         recordIceRestartEvent(
             level = "info",
@@ -1771,7 +1921,7 @@ internal class Peer(
         }
         if (shouldSendEndOfCandidates) {
             sendEndOfCandidates()
-            Logger.d(tag = "Observer", message = "Queued end-of-candidates sent after updateMedia")
+            v2Logger.d(tag = "Observer", message = "Queued end-of-candidates sent after updateMedia")
         }
     }
 
@@ -1781,7 +1931,7 @@ internal class Peer(
         try {
             if (iceRestartModifyPending) {
                 iceRestartEndOfCandidatesPending = true
-                Logger.d(
+                v2Logger.d(
                     tag = "Observer",
                     message = "End-of-candidates queued until ICE restart updateMedia is sent",
                 )
@@ -1794,7 +1944,7 @@ internal class Peer(
 
         if (sendImmediately) {
             sendEndOfCandidates()
-            Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
+            v2Logger.d(tag = "Observer", message = "End-of-candidates sent via trickle ICE")
         }
     }
 
@@ -1809,7 +1959,7 @@ internal class Peer(
         callback: String,
     ): Boolean {
         if (isCurrentRecoveryGeneration(recoveryGeneration)) return false
-        Logger.d(
+        v2Logger.d(
             tag = "ICE_RENEGOTIATION",
             message = "Ignoring $callback for stale recovery generation=$recoveryGeneration",
         )
@@ -1834,14 +1984,14 @@ internal class Peer(
         newState: PeerConnection.IceConnectionState?
     ) {
         if (previousState == null || newState == null) {
-            Logger.d(
+            v2Logger.d(
                 tag = "IceStateTransition",
                 message = "ICE state transition: null -> $newState"
             )
             return
         }
 
-        Logger.d(
+        v2Logger.d(
             tag = "IceStateTransition",
             message = "ICE state transition: $previousState -> $newState"
         )
@@ -1853,7 +2003,7 @@ internal class Peer(
         if (previousState == PeerConnection.IceConnectionState.CONNECTED &&
             newState == PeerConnection.IceConnectionState.DISCONNECTED
         ) {
-            Logger.w(
+            v2Logger.w(
                 tag = "IceStateTransition",
                 message = "ICE connection disconnected - resetting audio buffers"
             )
@@ -1870,7 +2020,7 @@ internal class Peer(
         if (previousState == PeerConnection.IceConnectionState.DISCONNECTED &&
             newState == PeerConnection.IceConnectionState.CONNECTED
         ) {
-            Logger.i(
+            v2Logger.i(
                 tag = "IceStateTransition",
                 message = "ICE connection restored - resetting audio buffers"
             )
@@ -1896,14 +2046,14 @@ internal class Peer(
      * Similar to iOS implementation
      */
     private fun resetAudioDeviceModule() {
-        Logger.d(tag = "AudioReset", message = "Resetting audio device module")
+        v2Logger.d(tag = "AudioReset", message = "Resetting audio device module")
 
         // Stop and restart local audio capture to clear buffers
         localAudioTrack?.setEnabled(false)
         Timer().schedule(object : TimerTask() {
             override fun run() {
                 localAudioTrack?.setEnabled(true)
-                Logger.d(tag = "AudioReset", message = "Audio device module reset completed")
+                v2Logger.d(tag = "AudioReset", message = "Audio device module reset completed")
             }
         }, AUDIO_RE_ENABLE_DELAY_MS)
     }
@@ -1917,7 +2067,7 @@ internal class Peer(
     }
 
     internal fun handleUpdateMediaResponse(remoteSdp: String, responseId: String?) {
-        Logger.d(
+        v2Logger.d(
             tag = "ICE_RENEGOTIATION",
             message = "Handling updateMedia response with remote SDP"
         )
@@ -1925,7 +2075,7 @@ internal class Peer(
         val responseContext = synchronized(recoveryRequestLock) {
             val expectedRequestId = pendingRecoveryRequestId
             if (responseId != null && expectedRequestId != null && responseId != expectedRequestId) {
-                Logger.w(
+                v2Logger.w(
                     tag = "ICE_RENEGOTIATION",
                     message = "Ignoring stale updateMedia response id=$responseId expected=$expectedRequestId",
                 )
@@ -1949,7 +2099,7 @@ internal class Peer(
         if (responseContext.stale ||
             (recoveryGeneration != null && !isCurrentRecoveryGeneration(recoveryGeneration))
         ) {
-            Logger.w(
+            v2Logger.w(
                 tag = "ICE_RENEGOTIATION",
                 message = "Ignoring stale updateMedia response generation=$recoveryGeneration",
             )
@@ -1995,10 +2145,11 @@ internal class Peer(
                 ) {
                     return
                 }
-                Logger.d(
+                v2Logger.d(
                     tag = "ICE_RENEGOTIATION",
                     message = "ICE renegotiation completed successfully"
                 )
+                v2CaptureToken?.let { client.callReportV2?.description(it, remoteSdp, remote = true) }
                 recordIceRestartEvent(
                     level = "info",
                     message = "ICE restart remote SDP applied",
@@ -2023,7 +2174,7 @@ internal class Peer(
                 ) {
                     return
                 }
-                Logger.e(
+                v2Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "Failed to set remote description for ICE renegotiation: $error"
                 )
@@ -2038,7 +2189,7 @@ internal class Peer(
             }
 
             override fun onCreateSuccess(p0: SessionDescription?) {
-                Logger.i(
+                v2Logger.i(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateSuccess called in setRemoteDescription"
                 )
@@ -2052,7 +2203,7 @@ internal class Peer(
                 ) {
                     return
                 }
-                Logger.e(
+                v2Logger.e(
                     tag = "ICE_RENEGOTIATION",
                     message = "onCreateFailure called in setRemoteDescription: $p0"
                 )
@@ -2096,22 +2247,30 @@ internal class Peer(
      */
     private fun startIceGatheringSafetyTimeout() {
         clearIceGatheringSafetyTimeout()
+        // t027: anchor the measured elapsed for the warning payload.
+        iceGatheringSafetyArmedElapsedMs = android.os.SystemClock.elapsedRealtime()
         iceGatheringSafetyTimer = Timer().apply {
             schedule(object : TimerTask() {
                 override fun run() {
                     if (isDisposed.get()) return
+                    val elapsedMs = iceGatheringSafetyArmedElapsedMs
+                        ?.let { (android.os.SystemClock.elapsedRealtime() - it).toDouble() }
                     if (gatheredCandidatesCount == 0) {
                         Logger.w(
                             tag = ICE_DIAG_TAG,
                             message = "ICE gathering produced no candidates within timeout",
                         )
-                        client.emitWarning(TelnyxWarningCode.ICE_GATHERING_EMPTY.code)
+                        emitCallWarning(TelnyxWarningCode.ICE_GATHERING_EMPTY.code,
+                            metric = "ice_gathering_ms", value = elapsedMs,
+                            threshold = ICE_GATHERING_SAFETY_TIMEOUT_MS.toDouble())
                     } else {
                         Logger.w(
                             tag = ICE_DIAG_TAG,
                             message = "ICE gathering did not complete within timeout",
                         )
-                        client.emitWarning(TelnyxWarningCode.ICE_GATHERING_TIMEOUT.code)
+                        emitCallWarning(TelnyxWarningCode.ICE_GATHERING_TIMEOUT.code,
+                            metric = "ice_gathering_ms", value = elapsedMs,
+                            threshold = ICE_GATHERING_SAFETY_TIMEOUT_MS.toDouble())
                     }
                 }
             }, ICE_GATHERING_SAFETY_TIMEOUT_MS)
@@ -2122,6 +2281,7 @@ internal class Peer(
     private fun clearIceGatheringSafetyTimeout() {
         iceGatheringSafetyTimer?.cancel()
         iceGatheringSafetyTimer = null
+        iceGatheringSafetyArmedElapsedMs = null
     }
 
     /**
@@ -2141,7 +2301,7 @@ internal class Peer(
                 tag = ICE_DIAG_TAG,
                 message = "Local SDP contains only host ICE candidates — connectivity may be limited",
             )
-            client.emitWarning(TelnyxWarningCode.ONLY_HOST_ICE_CANDIDATES.code)
+            emitCallWarning(TelnyxWarningCode.ONLY_HOST_ICE_CANDIDATES.code)
         }
     }
 
@@ -2175,7 +2335,7 @@ internal class Peer(
      */
     internal fun flushQueuedCandidatesAfterAnswer() {
         if (!useTrickleIce || !isAnswering) {
-            Logger.d(
+            v2Logger.d(
                 tag = "CandidateFlush",
                 message = "Not flushing - trickleIce=$useTrickleIce, isAnswering=$isAnswering"
             )
@@ -2187,7 +2347,7 @@ internal class Peer(
         val toFlush: List<IceCandidate>
         candidateLock.lock()
         try {
-            Logger.d(
+            v2Logger.d(
                 tag = "CandidateFlush",
                 message = "Flushing ${queuedCandidates.size} queued candidates after ANSWER sent"
             )
@@ -2201,7 +2361,7 @@ internal class Peer(
         // Send the drained candidates outside the lock to avoid holding it during I/O
         toFlush.forEach { candidate ->
             sendIceCandidate(candidate)
-            Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
+            v2Logger.d(tag = "CandidateFlush", message = "Flushed queued candidate: $candidate")
         }
 
         val hadCandidates = toFlush.isNotEmpty()
@@ -2211,7 +2371,7 @@ internal class Peer(
             startEndOfCandidatesTimer()
         }
 
-        Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, answerSent = true")
+        v2Logger.d(tag = "CandidateFlush", message = "Candidate flush completed, answerSent = true")
     }
 
     /**
@@ -2221,14 +2381,14 @@ internal class Peer(
     private fun startEndOfCandidatesTimer() {
         // Only start timer if trickle ICE is enabled and end-of-candidates not already sent
         if (!useTrickleIce) {
-            Logger.d(
+            v2Logger.d(
                 tag = "EndOfCandidatesTimer",
                 message = "Timer not started - Trickle ICE disabled"
             )
             return
         }
         if (endOfCandidatesSent) {
-            Logger.d(
+            v2Logger.d(
                 tag = "EndOfCandidatesTimer",
                 message = "Timer not started - end-of-candidates already sent"
             )
@@ -2242,14 +2402,14 @@ internal class Peer(
         endOfCandidatesTimer = Timer()
         endOfCandidatesTimer?.schedule(
             timerTask {
-                Logger.d(
+                v2Logger.d(
                     tag = "EndOfCandidatesTimer",
                     message = "Timer triggered after ${END_OF_CANDIDATES_TIMEOUT}ms of inactivity"
                 )
 
                 // Send end-of-candidates if not already sent
                 if (!endOfCandidatesSent && useTrickleIce) {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "EndOfCandidatesTimer",
                         message = "Sending end-of-candidates via timer"
                     )
@@ -2261,7 +2421,7 @@ internal class Peer(
             END_OF_CANDIDATES_TIMEOUT
         )
 
-        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer started/restarted")
+        v2Logger.d(tag = "EndOfCandidatesTimer", message = "Timer started/restarted")
     }
 
     /**
@@ -2271,7 +2431,7 @@ internal class Peer(
         endOfCandidatesTimer?.cancel()
         endOfCandidatesTimer?.purge()
         endOfCandidatesTimer = null
-        Logger.d(tag = "EndOfCandidatesTimer", message = "Timer stopped")
+        v2Logger.d(tag = "EndOfCandidatesTimer", message = "Timer stopped")
     }
 
     /**
@@ -2283,28 +2443,28 @@ internal class Peer(
      */
     fun applyAudioCodecPreferences(preferredCodecs: List<AudioCodec>?) {
         if (preferredCodecs.isNullOrEmpty()) {
-            Logger.d(tag = "CodecPreferences", message = "No codec preferences provided, using defaults")
+            v2Logger.d(tag = "CodecPreferences", message = "No codec preferences provided, using defaults")
             return
         }
 
         try {
             // Find the audio transceiver
             val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers) ?: run {
-                Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
+                v2Logger.w(tag = "CodecPreferences", message = "No audio transceiver found, cannot apply codec preferences")
                 return
             }
 
             // Convert AudioCodec list directly to CodecCapability list
             val codecCapabilities = CodecUtils.convertAudioCodecsToCapabilities(preferredCodecs)
             if (codecCapabilities.isEmpty()) {
-                Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
+                v2Logger.w(tag = "CodecPreferences", message = "No valid codec capabilities created, using defaults")
             } else {
                 // Apply codec preferences to transceiver
                 audioTransceiver.setCodecPreferences(codecCapabilities)
-                Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
+                v2Logger.d(tag = "CodecPreferences", message = "Successfully applied codec preferences. Order: ${codecCapabilities.map { it.mimeType }}")
             }
         } catch (e: Exception) {
-            Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
+            v2Logger.e(tag = "CodecPreferences", message = "Error applying codec preferences: ${e.message}")
         }
     }
 
@@ -2317,7 +2477,7 @@ internal class Peer(
     fun getAvailableAudioCodecs(): List<AudioCodec> {
         val audioTransceiver = CodecUtils.findAudioTransceiver(peerConnection?.transceivers)
             ?: run {
-                Logger.w(tag = "CodecQuery", message = "No audio transceiver found")
+                v2Logger.w(tag = "CodecQuery", message = "No audio transceiver found")
                 return emptyList()
             }
 
@@ -2328,7 +2488,7 @@ internal class Peer(
      * Cleans up resources when the peer is no longer needed
      */
     fun release() {
-        Logger.d(message = "Releasing Peer resources...")
+        v2Logger.d(message = "Releasing Peer resources...")
         cancelFirstCandidateAwaiter()
         stopNegotiationTimer()
         stopEndOfCandidatesTimer()
@@ -2368,10 +2528,10 @@ internal class Peer(
     fun restartIce(): Boolean {
         val started = signalingHealthMonitor.requestIceRestart()
         if (started) {
-            Logger.i(tag = "ICE_RENEGOTIATION", message = "Application requested ICE restart")
+            v2Logger.i(tag = "ICE_RENEGOTIATION", message = "Application requested ICE restart")
             scheduleRecoveryTickIfNeeded()
         } else {
-            Logger.w(tag = "ICE_RENEGOTIATION", message = "Application ICE restart request was rejected")
+            v2Logger.w(tag = "ICE_RENEGOTIATION", message = "Application ICE restart request was rejected")
         }
         return started
     }
@@ -2406,7 +2566,7 @@ internal class Peer(
                 UNKNOWN_VALUE
             }
         } catch (e: Exception) {
-            Logger.d(tag = "Peer", message = "Failed to extract candidate type: ${e.message}")
+            v2Logger.d(tag = "Peer", message = "Failed to extract candidate type: ${e.message}")
             UNKNOWN_VALUE
         }
     }
@@ -2427,7 +2587,7 @@ internal class Peer(
                 UNKNOWN_VALUE
             }
         } catch (e: Exception) {
-            Logger.d(tag = "Peer", message = "Failed to extract protocol: ${e.message}")
+            v2Logger.d(tag = "Peer", message = "Failed to extract protocol: ${e.message}")
             UNKNOWN_VALUE
         }
     }
@@ -2446,6 +2606,7 @@ internal class Peer(
         CallTimingBenchmark.mark("peer_connection_created")
         // Track peer connection created milestone
         client.latencyTracker.markCallMilestone(callId, LatencyTracker.MILESTONE_PEER_CREATED)
+        reportV2Timing("peer_created_ms")
         // Reset flags when a new Peer is created
         firstCandidateReceived = false
         endOfCandidatesSent = false
@@ -2463,8 +2624,8 @@ internal class Peer(
         signalingHealthMonitor = SignalingHealthMonitor(
             callId = callId,
             actions = peerRecoveryActions(),
-            onWarning = { warningCode -> client.emitWarning(warningCode.code) },
-            onError = { errorCode -> client.emitError(errorCode.code) },
+            onWarning = { warningCode -> emitCallWarning(warningCode.code) },
+            onError = { errorCode -> emitCallError(errorCode.code) },
         )
         scheduleRecoveryTickIfNeeded()
     }
@@ -2526,7 +2687,7 @@ internal class Peer(
                     }
                     val forceRelay = selectedCandidateUsesDirectVpn(statistics)
                     if (forceRelay) {
-                        Logger.w(
+                        v2Logger.w(
                             tag = "SignalingHealthMonitor",
                             message = "Failed VPN direct path; forcing relay for replacement call",
                         )
@@ -2537,7 +2698,7 @@ internal class Peer(
             } ?: false
             if (!requested) onResult(false)
         } catch (error: RuntimeException) {
-            Logger.e(
+            v2Logger.e(
                 tag = "SignalingHealthMonitor",
                 message = "Unable to inspect recovery candidate path: ${error.message}",
             )
@@ -2600,7 +2761,7 @@ internal class Peer(
                         // cannot survive a terminal monitor state.
                         scheduleRecoveryTickIfNeeded()
                     } catch (e: Exception) {
-                        Logger.e(
+                        v2Logger.e(
                             tag = "SignalingHealthMonitor",
                             message = "tick error: ${e.message}",
                         )
@@ -2681,7 +2842,7 @@ internal class Peer(
             if (!requested) recoveryStatsRequestInFlight.set(false)
         } catch (error: RuntimeException) {
             recoveryStatsRequestInFlight.set(false)
-            Logger.e(
+            v2Logger.e(
                 tag = "SignalingHealthMonitor",
                 message = "Unable to sample inbound RTP: ${error.message}",
             )

@@ -39,6 +39,29 @@ class TelnyxCommon private constructor() {
     private val legacySharedPreferencesKey = "TelnyxCommonSharedPreferences"
     private val migrationCompleteKey = "migrated_to_encrypted"
 
+    // Process-local only: no raw push payload and no client constructed solely for telemetry.
+    private val pendingPushTelemetry = ArrayDeque<com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent>()
+    private val observedPushOrigins = linkedSetOf<Pair<com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact, java.util.UUID>>()
+    @Synchronized
+    fun recordPushTelemetry(event: com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent) {
+        if (!observedPushOrigins.add(event.fact to event.originId)) return
+        if (observedPushOrigins.size > 128) observedPushOrigins.remove(observedPushOrigins.first())
+        val client = _telnyxClient
+        if (client != null) client.recordCallReportV2PushEvent(event)
+        else {
+            if (pendingPushTelemetry.size >= 32) pendingPushTelemetry.removeFirst()
+            pendingPushTelemetry.addLast(event)
+        }
+    }
+
+    /** Transfers only this push call's pending observations to its dedicated decline owner. */
+    @Synchronized
+    internal fun drainPushTelemetry(callId: java.util.UUID, owner: TelnyxClient) {
+        val matching = pendingPushTelemetry.filter { it.callId == callId }
+        pendingPushTelemetry.removeAll { it.callId == callId }
+        matching.forEach(owner::recordCallReportV2PushEvent)
+    }
+
     private var _telnyxClient: TelnyxClient? = null
     val telnyxClient
         get() = _telnyxClient
@@ -218,6 +241,7 @@ class TelnyxCommon private constructor() {
         return _telnyxClient ?: synchronized(this) {
             _telnyxClient ?: TelnyxClient(context.applicationContext, commonsSdkIdentity).also {
                 _telnyxClient = it
+                while (pendingPushTelemetry.isNotEmpty()) it.recordCallReportV2PushEvent(pendingPushTelemetry.removeFirst())
                 observeConnectionMetrics(it)
             }
         }
@@ -332,8 +356,13 @@ class TelnyxCommon private constructor() {
             editor.putBoolean(migrationCompleteKey, true)
             editor.apply()
 
-            // Delete the legacy plaintext preferences file
-            context.deleteSharedPreferences(legacySharedPreferencesKey)
+            // Delete the legacy plaintext preferences file (API 24+; on API 23 the
+            // legacy file is simply cleared in place instead).
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                context.deleteSharedPreferences(legacySharedPreferencesKey)
+            } else {
+                legacyPrefs.edit().clear().apply()
+            }
             Timber.i("Migrated ${allEntries.size} entries from legacy plaintext SharedPreferences to encrypted store")
         } else {
             // No legacy data — just mark migration as complete

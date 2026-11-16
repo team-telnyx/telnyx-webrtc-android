@@ -591,6 +591,26 @@ class MainActivity : AppCompatActivity(), DefaultLifecycleObserver {
                 intent.extras?.getString(MyFirebaseMessagingService.TX_PUSH_METADATA)
             when (action) {
                 MyFirebaseMessagingService.ACT_ANSWER_CALL -> {
+                    // This PendingIntent targets the Activity directly, not the
+                    // notification receiver. Record the observed user action here,
+                    // matching the Compose sample app's push receipt path.
+                    val metadata = runCatching {
+                        com.google.gson.Gson().fromJson(txPushMetaData, com.telnyx.webrtc.sdk.model.PushMetaData::class.java)
+                    }.getOrNull()
+                    val observedCallId = metadata?.callId?.let { value ->
+                        runCatching { java.util.UUID.fromString(value) }.getOrNull()
+                    }
+                    if (observedCallId != null) {
+                        com.telnyx.webrtc.common.TelnyxCommon.getInstance().recordPushTelemetry(
+                            com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent(
+                                fact = com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.NOTIFICATION_ACTION,
+                                callId = observedCallId,
+                                action = com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Action.ANSWER,
+                                observedAtEpochMs = System.currentTimeMillis(),
+                                observedAtMonotonicMs = android.os.SystemClock.elapsedRealtime()
+                            )
+                        )
+                    }
                     telnyxViewModel.answerIncomingPushCall(this, txPushMetaData, true)
                 }
 

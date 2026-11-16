@@ -37,6 +37,13 @@ class TxSocket(
     internal var port: Int
 ) : CoroutineScope {
 
+    private var reportingClient: TelnyxClient? = null
+    private val v2Logger = com.telnyx.webrtc.sdk.observability.V2ScopedLogger { reportingClient?.callReportV2 }
+    private val gatewayChecks = com.telnyx.webrtc.sdk.observability.V2GatewayCheckTracker(
+        started = { id -> reportingClient?.callReportV2?.gatewayCheckStarted(id) },
+        result = { id, state -> reportingClient?.callReportV2?.gatewayCheckResult(id, state) },
+        failed = { id, message, willRetry -> reportingClient?.callReportV2?.gatewayCheckFailed(id, message, willRetry) }
+    )
     private var job: Job = SupervisorJob()
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
@@ -93,8 +100,8 @@ class TxSocket(
         onConnected:(Boolean) -> Unit = {}
     ): Job {
         isDestroyed = false
-
         return launch(Dispatchers.IO) {
+        reportingClient = listener
         val loggingInterceptor = HttpLoggingInterceptor()
         loggingInterceptor.apply {
             if (BuildConfig.DEBUG){
@@ -140,13 +147,19 @@ class TxSocket(
                 .host(host_address)
                 .build()
         }
-        Logger.d(message = "request: $client.")
+        v2Logger.d(message = "request: $client.")
+
+        // t027: region and resume voice_sdk_id describe the connection target the SDK
+        // is about to open (already applied region prefix / push recovery id).
+        listener.callReportV2?.socketStarting(requestUrl.toString(),
+            region = listener.v2RegionHint,
+            resumeVoiceSdkId = listener.v2ResumeVoiceSdkId())
 
         val request: Request =
             Request.Builder().url(requestUrl).build()
 
 
-        Logger.d(message = "request2 : ${request.url.encodedQuery}")
+        v2Logger.d(message = "request2 : ${request.url.encodedQuery}")
 
         if (shouldIgnoreSocketCallback(isCurrentConnection)) return@launch
 
@@ -158,8 +171,8 @@ class TxSocket(
                     // Guard against duplicate onOpen callbacks — if already connected,
                     // don't fire onConnectionEstablished again (prevents duplicate login).
                     if (isConnected) {
-                        Logger.w(
-                            message = Logger.formatMessage(
+                        v2Logger.w(
+                            message = v2Logger.formatMessage(
                                 "[%s] onOpen fired but already connected — ignoring duplicate",
                                 this@TxSocket.javaClass.simpleName
                             )
@@ -167,10 +180,15 @@ class TxSocket(
                         return
                     }
 
-                    Logger.v(
-                        message = Logger.formatMessage("[%s] Connection established :: $host_address",
+                    v2Logger.v(
+                        message = v2Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
                     )
+                    // t027: the final URL is the one OkHttp actually opened (response request URL).
+                    listener.callReportV2?.socketOpened(requestUrl.toString(),
+                        finalUrl = response.request.url.toString(),
+                        region = listener.v2RegionHint,
+                        resumeVoiceSdkId = listener.v2ResumeVoiceSdkId())
                     isConnected = true
                     onConnected(true)
                     listener.onConnectionEstablished()
@@ -179,9 +197,10 @@ class TxSocket(
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
+                    listener.callReportV2?.signalingFrame(text, outbound = false)
                     super.onMessage(webSocket, text)
-                    Logger.v(
-                        message = Logger.formatMessage("[%s] Receiving [%s]",
+                    v2Logger.v(
+                        message = v2Logger.formatMessage("[%s] Receiving [%s]",
                         this@TxSocket.javaClass.simpleName,
                         text)
                     )
@@ -194,7 +213,7 @@ class TxSocket(
                         // WebSocket callback.
                         val previewLength = PAYLOAD_PREVIEW_LENGTH
                         val preview = if (text.length > previewLength) text.substring(0, previewLength) + "..." else text
-                        Logger.e(
+                        v2Logger.e(
                             tag = "TxSocket",
                             message = "Failed to parse WebSocket message as JsonObject: $preview"
                         )
@@ -210,6 +229,7 @@ class TxSocket(
                         listener.onErrorReceived(fullJson, null)
                         return
                     }
+                    gatewayChecks.received(jsonObject, listener.socketFailureWillRetry())
                     listener.emitWsMessage(jsonObject)
 
                     var params: JsonObject? = null
@@ -237,13 +257,30 @@ class TxSocket(
                                     }
 
                                     if (gatewayState != STATE_ATTACHED) {
-                                        listener.onGatewayStateReceived(gatewayState, sessionId)
+                                        // t027 B-GW: the gateway RPC response is correlated
+                                        // against the CURRENT outstanding gateway RPC
+                                        // (id + socket + auth epoch + generation) through
+                                        // an internal Native-client dispatch seam so a
+                                        // stale REGED can never complete a newer auth's
+                                        // registration. The public TxSocketListener
+                                        // surface is unchanged.
+                                        listener.onGatewayStateResponseConfirmed(this@TxSocket,
+                                            jsonObject.get("id")?.takeIf { it.isJsonPrimitive }?.asString,
+                                            gatewayState, sessionId)
                                     }
                                 }
                             } else if (result.has("message")) {
-                                val message = result.get("message").asString
-                                if (message == "logged in" && isLoggedIn) {
-                                    listener.onClientReady(jsonObject)
+                                // t027: EVERY Native login result is routed through
+                                // ownership confirmation regardless of prior isLoggedIn — a
+                                // same-socket re-login on an already-logged-in socket publishes
+                                // a new auth but never clears isLoggedIn, so its success must
+                                // bind the renewed session via the correlated RPC (and never
+                                // be treated as auth proof for readiness). Readiness comes
+                                // from actual CLIENT_READY pushes / correlated REGED facts.
+                                if (result.get("message").asString == "logged in") {
+                                    listener.onLoginResponseConfirmed(this@TxSocket,
+                                        jsonObject.get("id")?.takeIf { it.isJsonPrimitive }?.asString,
+                                        jsonObject)
                                 }
                             }
                         }
@@ -264,8 +301,8 @@ class TxSocket(
                         }
 
                         jsonObject.has("method") -> {
-                            Logger.v(
-                                message = Logger.formatMessage("[%s] Received Method [%s]",
+                            v2Logger.v(
+                                message = v2Logger.formatMessage("[%s] Received Method [%s]",
                                 this@TxSocket.javaClass.simpleName,
                                 jsonObject.get("method").asString)
                             )
@@ -353,8 +390,8 @@ class TxSocket(
                                 else -> "Unknown error: ${errorObject.toString()}"
                             }
                             
-                            Logger.v(
-                                message = Logger.formatMessage("[%s] Received Error From Telnyx [%s]%s",
+                            v2Logger.v(
+                                message = v2Logger.formatMessage("[%s] Received Error From Telnyx [%s]%s",
                                 this@TxSocket.javaClass.simpleName,
                                 errorMessage,
                                 if (errorCode != null) " with code [$errorCode]" else " (no code provided)")
@@ -368,15 +405,21 @@ class TxSocket(
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     super.onClosing(webSocket, code, reason)
-                    Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
+                    v2Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
                     listener.onDisconnect()
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
+                gatewayChecks.socketLost(false)
+                // t027: will_reconnect reports only what the SDK knows. A reconnect
+                // cycle in flight implies another attempt; otherwise the reconnect
+                // decision has not been made yet and the field stays null.
+                listener.callReportV2?.socketClosed(code, reason, failed = false,
+                    willReconnect = if (listener.v2ReconnectingNow()) true else null)
                     super.onClosed(webSocket, code, reason)
-                    Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
+                    v2Logger.i(tag = "TxSocket", message = "Socket is closed: $code :: $reason")
                     // Only cleanup if not already disconnected (prevents double cleanup)
                     if (isConnected) {
                         destroy()
@@ -386,8 +429,17 @@ class TxSocket(
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
+                    val willRetry = listener.socketFailureWillRetry()
+                    listener.callReportV2?.socketFailed(t.javaClass.simpleName, willRetry)
+                    gatewayChecks.socketLost(willRetry)
+                    // t027: will_reconnect reflects the actual retry decision — the
+                    // socketFailureWillRetry() policy (which already respects the
+                    // configured reconnect capability) or an in-flight reconnect
+                    // cycle; never a guess from login state alone.
+                    listener.callReportV2?.socketClosed(null, null, failed = true,
+                        willReconnect = if (willRetry || listener.v2ReconnectingNow()) true else null)
 
-                    Logger.i(tag = "TxSocket",
+                    v2Logger.i(tag = "TxSocket",
                         message = "Socket failure: $t :: response: $response :: Will attempt to reconnect")
 
                     var errorCode: Int? = null
@@ -464,19 +516,31 @@ class TxSocket(
      */
     internal fun send(dataObject: Any?) = runBlocking {
         if (isDestroyed) {
-            Logger.w(
-                message = Logger.formatMessage(
+            v2Logger.w(
+                message = v2Logger.formatMessage(
                     "[%s] Attempted to send on destroyed socket — ignoring",
                     this@TxSocket.javaClass.simpleName
                 )
             )
             return@runBlocking
         }
-        Logger.v(
-            message = Logger.formatMessage("[%s] Sending [%s]", 
+        v2Logger.v(
+            message = v2Logger.formatMessage("[%s] Sending [%s]",
             this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
         )
-        webSocket.send(gson.toJson(dataObject))
+        val text = gson.toJson(dataObject)
+        val capture = reportingClient?.callReportV2
+        // Register correlation before send: another thread may deliver a response before send returns.
+        capture?.signalingWriteStarted(text)
+        val gatewayCheckId = gatewayChecks.beforeWrite(text)
+        var accepted = false
+        try { accepted = webSocket.send(text) } finally {
+            if (!accepted) {
+                capture?.signalingWriteRejected(text)
+                gatewayChecks.rejected(gatewayCheckId)
+            }
+        }
+        if (accepted) capture?.signalingFrame(text, outbound = true)
     }
 
     /**
@@ -487,31 +551,32 @@ class TxSocket(
      * failed silently.
      */
     internal fun sendReturning(dataObject: Any?): Boolean = runBlocking {
-        if (isDestroyed) {
-            Logger.w(
-                message = Logger.formatMessage(
-                    "[%s] Attempted to send on destroyed socket — ignoring",
-                    this@TxSocket.javaClass.simpleName
-                )
-            )
-            return@runBlocking false
-        }
-        Logger.v(
-            message = Logger.formatMessage("[%s] Sending [%s]",
-                this@TxSocket.javaClass.simpleName, gson.toJson(dataObject))
-        )
-        try {
-            webSocket.send(gson.toJson(dataObject))
-        } catch (e: Exception) {
-            Logger.e(message = "Socket send threw: ${e.message}")
+        if (isDestroyed) return@runBlocking false
+        val text = gson.toJson(dataObject)
+        val capture = reportingClient?.callReportV2
+        capture?.signalingWriteStarted(text)
+        val gatewayCheckId = gatewayChecks.beforeWrite(text)
+        val accepted = try { webSocket.send(text) } catch (e: Exception) {
+            v2Logger.e(message = "Socket send threw: ${e.message}")
             false
         }
+        if (accepted) capture?.signalingFrame(text, outbound = true)
+        else {
+            capture?.signalingWriteRejected(text)
+            gatewayChecks.rejected(gatewayCheckId)
+        }
+        accepted
     }
 
     /**
      * Closes our websocket connection and cancels our coroutine job
      */
     internal fun destroy() {
+        gatewayChecks.socketLost(false)
+        // t027: a client-initiated close is a decided outcome — no reconnect is
+        // scheduled by this close unless a reconnect cycle is already in flight.
+        reportingClient?.callReportV2?.socketClosed(WEBSOCKET_NORMAL_CLOSURE, "client_disconnect", failed = false, byClient = true,
+            willReconnect = reportingClient?.v2ReconnectingNow() == true)
         isDestroyed = true
         isConnected = false
         isLoggedIn = false
@@ -564,7 +629,7 @@ class TxSocket(
             timerTask {
                 // If this fires, we missed an expected ping (with tolerance)
                 missedPingCount++
-                Logger.w(message = "Expected ping not received within ${EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE}ms")
+                v2Logger.w(message = "Expected ping not received within ${EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE}ms")
             },
             EXPECTED_PING_INTERVAL_MS_VALUE + PING_TOLERANCE_MS_VALUE
         )

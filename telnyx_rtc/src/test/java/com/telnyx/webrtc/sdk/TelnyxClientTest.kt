@@ -194,6 +194,100 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
+    fun `telemetry cleanup drain is immediate without a reporter and bounded with one`() = kotlinx.coroutines.test.runTest {
+        client.callReportV2 = null
+        assertTrue(client.awaitCallReportV2Drain(0))
+        val sink = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = sink
+        coEvery { sink.awaitDrain(any()) } coAnswers { kotlinx.coroutines.delay(25); true }
+        assertTrue(client.awaitCallReportV2Drain(100))
+        coEvery { sink.awaitDrain(any()) } coAnswers { kotlinx.coroutines.delay(10_000); true }
+        val began = testScheduler.currentTime
+        assertFalse(client.awaitCallReportV2Drain(30_000))
+        assertEquals(1500L, testScheduler.currentTime - began)
+        client.callReportV2 = null
+    }
+
+    @Test
+    fun `normal push logins report attach attempts only after final guard with matching outcome origins`() {
+        val sink = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        val observed = mutableListOf<com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent>()
+        every { sink.pushEvent(capture(observed)) } just Runs
+        client.callReportV2 = sink
+        val target = mockk<TxSocket>(relaxed = true)
+        val sent = mutableListOf<Any?>()
+        every { target.send(any()) } answers { sent.add(firstArg()); Unit }
+        val credential = CredentialConfig("synthetic-user", "synthetic-password", null, null, null, null, null)
+        val token = TokenConfig("synthetic-token", null, null, null, null, null)
+        val pendingCallId = UUID.randomUUID()
+        val pending = TelnyxClient::class.java.getDeclaredField("isCallPendingFromPush").apply { isAccessible = true }
+        val pendingId = TelnyxClient::class.java.getDeclaredField("pendingPushAppCallId").apply { isAccessible = true }
+        val actualAttachRpc = TelnyxClient::class.java.getDeclaredField("attachCallId").apply { isAccessible = true }
+        actualAttachRpc.set(client, "independent-real-attach-rpc")
+        for ((methodName, config) in listOf("credentialLogin" to credential, "tokenLogin" to token)) {
+            val method = TelnyxClient::class.java.getDeclaredMethod(methodName, config.javaClass,
+                TxSocket::class.java, Function0::class.java).apply { isAccessible = true }
+            observed.clear(); sent.clear(); pending.set(client, false)
+            method.invoke(client, config, target, { true })
+            assertTrue(observed.isEmpty()) // attach_call=true without a push is not a push attach.
+            observed.clear(); sent.clear(); pending.set(client, true); pendingId.set(client, pendingCallId)
+            var guards = 0
+            method.invoke(client, config, target, { ++guards == 1 })
+            assertEquals(2, guards)
+            assertTrue(observed.isEmpty()); assertTrue(sent.isEmpty())
+            method.invoke(client, config, target, { true })
+            val request = sent.single() as SendingMessageBody
+            val started = observed.single()
+            assertEquals(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_STARTED, started.fact)
+            assertEquals(pendingCallId, started.callId)
+            assertEquals(UUID.fromString(request.id), started.originId)
+            assertEquals("independent-real-attach-rpc", actualAttachRpc.get(client))
+            // Existing INVITE/timeout/error producers call the same outcome helper.
+            val outcome = TelnyxClient::class.java.getDeclaredMethod("reportPushMilestone",
+                com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact::class.java,
+                UUID::class.java, com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Reason::class.java).apply { isAccessible = true }
+            outcome.invoke(client, com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_SUCCEEDED, pendingCallId, null)
+            assertEquals(started.originId, observed.last().originId)
+            val before = observed.size
+            client.onErrorReceived(JsonObject().apply { addProperty("id", UUID.randomUUID().toString()) }, -32001)
+            assertEquals(before, observed.size) // Unrelated authentication errors cannot fail this push.
+            client.onErrorReceived(JsonObject().apply { addProperty("id", request.id) }, -32001)
+            assertEquals(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_FAILED, observed.last().fact)
+            assertEquals(started.originId, observed.last().originId)
+        }
+        client.callReportV2 = null
+    }
+
+    @Test
+    fun `background decline login configures telemetry authentication before signaling for both auth modes`() {
+        val sink = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        client.callReportV2 = sink
+        val target = mockk<TxSocket>(relaxed = true)
+        val credential = CredentialConfig("synthetic-user", "synthetic-password", null, null, null, null, null)
+        val token = TokenConfig("synthetic-token", null, null, null, null, null)
+        for ((methodName, config) in listOf("credentialLoginWithDeclinePush" to credential, "tokenLoginWithDeclinePush" to token)) {
+            val method = TelnyxClient::class.java.getDeclaredMethod(methodName, config.javaClass,
+                TxSocket::class.java, Function0::class.java).apply { isAccessible = true }
+            method.invoke(client, config, target, { true })
+        }
+        verifyOrder {
+            sink.authenticate("sip_credentials", "synthetic-user", "synthetic-password")
+            target.send(any())
+            sink.authenticate("token", null, "synthetic-token")
+            target.send(any())
+        }
+        clearMocks(sink, target)
+        for ((methodName, config) in listOf("credentialLoginWithDeclinePush" to credential, "tokenLoginWithDeclinePush" to token)) {
+            val method = TelnyxClient::class.java.getDeclaredMethod(methodName, config.javaClass,
+                TxSocket::class.java, Function0::class.java).apply { isAccessible = true }
+            method.invoke(client, config, target, { false })
+        }
+        verify(exactly = 0) { sink.authenticate(any(), any(), any()) }
+        verify(exactly = 0) { target.send(any()) }
+        client.callReportV2 = null
+    }
+
+    @Test
     fun `login with valid credentials - login sent to socket and json received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
         client.socket = Mockito.spy(
@@ -505,34 +599,20 @@ class TelnyxClientTest : BaseTest() {
     }
 
     @Test
-    fun `login with credentials - No network available error thrown`() {
-        client = Mockito.spy(TelnyxClient(mockContext))
-        client.socket = Mockito.spy(
-            TxSocket(
-                host_address = "rtc.telnyx.com",
-                port = 14938,
-            )
-        )
-        client.socket.connect(client)
-
-        // Sleep to give time to connect
-        Thread.sleep(3000)
-        val config = CredentialConfig(
-            "asdfasass",
-            "asdlkfhjalsd",
-            "test",
-            "000000000",
-            null,
-            null,
-            null,
-            LogLevel.ALL
-        )
-        client.credentialLogin(config)
-
-        Thread.sleep(1000)
+    fun `invalid credentials response emits error without a live network`() {
+        // Exercise the actual response handler deterministically, not an external
+        // server and a sleep racing ESTABLISHED against the error callback.
+        val reply = JsonObject().apply {
+            addProperty("id", "rejected-login")
+            add("error", JsonObject().apply {
+                addProperty("code", -32001)
+                addProperty("message", "Login Incorrect")
+            })
+        }
+        client.onErrorReceived(reply, -32001)
         assertEquals(
-            client.socketResponseLiveData.getOrAwaitValue(),
-            SocketResponse.error("Login Incorrect", TelnyxErrorCode.INVALID_CREDENTIALS.code)
+            SocketResponse.error("Login Incorrect", TelnyxErrorCode.INVALID_CREDENTIALS.code),
+            client.socketResponseLiveData.getOrAwaitValue()
         )
     }
 
@@ -544,9 +624,26 @@ class TelnyxClientTest : BaseTest() {
     @Test
     fun `Check login successful fires once REGED received`() {
         client = Mockito.spy(TelnyxClient(mockContext))
+        client.socket = Mockito.mock(TxSocket::class.java)
         val sessid = UUID.randomUUID().toString()
-        client.onGatewayStateReceived(GatewayState.REGED.state, sessid)
+        val gatewayRpcId = publishGatewayRpcForTest(client)
+        client.onGatewayStateResponseConfirmed(client.socket, gatewayRpcId, GatewayState.REGED.state, sessid)
         Mockito.verify(client, Mockito.times(1)).onLoginSuccessful(sessid)
+    }
+
+    /** Publishes an outstanding gateway RPC on the client and returns its rpcId. */
+    private fun publishGatewayRpcForTest(client: TelnyxClient): String {
+        val rpcId = UUID.randomUUID().toString()
+        val field = TelnyxClient::class.java.getDeclaredField("v2LoginAttemptEpoch")
+        field.isAccessible = true
+        val next = (field.get(client) as Long) + 1
+        field.set(client, next)
+        val pendingClass = Class.forName("com.telnyx.webrtc.sdk.TelnyxClient\$PendingGatewayState")
+        val pending = pendingClass.getDeclaredConstructor(
+            String::class.java, TxSocket::class.java, Long::class.javaPrimitiveType, Int::class.javaPrimitiveType
+        ).newInstance(rpcId, client.socket, next, 0)
+        TelnyxClient::class.java.getDeclaredField("v2PendingGateway").apply { isAccessible = true }.set(client, pending)
+        return rpcId
     }
 
     @Test

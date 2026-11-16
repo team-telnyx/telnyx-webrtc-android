@@ -160,7 +160,14 @@ class LegacyCallNotificationService : Service() {
     }
 
     private fun showNotification(txPushMetaData: PushMetaData) {
-        val targetActivityClass = Class.forName(getActivityClassName())
+        val targetActivityClass = try {
+            Class.forName(getActivityClassName())
+        } catch (failure: Exception) {
+            // A missing activity_class_name entry or class must not crash the service;
+            // the foreground notification started earlier already covers visibility.
+            Timber.e(failure, "Cannot resolve notification target activity, keeping basic foreground notification")
+            return
+        }
 
         val intent = Intent(this, targetActivityClass).apply {
             action = Intent.ACTION_VIEW
@@ -246,11 +253,16 @@ class LegacyCallNotificationService : Service() {
     }
 
     private fun getActivityClassName(): String {
-        val ai = packageManager.getServiceInfo(
-            ComponentName(this, LegacyCallNotificationService::class.java),
-            PackageManager.GET_META_DATA
-        )
-        return ai.metaData.getString("activity_class_name") ?: ""
+        return try {
+            val ai = packageManager.getServiceInfo(
+                ComponentName(this, LegacyCallNotificationService::class.java),
+                PackageManager.GET_META_DATA
+            )
+            ai.metaData?.getString("activity_class_name") ?: ""
+        } catch (e: PackageManager.NameNotFoundException) {
+            Timber.e(e, "Failed to get activity class name")
+            ""
+        }
     }
 
     /**

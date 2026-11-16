@@ -99,8 +99,28 @@ class CallNotificationService @RequiresApi(Build.VERSION_CODES.O) constructor(
      */
     fun showIncomingCallNotification(txPushMetaData: PushMetaData) {
         Timber.d("Showing incoming call notification: ${txPushMetaData.toJson()}")
-        notificationManager.notify(NOTIFICATION_ID, createIncomingCallNotification(txPushMetaData))
+        val notification = try {
+            createIncomingCallNotification(txPushMetaData)
+        } catch (failure: Exception) {
+            // A broken activity class or missing metadata must never crash the FCM
+            // callback; fall back to a plain notification so the push still surfaces.
+            Timber.e(failure, "Falling back to basic incoming call notification")
+            basicIncomingCallNotification(txPushMetaData)
+        }
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
+
+    private fun basicIncomingCallNotification(txPushMetaData: PushMetaData): Notification =
+        NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_contact_phone)
+            .setContentTitle("Incoming Call : ${txPushMetaData.callerName}")
+            .setContentText("Incoming call from: ${txPushMetaData.callerNumber} ")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
 
     /**
      * Show ongoing call notification

@@ -118,6 +118,46 @@ class IceRenegotiationTest : BaseTest() {
     }
 
     @Test
+    fun `remote candidate telemetry requires successful native application`() {
+        val sink = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        val token = com.telnyx.webrtc.sdk.observability.V2CaptureToken()
+        every { mockTelnyxClient.callReportV2 } returns sink
+        peer.v2CaptureToken = token
+        val candidate = IceCandidate("audio", 0, "candidate:1 1 UDP 1 192.0.2.1 5000 typ host")
+        every { mockPeerConnection.addIceCandidate(candidate) } returns false
+        peer.addIceCandidate(candidate)
+        verify(exactly = 0) { sink.candidate(any(), any(), true, any()) }
+        every { mockPeerConnection.addIceCandidate(candidate) } returns true
+        peer.addIceCandidate(candidate)
+        verify(exactly = 1) { sink.candidate(token, candidate.sdp, true, null) }
+        peer.peerConnection = null
+        peer.addIceCandidate(candidate)
+        verify(exactly = 1) { sink.candidate(token, candidate.sdp, true, null) }
+        peer.peerConnection = mockPeerConnection
+    }
+
+    @Test
+    fun `local candidate reports trickle eligibility but does not guess nontrickle completion`() {
+        val sink = mockk<com.telnyx.webrtc.sdk.observability.CallReportV2Ingress>(relaxed = true)
+        every { mockTelnyxClient.callReportV2 } returns sink
+        val candidate = IceCandidate("audio", 0, "candidate:1 1 UDP 1 192.0.2.1 5000 typ host")
+        for (trickle in listOf(false, true)) {
+            peer.disconnect()
+            val token = com.telnyx.webrtc.sdk.observability.V2CaptureToken()
+            val observer = slot<PeerConnection.Observer>()
+            every { mockPeerConnectionFactory.createPeerConnection(any<PeerConnection.RTCConfiguration>(), capture(observer)) } returns mockPeerConnection
+            peer = Peer(context = mockContext, client = mockTelnyxClient, callId = testCallId,
+                useTrickleIce = trickle, peerConnectionFactoryOverride = mockPeerConnectionFactory,
+                initialV2CaptureToken = token)
+            observer.captured.onIceCandidate(candidate)
+            verify(exactly = 1) {
+                sink.candidate(token, candidate.sdp, false, any(), if (trickle) true else null,
+                    null, PeerConnection.AdapterType.UNKNOWN)
+            }
+        }
+    }
+
+    @Test
     fun `outbound trickle call keeps its mode when client default changes during gathering`() {
         val candidate = IceCandidate(
             "audio",

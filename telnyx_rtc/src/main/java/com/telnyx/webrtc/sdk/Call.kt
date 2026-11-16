@@ -64,6 +64,10 @@ data class Call(
     val providedStun: String = Config.DEFAULT_STUN,
     internal val mutableCallStateFlow: MutableStateFlow<CallState> = MutableStateFlow(CallState.DONE()),
 ) {
+    private fun emitCallError(code: Int, message: String? = null) =
+        client.emitError(code, message, v2CaptureToken)
+
+    private val v2Logger = com.telnyx.webrtc.sdk.observability.V2ScopedLogger { client.callReportV2 }
     
     /**
      * Callback for real-time call quality metrics
@@ -76,6 +80,42 @@ data class Call(
         const val ICE_CANDIDATE_PERIOD: Long = 400L
     }
 
+    internal val v2CaptureToken = com.telnyx.webrtc.sdk.observability.V2CaptureToken()
+
+    /**
+     * Formats a codec preference the way the canonical report expects:
+     * `audio/<name>/<clockRate>[/<channels>]` (e.g. audio/PCMU/8000).
+     */
+    internal fun AudioCodec.v2PreferredCodecName(): String {
+        val mime = mimeType.substringAfter('/').ifBlank { mimeType }
+        return if (channels > 0) "audio/$mime/$clockRate/$channels" else "audio/$mime/$clockRate"
+    }
+
+    internal fun beginV2Capture(inbound: Boolean, reattach: Boolean = false,
+                                callerName: String? = null, callerNumber: String? = null,
+                                destinationNumber: String? = null, clientState: String? = null,
+                                customHeaders: Map<String, String>? = null,
+                                preferredCodecs: List<AudioCodec>? = null) {
+        // Sanitized app-supplied options: only real app args (outbound / answer) are
+        // included; an inbound call_started keeps {} because the app has not supplied
+        // any option yet and answer-time inputs are never back-filled.
+        val rawCallOptions = if (inbound) kotlinx.serialization.json.JsonObject(emptyMap()) else
+            com.telnyx.webrtc.sdk.observability.v2RawCallOptions(
+                callerName, callerNumber, destinationNumber, clientState,
+                customHeaders?.keys?.sorted(), preferredCodecs?.map { it.v2PreferredCodecName() })
+        client.callReportV2?.started(v2CaptureToken, currentSignalingCallId().toString(), inbound, reattach, useTrickleIce,
+            com.telnyx.webrtc.sdk.observability.V2CaptureOptions(client.getForceRelayCandidate(),
+                client.prefetchIceCandidates, providedTurn != Config.DEFAULT_TURN || providedStun != Config.DEFAULT_STUN,
+                listOf(providedTurn, providedStun).count { it.isNotBlank() },
+                Peer.effectiveIceServerCount(providedTurn, providedStun),
+                callerName = callerName,
+                callerNumber = callerNumber,
+                destinationNumber = destinationNumber,
+                rawCallOptions = rawCallOptions,
+                customHeaderNames = customHeaders?.keys?.sorted(),
+                preferredCodecs = preferredCodecs?.map { it.v2PreferredCodecName() },
+                useStereo = if (inbound) null else false))
+    }
     internal var peerConnection: Peer? = null
 
     /** Immutable ICE mode captured when this call is created. */
@@ -125,8 +165,17 @@ data class Call(
      * Sets the call state to the provided value
      * @param value the new call state
      */
+    private fun CallState.isV2Terminal(): Boolean = when (this) {
+        is CallState.DONE, CallState.ERROR, is CallState.DROPPED -> true
+        else -> false
+    }
+
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        client.callReportV2?.state(v2CaptureToken, value)
+        if (value.isV2Terminal() && (peerConnection == null || value !is CallState.DONE)) {
+            client.callReportV2?.peerClosing(v2CaptureToken, null)
+        }
         peerConnection?.onCallStateChanged(value)
     }
 
@@ -203,8 +252,8 @@ data class Call(
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()?.description
         if (sessionDescriptionString == null) {
-            mutableCallStateFlow.value = CallState.ERROR
-            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS — null SDP on reattach is a session precondition failure, not an SDP operation failure
+            emitCallError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS — null SDP on reattach is a session precondition failure, not an SDP operation failure
+            updateCallState(CallState.ERROR)
         } else {
             val answerBodyMessage = SendingMessageBody(
                 uuid, SocketMethod.ATTACH.methodName,
@@ -250,6 +299,7 @@ data class Call(
     fun setMuteState(muted: Boolean) {
         muteLiveData.postValue(muted)
         audioManager.isMicrophoneMute = muted
+        client.callReportV2?.nativeFact(com.telnyx.webrtc.sdk.observability.V2NativeFact.MicrophoneMuteSet(muted), v2CaptureToken)
 
         // Track mute/unmute state change
         val state = if (muted) "muted" else "unmuted"
@@ -261,6 +311,7 @@ data class Call(
      * @see [AudioManager]
      */
     fun onLoudSpeakerPressed() {
+        client.callReportV2?.nativeFact(com.telnyx.webrtc.sdk.observability.V2NativeFact.SpeakerphoneRequested(!audioManager.isSpeakerphoneOn), v2CaptureToken)
         if (!audioManager.isSpeakerphoneOn) {
             loudSpeakerLiveData.postValue(true)
             audioManager.isSpeakerphoneOn = true
@@ -331,7 +382,7 @@ data class Call(
             Logger.e(message = "Failed to send MODIFY ($holdAction) message")
             holdLiveData.postValue(!holdLiveData.value!!)
             updateCallState(if (holdAction == "hold") CallState.ACTIVE else CallState.HELD)
-            client.emitError(TelnyxErrorCode.HOLD_FAILED.code)
+            emitCallError(TelnyxErrorCode.HOLD_FAILED.code)
         }
     }
 
@@ -490,19 +541,19 @@ data class Call(
      * Sets the call state to RECONNECTING when a call is being recovered
      */
     fun setCallRecovering() {
-        mutableCallStateFlow.value = CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH)
+        updateCallState(CallState.RECONNECTING(CallNetworkChangeReason.NETWORK_SWITCH))
     }
     
     /**
      * Sets the call state to ERROR when reconnection timeout occurs
      */
     fun setReconnectionTimeout() {
-        mutableCallStateFlow.value = CallState.ERROR
-        client.emitError(
+        emitCallError(
             TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
             "Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
         ) // RECONNECTION_EXHAUSTED
-        Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
+        updateCallState(CallState.ERROR)
+        v2Logger.e(null,"Call reconnection timed out after ${TelnyxClient.RECONNECT_TIMEOUT/TIMEOUT_DIVISOR} seconds")
     }
 
     /**
@@ -514,7 +565,7 @@ data class Call(
         // Potentially add logic here if needed when a candidate is received,
         // but the primary action is adding it to the list for the timer.
         iceCandidateList.add(candidate)
-        Logger.d(message = "Call [${currentSignalingCallId()}] received ICE candidate. List size: ${iceCandidateList.size}")
+        v2Logger.d(message = "Call [${currentSignalingCallId()}] received ICE candidate. List size: ${iceCandidateList.size}")
     }
 
     /**
@@ -531,9 +582,9 @@ data class Call(
     ) {
         // Ensure peerConnection is initialized for this Call instance before proceeding
         if (peerConnection == null) {
-            Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
+            v2Logger.e(message = "PeerConnection not initialized for Call [${currentSignalingCallId()}] before starting outgoing call.")
+            emitCallError(TelnyxErrorCode.PEER_CLOSED_DURING_INIT.code) // PEER_CLOSED_DURING_INIT
             updateCallState(CallState.ERROR)
-            client.emitError(TelnyxErrorCode.PEER_CLOSED_DURING_INIT.code) // PEER_CLOSED_DURING_INIT
             return
         }
 
@@ -544,7 +595,7 @@ data class Call(
             override fun onCreateSuccess(sessionDescription: SessionDescription?) {
                 if (useTrickleIce) {
                     // For trickle ICE, send INVITE immediately without waiting for candidates
-                    Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [${currentSignalingCallId()}]")
+                    v2Logger.d(message = "Trickle ICE enabled - sending INVITE immediately for Call [${currentSignalingCallId()}]")
 
                     sendInviteImmediately(
                         callerName,
@@ -568,9 +619,9 @@ data class Call(
             }
 
             override fun onCreateFailure(p0: String?) {
-                 Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
+                 v2Logger.e(message = "Failed to create SDP offer for Call [${currentSignalingCallId()}]: $p0")
+                 emitCallError(TelnyxErrorCode.SDP_CREATE_OFFER_FAILED.code) // SDP_CREATE_OFFER_FAILED
                  updateCallState(CallState.ERROR)
-                 client.emitError(TelnyxErrorCode.SDP_CREATE_OFFER_FAILED.code) // SDP_CREATE_OFFER_FAILED
             }
         })
     }
@@ -591,7 +642,7 @@ data class Call(
             // Add trickle ICE capability to SDP
             sdpDescription = SdpUtils.addTrickleIceCapability(sdpDescription)
             
-            Logger.d(message = "Sending INVITE immediately with trickle ICE for Call [${currentSignalingCallId()}]")
+            v2Logger.d(message = "Sending INVITE immediately with trickle ICE for Call [${currentSignalingCallId()}]")
             
             val inviteMessageBody = SendingMessageBody(
                 id = outgoingInviteUUID!!,
@@ -618,16 +669,17 @@ data class Call(
                 // Skip the INVITE_SENT milestone so latency reporting does not
                 // coexist with the send-failure error.
                 Logger.e(message = "Failed to send INVITE (trickle) for Call [${currentSignalingCallId()}]")
-                client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                emitCallError(TelnyxErrorCode.SDP_SEND_FAILED.code)
             } else {
                 // Track invite sent milestone
                 client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+                client.callReportV2?.timing(v2CaptureToken, "sdp_sent_ms")
             }
         } else {
-            if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
-            if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
+            if (sdpDescription == null) v2Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
+            if (outgoingInviteUUID == null) v2Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
+            emitCallError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
             updateCallState(CallState.ERROR)
-            client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
         }
     }
 
@@ -681,21 +733,22 @@ data class Call(
                             // Skip the INVITE_SENT milestone so latency reporting
                             // does not coexist with the send-failure error.
                             Logger.e(message = "Failed to send INVITE (non-trickle) for Call [${currentSignalingCallId()}]")
-                            client.emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                            emitCallError(TelnyxErrorCode.SDP_SEND_FAILED.code)
                         } else {
                             // Track invite sent milestone
                             client.latencyTracker.markCallMilestone(currentSignalingCallId(), LatencyTracker.MILESTONE_INVITE_SENT)
+                            client.callReportV2?.timing(v2CaptureToken, "sdp_sent_ms")
                         }
                         resetIceCandidateTimer() // Stop timer after sending
                     } else {
-                         if (sdpDescription == null) Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
-                         if (outgoingInviteUUID == null) Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
+                         if (sdpDescription == null) v2Logger.e(message = "Failed to get local SDP description for Call [${currentSignalingCallId()}]. Cannot send invite.")
+                         if (outgoingInviteUUID == null) v2Logger.e(message = "Missing outgoingInviteUUID for Call [${currentSignalingCallId()}]. Cannot send invite.")
                          resetIceCandidateTimer() // Reset timer even on failure
+                         emitCallError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
                          updateCallState(CallState.ERROR) // Mark call as errored if SDP/UUID is missing
-                         client.emitError(TelnyxErrorCode.INVALID_CALL_PARAMETERS.code) // INVALID_CALL_PARAMETERS
                     }
                 } else {
-                    Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
+                    v2Logger.d(message = "Call [${currentSignalingCallId()}] - Event-ICE_CANDIDATE_DELAY - Waiting for STUN or TURN")
                 }
             },
             ICE_CANDIDATE_DELAY, ICE_CANDIDATE_PERIOD
@@ -711,7 +764,7 @@ data class Call(
         iceCandidateTimer?.purge()
         iceCandidateTimer = null
         iceCandidateList.clear()
-        Logger.d(message =  "Call [${currentSignalingCallId()}] ICE candidate timer reset.")
+        v2Logger.d(message =  "Call [${currentSignalingCallId()}] ICE candidate timer reset.")
     }
 
     /**
@@ -728,7 +781,7 @@ data class Call(
      */
     fun iceRestart(): Boolean =
         if (callStateFlow.value !is CallState.ACTIVE) {
-            Logger.w(
+            v2Logger.w(
                 tag = "Call:IceRestart",
                 message = "ICE restart skipped - call is not active",
             )
@@ -740,7 +793,7 @@ data class Call(
             // disposed peer to restart ICE.
             val activeCall = client.getActiveCalls()[callId]
             if (activeCall != null && activeCall !== this) {
-                Logger.d(
+                v2Logger.d(
                     tag = "Call:IceRestart",
                     message = "Forwarding ICE restart to the current call instance after reattach",
                 )
@@ -754,14 +807,14 @@ data class Call(
         val peer = peerConnection
         return when {
             !client.isSocketConnected() -> {
-                Logger.w(
+                v2Logger.w(
                     tag = "Call:IceRestart",
                     message = "ICE restart skipped - signaling socket is not connected",
                 )
                 false
             }
             peer == null -> {
-                Logger.e(
+                v2Logger.e(
                     tag = "Call:IceRestart",
                     message = "ICE restart failed - peer connection is unavailable",
                 )

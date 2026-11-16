@@ -48,6 +48,10 @@ data class AnonymousLoginParams(
     val mobileSdkVersion: String = BuildConfig.SDK_VERSION,
     @SerializedName("sessid")
     val sessid: String? = null,
+    @SerializedName("sdk_instance_id")
+    val sdkInstanceId: String? = null,
+    @SerializedName("telemetry_enabled")
+    val telemetryEnabled: Boolean = false,
 ) : ParamRequest()
 
 /**

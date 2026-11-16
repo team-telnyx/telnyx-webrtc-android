@@ -70,6 +70,56 @@ class TelnyxClient private constructor(
     constructor(context: Context) : this(context, false, SdkIdentity.default())
     constructor(context: Context, sdkIdentity: SdkIdentity) : this(context, false, sdkIdentity)
 
+    private val v2Logger = com.telnyx.webrtc.sdk.observability.V2ScopedLogger { callReportV2 }
+    /** Stable per-client identity; never an account ID or signaling session ID. */
+    internal val callReportV2CreatedAtMs: Long = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime())
+    internal var callReportV2CreationDurationMs: Long = 0
+        private set
+    internal val callReportV2InstanceId: String = UUID.randomUUID().toString()
+    private val callReportV2Sequence = java.util.concurrent.atomic.AtomicLong()
+    internal fun nextCallReportV2Sequence(): Long = callReportV2Sequence.incrementAndGet()
+    internal val callReportV2DisabledByServer = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var callReportV2ServerSessionId: String? = null
+    /** Set by the installer while holding the client lock; sticky for the client's lifetime. */
+    @Volatile internal var callReportV2ExplicitlyConfigured = false
+        internal set
+    /** Null while no V2 owner is installed; otherwise the telemetry configuration in effect. */
+    internal val callReportV2InstalledConfig: com.telnyx.webrtc.sdk.observability.CallReportV2Config?
+        get() = com.telnyx.webrtc.sdk.observability.AndroidV2Installer.installedConfigFor(this)
+    @Volatile internal var callReportV2: com.telnyx.webrtc.sdk.observability.CallReportV2Ingress? = null
+
+    /** Configure reporting before login/call creation; identical settings preserve the owner. */
+    fun configureCallReportV2(config: com.telnyx.webrtc.sdk.observability.CallReportV2Config): Boolean =
+        try {
+            com.telnyx.webrtc.sdk.observability.AndroidV2Installer.install(this, config, explicit = true)
+            true
+        } catch (_: Exception) { false } catch (_: LinkageError) { false }
+
+    /**
+     * Keeps telemetry on the signaling environment the app connected with unless the app
+     * explicitly configured Call Report V2; a custom host is treated as production and no
+     * prod-to-dev fallback exists. Check and install are serialized on the client lock so an
+     * explicit configuration can never be overwritten by a concurrent auto-apply.
+     */
+    internal fun applyCallReportV2Environment(providedServerConfig: TxServerConfiguration) {
+        synchronized(this) {
+            if (callReportV2ExplicitlyConfigured) return
+            if (callReportV2DisabledByServer.get()) return
+            if (calls.isNotEmpty() || callReportV2?.hasActiveCall() == true) return
+            val installed = com.telnyx.webrtc.sdk.observability.AndroidV2Installer.installedConfigFor(this) ?: return
+            val derived = installed.copy(development = providedServerConfig.host == Config.TELNYX_DEV_HOST_ADDRESS)
+            if (derived == installed) return
+            runCatching { com.telnyx.webrtc.sdk.observability.AndroidV2Installer.install(this, derived) }
+                .onFailure { failure ->
+                    v2Logger.d(
+                        message = v2Logger.formatMessage(
+                            "Call Report V2 environment retarget not applied: %s", failure.message ?: failure::class.java.simpleName
+                        )
+                    )
+                }
+        }
+    }
+
     internal var webRTCReportersMap: ConcurrentHashMap<UUID, WebRTCReporter> =
         ConcurrentHashMap<UUID, WebRTCReporter>()
 
@@ -176,6 +226,9 @@ class TelnyxClient private constructor(
 
     // Reconnection timeout timer
     private var reconnectTimeOutJob: Job? = null
+    // t027: monotonic owner epoch of the reconnection timer; an old job can only
+    // decide/tear down/clear when it still owns the current job+epoch pair.
+    private var v2TimerEpoch: Long = 0
     private var socketConnectJob: Job? = null
     private val acceptCallJobs = ConcurrentHashMap<UUID, Job>()
     private var reconnectJob: Job? = null
@@ -201,6 +254,14 @@ class TelnyxClient private constructor(
     private var providedPort: Int? = null
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
+    // t027: region applied to the current connection (null until a non-AUTO region is configured),
+    // reported in sdk-creation and socket lifecycle events.
+    internal var v2RegionHint: String? = null
+    // t027: latest outstanding LOGIN publication (rpc id + owning socket + auth epoch),
+    // guarded by the same monitor as the commit in onLoginResponseConfirmedImpl so the
+    // response-to-session transition is linearizable.
+    private var v2PendingLogin: PendingLogin? = null
+    private var v2LoginAttemptEpoch: Long = 0
     private var voiceSDKID: String? = null
     private var callReportId: String? = null
 
@@ -329,9 +390,11 @@ class TelnyxClient private constructor(
      * @param code The registry error code (e.g. [TelnyxErrorRegistry] 45004).
      * @param customMessage Optional override for the registry's default message.
      */
-    internal fun emitError(code: Int, customMessage: String? = null) {
+    internal fun emitError(code: Int, customMessage: String? = null, token: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null) {
         val baseError = TelnyxErrorRegistry.get(code) ?: TelnyxErrorRegistry.get(TelnyxErrorCode.UNEXPECTED_ERROR.code)!!
         val finalError = if (customMessage != null) baseError.copy(message = customMessage) else baseError
+        // Observe at the source, never from the replaying app flow or legacy response.
+        runCatching { callReportV2?.error(finalError, token) }
         _errorFlow.tryEmit(finalError)
         emitSocketResponse(SocketResponse.error(finalError.message, code))
     }
@@ -341,8 +404,17 @@ class TelnyxClient private constructor(
      *
      * @param code The registry warning code (e.g. 33001 ICE_CONNECTIVITY_LOST).
      */
-    internal fun emitWarning(code: Int) {
+    /**
+     * Emits a structured warning to [warningFlow]. Unknown codes are ignored.
+     *
+     * @param code The registry warning code (e.g. 33001 ICE_CONNECTIVITY_LOST).
+     * @param measurement Optional owned measurement (value/threshold) that tripped
+     *   the warning; null stays null in the report — never a fabricated constant.
+     */
+    internal fun emitWarning(code: Int, token: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null,
+        measurement: com.telnyx.webrtc.sdk.observability.V2WarningMeasurement? = null) {
         val warning = TelnyxWarningRegistry.get(code) ?: return
+        runCatching { callReportV2?.warning(warning, token, measurement) }
         _warningFlow.tryEmit(warning)
     }
 
@@ -443,6 +515,8 @@ class TelnyxClient private constructor(
     private var isCallPendingFromPush: Boolean = false
     private var pushMetaData: PushMetaData? = null
     private var pendingPushAppCallId: UUID? = null
+    // Telemetry-only identity. Never reuse attachCallId, which controls actual RPC error routing.
+    private var pushTelemetryAttachAttempt: Pair<UUID, UUID>? = null
     private var pushInviteTimeoutJob: Job? = null
     internal var pushInviteTimeoutMs: Long = PUSH_INVITE_TIMEOUT_MS
 
@@ -451,8 +525,54 @@ class TelnyxClient private constructor(
      *
      * @param metaData The push notification metadata containing call information
      */
+    /** Records an app-owned real receipt/action without associating it with another active call. */
+    fun recordCallReportV2PushEvent(event: com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent) {
+        try { callReportV2?.pushEvent(event) } catch (_: Exception) { /* Telemetry cannot fail call handling. */ }
+    }
+
+    /**
+     * Waits at most 1500ms for already-observed V2 events to leave the local pending queue.
+     * Best effort only: true is NOT a server acknowledgement or proof of persistence.
+     * Intended for background cleanup after the call action has completed, not its critical path.
+     */
+    suspend fun awaitCallReportV2Drain(timeoutMs: Long = 1500L): Boolean {
+        val reporter = callReportV2 ?: return true
+        val boundedTimeout = timeoutMs.coerceIn(0L, 1500L)
+        return try {
+            withTimeoutOrNull(boundedTimeout) { reporter.awaitDrain(boundedTimeout) } ?: false
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) { false }
+    }
+
+    private fun reportPushMilestone(fact: com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact,
+        callId: UUID?, reason: com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Reason? = null) {
+        if (callId != null) {
+            val origin = if (fact.name.startsWith("PUSH_ATTACH_")) synchronized(this) {
+                pushTelemetryAttachAttempt?.takeIf { it.first == callId }?.second
+            } else null
+            recordCallReportV2PushEvent(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent(
+                fact, callId, reason = reason,
+                originId = origin ?: com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.originFor(fact, callId)))
+        }
+    }
+
+    /** Login's attach_call=true is an actual attach attempt too; gathering metadata alone is not. */
+    private fun reportPendingPushAttachStarted(requestId: String) {
+        val origin = requestId.toUuidOrNull() ?: return
+        val callId = synchronized(this) {
+            if (!isCallPendingFromPush) return@synchronized null
+            val pending = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId ?: return@synchronized null
+            pushTelemetryAttachAttempt = pending to origin
+            pending
+        }
+        reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_STARTED, callId)
+    }
+
     private fun processCallFromPush(metaData: PushMetaData, pushWhenActive: Boolean = false) {
-        Logger.d("processCallFromPush PushMetaData", metaData.toJson())
+        reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_METADATA_PROCESSED,
+            metaData.callId.toUuidOrNull())
+        v2Logger.d("processCallFromPush PushMetaData", metaData.toJson())
         // Write pending push state under the same synchronized(this) lock used by
         // claimPendingPushCall(), clearPendingPushCall(), inviteAppCallId(), and
         // startPushInviteTimeout() so the compound invariant across these fields
@@ -460,6 +580,7 @@ class TelnyxClient private constructor(
         synchronized(this) {
             isCallPendingFromPush = true
             this.pushMetaData = metaData
+            pushTelemetryAttachAttempt = null
             // Push path: use the app-visible push call_id and remap it to the socket callID when INVITE arrives.
             // Pass the config's pushWhenActive directly because the session config may not be saved yet
             // (tokenLogin/credentialLogin runs after processCallFromPush in the connect() flow).
@@ -563,7 +684,7 @@ class TelnyxClient private constructor(
             Logger.w(
                 message = "Answering call $callId while ${otherActiveCalls.size} other call(s) active"
             )
-            emitWarning(TelnyxWarningCode.ANSWER_WHILE_PEER_ACTIVE.code)
+            emitWarning(TelnyxWarningCode.ANSWER_WHILE_PEER_ACTIVE.code, acceptCall.v2CaptureToken)
         }
 
         // The mode was captured when the inbound Call was created. Changing
@@ -581,12 +702,13 @@ class TelnyxClient private constructor(
         // Mark that user initiated answering the call (for answer delay calculation)
         // Note: Tracking already started in onOfferReceived when invite was received
         latencyTracker.markAnswerInitiated(callId)
+        callReportV2?.timing(acceptCall.v2CaptureToken, "answer_called_ms")
 
         // Use apply block to get the correct context for Call members/extensions
         acceptCall.apply {
             val originalOfferSdp = inviteResponse?.sdp
             if (originalOfferSdp == null) {
-                Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
+                v2Logger.e(message = "Cannot accept call $callId, original offer SDP is missing.")
                 updateCallState(CallState.ERROR)
                 CallTimingBenchmark.reset()
                 client.latencyTracker.cancelCallTracking(callId)
@@ -616,9 +738,9 @@ class TelnyxClient private constructor(
             fun sendAnswerImmediately() {
                 val generatedAnswerSdp = peerConnection?.getLocalDescription()?.description
                 if (generatedAnswerSdp == null) {
+                    client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code, token = v2CaptureToken) // SDP_CREATE_ANSWER_FAILED
                     updateCallState(CallState.ERROR)
-                    client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code) // SDP_CREATE_ANSWER_FAILED
-                    Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
+                    v2Logger.e(message = "Failed to generate local description (Answer SDP) for call $callId")
                 } else {
                     // Use the SdpUtils to modify the SDP
                     var finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
@@ -629,7 +751,7 @@ class TelnyxClient private constructor(
                     // Add trickle ICE capability to SDP
                     finalAnswerSdp = SdpUtils.addTrickleIceCapability(finalAnswerSdp)
 
-                    Logger.d(
+                    v2Logger.d(
                         tag = "AcceptCall",
                         message = "Sending answer immediately with trickle ICE for call $callId"
                     )
@@ -654,10 +776,10 @@ class TelnyxClient private constructor(
                     if (!socket.sendReturning(answerBodyMessage)) {
                         // JS parity (VSDK-393): send failure -> SDP_SEND_FAILED
                         Logger.e(message = "Failed to send ANSWER (trickle) for call $callId")
-                        emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                        emitError(TelnyxErrorCode.SDP_SEND_FAILED.code, token = v2CaptureToken)
                     }
                     CallTimingBenchmark.mark("answer_sent")
-                    Logger.d(tag = "ICE_DIAG", message = {
+                    v2Logger.d(tag = "ICE_DIAG", message = {
                         "ANSWER sent via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
                     })
                     client.debugDataCollector.onIceDiagnostic(
@@ -688,7 +810,8 @@ class TelnyxClient private constructor(
                             enableCallQualityReports,
                             callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                            debugDataCollector
+                            debugDataCollector,
+                            v2CaptureToken
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -697,7 +820,7 @@ class TelnyxClient private constructor(
                         addWebRTCReporter(callId, webRTCReporter)
                     }
 
-                    Logger.d(
+                    v2Logger.d(
                         tag = "AcceptCall",
                         message = "Answer sent successfully with trickle ICE for call $callId"
                     )
@@ -708,7 +831,7 @@ class TelnyxClient private constructor(
                 try {
                     if (acceptUseTrickleIce) {
                         // For trickle ICE, send ANSWER immediately without waiting for candidates
-                        Logger.d(
+                        v2Logger.d(
                             tag = "AcceptCall",
                             message = "Trickle ICE enabled. Sending answer immediately for call $callId"
                         )
@@ -716,25 +839,25 @@ class TelnyxClient private constructor(
                         sendAnswerImmediately()
                     } else {
                         // For traditional ICE, wait for candidates
-                        Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
+                        v2Logger.d(tag = "AcceptCall", message = "Waiting for first ICE candidate...")
                         peerConnection?.firstCandidateDeferred?.await() // Wait for first candidate
-                        Logger.d(
+                        v2Logger.d(
                             tag = "AcceptCall",
                             message = "First ICE candidate received. Setting up negotiation complete callback."
                         )
 
                         // Now set the callback for when ICE negotiation stabilizes (timer expires)
                         peerConnection?.setOnNegotiationComplete { // This also starts the negotiation timer
-                            Logger.d(
+                            v2Logger.d(
                                 tag = "AcceptCall",
                                 message = "ICE negotiation complete. Proceeding to send answer."
                             )
                             val generatedAnswerSdp =
                                 peerConnection?.getLocalDescription()?.description
                             if (generatedAnswerSdp == null) {
+                                client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code, token = v2CaptureToken) // SDP_CREATE_ANSWER_FAILED
                                 updateCallState(CallState.ERROR)
-                                client.emitError(TelnyxErrorCode.SDP_CREATE_ANSWER_FAILED.code) // SDP_CREATE_ANSWER_FAILED
-                                Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
+                                v2Logger.e(message = "Failed to generate local description (Answer SDP) after negotiation for call $callId")
                             } else {
                                 // Use the SdpUtils to modify the SDP
                                 var finalAnswerSdp = SdpUtils.modifyAnswerSdpToIncludeOfferCodecs(
@@ -748,11 +871,11 @@ class TelnyxClient private constructor(
                                         SdpUtils.addTrickleIceCapability(finalAnswerSdp)
                                 }
 
-                                Logger.d(
+                                v2Logger.d(
                                     tag = "SDP_Modify",
                                     message = "[Original Answer SDP After Wait]:\n$generatedAnswerSdp"
                                 )
-                                Logger.d(
+                                v2Logger.d(
                                     tag = "SDP_Modify",
                                     message = "[Final Answer SDP After Wait]:\n$finalAnswerSdp"
                                 )
@@ -778,10 +901,10 @@ class TelnyxClient private constructor(
                                 if (!socket.sendReturning(answerBodyMessage)) {
                                     // JS parity (VSDK-393): send failure -> SDP_SEND_FAILED
                                     Logger.e(message = "Failed to send ANSWER (non-trickle) for call $callId")
-                                    emitError(TelnyxErrorCode.SDP_SEND_FAILED.code)
+                                    emitError(TelnyxErrorCode.SDP_SEND_FAILED.code, token = v2CaptureToken)
                                 }
                                 CallTimingBenchmark.mark("answer_sdp_sent")
-                                Logger.d(tag = "ICE_DIAG", message = {
+                                v2Logger.d(tag = "ICE_DIAG", message = {
                                     "ANSWER sent (non-trickle) via socket for call $callId [${SystemClock.elapsedRealtime()}ms]"
                                 })
                                 client.debugDataCollector.onIceDiagnostic(
@@ -808,7 +931,8 @@ class TelnyxClient private constructor(
                                         enableCallQualityReports,
                                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                                        debugDataCollector
+                                        debugDataCollector,
+                                        v2CaptureToken
                                     )
                                     webRTCReporter.onCallQualityChange = { metrics ->
                                         onCallQualityChange?.invoke(metrics)
@@ -817,7 +941,7 @@ class TelnyxClient private constructor(
                                     addWebRTCReporter(callId, webRTCReporter)
                                 }
 
-                                Logger.d(
+                                v2Logger.d(
                                     tag = "AcceptCall",
                                     message = "Answer sent successfully for call $callId"
                                 )
@@ -825,13 +949,13 @@ class TelnyxClient private constructor(
                         }
                     }
                 } catch (e: CancellationException) {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "AcceptCall",
                         message = "Async accept process cancelled for call $callId",
                         throwable = e
                     )
                 } catch (e: Exception) {
-                    Logger.e(
+                    v2Logger.e(
                         tag = "AcceptCall",
                         message = "Error during async accept process for call $callId: ${e.message}"
                     )
@@ -990,6 +1114,9 @@ class TelnyxClient private constructor(
             providedStun = providedStun!!
         ).apply {
             callId = inviteCallId
+            beginV2Capture(inbound = false, callerName = callerName, callerNumber = callerNumber,
+                destinationNumber = destinationNumber, clientState = clientState,
+                customHeaders = customHeaders, preferredCodecs = preferredCodecs)
             updateCallState(CallState.RINGING)
 
             // Notify debug data collector that a new call has started
@@ -1013,8 +1140,10 @@ class TelnyxClient private constructor(
                 onIceCandidateAdd = { candidate ->
                     addIceCandidateInternal(candidate)
                 },
-                audioConstraints = audioConstraints
+                audioConstraints = audioConstraints,
+                initialV2CaptureToken = v2CaptureToken
             ).also {
+                it.v2CaptureToken = v2CaptureToken
 
                 // Create reporter - interval is adjusted internally based on debug flags
                 val webRTCReporter =
@@ -1028,7 +1157,8 @@ class TelnyxClient private constructor(
                         enableCallQualityReports,
                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                        client.debugDataCollector
+                        client.debugDataCollector,
+                        v2CaptureToken
                     )
                 webRTCReporter.onCallQualityChange = { metrics ->
                     onCallQualityChange?.invoke(metrics)
@@ -1075,6 +1205,7 @@ class TelnyxClient private constructor(
         val appFacingCallId = appCallId(signalingCallId)
         val endCall = calls[signalingCallId]
         endCall?.apply {
+            callReportV2?.termination(v2CaptureToken, local = true)
             val uuid: String = UUID.randomUUID().toString()
             // Determine cause code and name based on call state
             val (causeCode, causeName) = when (callStateFlow.value) {
@@ -1087,7 +1218,7 @@ class TelnyxClient private constructor(
             }
             val terminationReason = CallTerminationReason(cause = causeName, causeCode = causeCode)
 
-            Logger.d(
+            v2Logger.d(
                 tag = "EndCall",
                 message = "Ending call with ID: $signalingCallId, current state: ${callStateFlow.value}, cause: $causeName ($causeCode)"
             )
@@ -1132,7 +1263,7 @@ class TelnyxClient private constructor(
             if (!socket.sendReturning(byeMessageBody)) {
                 // JS parity (VSDK-393): BYE send failure -> BYE_SEND_FAILED
                 Logger.e(message = "Failed to send BYE for call $signalingCallId")
-                client.emitError(TelnyxErrorCode.BYE_SEND_FAILED.code)
+                client.emitError(TelnyxErrorCode.BYE_SEND_FAILED.code, token = v2CaptureToken)
             }
             resetCallOptions()
             client.stopMediaPlayer()
@@ -1200,7 +1331,7 @@ class TelnyxClient private constructor(
         synchronized(pendingIceCandidates) {
             val removedCandidates = pendingIceCandidates.remove(callId)
             removedCandidates?.let {
-                Logger.d(
+                v2Logger.d(
                     tag = "removeFromCalls",
                     message = "Cleaned up ${it.size} pending ICE candidates for ended call $callId"
                 )
@@ -1211,14 +1342,36 @@ class TelnyxClient private constructor(
     private var socketReconnection: TxSocket? = null
 
     internal var isNetworkCallbackRegistered = false
+    internal fun observeV2Network() {
+        runCatching {
+            val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val network = manager.activeNetwork
+            val caps = manager.getNetworkCapabilities(network)
+            val type = when {
+                network == null -> "NONE"
+                caps == null -> "UNKNOWN"
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "WIFI"
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "CELLULAR"
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
+                else -> "UNKNOWN"
+            }
+            callReportV2?.network(type, caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
+        }
+    }
     private val networkCallback = object : ConnectivityHelper.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) {
+            observeV2Network()
+            super.onCapabilitiesChanged(network, capabilities)
+        }
         override fun onNetworkAvailable() {
+            observeV2Network()
             if (isDeclinePushConnection) {
                 return
             }
 
-            Logger.d(
-                message = Logger.formatMessage(
+            v2Logger.d(
+                message = v2Logger.formatMessage(
                     "[%s] :: There is a network available",
                     this@TelnyxClient.javaClass.simpleName
                 )
@@ -1231,12 +1384,13 @@ class TelnyxClient private constructor(
         }
 
         override fun onNetworkUnavailable() {
+            observeV2Network()
             if (isDeclinePushConnection) {
                 return
             }
 
-            Logger.d(
-                message = Logger.formatMessage(
+            v2Logger.d(
+                message = v2Logger.formatMessage(
                     "[%s] :: There is no network available",
                     this@TelnyxClient.javaClass.simpleName
                 )
@@ -1379,8 +1533,12 @@ class TelnyxClient private constructor(
                 return@launchSocketConnect
             }
 
-            // Socket is now the reconnectionSocket
-            socket = reconnectSocket
+            // Socket is now the reconnectionSocket — the swap is owned by the
+            // same guard as auth publication and the commit in
+            // onLoginResponseConfirmedImpl so a response in flight can never
+            // bind across a half-swapped socket: it either sees the old socket
+            // (binds, then the newer cycle supersedes) or is rejected.
+            synchronized(this) { socket = reconnectSocket }
 
             if (providedHostAddress == null) {
                 providedHostAddress =
@@ -1429,25 +1587,39 @@ class TelnyxClient private constructor(
     }
 
     init {
-        // Generate random UUID for sessid param, convert it to string and set globally
-        sessid = UUID.randomUUID().toString()
+        if (!BuildConfig.IS_TESTING.get()) {
+            try { com.telnyx.webrtc.sdk.observability.AndroidV2Installer.install(this,
+                com.telnyx.webrtc.sdk.observability.CallReportV2Config(), constructing = true) }
+            catch (_: Exception) { /* Reporting must not prevent SDK construction. */ }
+            catch (_: LinkageError) { /* Optional reporting runtime unavailable. */ }
+        }
+        try {
+            // Generate random UUID for sessid param, convert it to string and set globally
+            sessid = UUID.randomUUID().toString()
 
-        // Initialize deprecated LiveData for backward compatibility
-        socketResponseLiveData =
-            MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
+            // Initialize deprecated LiveData for backward compatibility
+            socketResponseLiveData =
+                MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
 
-        // Initialize both SharedFlow and LiveData with initial state
-        emitSocketResponse(SocketResponse.initialised())
+            // Initialize both SharedFlow and LiveData with initial state
+            emitSocketResponse(SocketResponse.initialised())
 
-        // Initialize connection status as disconnected
-        emitConnectionStatus(ConnectionStatus.DISCONNECTED)
+            // Initialize connection status as disconnected
+            emitConnectionStatus(ConnectionStatus.DISCONNECTED)
 
-        socket = TxSocket(
-            host_address = Config.TELNYX_PROD_HOST_ADDRESS,
-            port = Config.TELNYX_PORT
-        )
-        if (!isDeclinePushConnection) {
-            registerNetworkCallback()
+            socket = TxSocket(
+                host_address = Config.TELNYX_PROD_HOST_ADDRESS,
+                port = Config.TELNYX_PORT
+            )
+            if (!isDeclinePushConnection) {
+                registerNetworkCallback()
+            }
+
+            callReportV2CreationDurationMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) - callReportV2CreatedAtMs
+            runCatching { callReportV2?.creationFinished(callReportV2CreationDurationMs) }
+        } catch (failure: Exception) {
+            runCatching { callReportV2?.creationFailed(failure.javaClass.simpleName) }
+            throw failure
         }
     }
 
@@ -1524,8 +1696,8 @@ class TelnyxClient private constructor(
             return false
         }
 
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: Ignoring %s during decline push connection",
                 this@TelnyxClient.javaClass.simpleName,
                 methodName
@@ -1555,6 +1727,7 @@ class TelnyxClient private constructor(
     ) {
 
         clearTransientDeclinePushMode()
+        applyCallReportV2Environment(providedServerConfig)
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1574,13 +1747,15 @@ class TelnyxClient private constructor(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
-        socket = connectSocket
+        // t027: every socket replacement participates in the login-commit ownership
+        // guard so a response in flight can never bind across a half-swapped socket.
+        synchronized(this) { socket = connectSocket }
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            v2Logger.d(message = "Provided Host Address: $providedHostAddress")
             launchSocketConnect {
                 connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
@@ -1621,6 +1796,7 @@ class TelnyxClient private constructor(
         autoLogin: Boolean = true,
     ) {
         clearTransientDeclinePushMode()
+        applyCallReportV2Environment(providedServerConfig)
         isSocketDebug = credentialConfig.debug
         enableCallQualityReports = credentialConfig.enableCallQualityReports
         callQualityReportInterval = credentialConfig.callQualityReportInterval
@@ -1641,8 +1817,10 @@ class TelnyxClient private constructor(
             providedServerConfig.host
         }
 
-        if (credentialConfig.region != Region.AUTO)
+        if (credentialConfig.region != Region.AUTO) {
+            v2RegionHint = credentialConfig.region.value
             providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
+        }
 
         val generation = nextConnectionGeneration()
         socket.destroy()
@@ -1650,13 +1828,15 @@ class TelnyxClient private constructor(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
-        socket = connectSocket
+        // t027: every socket replacement participates in the login-commit ownership
+        // guard so a response in flight can never bind across a half-swapped socket.
+        synchronized(this) { socket = connectSocket }
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            v2Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
                 if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1669,7 +1849,7 @@ class TelnyxClient private constructor(
                         providedHostAddress!!,
                         providedPort!!
                     )
-                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                    v2Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
                 if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1729,6 +1909,7 @@ class TelnyxClient private constructor(
         autoLogin: Boolean = true,
     ) {
         clearTransientDeclinePushMode()
+        applyCallReportV2Environment(providedServerConfig)
         isSocketDebug = tokenConfig.debug
         enableCallQualityReports = tokenConfig.enableCallQualityReports
         callQualityReportInterval = tokenConfig.callQualityReportInterval
@@ -1748,8 +1929,10 @@ class TelnyxClient private constructor(
             providedServerConfig.host
         }
 
-        if (tokenConfig.region != Region.AUTO)
+        if (tokenConfig.region != Region.AUTO) {
+            v2RegionHint = tokenConfig.region.value
             providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
+        }
 
         val generation = nextConnectionGeneration()
         socket.destroy()
@@ -1757,13 +1940,15 @@ class TelnyxClient private constructor(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
-        socket = connectSocket
+        // t027: every socket replacement participates in the login-commit ownership
+        // guard so a response in flight can never bind across a half-swapped socket.
+        synchronized(this) { socket = connectSocket }
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            v2Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
                 if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1776,7 +1961,7 @@ class TelnyxClient private constructor(
                         providedHostAddress!!,
                         providedPort!!
                     )
-                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                    v2Logger.d(message = "Verified Host Address: $providedHostAddress")
                 }
 
                 if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1839,6 +2024,7 @@ class TelnyxClient private constructor(
         logLevel: LogLevel = LogLevel.NONE,
     ) {
         clearTransientDeclinePushMode()
+        applyCallReportV2Environment(providedServerConfig)
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
         invalidateGatewayResponseTimer()
@@ -1854,14 +2040,16 @@ class TelnyxClient private constructor(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
-        socket = connectSocket
+        // t027: every socket replacement participates in the login-commit ownership
+        // guard so a response in flight can never bind across a half-swapped socket.
+        synchronized(this) { socket = connectSocket }
 
         providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
 
         if (ConnectivityHelper.isNetworkEnabled(context)) {
-            Logger.d(message = "Provided Host Address: $providedHostAddress")
+            v2Logger.d(message = "Provided Host Address: $providedHostAddress")
 
             launchSocketConnect {
                 if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1915,6 +2103,7 @@ class TelnyxClient private constructor(
         txPushMetaData: String? = null,
     ) {
         isDeclinePushConnection = true
+        applyCallReportV2Environment(providedServerConfig)
         val declineConfig = when (config) {
             is CredentialConfig -> config.copy(autoReconnect = false)
             is TokenConfig -> config.copy(autoReconnect = false)
@@ -1939,14 +2128,16 @@ class TelnyxClient private constructor(
                 host_address = providedHostAddress!!,
                 port = providedServerConfig.port
             )
-            socket = connectSocket
+            // t027: every socket replacement participates in the login-commit ownership
+        // guard so a response in flight can never bind across a half-swapped socket.
+        synchronized(this) { socket = connectSocket }
 
             providedPort = providedServerConfig.port
             providedTurn = providedServerConfig.turn
             providedStun = providedServerConfig.stun
 
             if (ConnectivityHelper.isNetworkEnabled(context)) {
-                Logger.d(message = "Provided Host Address: $providedHostAddress")
+                v2Logger.d(message = "Provided Host Address: $providedHostAddress")
                 if (txPushMetaData != null) {
                     val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
                     voiceSDKID = metadata.voiceSdkId
@@ -2144,6 +2335,8 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2InstanceId,
+                telemetryEnabled = callReportV2?.sendsToServerForLogin() == true,
                 loginToken = null,
                 login = user,
                 passwd = password,
@@ -2154,7 +2347,7 @@ class TelnyxClient private constructor(
                 mobileSdkVersion = sdkIdentity.version,
             )
         )
-        Logger.d(message = "Auto login with credentialConfig")
+        v2Logger.d(message = "Auto login with credentialConfig")
         
         // Start registration latency tracking
         latencyTracker.startRegistrationTracking()
@@ -2163,6 +2356,12 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
+        // t027 B-WIN: publish/invalidate the auth owner (which also clears the
+        // recorder session under the same guard) BEFORE any new capture auth/clear
+        // effect, so an older response can never bind under an already-new auth.
+        v2NotePendingLogin(uuid, targetSocket)
+        callReportV2?.authenticate("sip_credentials", user, password)
+        reportPendingPushAttachStarted(uuid)
         targetSocket.send(loginMessage)
     }
 
@@ -2199,7 +2398,7 @@ class TelnyxClient private constructor(
             params = params
         )
         val message = Gson().toJson(disablePushMessage)
-        Logger.d("disablePushMessage", message)
+        v2Logger.d("disablePushMessage", message)
         socket.send(disablePushMessage)
     }
 
@@ -2213,6 +2412,7 @@ class TelnyxClient private constructor(
     private fun attachCall() {
 
         attachCallId = UUID.randomUUID().toString()
+        reportPendingPushAttachStarted(attachCallId!!)
         val params = AttachCallParams(
             userVariables = AttachUserVariables(),
             mobileSdkName = sdkIdentity.name,
@@ -2224,7 +2424,7 @@ class TelnyxClient private constructor(
             method = SocketMethod.ATTACH_CALL.methodName,
             params = params
         )
-        Logger.d("sending attach Call", attachPushMessage.toString())
+        v2Logger.d("sending attach Call", attachPushMessage.toString())
         socket.send(attachPushMessage)
         startPushInviteTimeout()
     }
@@ -2238,14 +2438,16 @@ class TelnyxClient private constructor(
             pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
         }
         if (pendingCallId == null) {
-            Logger.w(message = "Cannot start push INVITE timeout without a valid push call_id")
+            v2Logger.w(message = "Cannot start push INVITE timeout without a valid push call_id")
             return
         }
 
-        Logger.d(message = "Starting post-attach INVITE timeout for push call $pendingCallId")
+        v2Logger.d(message = "Starting post-attach INVITE timeout for push call $pendingCallId")
         pushInviteTimeoutJob = clientScope.launch {
             delay(pushInviteTimeoutMs)
             val claimedCallId = claimPendingPushCall() ?: return@launch
+            reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_FAILED,
+                claimedCallId, com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Reason.INVITE_TIMEOUT)
 
             val terminationReason = CallTerminationReason(
                 cause = "ORIGINATOR_CANCEL",
@@ -2357,6 +2559,8 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2InstanceId,
+                telemetryEnabled = callReportV2?.sendsToServerForLogin() == true,
                 loginToken = token,
                 login = null,
                 passwd = null,
@@ -2375,6 +2579,10 @@ class TelnyxClient private constructor(
         if (!canSend()) {
             return
         }
+        // t027 B-WIN: owner publication precedes the capture auth (see above).
+        v2NotePendingLogin(uuid, targetSocket)
+        callReportV2?.authenticate("token", null, token)
+        reportPendingPushAttachStarted(uuid)
         targetSocket.send(loginMessage)
     }
 
@@ -2431,6 +2639,8 @@ class TelnyxClient private constructor(
         )
 
         val anonymousLoginParams = AnonymousLoginParams(
+            sdkInstanceId = callReportV2InstanceId,
+            telemetryEnabled = false,
             targetType = targetType,
             targetId = targetId,
             targetVersionId = targetVersionId,
@@ -2449,10 +2659,13 @@ class TelnyxClient private constructor(
             params = anonymousLoginParams
         )
 
-        Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
+        v2Logger.d(message = "Anonymous Login Message: ${Gson().toJson(loginMessage)}")
         if (!canSend()) {
             return
         }
+        // t027 B-WIN: owner publication precedes the capture auth (see above).
+        v2NotePendingLogin(uuid, targetSocket)
+        callReportV2?.authenticate("anonymous", targetId, targetType)
         targetSocket.send(loginMessage)
     }
 
@@ -2494,7 +2707,7 @@ class TelnyxClient private constructor(
             params = aiConversationParams
         )
 
-        Logger.d(message = "AI Conversation Message: ${Gson().toJson(aiConversationMessage)}")
+        v2Logger.d(message = "AI Conversation Message: ${Gson().toJson(aiConversationMessage)}")
         socket.send(aiConversationMessage)
     }
 
@@ -2557,7 +2770,7 @@ class TelnyxClient private constructor(
             params = modifyParams
         )
 
-        Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
+        v2Logger.d(message = "Update Media Message: ${Gson().toJson(modifyMessage)}")
         socket.send(modifyMessage)
     }
 
@@ -2637,6 +2850,8 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2InstanceId,
+                telemetryEnabled = callReportV2?.sendsToServerForLogin() == true,
                 loginToken = null,
                 login = user,
                 passwd = password,
@@ -2645,11 +2860,14 @@ class TelnyxClient private constructor(
                 sessid = sessid
             )
         )
-        Logger.d(message = "Auto login with credentialConfig for decline push")
+        v2Logger.d(message = "Auto login with credentialConfig for decline push")
 
         if (!canSend()) {
             return
         }
+        // t027 B-WIN: owner publication precedes the capture auth (see above).
+        v2NotePendingLogin(uuid, targetSocket)
+        callReportV2?.authenticate("sip_credentials", user, password)
         targetSocket.send(loginMessage)
     }
 
@@ -2709,6 +2927,8 @@ class TelnyxClient private constructor(
             id = uuid,
             method = SocketMethod.LOGIN.methodName,
             params = LoginParam(
+                sdkInstanceId = callReportV2InstanceId,
+                telemetryEnabled = callReportV2?.sendsToServerForLogin() == true,
                 loginToken = token,
                 login = null,
                 passwd = null,
@@ -2717,11 +2937,14 @@ class TelnyxClient private constructor(
                 sessid = sessid
             )
         )
-        Logger.d(message = "Auto login with tokenConfig for decline push")
+        v2Logger.d(message = "Auto login with tokenConfig for decline push")
 
         if (!canSend()) {
             return
         }
+        // t027 B-WIN: owner publication precedes the capture auth (see above).
+        v2NotePendingLogin(uuid, targetSocket)
+        callReportV2?.authenticate("token", null, token)
         targetSocket.send(loginMessage)
     }
 
@@ -2737,7 +2960,7 @@ class TelnyxClient private constructor(
      * @see [TxLogger]
      */
     private fun setSDKLogLevel(logLevel: LogLevel, customLogger: TxLogger? = null) {
-        Logger.init(logLevel, customLogger)
+        v2Logger.init(logLevel, customLogger)
     }
 
     /**
@@ -2761,6 +2984,7 @@ class TelnyxClient private constructor(
      * @see [AudioDevice]
      */
     fun setAudioOutputDevice(audioDevice: AudioDevice) {
+        callReportV2?.nativeFact(com.telnyx.webrtc.sdk.observability.V2NativeFact.AudioOutputRequested(audioDevice))
         val availableTypes = getAvailableAudioOutputTypes()
         when (audioDevice) {
             AudioDevice.BLUETOOTH -> {
@@ -2768,8 +2992,8 @@ class TelnyxClient private constructor(
                     audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
                     audioManager?.isBluetoothScoOn = true
                 } else {
-                    Logger.d(
-                        message = Logger.formatMessage(
+                    v2Logger.d(
+                        message = v2Logger.formatMessage(
                             "[%s] :: No Bluetooth device detected",
                             this@TelnyxClient.javaClass.simpleName
                         )
@@ -2826,7 +3050,7 @@ class TelnyxClient private constructor(
                     mediaPlayer = MediaPlayer.create(context, it as Int)
                 }
                 val player = mediaPlayer ?: kotlin.run {
-                    Logger.d(message = "Ringtone not valid:: No ringtone will be played")
+                    v2Logger.d(message = "Ringtone not valid:: No ringtone will be played")
                     return
                 }
                 player.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
@@ -2834,14 +3058,14 @@ class TelnyxClient private constructor(
                     player.start()
                     player.isLooping = true
                 }
-                Logger.d(message = "Ringtone playing")
+                v2Logger.d(message = "Ringtone playing")
             } catch (e: TypeCastException) {
-                Logger.e(message = "Exception: ${e.message}")
+                v2Logger.e(message = "Exception: ${e.message}")
             } catch (e: RuntimeException) {
                 releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
-            Logger.d(message = "No ringtone specified :: No ringtone will be played")
+            v2Logger.d(message = "No ringtone specified :: No ringtone will be played")
         }
     }
 
@@ -2879,7 +3103,7 @@ class TelnyxClient private constructor(
             try {
                 mediaPlayer = MediaPlayer.create(context, it)
                 val player = mediaPlayer ?: kotlin.run {
-                    Logger.d(message = "Ringback tone not valid:: No ringback tone will be played")
+                    v2Logger.d(message = "Ringback tone not valid:: No ringback tone will be played")
                     return
                 }
                 player.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
@@ -2891,12 +3115,12 @@ class TelnyxClient private constructor(
                 releaseMediaPlayerAfterPlaybackFailure(e)
             }
         } ?: run {
-            Logger.d(message = "No ringtone specified :: No ringtone will be played")
+            v2Logger.d(message = "No ringtone specified :: No ringtone will be played")
         }
     }
 
     private fun releaseMediaPlayerAfterPlaybackFailure(exception: Exception) {
-        Logger.e(message = "Exception: ${exception.message}")
+        v2Logger.e(message = "Exception: ${exception.message}")
         mediaPlayer?.release()
         mediaPlayer = null
     }
@@ -2912,7 +3136,7 @@ class TelnyxClient private constructor(
             mediaPlayer!!.release()
             mediaPlayer = null
         }
-        Logger.d(message = "ringtone/ringback media player stopped and released")
+        v2Logger.d(message = "ringtone/ringback media player stopped and released")
 
         // reset audio mode to communication
         audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -2920,9 +3144,17 @@ class TelnyxClient private constructor(
 
     private fun requestGatewayStatus() {
         if (waitingForReg) {
+            val gatewayRpcId = UUID.randomUUID().toString()
+            // t027 B-GW: publish/invalidate the gateway-RPC owner under the same
+            // guard as the login commit, BEFORE the RPC is sent, so a stale REGED
+            // response can never complete a newer auth's registration.
+            synchronized(this) {
+                v2LoginAttemptEpoch += 1
+                v2PendingGateway = PendingGatewayState(gatewayRpcId, socket, v2LoginAttemptEpoch, connectionGeneration.get())
+            }
             socket.send(
                 SendingMessageBody(
-                    id = UUID.randomUUID().toString(),
+                    id = gatewayRpcId,
                     method = SocketMethod.GATEWAY_STATE.methodName,
                     params = StateParams(
                         state = null
@@ -2932,147 +3164,57 @@ class TelnyxClient private constructor(
         }
     }
 
+    /** Current outstanding gateway-RPC publication, guarded like the login commit. */
+    private data class PendingGatewayState(val rpcId: String, val socket: TxSocket, val epoch: Long, val generation: Int)
+
+    @Volatile private var v2PendingGateway: PendingGatewayState? = null
+
     /**
-     * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
-     * @param receivedLoginSessionId, the session ID of the successfully registered session.
+     * t027 B-GW: internal Native-client dispatch seam for the correlated gateway
+     * RPC response. The public TxSocketListener ABI is unchanged; a REGED state
+     * can complete the registration only when it correlates with the CURRENT
+     * outstanding gateway RPC (exact rpcId + socket + auth epoch + connection
+     * generation). Uncorrelated states remain observations.
      */
-    internal fun onLoginSuccessful(receivedLoginSessionId: String) {
-        Logger.d(
-            message = Logger.formatMessage(
-                "[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
-                this@TelnyxClient.javaClass.simpleName,
-                receivedLoginSessionId
-            )
-        )
-        sessid = receivedLoginSessionId
-        // JS parity (VSDK-393): re-check token expiry after every successful
-        // login — a refreshed token re-arms the TOKEN_EXPIRING_SOON timer.
-        checkTokenExpiry()
-        emitSocketResponse(
-            SocketResponse.messageReceived(
-                ReceivedMessageBody(
-                    SocketMethod.LOGIN.methodName,
-                    LoginResponse(receivedLoginSessionId)
-                )
-            )
-        )
-
-        socket.isLoggedIn = true
-
-        if (reconnecting && getActiveCalls().isEmpty()) {
-            reconnecting = false
-            reconnectionRetryCounter.set(0)
-            cancelReconnectionTimer()
+    internal fun onGatewayStateResponseConfirmed(
+        sentOn: TxSocket,
+        responseId: String?,
+        gatewayState: String,
+        sessionId: String?,
+    ) {
+        val correlated = synchronized(this) {
+            val published = v2PendingGateway
+            val ok = published != null && responseId == published.rpcId &&
+                    published.socket === sentOn && socket === sentOn &&
+                    published.epoch == v2LoginAttemptEpoch &&
+                    published.generation == connectionGeneration.get()
+            if (ok) v2PendingGateway = null
+            ok
         }
-
-        if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
-            disconnect()
-            return
-        }
-
-        Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
-        //if there is a call pending from push, attach it
-        if (!isDeclinePushConnection && isCallPendingFromPush) {
-            attachCall()
-        }
-        
-        // Complete registration latency tracking
-        latencyTracker.completeRegistrationTracking()
-
-        CoroutineScope(Dispatchers.Main).launch {
-            emitSocketResponse(
-                SocketResponse.messageReceived(
-                    ReceivedMessageBody(
-                        SocketMethod.CLIENT_READY.methodName,
-                        null
-                    )
-                )
-            )
-
-            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
-        }
-    }
-
-    // TxSocketListener Overrides
-    override fun onClientReady(jsonObject: JsonObject) {
-        val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
-        if (voiceSdkID != null) {
-            Logger.d(message = "Voice SDK ID _ $voiceSdkID")
-            this@TelnyxClient.voiceSDKID = voiceSdkID
-            updateDebugDataCollectorUploadConfig()
-        } else {
-            Logger.e(message = "No Voice SDK ID")
-        }
-
-        if (gatewayState != GatewayState.REGED.state) {
-            Logger.d(
-                message = Logger.formatMessage(
-                    "[%s] :: onClientReady :: retrieving gateway state",
-                    this@TelnyxClient.javaClass.simpleName
-                )
-            )
-            if (waitingForReg) {
-                requestGatewayStatus()
-                gatewayResponseTimer = Timer()
-                gatewayResponseTimer?.schedule(
-                    timerTask {
-                        if (registrationRetryCounter < RETRY_REGISTER_TIME) {
-                            if (waitingForReg) {
-                                onClientReady(jsonObject)
-                            }
-                            registrationRetryCounter++
-                        } else {
-                            Logger.d(
-                                message = Logger.formatMessage(
-                                    "[%s] :: Gateway registration has timed out",
-                                    this@TelnyxClient.javaClass.simpleName
-                                )
-                            )
-                            emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
-                            disconnectTransientDeclinePushConnection()
-                        }
-                    },
-                    GATEWAY_RESPONSE_DELAY
-                )
-            }
-        } else {
-            Logger.d(
-                message = Logger.formatMessage(
-                    "[%s] :: onClientReady :: Ready to make calls",
-                    this@TelnyxClient.javaClass.simpleName
-                )
-            )
-            
-            // Complete registration latency tracking
-            latencyTracker.completeRegistrationTracking()
-
-            emitSocketResponse(
-                SocketResponse.messageReceived(
-                    ReceivedMessageBody(
-                        SocketMethod.CLIENT_READY.methodName,
-                        null
-                    )
-                )
-            )
-
-            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
-        }
+        processGatewayState(gatewayState, sessionId, regedCorrelated = correlated)
     }
 
     override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
+        // Uncorrelated gateway states (server pushes) are observations: a pushed
+        // REGED can never complete a registration (no outstanding correlated RPC).
+        processGatewayState(gatewayState, receivedSessionId, regedCorrelated = false)
+    }
+
+    private fun processGatewayState(gatewayState: String, sessionId: String?, regedCorrelated: Boolean) {
+        callReportV2?.gateway(gatewayState)
         when (gatewayState) {
             GatewayState.REGED.state -> {
+                if (!regedCorrelated) return  // uncorrelated observation — never completes a registration
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                receivedSessionId?.let {
+                sessionId?.let {
                     resetGatewayCounters()
                     onLoginSuccessful(it)
                 } ?: kotlin.run {
                     resetGatewayCounters()
-                    onLoginSuccessful(sessid)
+                    onLoginSuccessful(sessid, providerConfirmed = false)
                 }
             }
-
 
             GatewayState.NOREG.state -> {
                 invalidateGatewayResponseTimer()
@@ -3089,8 +3231,8 @@ class TelnyxClient private constructor(
             (GatewayState.FAIL_WAIT.state), (GatewayState.DOWN.state) -> {
                 if (!isDeclinePushConnection && autoReconnectLogin && connectRetryCounter < RETRY_CONNECT_TIME) {
                     connectRetryCounter++
-                    Logger.d(
-                        message = Logger.formatMessage(
+                    v2Logger.d(
+                        message = v2Logger.formatMessage(
                             "[%s] :: Attempting reconnection :: attempt $connectRetryCounter / $RETRY_CONNECT_TIME",
                             this@TelnyxClient.javaClass.simpleName
                         )
@@ -3132,6 +3274,251 @@ class TelnyxClient private constructor(
         }
     }
 
+    /**
+     * t027: Fires when a login success response arrives on a socket where the
+     * login is not yet marked complete. [sentOn] is the socket that received the
+     * response; [responseId] is the JSON-RPC id; [response] is the full frame.
+     *
+     * The response is honored only when it correlates with the LATEST outstanding
+     * LOGIN RPC on this same live socket, and that decision is made as a single
+     * linearizable owned transition: validation and every side effect
+     * (session identity, recorder context, isLoggedIn, reconnect resolution and
+     * timer cancellation) are executed under one guard, so a newer same-socket
+     * auth (or a socket replacement) that publishes after this response was read
+     * but before the commit wins and the stale response binds nothing. Stale
+     * ownership is rejected — never corrected later by an eventual newer bind.
+     *
+     * Untrusted data parsing happens before the guard; the guard is never held
+     * across network/suspend/blocking work (the capture publication is a
+     * non-blocking queue submission).
+     */
+    internal fun onLoginResponseConfirmed(sentOn: TxSocket, responseId: String?, response: JsonObject) {
+        onLoginResponseConfirmedImpl(sentOn, responseId, response, commitBarrier = {})
+    }
+
+    /**
+     * Linearizable owned login-confirmation transition. [commitBarrier] runs
+     * inside the owned guard after the response has passed the socket dispatch
+     * checks and BEFORE any session/capture/isLoggedIn/timer side effect; it is
+     * a no-op in production and is the deterministic (after-only) invariant test
+     * barrier. The functional fail-before of the snapshot-vs-apply race uses the
+     * mocked capture log seam instead (see TelnyxClientReconnectLifecycleTest).
+     */
+    internal fun onLoginResponseConfirmedImpl(
+        sentOn: TxSocket,
+        responseId: String?,
+        response: JsonObject,
+        commitBarrier: () -> Unit,
+    ) {
+        // Parse untrusted data outside the guard; failure here binds nothing.
+        val confirmedSessionId = response?.getAsJsonObject("result")?.get("sessid")
+            ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }
+            ?.asString?.takeIf { it.isNotBlank() } ?: return
+        synchronized(this) {
+            // Owned guard section: publication, validation and commit are
+            // serialized. A newer auth publishing here (same socket or socket
+            // replacement) supersedes this response before any side effect.
+            commitBarrier()
+            val published = v2PendingLogin ?: return
+            if (responseId == null || responseId != published.rpcId) return  // stale/unknown id
+            if (published.socket !== sentOn) return                          // superseded socket
+            if (socket !== sentOn) return                                    // live socket liveness
+            if (published.epoch != v2LoginAttemptEpoch) return               // superseded auth attempt
+            if (published.generation != connectionGeneration.get()) return   // superseded connection
+            if (response.has("error")) return                                // failed login
+            // --- commit: all side effects under the same guard ---
+            sessid = confirmedSessionId
+            callReportV2ServerSessionId = confirmedSessionId
+            socket.isLoggedIn = true
+            // The recorder context is stamped with the connection generation and the
+            // locally parsed/validated session of THIS correlated response — never a
+            // re-read of a mutable field that the auth entrypoints may null.
+            callReportV2?.signaling(published.generation.toLong(), voiceSDKID, confirmedSessionId)
+            if (reconnecting) {
+                // Resolve the reconnection state machine on a confirmed session: the
+                // 60s timer must not outlive a successful relogin (t027 ROOT_CAUSE.md B).
+                clearReconnectingStateUnderGuard()
+            }
+            if (v2PendingLogin === published) v2PendingLogin = null
+        }
+        // Logging is pure observation; it stays outside the guard so test seams can
+        // never hold the commit monitor. Publication ordering is unaffected: the
+        // recorder update above was enqueued inside the guard.
+        v2Logger.d(
+            message = v2Logger.formatMessage(
+                "[%s] :: onLoginResponseConfirmed :: [%s] :: session bound from correlated login response",
+                this@TelnyxClient.javaClass.simpleName,
+                confirmedSessionId
+            )
+        )
+    }
+
+    /** Latest outstanding LOGIN publication; only its exact correlated response may bind. */
+    private data class PendingLogin(val rpcId: String, val socket: TxSocket, val epoch: Long, val generation: Int)
+
+    /**
+     * Records the latest outstanding LOGIN RPC and clears the recorder session in
+     * the same guarded section. t027 B-WIN: publication/invalidation of the auth
+     * owner is atomic with the commit guard and PRECEDES any new capture
+     * auth/clear effect, so an older response can never bind under an
+     * already-new capture auth (its rpcId no longer matches the publication).
+     */
+    private fun v2NotePendingLogin(rpcId: String, sentOn: TxSocket) {
+        synchronized(this) {
+            v2LoginAttemptEpoch += 1
+            v2PendingLogin = PendingLogin(rpcId, sentOn, v2LoginAttemptEpoch, connectionGeneration.get())
+            callReportV2ServerSessionId = null
+        }
+    }
+
+    /**
+     * Fires once we have successfully received a 'REGED' gateway response, meaning login was successful
+     * @param receivedLoginSessionId, the session ID of the successfully registered session.
+     */
+    internal fun onLoginSuccessful(receivedLoginSessionId: String, providerConfirmed: Boolean = true) {
+        v2Logger.d(
+            message = v2Logger.formatMessage(
+                "[%s] :: onLoginSuccessful :: [%s] :: Ready to make calls",
+                this@TelnyxClient.javaClass.simpleName,
+                receivedLoginSessionId
+            )
+        )
+        sessid = receivedLoginSessionId
+        // JS parity (VSDK-393): re-check token expiry after every successful
+        // login — a refreshed token re-arms the TOKEN_EXPIRING_SOON timer.
+        checkTokenExpiry()
+        if (providerConfirmed) callReportV2ServerSessionId = receivedLoginSessionId
+        callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
+        emitSocketResponse(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.LOGIN.methodName,
+                    LoginResponse(receivedLoginSessionId)
+                )
+            )
+        )
+
+        socket.isLoggedIn = true
+
+        if (reconnecting) {
+            // t027: resolve the reconnection state machine on a confirmed
+            // registration, regardless of active calls. The previous
+            // `getActiveCalls().isEmpty()` gate left the 60s timer armed while an
+            // answered call recovered, and the stale expiry killed the live call
+            // with RECONNECTION_EXHAUSTED (45003) even though media flowed.
+            clearReconnectingState()
+        }
+
+        if (isDeclinePushConnection && !isDedicatedDeclinePushClient) {
+            disconnect()
+            return
+        }
+
+        v2Logger.d(message = "isCallPendingFromPush $isCallPendingFromPush")
+        //if there is a call pending from push, attach it
+        if (!isDeclinePushConnection && isCallPendingFromPush) {
+            attachCall()
+        }
+        
+        // Complete registration latency tracking
+        latencyTracker.completeRegistrationTracking()
+
+        CoroutineScope(Dispatchers.Main).launch {
+            emitSocketResponse(
+                SocketResponse.messageReceived(
+                    ReceivedMessageBody(
+                        SocketMethod.CLIENT_READY.methodName,
+                        null
+                    )
+                )
+            )
+
+            callReportV2?.ready()
+            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
+        }
+    }
+
+    // TxSocketListener Overrides
+    override fun onClientReady(jsonObject: JsonObject) {
+        val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
+        if (voiceSdkID != null) {
+            v2Logger.d(message = "Voice SDK ID _ $voiceSdkID")
+            this@TelnyxClient.voiceSDKID = voiceSdkID
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
+            updateDebugDataCollectorUploadConfig()
+        } else {
+            v2Logger.e(message = "No Voice SDK ID")
+        }
+
+        if (gatewayState != GatewayState.REGED.state) {
+            if (waitingForReg) {
+                v2Logger.d(
+                    message = v2Logger.formatMessage(
+                        "[%s] :: onClientReady :: retrieving gateway state",
+                        this@TelnyxClient.javaClass.simpleName
+                    )
+                )
+                requestGatewayStatus()
+                gatewayResponseTimer = Timer()
+                gatewayResponseTimer?.schedule(
+                    timerTask {
+                        if (registrationRetryCounter < RETRY_REGISTER_TIME) {
+                            if (waitingForReg) {
+                                onClientReady(jsonObject)
+                            }
+                            registrationRetryCounter++
+                        } else {
+                            v2Logger.d(
+                                message = v2Logger.formatMessage(
+                                    "[%s] :: Gateway registration has timed out",
+                                    this@TelnyxClient.javaClass.simpleName
+                                )
+                            )
+                            emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
+                            disconnectTransientDeclinePushConnection()
+                        }
+                    },
+                    GATEWAY_RESPONSE_DELAY
+                )
+            } else if (socket.isLoggedIn) {
+                // t027: reconnect path. The session was confirmed by the login
+                // response (onLoginConfirmed) and the server pushed client_ready
+                // immediately after; no gateway re-poll is required (canonical:
+                // the gateway state poll happens after the first login only).
+                // This is where client_ready/session_timings are emitted for a
+                // successful reconnect, restoring the metrics-acceptance context.
+                onClientReadySessionConfirmed()
+            }
+        } else {
+            onClientReadySessionConfirmed()
+        }
+    }
+
+    /** Shared completion: the session is ready and the recorder context is bound. */
+    private fun onClientReadySessionConfirmed() {
+        v2Logger.d(
+            message = v2Logger.formatMessage(
+                "[%s] :: onClientReady :: Ready to make calls",
+                this@TelnyxClient.javaClass.simpleName
+            )
+        )
+
+        // Complete registration latency tracking
+        latencyTracker.completeRegistrationTracking()
+
+        emitSocketResponse(
+            SocketResponse.messageReceived(
+                ReceivedMessageBody(
+                    SocketMethod.CLIENT_READY.methodName,
+                    null
+                )
+            )
+        )
+
+        callReportV2?.ready()
+        emitConnectionStatus(ConnectionStatus.CLIENT_READY)
+    }
+
     private fun invalidateGatewayResponseTimer() {
         gatewayResponseTimer?.cancel()
         gatewayResponseTimer?.purge()
@@ -3141,6 +3528,39 @@ class TelnyxClient private constructor(
     private fun resetGatewayCounters() {
         registrationRetryCounter = 0
         connectRetryCounter = 0
+    }
+
+    /** t027: voice_sdk_id the client would resume with on the current socket (may be null). */
+    internal fun v2ResumeVoiceSdkId(): String? = voiceSDKID
+
+    /** t027: client-level reconnect state at an observation point (socket close). */
+    internal fun v2ReconnectingNow(): Boolean = reconnecting
+
+    /** t027: the SIP identity of the logged-in session, when available (null for token/anonymous). */
+    internal fun v2LocalSipIdentity(): String? = credentialSessionConfig?.sipUser
+
+    /**
+     * Resolves the reconnection state machine once the session is registered
+     * again (REGED). The 60s reconnection timer must not outlive a successful
+     * relogin: a stale expiry tears down healthy, answered calls
+     * (t027 ROOT_CAUSE.md, B). Call-level recovery continues independently via
+     * the ATTACH push; [onAttachReceived] also clears the reconnection state.
+     */
+    internal fun clearReconnectingState() {
+        synchronized(this) { clearReconnectingStateUnderGuard() }
+    }
+
+    /**
+     * Guard-local variant: callers already holding the login-commit monitor
+     * ([TelnyxClient] itself) use this so the reconnect resolution and the
+     * reconnection-timer ownership are serialized with auth publication and the
+     * socket swap under one guard. Assumes the guard is held; never performs
+     * blocking or network work.
+     */
+    private fun clearReconnectingStateUnderGuard() {
+        reconnecting = false
+        reconnectionRetryCounter.set(0)
+        cancelReconnectionTimerUnderGuard()
     }
 
     private fun launchSocketConnect(block: suspend CoroutineScope.() -> Unit) {
@@ -3182,53 +3602,103 @@ class TelnyxClient private constructor(
     /**
      * Starts the reconnection timer to track reconnection attempts.
      * If reconnection takes longer than RECONNECT_TIMEOUT, it will trigger an error.
+     *
+     * t027: the timer's job assignment is owned by the login-commit guard so
+     * auth publication, the socket swap and timer ownership are serialized:
+     * a reconnect confirmation can never cancel a newer cycle's timer.
      */
     private fun startReconnectionTimer() {
-        Logger.d(message = "Starting reconnection timer")
-        // Cancel any existing timer
-        reconnectTimeOutJob?.cancel()
-        reconnectTimeOutJob = null
-        // Create a new timer to check for timeout
-        reconnectTimeOutJob = CoroutineScope(Dispatchers.Default).launch {
-            delay(
-                credentialSessionConfig?.reconnectionTimeout
-                    ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT
-            )
-            if (reconnecting) {
-                Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
-                reconnecting = false
-                reconnectionRetryCounter.set(0)
-                // Handle the timeout by updating call states and notifying the user
-                Handler(Looper.getMainLooper()).post {
-                    getActiveCalls().forEach { (_, call) ->
-                        call.setReconnectionTimeout()
-                        // Use the signaling call ID (not the app-facing ID from
-                        // getActiveCalls keys) for teardown — calls map and
-                        // webRTCReportersMap are both keyed by signaling ID.
-                        val signalingCallId = call.currentSignalingCallId()
-                        removeWebRTCReporter(signalingCallId)?.stopStats()
-                        removeFromCalls(signalingCallId)
-                    }
-                    // Reset the ongoing call flag so the app returns to profile
-                    // selection state instead of showing a stale Disconnect button.
-                    // Note: we intentionally do NOT call peerConnection.disconnect()
-                    // because close()+dispose() on an active signaling thread causes
-                    // SIGSEGV in libjingle_peerconnection_so. The peer connections
-                    // will be garbage collected safely without explicit disposal.
-                    callNotOngoing()
-                    emitError(
-                        TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
-                        "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
-                    ) // RECONNECTION_EXHAUSTED
-
-                    // Reset reconnection state
-                    reconnecting = false
-                    reconnectionRetryCounter.set(0)
-                    cancelReconnectionTimer()
+        v2Logger.d(message = "Starting reconnection timer")
+        synchronized(this) {
+            // Cancel any existing timer
+            reconnectTimeOutJob?.cancel()
+            reconnectTimeOutJob = null
+            v2TimerEpoch += 1
+            val epoch = v2TimerEpoch
+            // Create a new timer to check for timeout
+            var job: Job? = null
+            job = CoroutineScope(Dispatchers.Default).launch {
+                delay(
+                    credentialSessionConfig?.reconnectionTimeout
+                        ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT
+                )
+                // Guard-local expiry decision: fire only if this exact job still owns
+                // the reconnection timer with its own epoch and reconnecting is still
+                // owned. A superseded job never cancels or clears a newer timer.
+                val mayFire = synchronized(this@TelnyxClient) {
+                    reconnectTimeOutJob === job && v2TimerEpoch == epoch && reconnecting
                 }
-            } else {
-                // If we're no longer reconnecting, cancel the timer
-                cancelReconnectionTimer()
+                if (mayFire) {
+                    // Deliver through the owned revalidation: the actual teardown
+                    // action re-checks current ownership so a successful login or a
+                    // newer cycle between decision and action is never killed.
+                    Handler(Looper.getMainLooper()).post { fireReconnectionTimeoutIfOwned(job, epoch) }
+                }
+            }
+            reconnectTimeOutJob = job
+        }
+    }
+
+    /**
+     * Actual delayed teardown action of the reconnection timer. Ownership is
+     * revalidated under the guard at execution time: a successful login or a
+     * newer cycle that replaced the timer between the expiry decision and this
+     * run must not be killed, and an old job must never clear a newer timer.
+     */
+    internal fun fireReconnectionTimeoutIfOwned(job: Job?, epoch: Long) {
+        // One atomic owned commit under the shared monitor: ownership validation,
+        // the expiry claim, the victim capture (call refs + their owned reporter
+        // refs) and their irrevocable detach, serialized with auth publication,
+        // the socket swap and newer-cycle timer arming. No monitor is held across
+        // network/suspend/blocking work.
+        val victims: List<Call>
+        val victimReporters: List<WebRTCReporter?>
+        synchronized(this) {
+            val ownedNow = reconnectTimeOutJob === job && v2TimerEpoch == epoch && reconnecting
+            if (!ownedNow) return
+            reconnecting = false
+            reconnectionRetryCounter.set(0)
+            if (reconnectTimeOutJob === job && v2TimerEpoch == epoch) reconnectTimeOutJob = null
+            victims = calls.values.toList()
+            victimReporters = victims.map { call ->
+                call.currentSignalingCallId().let { signalingCallId ->
+                    // capture/detach the owned reporter ref now: no late lookup can
+                    // match a NEW reporter registered by a reused signaling ID.
+                    webRTCReportersMap.remove(signalingCallId)
+                }
+            }
+            victims.forEach { call -> calls.remove(call.currentSignalingCallId()) }
+        }
+        // Owned victims only: the destructive work below runs on the captured set.
+        // A newest successful login or a newer cycle publishing while this work runs
+        // cannot be killed: newer calls were never in the victim set and the newer
+        // timer (a newer cycle's ownership) is never cancelled afterwards.
+        //
+        // The v2Logger call is the existing production seam: a non-blocking log in
+        // production and the deterministic test barrier between the owned commit and
+        // the destructive work.
+        v2Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
+        victims.forEach { call ->
+            call.setReconnectionTimeout()
+        }
+        victimReporters.filterNotNull().forEach { webRTCReporter ->
+            webRTCReporter.stopStats()
+        }
+        // Global reset/error linearized with the ownership epoch under the same
+        // monitor: both the ownership check and these (non-blocking) effects share
+        // one critical section, so a newer epoch taking over is never reset and
+        // never receives the stale error.
+        // Note: we intentionally do NOT call peerConnection.disconnect()
+        // because close()+dispose() on an active signaling thread causes
+        // SIGSEGV in libjingle_peerconnection_so. The peer connections
+        // will be garbage collected safely without explicit disposal.
+        synchronized(this) {
+            if (v2TimerEpoch == epoch) {
+                callNotOngoing()
+                emitError(
+                    TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+                    "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
+                ) // RECONNECTION_EXHAUSTED
             }
         }
     }
@@ -3237,14 +3707,19 @@ class TelnyxClient private constructor(
      * Cancels the reconnection timer if it's running.
      */
     private fun cancelReconnectionTimer() {
-        Logger.d(message = "Cancelling reconnection timer")
+        synchronized(this) { cancelReconnectionTimerUnderGuard() }
+    }
+
+    /** Guard-local cancel: callers already holding the [TelnyxClient] monitor. */
+    private fun cancelReconnectionTimerUnderGuard() {
+        v2Logger.d(message = "Cancelling reconnection timer")
         reconnectTimeOutJob?.cancel()
         reconnectTimeOutJob = null
     }
 
     override fun onConnectionEstablished() {
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: onConnectionEstablished",
                 this@TelnyxClient.javaClass.simpleName
             )
@@ -3259,6 +3734,14 @@ class TelnyxClient private constructor(
         emitConnectionStatus(ConnectionStatus.CONNECTED)
     }
 
+    private fun bindV2ProviderIds(token: com.telnyx.webrtc.sdk.observability.V2CaptureToken, params: JsonObject) {
+        fun id(name: String): String? = params.get(name)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+        callReportV2?.providerIds(token, id("telnyx_leg_id"), id("telnyx_session_id"))
+    }
+
+    internal fun socketFailureWillRetry(): Boolean = !socket.isLoggedIn && !reconnecting &&
+        !isDeclinePushConnection && (credentialSessionConfig != null || tokenSessionConfig != null)
+
     override fun onErrorReceived(jsonObject: JsonObject, errorCode: Int?) {
         @Suppress("SwallowedException")
         val id = try {
@@ -3268,8 +3751,10 @@ class TelnyxClient private constructor(
         }
         val isAttachCallError = errorCode == null && id != null && attachCallId == id
         if (isAttachCallError) {
-            Logger.d(message = "Call Failed Error Received")
+            v2Logger.d(message = "Call Failed Error Received")
             val pendingCallId = claimPendingPushCall()
+            reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_FAILED,
+                pendingCallId, com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Reason.SERVER_ERROR)
             emitError(TelnyxErrorCode.SESSION_NOT_REATTACHED.code, "Call Failed") // SESSION_NOT_REATTACHED — attach-call failure means reattach failed
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
@@ -3277,13 +3762,20 @@ class TelnyxClient private constructor(
             disconnectTransientDeclinePushConnection()
             return
         }
+        // Login with attach_call=true can fail before an INVITE exists. This is
+        // telemetry only; preserve the original authentication/retry behavior below.
+        val failedPushLogin = synchronized(this) {
+            pushTelemetryAttachAttempt?.takeIf { isCallPendingFromPush && it.second.toString() == id }?.first
+        }
+        reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_FAILED,
+            failedPushLogin, com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Reason.SERVER_ERROR)
         @Suppress("SwallowedException")
         val errorMessage = try {
             jsonObject.get("error")?.asJsonObject?.get("message")?.asString
         } catch (e: Exception) {
             "Unknown error"
         } ?: "Unknown error"
-        Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
+        v2Logger.d(message = "onErrorReceived $errorMessage, code: $errorCode")
         // JS parity (VSDK-393): the gateway returns JSON-RPC -32000 both for
         // unauthenticated requests and for auth loss mid-session. JS splits by
         // phase: pre-login -> LOGIN_FAILED (_handleLoginError), in-session ->
@@ -3301,15 +3793,14 @@ class TelnyxClient private constructor(
         // WebSocket payload (e.g. duplicate login response) caused a parse error
         // during the initial connect phase — instead of hanging until the 36s
         // socket timeout, the SDK reconnects automatically.
-        val canRetryAfterParseError = !socket.isLoggedIn &&
-            !reconnecting &&
-            !isDeclinePushConnection &&
-            (credentialSessionConfig != null || tokenSessionConfig != null)
+        val canRetryAfterParseError = socketFailureWillRetry()
+
+        callReportV2?.rpcFailed(id, errorCode, errorMessage, canRetryAfterParseError)
 
         if (canRetryAfterParseError) {
             val jitteredDelay = RECONNECT_AFTER_PARSE_ERROR_MIN_MS +
                 (Math.random() * RECONNECT_AFTER_PARSE_ERROR_JITTER_MS).toLong()
-            Logger.d(message = "Scheduling reconnect after parse error in ${jitteredDelay}ms")
+            v2Logger.d(message = "Scheduling reconnect after parse error in ${jitteredDelay}ms")
             reconnecting = true
             launchReconnectJob(jitteredDelay)
         }
@@ -3320,8 +3811,8 @@ class TelnyxClient private constructor(
             return
         }
 
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: onByeReceived JSON: %s",
                 this.javaClass.simpleName,
                 jsonObject.toString()
@@ -3333,7 +3824,7 @@ class TelnyxClient private constructor(
             val callIdString = params?.get("callID")?.asString
 
             if (callIdString == null) {
-                Logger.e(message = "Received BYE without callID in params: $jsonObject")
+                v2Logger.e(message = "Received BYE without callID in params: $jsonObject")
                 return
             }
             val callId = UUID.fromString(callIdString)
@@ -3346,6 +3837,7 @@ class TelnyxClient private constructor(
             val appFacingCallId = appCallId(callId)
             val byeCall = calls[callId]
             byeCall?.apply {
+                callReportV2?.termination(v2CaptureToken, local = false)
                 val terminationReason = CallTerminationReason(
                     cause = cause,
                     causeCode = causeCode,
@@ -3391,14 +3883,14 @@ class TelnyxClient private constructor(
             } ?: run {
                 val pendingCallId = claimPendingPushCall()
                 if (pendingCallId != null) {
-                    Logger.d(message = "Received BYE for pending push call before INVITE: signaling=$callId push=$pendingCallId")
+                    v2Logger.d(message = "Received BYE for pending push call before INVITE: signaling=$callId push=$pendingCallId")
                     emitPendingPushBye(pendingCallId, cause, causeCode, sipCode, sipReason)
                 } else {
-                    Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
+                    v2Logger.w(message = "Received BYE for a callId not found in active calls: $callId")
                 }
             }
         } catch (e: Exception) {
-            Logger.e(message = "Error processing onByeReceived: ${e.message}")
+            v2Logger.e(message = "Error processing onByeReceived: ${e.message}")
         }
     }
 
@@ -3416,6 +3908,8 @@ class TelnyxClient private constructor(
         
         val answeredCall = calls[callUuid]
         answeredCall?.apply {
+            callReportV2?.timing(v2CaptureToken, "remote_answered_ms")
+            bindV2ProviderIds(v2CaptureToken, params)
             val customHeaders =
                 params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
 
@@ -3438,12 +3932,12 @@ class TelnyxClient private constructor(
                     // Check if remote party supports trickle ICE
                     val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(stringSdp)
                     if (remoteSupportsTrickleIce) {
-                        Logger.d(
+                        v2Logger.d(
                             tag = "TrickleICE",
                             message = "Remote party supports trickle ICE in ANSWER"
                         )
                     } else if (this.useTrickleIce) {
-                        Logger.w(
+                        v2Logger.w(
                             tag = "TrickleICE",
                             message = "Local trickle ICE enabled but remote party does not support it"
                         )
@@ -3452,7 +3946,7 @@ class TelnyxClient private constructor(
                     // Extract ICE parameters from the answer SDP for candidate enhancement
                     if (this.useTrickleIce) {
                         remoteIceParameters = SdpUtils.extractIceParameters(stringSdp)
-                        Logger.d(
+                        v2Logger.d(
                             tag = "TrickleICE",
                             message = "Extracted ICE parameters: $remoteIceParameters"
                         )
@@ -3472,7 +3966,7 @@ class TelnyxClient private constructor(
                         Logger.w(
                             message = "Duplicate inbound ANSWER for call $callId (remote description already set) — answer ignored"
                         )
-                        emitWarning(TelnyxWarningCode.DUPLICATE_INBOUND_ANSWER.code)
+                        emitWarning(TelnyxWarningCode.DUPLICATE_INBOUND_ANSWER.code, v2CaptureToken)
                     } else {
                         peerConnection?.onRemoteSessionReceived(sdp)
                         CallTimingBenchmark.mark("remote_description_set")
@@ -3556,7 +4050,7 @@ class TelnyxClient private constructor(
         synchronized(pendingIceCandidates) {
             val candidates = pendingIceCandidates.remove(callId)
             candidates?.let { queuedCandidates ->
-                Logger.d(
+                v2Logger.d(
                     tag = "processQueuedIceCandidates",
                     message = "Processing ${queuedCandidates.size} queued ICE candidates for call $callId"
                 )
@@ -3582,20 +4076,20 @@ class TelnyxClient private constructor(
                             finalCandidateString
                         )
                         it.peerConnection?.addIceCandidate(iceCandidate)
-                        Logger.d(
+                        v2Logger.d(
                             tag = "processQueuedIceCandidates",
                             message = "Added queued ICE candidate for call $callId: ${pendingCandidate.candidateString}"
                         )
                     }
-                    Logger.d(
+                    v2Logger.d(
                         tag = "processQueuedIceCandidates",
                         message = "Successfully processed all queued ICE candidates for call $callId"
                     )
-                } ?: Logger.w(
+                } ?: v2Logger.w(
                     tag = "processQueuedIceCandidates",
                     message = "No call found for ID: $callId while processing queued candidates"
                 )
-            } ?: Logger.d(
+            } ?: v2Logger.d(
                 tag = "processQueuedIceCandidates",
                 message = "No queued ICE candidates to process for call $callId"
             )
@@ -3611,6 +4105,8 @@ class TelnyxClient private constructor(
         val callId = params.get("callID").asString
         val mediaCall = calls[UUID.fromString(callId)]
         mediaCall?.apply {
+            callReportV2?.timing(v2CaptureToken, "early_media_ms")
+            bindV2ProviderIds(v2CaptureToken, params)
             if (params.has("sdp")) {
                 val stringSdp = params.get("sdp").asString
                 val sdp = SessionDescription(SessionDescription.Type.ANSWER, stringSdp)
@@ -3663,8 +4159,8 @@ class TelnyxClient private constructor(
         }
 
         if (jsonObject.has("params")) {
-            Logger.d(
-                message = Logger.formatMessage(
+            v2Logger.d(
+                message = v2Logger.formatMessage(
                     "[%s] :: onOfferReceived [%s]",
                     this@TelnyxClient.javaClass.simpleName,
                     jsonObject
@@ -3689,14 +4185,16 @@ class TelnyxClient private constructor(
                 // the alias read depends on. If the read is moved after the claim, the push app call ID is
                 // lost and the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
                 // INVITE atomically wins against BYE/timeout before the call is exposed.
-                claimPendingPushCall()
+                val attachedPushCall = claimPendingPushCall()
+                reportPushMilestone(com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.PUSH_ATTACH_SUCCEEDED,
+                    attachedPushCall)
                 registerCallIdAlias(appCallId, offerCallId)
                 val remoteSdp = params.get("sdp").asString
 
                 // Check if remote party supports trickle ICE
                 val remoteSupportsTrickleIce = SdpUtils.hasTrickleIceCapability(remoteSdp)
                 if (remoteSupportsTrickleIce) {
-                    Logger.d(
+                    v2Logger.d(
                         tag = "TrickleICE",
                         message = "Remote party supports trickle ICE in OFFER"
                     )
@@ -3708,18 +4206,19 @@ class TelnyxClient private constructor(
                 // Extract ICE parameters from the offer SDP for candidate enhancement
                 // This will be used later when receiving ICE candidates for this call
                 remoteIceParameters = SdpUtils.extractIceParameters(remoteSdp)
-                Logger.d(
+                v2Logger.d(
                     tag = "TrickleICE",
                     message = "Extracted ICE parameters from OFFER: $remoteIceParameters"
                 )
 
                 val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
                 if (voiceSdkID != null) {
-                    Logger.d(message = "Voice SDK ID _ $voiceSdkID")
+                    v2Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                     this@TelnyxClient.voiceSDKID = voiceSdkID
+                    callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
                     updateDebugDataCollectorUploadConfig()
                 } else {
-                    Logger.e(message = "No Voice SDK ID")
+                    v2Logger.e(message = "No Voice SDK ID")
                 }
 
                 val callerName = params.get("caller_id_name").asString
@@ -3730,6 +4229,17 @@ class TelnyxClient private constructor(
                 // Expose the app-facing ID while keeping the signaling ID for socket operations.
                 callId = appCallId
                 signalingCallId = offerCallId
+                //retrieve custom headers (typed options carry signaling header NAMES only;
+                // header values are never reported)
+                val customHeaders =
+                    params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
+                // t027: caller metadata comes from the INVITE signaling params (server-provided);
+                // the destination is this client's logged-in SIP identity when known.
+                // raw_call_options stays {} because the app has supplied no options yet.
+                beginV2Capture(inbound = true, callerName = callerName, callerNumber = callerNumber,
+                    destinationNumber = v2LocalSipIdentity(),
+                    customHeaders = customHeaders?.toCustomHeaders()?.associate { it.name to it.value })
+                bindV2ProviderIds(v2CaptureToken, params)
                 
                 // Start latency tracking when invite is received (for answer delay calculation)
                 client.latencyTracker.startCallTracking(
@@ -3748,10 +4258,6 @@ class TelnyxClient private constructor(
                     direction = "inbound"
                 )
 
-                //retrieve custom headers
-                val customHeaders =
-                    params.get("dialogParams")?.asJsonObject?.get("custom_headers")?.asJsonArray
-
                 peerConnection = Peer(
                     context,
                     client,
@@ -3764,11 +4270,13 @@ class TelnyxClient private constructor(
                     onIceCandidateAdd = { candidate ->
                         addIceCandidateInternal(candidate)
                     },
-                    audioConstraints = null // Use defaults for incoming calls
+                    audioConstraints = null, // Use defaults for incoming calls
+                    initialV2CaptureToken = v2CaptureToken
                 ).also {
+                    it.v2CaptureToken = v2CaptureToken
                     // Create reporter — always start so quality metrics are available
                     // (independent of debug flag since VSDK-608)
-                    if (enableCallQualityReports || isSocketDebug) {
+                    if (enableCallQualityReports || isSocketDebug || callReportV2 != null) {
                         val webRTCReporter = WebRTCReporter(
                             socket,
                             callId,
@@ -3779,7 +4287,8 @@ class TelnyxClient private constructor(
                             enableCallQualityReports,
                             callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                            debugDataCollector
+                            debugDataCollector,
+                            v2CaptureToken
                         )
                         webRTCReporter.onCallQualityChange = { metrics ->
                             onCallQualityChange?.invoke(metrics)
@@ -3819,8 +4328,8 @@ class TelnyxClient private constructor(
                 )
             )
         } else {
-            Logger.d(
-                message = Logger.formatMessage(
+            v2Logger.d(
+                message = v2Logger.formatMessage(
                     "[%s] :: Invalid offer received, missing required parameters [%s]",
                     this.javaClass.simpleName, jsonObject
                 )
@@ -3847,18 +4356,18 @@ class TelnyxClient private constructor(
             val recoveringCallId = signalingCallId(callId)
             when {
                 isDeclinePushConnection -> {
-                    Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
+                    v2Logger.w(message = "Ignoring call recovery reattach in decline-push mode")
                     false
                 }
                 credentialSessionConfig == null && tokenSessionConfig == null -> {
-                    Logger.e(message = "Cannot reattach call without a saved session configuration")
+                    v2Logger.e(message = "Cannot reattach call without a saved session configuration")
                     false
                 }
                 reconnecting -> {
                     if (forceRelayCandidateForRecovery) {
                         forceRelayRecoveredCallIds.add(recoveringCallId)
                     }
-                    Logger.d(message = "Call recovery reattach is already in progress")
+                    v2Logger.d(message = "Call recovery reattach is already in progress")
                     true
                 }
                 else -> {
@@ -3868,7 +4377,7 @@ class TelnyxClient private constructor(
                         forceRelayRecoveredCallIds.remove(recoveringCallId)
                     }
                     reconnecting = true
-                    Logger.w(message = "Starting reconnect/reattach for call recovery")
+                    v2Logger.w(message = "Starting reconnect/reattach for call recovery")
                     launchReconnectJob()
                     true
                 }
@@ -3887,8 +4396,8 @@ class TelnyxClient private constructor(
             return
         }
 
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: onRingingReceived [%s]",
                 this@TelnyxClient.javaClass.simpleName,
                 jsonObject
@@ -3904,6 +4413,8 @@ class TelnyxClient private constructor(
         val ringingCall = calls[callUuid]
 
         ringingCall?.apply {
+            callReportV2?.timing(v2CaptureToken, "remote_ringing_ms")
+            bindV2ProviderIds(v2CaptureToken, params)
             telnyxSessionId = if (params.has("telnyx_session_id")) {
                 UUID.fromString(params.get("telnyx_session_id").asString)
             } else {
@@ -3954,8 +4465,8 @@ class TelnyxClient private constructor(
     }
 
     override fun onDisablePushReceived(jsonObject: JsonObject) {
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: onDisablePushReceived [%s]",
                 this@TelnyxClient.javaClass.simpleName,
                 jsonObject
@@ -4001,11 +4512,12 @@ class TelnyxClient private constructor(
             val remoteSdp = params.get("sdp").asString
             val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
             if (voiceSdkID != null) {
-                Logger.d(message = "Voice SDK ID _ $voiceSdkID")
+                v2Logger.d(message = "Voice SDK ID _ $voiceSdkID")
                 this@TelnyxClient.voiceSDKID = voiceSdkID
+            callReportV2?.signaling(connectionGeneration.get().toLong(), voiceSDKID, callReportV2ServerSessionId)
                 updateDebugDataCollectorUploadConfig()
             } else {
-                Logger.e(message = "No Voice SDK ID")
+                v2Logger.e(message = "No Voice SDK ID")
             }
 
             // val callerName = params.get("caller_id_name").asString
@@ -4021,6 +4533,14 @@ class TelnyxClient private constructor(
             // Preserve the app-facing ID across reattach while continuing to signal with callID.
             callId = appCallId(offerCallId)
             signalingCallId = offerCallId
+            // t027: reattach carries signaling caller metadata; the app's answer-time
+            // options are never back-filled into the earlier call_started record.
+            beginV2Capture(inbound = true, reattach = true,
+                callerNumber = callerNumber,
+                destinationNumber = v2LocalSipIdentity(),
+                customHeaders = params.get("dialogParams")?.asJsonObject
+                    ?.get("custom_headers")?.asJsonArray?.toCustomHeaders()?.associate { it.name to it.value })
+            bindV2ProviderIds(v2CaptureToken, params)
 
             // A recovery reattach is still the same call, so retain all previously collected
             // report data. A cold-start push attach initializes a report here instead.
@@ -4049,11 +4569,13 @@ class TelnyxClient private constructor(
                 getForceRelayCandidate() || forceRelayForRecoveredCall,
                 isAnswering = true,
                 onIceCandidateAdd = null,
-                audioConstraints = null // Use defaults for reattached calls
+                audioConstraints = null, // Use defaults for reattached calls
+                initialV2CaptureToken = v2CaptureToken
             ).also {
+                it.v2CaptureToken = v2CaptureToken
                 // Create reporter — always start so quality metrics are available
                 // (independent of debug flag since VSDK-608)
-                if (enableCallQualityReports || isSocketDebug) {
+                if (enableCallQualityReports || isSocketDebug || callReportV2 != null) {
                     val webRTCReporter = WebRTCReporter(
                         socket,
                         callId,
@@ -4064,7 +4586,8 @@ class TelnyxClient private constructor(
                         enableCallQualityReports,
                         callQualityReportInterval,
                             sendWebRTCStatsViaSocket,
-                        debugDataCollector
+                        debugDataCollector,
+                        v2CaptureToken
                     )
                     webRTCReporter.onCallQualityChange = { metrics ->
                         onCallQualityChange?.invoke(metrics)
@@ -4100,7 +4623,7 @@ class TelnyxClient private constructor(
                 updateCallState(CallState.ACTIVE)
             }
         } ?: run {
-            Logger.e(message = "Call not found for Attach")
+            v2Logger.e(message = "Call not found for Attach")
             // JS parity (VSDK-393): attach response for an unknown callID during
             // reattach recovery -> UNKNOWN_REATTACHED_SESSION warning.
             emitWarning(TelnyxWarningCode.UNKNOWN_REATTACHED_SESSION.code)
@@ -4112,8 +4635,8 @@ class TelnyxClient private constructor(
     }
 
     override fun pingPong(socketConnectionMetrics: SocketConnectionMetrics?) {
-        Logger.d(
-            message = Logger.formatMessage(
+        v2Logger.d(
+            message = v2Logger.formatMessage(
                 "[%s] :: pingPong - Quality: %s, Interval: %sms, Jitter: %sms",
                 this@TelnyxClient.javaClass.simpleName,
                 socketConnectionMetrics?.quality,
@@ -4129,9 +4652,9 @@ class TelnyxClient private constructor(
         }
     }
 
-    internal fun onRemoteSessionErrorReceived(errorMessage: String?) {
+    internal fun onRemoteSessionErrorReceived(errorMessage: String?, token: com.telnyx.webrtc.sdk.observability.V2CaptureToken? = null) {
         stopMediaPlayer()
-        errorMessage?.let { emitError(TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code, it) } // SDP_SET_REMOTE_DESCRIPTION_FAILED
+        errorMessage?.let { emitError(TelnyxErrorCode.SDP_SET_REMOTE_DESCRIPTION_FAILED.code, it, token) } // SDP_SET_REMOTE_DESCRIPTION_FAILED
     }
 
     /**
@@ -4155,8 +4678,8 @@ class TelnyxClient private constructor(
                 val retryCount = reconnectionRetryCounter.incrementAndGet()
                 val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (retryCount - 1))
                 
-                Logger.d(
-                    message = Logger.formatMessage(
+                v2Logger.d(
+                    message = v2Logger.formatMessage(
                         "[%s] :: Server closed connection during reconnection. Retrying (%d/%d) in %dms",
                         this@TelnyxClient.javaClass.simpleName,
                         retryCount,
@@ -4172,8 +4695,8 @@ class TelnyxClient private constructor(
                 launchReconnectJob(backoffDelay)
                 return
             } else {
-                Logger.d(
-                    message = Logger.formatMessage(
+                v2Logger.d(
+                    message = v2Logger.formatMessage(
                         "[%s] :: Max reconnection retries (%d) reached. Giving up.",
                         this@TelnyxClient.javaClass.simpleName,
                         MAX_RECONNECTION_RETRIES
@@ -4228,7 +4751,7 @@ class TelnyxClient private constructor(
      * @param jsonObject the socket response containing AI conversation data
      */
     override fun onAiConversationReceived(jsonObject: JsonObject) {
-        Logger.i(message = "AI CONVERSATION RECEIVED :: $jsonObject")
+        v2Logger.i(message = "AI CONVERSATION RECEIVED :: $jsonObject")
 
         try {
             val aiConversationResponse =
@@ -4238,7 +4761,7 @@ class TelnyxClient private constructor(
             // Store widget settings if available
             params?.widgetSettings?.let { settings ->
                 _currentWidgetSettings = settings
-                Logger.i(message = "Widget settings updated :: $_currentWidgetSettings")
+                v2Logger.i(message = "Widget settings updated :: $_currentWidgetSettings")
             }
 
             // Process message for transcript extraction
@@ -4252,7 +4775,7 @@ class TelnyxClient private constructor(
             emitSocketResponse(SocketResponse.aiConversation(receivedMessageBody))
 
         } catch (e: Exception) {
-            Logger.e(message = "Error processing AI conversation message: ${e.message}")
+            v2Logger.e(message = "Error processing AI conversation message: ${e.message}")
         }
     }
 
@@ -4267,7 +4790,7 @@ class TelnyxClient private constructor(
             return
         }
 
-        Logger.i(message = "MODIFY RECEIVED :: $jsonObject")
+        v2Logger.i(message = "MODIFY RECEIVED :: $jsonObject")
 
         try {
             // The updateMedia response is nested inside the "result" object
@@ -4291,13 +4814,13 @@ class TelnyxClient private constructor(
                         peer.handleUpdateMediaResponse(updateMediaResponse.sdp, responseId)
                     }
                 } else {
-                    Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
+                    v2Logger.w(message = "No peer found for call ID: $callId in updateMedia response")
                 }
             }
 
         } catch (e: Exception) {
-            Logger.e(message = "Error processing modify message: ${e.message}")
-            Logger.e(message = "JSON structure: ${jsonObject.toString()}")
+            v2Logger.e(message = "Error processing modify message: ${e.message}")
+            v2Logger.e(message = "JSON structure: ${jsonObject.toString()}")
         }
     }
 
@@ -4391,7 +4914,7 @@ class TelnyxClient private constructor(
     /**
      * Gets the forceRelayCandidate setting from the current session config
      */
-    private fun getForceRelayCandidate(): Boolean {
+    internal fun getForceRelayCandidate(): Boolean {
         return credentialSessionConfig?.forceRelayCandidate
             ?: tokenSessionConfig?.forceRelayCandidate
             ?: false
@@ -4445,15 +4968,15 @@ class TelnyxClient private constructor(
      */
     fun getSupportedAudioCodecs(): List<AudioCodec> {
         return try {
-            Logger.d(message = "Querying WebRTC audio codecs via Peer companion object")
+            v2Logger.d(message = "Querying WebRTC audio codecs via Peer companion object")
 
             // Use the efficient companion object method - no temporary Peer needed!
             val codecs = Peer.getSupportedAudioCodecs(context)
 
-            Logger.d(message = "Retrieved ${codecs.size} audio codecs: ${codecs.map { it.mimeType }}")
+            v2Logger.d(message = "Retrieved ${codecs.size} audio codecs: ${codecs.map { it.mimeType }}")
             codecs
         } catch (e: Exception) {
-            Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
+            v2Logger.e(message = "Error retrieving supported audio codecs: ${e.message}")
             emptyList()
         }
     }
@@ -4463,7 +4986,7 @@ class TelnyxClient private constructor(
             return
         }
 
-        Logger.d(tag = "onCandidateReceived", message = "ICE CANDIDATE RECEIVED :: $jsonObject")
+        v2Logger.d(tag = "onCandidateReceived", message = "ICE CANDIDATE RECEIVED :: $jsonObject")
 
         if (jsonObject.has("params")) {
             val params = jsonObject.get("params").asJsonObject
@@ -4479,12 +5002,12 @@ class TelnyxClient private constructor(
                 // Process the candidate if we found a call ID
                 callId?.let { id: UUID ->
                     processAndQueueCandidate(id, sdpMid, sdpMLineIndex, candidateString)
-                } ?: Logger.w(
+                } ?: v2Logger.w(
                     tag = "onCandidateReceived",
                     message = "Could not extract call ID from candidate message"
                 )
             } else {
-                Logger.w(
+                v2Logger.w(
                     tag = "onCandidateReceived",
                     message = "Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)"
                 )
@@ -4518,12 +5041,12 @@ class TelnyxClient private constructor(
             synchronized(pendingIceCandidates) {
                 val candidates = pendingIceCandidates.getOrPut(callId) { mutableListOf() }
                 candidates.add(pendingCandidate)
-                Logger.d(
+                v2Logger.d(
                     tag = "onCandidateReceived",
                     message = "Queued ICE candidate for call $callId. Total queued: ${candidates.size}"
                 )
             }
-        } ?: Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $callId")
+        } ?: v2Logger.w(tag = "onCandidateReceived", message = "No call found for ID: $callId")
     }
 
     override fun onEndOfCandidatesReceived(jsonObject: JsonObject) {
@@ -4531,12 +5054,12 @@ class TelnyxClient private constructor(
             return
         }
 
-        Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
+        v2Logger.d(message = "END OF CANDIDATES RECEIVED :: $jsonObject")
     }
 
     override fun onCallReportIdReceived(callReportId: String) {
         this.callReportId = callReportId
-        Logger.d(message = "Received call_report_id: $callReportId")
+        v2Logger.d(message = "Received call_report_id: $callReportId")
         updateDebugDataCollectorUploadConfig()
     }
 
@@ -4557,7 +5080,8 @@ class TelnyxClient private constructor(
      * This method should be called when the client is no longer needed or when the user logs out.
      */
     fun disconnect() {
-        Logger.d(message = "Disconnecting TelnyxClient and clearing states")
+        callReportV2?.suspendTelemetry()
+        v2Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         cancelReconnectionTimer()
         // JS parity (VSDK-393): clear any scheduled token expiry warning.
         cancelTokenExpiryTimeout()

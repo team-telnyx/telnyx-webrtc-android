@@ -39,6 +39,13 @@ class CallNotificationReceiver : BroadcastReceiver() {
                 null
             }
 
+            val observedCallId = txPushMetadata?.callId?.let { value -> runCatching { java.util.UUID.fromString(value) }.getOrNull() }
+            val observedAction = actionFor(notificationStateValue, observedCallId)
+            if (observedAction != null && observedCallId != null) TelnyxCommon.getInstance().recordPushTelemetry(
+                com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent(
+                    com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Fact.NOTIFICATION_ACTION,
+                    observedCallId, action = observedAction))
+
             when (notificationStateValue) {
                 CallNotificationService.Companion.NotificationState.ANSWER.ordinal -> {
                     Timber.d("Call answered from notification")
@@ -102,11 +109,32 @@ class CallNotificationReceiver : BroadcastReceiver() {
                 ComponentName(context, LegacyCallNotificationService::class.java),
                 android.content.pm.PackageManager.GET_META_DATA
             )
-            val activityClassName = serviceInfo.metaData.getString("activity_class_name") ?: return null
+            val activityClassName = serviceInfo.metaData?.getString("activity_class_name") ?: return null
             Class.forName(activityClassName)
         } catch (e: ClassNotFoundException) {
             Timber.e(e, "Failed to get target activity class")
             null
         }
+    }
+
+    companion object {
+        /**
+         * Maps a notification state to the observed user action for telemetry.
+         *
+         * The ongoing-call notification's End intent carries the call metadata,
+         * so a user End action with a call id is observable; without it there is
+         * no call identity to record.
+         */
+        internal fun actionFor(notificationStateValue: Int,
+            callId: java.util.UUID?): com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Action? =
+            when (notificationStateValue) {
+                CallNotificationService.Companion.NotificationState.ANSWER.ordinal ->
+                    com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Action.ANSWER
+                CallNotificationService.Companion.NotificationState.REJECT.ordinal ->
+                    com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Action.REJECT
+                CallNotificationService.Companion.NotificationState.CANCEL.ordinal ->
+                    com.telnyx.webrtc.sdk.observability.CallReportV2PushEvent.Action.END.takeIf { callId != null }
+                else -> null
+            }
     }
 }
