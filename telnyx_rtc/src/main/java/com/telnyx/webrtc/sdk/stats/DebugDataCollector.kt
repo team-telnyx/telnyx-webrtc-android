@@ -683,13 +683,13 @@ class DebugDataCollector(private val context: Context) {
      * whatever has accumulated so far and leaves the call data in the map.
      */
     fun uploadSegmentIfPossible(callId: UUID) {
-        val data = callDebugData[callId] ?: return
-        if (data.endTimestamp != null) {
-            // Call already finalised; onCallEnded owns the final upload.
-            return
-        }
-        if (callReportId == null || voiceSDKID == null || callStatsUploader == null) {
-            Timber.tag(TAG).d("Segment upload skipped - upload config not ready for call $callId")
+        val data = callDebugData[callId]
+        if (data == null || data.endTimestamp != null || callReportId == null ||
+            voiceSDKID == null || callStatsUploader == null
+        ) {
+            // No data, call already finalised (onCallEnded owns the final
+            // upload), or upload config not ready for this call.
+            Timber.tag(TAG).d("Segment upload skipped for call $callId (no data, finalised, or config not ready)")
             return
         }
         try {
@@ -1663,11 +1663,14 @@ class DebugDataCollector(private val context: Context) {
      * report impossible to correlate in VSD.
      */
     private fun retryPendingReportUploads() {
-        val uploader = callStatsUploader ?: return
-        val reportId = callReportId ?: return
-        val voiceSdkId = voiceSDKID ?: return
+        val uploader = callStatsUploader
+        val reportId = callReportId
+        val voiceSdkId = voiceSDKID
         val manifest = File(File(context.cacheDir, PENDING_REPORTS_DIR), PENDING_MANIFEST)
-        if (!manifest.exists()) {
+        if (uploader == null || reportId == null || voiceSdkId == null || !manifest.exists()) {
+            // Retry is only meaningful with a full upload config and a queued
+            // manifest; otherwise leave the queue untouched for the next
+            // config arrival.
             return
         }
         val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
