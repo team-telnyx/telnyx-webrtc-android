@@ -682,16 +682,20 @@ class DebugDataCollector(private val context: Context) {
      * Unlike [onCallEnded] this does not finalise the call: it snapshots
      * whatever has accumulated so far and leaves the call data in the map.
      */
+    @Suppress("ReturnCount")
     fun uploadSegmentIfPossible(callId: UUID) {
         val data = callDebugData[callId]
-        if (data == null || data.endTimestamp != null || callReportId == null ||
-            voiceSDKID == null || callStatsUploader == null
-        ) {
-            // No data, call already finalised (onCallEnded owns the final
-            // upload), or upload config not ready for this call.
-            Timber.tag(TAG).d("Segment upload skipped for call $callId (no data, finalised, or config not ready)")
+        if (data == null || data.endTimestamp != null) {
+            // No data, or call already finalised (onCallEnded owns the final
+            // upload).
+            Timber.tag(TAG).d("Segment upload skipped for call $callId (no data or already finalised)")
             return
         }
+        // Upload config may still be missing early in the call (setUploadConfig
+        // not yet invoked); each guard keeps a distinct, readable reason.
+        val callReportId = this.callReportId ?: return
+        val voiceSDKID = this.voiceSDKID ?: return
+        val callStatsUploader = this.callStatsUploader ?: return
         try {
             val jsonContent = gson.toJson(convertToJson(data))
             callStatsUploader?.uploadCallStats(
@@ -1662,15 +1666,16 @@ class DebugDataCollector(private val context: Context) {
      * are skipped with an error log — a synthetic call_id would make the
      * report impossible to correlate in VSD.
      */
+    @Suppress("ReturnCount")
     private fun retryPendingReportUploads() {
-        val uploader = callStatsUploader
-        val reportId = callReportId
-        val voiceSdkId = voiceSDKID
+        // Retry is only meaningful with a full upload config; each guard keeps
+        // a distinct, readable reason. A missing manifest leaves the queue
+        // untouched for the next config arrival.
+        val uploader = callStatsUploader ?: return
+        val reportId = callReportId ?: return
+        val voiceSdkId = voiceSDKID ?: return
         val manifest = File(File(context.cacheDir, PENDING_REPORTS_DIR), PENDING_MANIFEST)
-        if (uploader == null || reportId == null || voiceSdkId == null || !manifest.exists()) {
-            // Retry is only meaningful with a full upload config and a queued
-            // manifest; otherwise leave the queue untouched for the next
-            // config arrival.
+        if (!manifest.exists()) {
             return
         }
         val callStatsDir = File(context.cacheDir, CALL_STATS_DIR)
