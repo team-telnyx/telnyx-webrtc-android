@@ -813,9 +813,10 @@ internal class SignalingHealthMonitorRecoveryTest : SignalingHealthMonitorTestBa
 internal class SignalingHealthMonitorDeadlockTest : SignalingHealthMonitorTestBase() {
 
     @Test
-    fun `snapshotForLog does not call through to native PeerConnection`() {
-        // Track whether snapshotForLog was called and what it returns.
-        // The key assertion: the mock returns a cached value without blocking.
+    fun `logLine invokes the Actions snapshotForLog adapter`() {
+        // Verifies that logLine() invokes the Actions adapter (the wiring).
+        // The no-native-round-trip property itself is covered by the
+        // concurrency tests below; the production adapter is exercised there.
         var snapshotCalls = 0
         io.mockk.every { actions.snapshotForLog() } answers {
             snapshotCalls++
@@ -841,18 +842,21 @@ internal class SignalingHealthMonitorDeadlockTest : SignalingHealthMonitorTestBa
 
         val monitor = newMonitor()
         val executor = Executors.newSingleThreadExecutor()
-        executor.submit {
-            // This triggers logLine -> snapshotForLog from within @Synchronized
-            monitor.onIceConnectionChange(PeerConnection.IceConnectionState.CHECKING)
-            resultReady.countDown()
-        }
+        try {
+            executor.submit {
+                // This triggers logLine -> snapshotForLog from within @Synchronized
+                monitor.onIceConnectionChange(PeerConnection.IceConnectionState.CHECKING)
+                resultReady.countDown()
+            }
 
-        // Must complete within 2 seconds — a deadlock would hang
-        assertTrue(
-            resultReady.await(2, TimeUnit.SECONDS),
-            "snapshotForLog must return without blocking on signaling thread",
-        )
-        executor.shutdownNow()
+            // Must complete within 2 seconds — a deadlock would hang
+            assertTrue(
+                resultReady.await(2, TimeUnit.SECONDS),
+                "snapshotForLog must return without blocking on signaling thread",
+            )
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test
@@ -885,11 +889,14 @@ internal class SignalingHealthMonitorDeadlockTest : SignalingHealthMonitorTestBa
         }
 
         startBarrier.countDown()
-        assertTrue(
-            doneLatch.await(10, TimeUnit.SECONDS),
-            "Concurrent onIceConnectionChange + cancel must not deadlock",
-        )
-        executor.shutdownNow()
+        try {
+            assertTrue(
+                doneLatch.await(10, TimeUnit.SECONDS),
+                "Concurrent onIceConnectionChange + cancel must not deadlock",
+            )
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test
@@ -921,11 +928,14 @@ internal class SignalingHealthMonitorDeadlockTest : SignalingHealthMonitorTestBa
         }
 
         startBarrier.countDown()
-        assertTrue(
-            doneLatch.await(10, TimeUnit.SECONDS),
-            "Concurrent onTick + onIceConnectionChange must not deadlock",
-        )
-        executor.shutdownNow()
+        try {
+            assertTrue(
+                doneLatch.await(10, TimeUnit.SECONDS),
+                "Concurrent onTick + onIceConnectionChange must not deadlock",
+            )
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test
@@ -965,9 +975,12 @@ internal class SignalingHealthMonitorDeadlockTest : SignalingHealthMonitorTestBa
         releaseSnapshot.countDown()
 
         // Both operations must complete — a deadlock would hang
-        iceChangeFuture.get(5, TimeUnit.SECONDS)
-        cancelFuture.get(5, TimeUnit.SECONDS)
-        executor.shutdownNow()
+        try {
+            iceChangeFuture.get(5, TimeUnit.SECONDS)
+            cancelFuture.get(5, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test

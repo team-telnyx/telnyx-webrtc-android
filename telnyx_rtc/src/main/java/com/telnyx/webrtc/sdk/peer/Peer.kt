@@ -601,15 +601,16 @@ internal class Peer(
         }
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            // VSUP-365: cache the latest ICE state *before* any downstream
-            // call that may acquire the SignalingHealthMonitor lock. This
-            // allows snapshotForLog() to read a volatile field instead of
-            // calling the native iceConnectionState() under that lock.
-            newState?.let { cachedIceConnectionState = it }
-
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
+            // VSUP-365: cache the latest ICE state *before* any downstream
+            // call that may acquire the SignalingHealthMonitor lock, so
+            // snapshotForLog() reads a volatile field instead of calling the
+            // native iceConnectionState() under that lock. Assigned
+            // unconditionally (nullable) to mirror the observer contract and
+            // previousIceConnectionState exactly.
+            cachedIceConnectionState = newState
             newState?.let { recordIceDiagnostic(event = "ice_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
@@ -1396,6 +1397,11 @@ internal class Peer(
         if (!isDisposed.compareAndSet(false, true)) {
             return
         }
+        // VSUP-365 review: drop the cached ICE state so snapshotForLog() is
+        // consistent with the disposed flag for any logLine() racing teardown
+        // (previously the last callback state, e.g. CONNECTED, outlived the
+        // native object).
+        cachedIceConnectionState = null
         try {
             cancelFirstCandidateAwaiter()
             // Tear down the recovery monitor first so no in-flight timer
