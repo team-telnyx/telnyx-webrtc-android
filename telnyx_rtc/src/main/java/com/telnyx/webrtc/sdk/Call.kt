@@ -142,6 +142,10 @@ data class Call(
                 currentSignalingCallId(),
                 value
             )
+        }.onFailure { throwable ->
+            // Best-effort logging only — callId is lateinit here too, so
+            // reference-free message keeps the failure path itself safe.
+            Timber.tag("Call").d(throwable, "debugDataCollector.onCallStateChange failed (callId may be unset)")
         }
         // VSDK-1145 (A1): when the call enters ERROR, no endCall flow follows
         // (no BYE / terminate), so the debug report would never be closed.
@@ -216,6 +220,17 @@ data class Call(
     }
 
     internal fun currentSignalingCallId(): UUID = signalingCallId ?: callId
+
+    /**
+     * Adds a call-report log entry keyed by the signaling call ID when the
+     * report is keyed under a remapped alias (push-when-active flows), and
+     * skips silently when no call ID is available yet (e.g. unit tests that
+     * exercise hold/unhold before a call exists).
+     */
+    private fun debugLogEntry(level: String, message: String) {
+        val key = signalingCallId ?: if (::callId.isInitialized) callId else return
+        client.debugDataCollector.addLogEntry(key, level, message)
+    }
 
     /**
      * Accepts an attach invitation
@@ -326,14 +341,12 @@ data class Call(
             // logs the failure instead so the report never asserts a hold that
             // did not happen.
             if (!sendHoldModifier(callId, "hold")) {
-                client.debugDataCollector.addLogEntry(
-                    callId,
+                debugLogEntry(
                     "error",
                     "Call hold failed to send (onHoldUnholdPressed)",
                 )
             } else {
-                client.debugDataCollector.addLogEntry(
-                    callId,
+                debugLogEntry(
                     "info",
                     "Call held (onHoldUnholdPressed)",
                 )
@@ -342,14 +355,12 @@ data class Call(
             holdLiveData.postValue(false)
             updateCallState(CallState.ACTIVE)
             if (!sendHoldModifier(callId, "unhold")) {
-                client.debugDataCollector.addLogEntry(
-                    callId,
+                debugLogEntry(
                     "error",
                     "Call unhold failed to send (onHoldUnholdPressed)",
                 )
             } else {
-                client.debugDataCollector.addLogEntry(
-                    callId,
+                debugLogEntry(
                     "info",
                     "Call unheld (onHoldUnholdPressed)",
                 )

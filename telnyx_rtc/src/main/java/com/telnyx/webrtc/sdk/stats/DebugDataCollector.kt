@@ -317,8 +317,14 @@ class DebugDataCollector(private val context: Context) {
      */
     fun onCallStateChange(callId: UUID, state: CallState) {
         callDebugData[callId]?.let { data ->
-            data.state = state.value.lowercase()
-            data.callStateChanges.add(StateChange(state.value.lowercase(), System.currentTimeMillis()))
+            val newState = state.value.lowercase()
+            // Skip repeats (e.g. DONE recorded by endCall and again via
+            // onCallEnded) so callStateChanges stays a strictly causal
+            // transition list instead of duplicating terminal entries.
+            if (data.state != newState) {
+                data.state = newState
+                data.callStateChanges.add(StateChange(newState, System.currentTimeMillis()))
+            }
         }
     }
 
@@ -692,10 +698,21 @@ class DebugDataCollector(private val context: Context) {
             return
         }
         // Upload config may still be missing early in the call (setUploadConfig
-        // not yet invoked); each guard keeps a distinct, readable reason.
-        val callReportId = this.callReportId ?: return
-        val voiceSDKID = this.voiceSDKID ?: return
-        val callStatsUploader = this.callStatsUploader ?: return
+        // not yet invoked); a silently-missing mid-call segment would be
+        // indistinguishable from a bug in triage, so keep the skip reason
+        // visible (same diagnosability as the pre-refactor combined guard).
+        val callReportId = this.callReportId ?: run {
+            Timber.tag(TAG).d("Segment upload skipped for call $callId - callReportId not ready")
+            return
+        }
+        val voiceSDKID = this.voiceSDKID ?: run {
+            Timber.tag(TAG).d("Segment upload skipped for call $callId - voiceSDKID not ready")
+            return
+        }
+        val callStatsUploader = this.callStatsUploader ?: run {
+            Timber.tag(TAG).d("Segment upload skipped for call $callId - callStatsUploader not ready")
+            return
+        }
         try {
             val jsonContent = gson.toJson(convertToJson(data))
             callStatsUploader?.uploadCallStats(
