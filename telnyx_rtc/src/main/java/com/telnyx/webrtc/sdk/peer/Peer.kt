@@ -508,6 +508,17 @@ internal class Peer(
     private var previousIceConnectionState: PeerConnection.IceConnectionState? = null
 
     /**
+     * Cached ICE connection state updated by the observer on every
+     * [PeerConnection.Observer.onIceConnectionChange] callback. Read by
+     * [SignalingHealthMonitor.Actions.snapshotForLog] so that log lines
+     * produced under the monitor's synchronized lock never call into the
+     * native PeerConnection (which would require the shared signaling
+     * worker thread and risk an ABBA deadlock — see VSUP-365).
+     */
+    @Volatile
+    private var cachedIceConnectionState: PeerConnection.IceConnectionState? = null
+
+    /**
      * Per-call ICE-restart and peer-connection recovery monitor. The
      * monitor owns the state machine, debouncing, and one-at-a-time
      * decisions; the [Peer] still owns the actual SDP offer creation, the
@@ -593,6 +604,13 @@ internal class Peer(
             Logger.d(tag = ICE_DIAG_TAG, message = {
                 "ICE Connection State Change: $newState [${SystemClock.elapsedRealtime()}ms]"
             })
+            // VSUP-365: cache the latest ICE state *before* any downstream
+            // call that may acquire the SignalingHealthMonitor lock, so
+            // snapshotForLog() reads a volatile field instead of calling the
+            // native iceConnectionState() under that lock. Assigned
+            // unconditionally (nullable) to mirror the observer contract and
+            // previousIceConnectionState exactly.
+            cachedIceConnectionState = newState
             newState?.let { recordIceDiagnostic(event = "ice_connection_state", fields = mapOf("state" to it.name)) }
             peerConnectionObserver?.onIceConnectionChange(newState)
             // Notify debug data collector
@@ -1379,6 +1397,11 @@ internal class Peer(
         if (!isDisposed.compareAndSet(false, true)) {
             return
         }
+        // VSUP-365 review: drop the cached ICE state so snapshotForLog() is
+        // consistent with the disposed flag for any logLine() racing teardown
+        // (previously the last callback state, e.g. CONNECTED, outlived the
+        // native object).
+        cachedIceConnectionState = null
         try {
             cancelFirstCandidateAwaiter()
             // Tear down the recovery monitor first so no in-flight timer
@@ -2505,10 +2528,17 @@ internal class Peer(
                 client.requestCallRecoveryReattach(callId, forceRelay)
 
             override fun snapshotForLog(): Map<String, String> {
+                // VSUP-365: read the volatile cached state instead of calling
+                // into the native PeerConnection. This method is invoked from
+                // logLine() which runs under the SignalingHealthMonitor's
+                // synchronized lock. Calling the native iceConnectionState()
+                // here would require the shared PeerConnectionFactory signaling
+                // worker thread, which may itself be blocked waiting for that
+                // same monitor lock (ABBA deadlock).
                 val iceState = if (isDisposed.get()) {
                     "disposed"
                 } else {
-                    withLiveConnection { it.iceConnectionState()?.name } ?: "null"
+                    cachedIceConnectionState?.name ?: "null"
                 }
                 return mapOf("iceState" to iceState)
             }
