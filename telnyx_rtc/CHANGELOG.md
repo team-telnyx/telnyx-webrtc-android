@@ -1,3 +1,14 @@
+## [3.8.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.2) (2026-11-24)
+
+### Bug Fixing
+- Fix signaling deadlock that could cause ANRs and stuck hang-ups: `SignalingHealthMonitor`'s synchronized methods logged the ICE state via a blocking native `PeerConnection.iceConnectionState()` call serviced on the shared WebRTC factory signaling thread, while that same thread could concurrently deliver an ICE change into another `@Synchronized` method — both threads waited on each other, wedging the shared factory so no new call could be placed or answered until process restart (and the BYE was never sent nor the microphone released on hang-up). The last ICE state is now cached in a volatile field updated by the peer observer, so log snapshots no longer call into the native peer connection under the monitor lock (VSUP-365)
+
+### Enhancement
+- Add structured error & warning taxonomy: new `TelnyxErrorCode` and `TelnyxErrorRegistry` / `TelnyxWarningRegistry` expose stable, documented codes for socket, call and media failures with the same severity and IDs used by the JS SDK, so apps can branch on machine-readable failures instead of parsing messages (VSDK-393)
+
+### Documentation
+- Clarify web opt-in for simultaneous mobile push in the push-notification docs: nested web-client guidance under multi-device flows (VSUP-321)
+
 ## [3.8.1](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.1) (2026-11-05)
 
 ### Bug Fixing
