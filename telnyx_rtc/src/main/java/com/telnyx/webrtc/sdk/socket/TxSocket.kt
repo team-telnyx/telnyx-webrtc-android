@@ -655,8 +655,8 @@ internal fun registrationSocketUrl(
     .port(if (push != null) 443 else port)
     .apply {
         when {
-            push != null -> addQueryParameter("voice_sdk_id", push.voiceSdkId.orEmpty())
             recoveryVoiceSdkId != null -> addQueryParameter("voice_sdk_id", recoveryVoiceSdkId)
+            push != null -> addQueryParameter("voice_sdk_id", push.voiceSdkId.orEmpty())
         }
     }
     .build()

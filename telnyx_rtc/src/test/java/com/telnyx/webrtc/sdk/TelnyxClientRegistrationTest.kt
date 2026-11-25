@@ -8,6 +8,7 @@ import com.google.gson.JsonObject
 import com.telnyx.webrtc.sdk.model.GatewayState
 import com.telnyx.webrtc.sdk.model.PushMetaData
 import com.telnyx.webrtc.sdk.model.Region
+import com.telnyx.webrtc.sdk.model.SocketMethod
 import com.telnyx.webrtc.sdk.model.TxServerConfiguration
 import com.telnyx.webrtc.sdk.socket.TxSocket
 import com.telnyx.webrtc.sdk.socket.registrationSocketUrl
@@ -144,9 +145,13 @@ class TelnyxClientRegistrationTest {
         assertEquals(8443, recovery.port)
         assertEquals("server-voice", recovery.queryParameter("voice_sdk_id"))
 
-        val push = registrationSocketUrl(host, 8443, push("notification-voice"), "server-voice")
-        assertEquals("notification-voice", push.queryParameter("voice_sdk_id"))
-        assertEquals(443, push.port)
+        val notification = push("notification-voice")
+        val freshPush = registrationSocketUrl(host, 8443, notification, null)
+        assertEquals("notification-voice", freshPush.queryParameter("voice_sdk_id"))
+        assertEquals(443, freshPush.port)
+        val recoveringPush = registrationSocketUrl(host, 8443, notification, "server-voice")
+        assertEquals("server-voice", recoveringPush.queryParameter("voice_sdk_id"))
+        assertEquals(freshPush.port, recoveringPush.port)
         assertEquals("", registrationSocketUrl(host, 443, push(null), null).queryParameter("voice_sdk_id"))
     }
 
@@ -232,6 +237,53 @@ class TelnyxClientRegistrationTest {
         }
     }
 
+    @Test
+    fun `automatic reconnect before push INVITE uses the confirmed route and repeats attach`() {
+        val sockets = LinkedBlockingQueue<SignalingConnection>()
+        mockkConstructor(OkHttpClient::class)
+        try {
+            every { anyConstructed<OkHttpClient>().newWebSocket(any(), any()) } answers {
+                val connection = SignalingConnection(firstArg(), secondArg())
+                sockets.add(connection)
+                connection.socket
+            }
+            every { ConnectivityHelper.isNetworkEnabled(any()) } returns true
+            val server = TxServerConfiguration("rtc.example.test", 8443)
+            val notification = push("notification-voice")
+            client.connect(server, token, gson.toJson(notification))
+
+            val initial = assertNotNull(sockets.poll(5, TimeUnit.SECONDS))
+            assertEquals("notification-voice", initial.request.url.queryParameter("voice_sdk_id"))
+            initial.open()
+            val pushLogin = initial.nextLogin()
+            assertFalse(pushLogin.has("sessid"))
+            assertEquals("true", pushLogin.getAsJsonObject("loginParams").get("attach_call").asString)
+            initial.receive("""{"method":"telnyx_rtc.clientReady","voice_sdk_id":"confirmed-voice"}""")
+            initial.nextMessage(SocketMethod.GATEWAY_STATE)
+            val registered = """{"result":{"sessid":"confirmed-session","params":{"state":"REGED"}}}"""
+            initial.receive(registered)
+            val initialAttach = initial.nextMessage(SocketMethod.ATTACH_CALL)
+            assertEquals("confirmed-session", client.sessid)
+            assertEquals(notification, state("pushMetaData"))
+            initial.receive("""{"params":{"state":"DOWN"}}""")
+
+            val reconnect = assertNotNull(sockets.poll(5, TimeUnit.SECONDS))
+            assertEquals(initial.request.url.host, reconnect.request.url.host)
+            assertEquals(initial.request.url.port, reconnect.request.url.port)
+            assertEquals("confirmed-voice", reconnect.request.url.queryParameter("voice_sdk_id"))
+            reconnect.open()
+            val recoveryLogin = reconnect.nextLogin()
+            assertEquals("confirmed-session", recoveryLogin.get("sessid").asString)
+            assertEquals("true", recoveryLogin.getAsJsonObject("loginParams").get("attach_call").asString)
+            reconnect.receive(registered)
+            val replayAttach = reconnect.nextMessage(SocketMethod.ATTACH_CALL)
+            assertFalse(initialAttach.get("id") == replayAttach.get("id"))
+            assertEquals(notification, state("pushMetaData"))
+        } finally {
+            unmockkConstructor(OkHttpClient::class)
+        }
+    }
+
     private inner class SignalingConnection(val request: Request, val listener: WebSocketListener) {
         private val frames = LinkedBlockingQueue<String>()
         val socket = mockk<WebSocket>(relaxed = true) {
@@ -245,10 +297,12 @@ class TelnyxClientRegistrationTest {
 
         fun receive(message: String) = listener.onMessage(socket, message)
 
-        fun nextLogin(): JsonObject {
+        fun nextLogin(): JsonObject = nextMessage(SocketMethod.LOGIN).getAsJsonObject("params")
+
+        fun nextMessage(method: SocketMethod): JsonObject {
             val message = gson.fromJson(assertNotNull(frames.poll(5, TimeUnit.SECONDS)), JsonObject::class.java)
-            assertEquals("login", message.get("method").asString)
-            return message.getAsJsonObject("params")
+            assertEquals(method.methodName, message.get("method").asString)
+            return message
         }
     }
 
