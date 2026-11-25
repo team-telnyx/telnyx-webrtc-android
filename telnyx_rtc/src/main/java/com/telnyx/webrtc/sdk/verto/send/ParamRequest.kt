@@ -27,7 +27,7 @@ data class LoginParam(
     val passwd: String?,
     val userVariables: JsonObject,
     val loginParams: Map<Any, Any>?,
-    val sessid: String,
+    val sessid: String?,
     @SerializedName("User-Agent")
     val userAgent: String = "Android-" + BuildConfig.SDK_VERSION,
     @SerializedName("mobile_sdk_name")

@@ -198,10 +198,11 @@ class TelnyxClient private constructor(
 
     internal var socket: TxSocket
     private var providedHostAddress: String? = null
-    private var providedPort: Int? = null
     internal var providedTurn: String? = null
     internal var providedStun: String? = null
     private var voiceSDKID: String? = null
+    private var confirmedSessionId: String? = null
+    private var confirmedVoiceSdkId: String? = null
     private var callReportId: String? = null
 
     private var isSocketDebug = false
@@ -212,7 +213,8 @@ class TelnyxClient private constructor(
     // MediaPlayer for ringtone / ringbacktone
     private var mediaPlayer: MediaPlayer? = null
 
-    var sessid: String // sessid used to recover calls when reconnecting
+    // Recovery uses confirmedSessionId, independently of this public property.
+    var sessid: String = ""
 
     // SharedFlow for socket responses (replaces LiveData)
     private val _socketResponseFlow = MutableSharedFlow<SocketResponse<ReceivedMessageBody>>(
@@ -1189,9 +1191,6 @@ class TelnyxClient private constructor(
         calls.remove(callId)
         appCallIdBySocketCallId.remove(callId)?.let { socketCallIdByAppCallId.remove(it) }
         socketCallIdByAppCallId.remove(callId)?.let { appCallIdBySocketCallId.remove(it) }
-        if (calls.isEmpty()) {
-            clearPendingPushCall()
-        }
         
         // Clean up latency tracking for this call
         latencyTracker.cancelCallTracking(callId)
@@ -1231,6 +1230,7 @@ class TelnyxClient private constructor(
         }
 
         override fun onNetworkUnavailable() {
+            val generation = connectionGeneration.get()
             if (isDeclinePushConnection) {
                 return
             }
@@ -1245,6 +1245,7 @@ class TelnyxClient private constructor(
             reconnecting = true
 
             Handler(Looper.getMainLooper()).postDelayed({
+                if (connectionGeneration.get() != generation) return@postDelayed
                 if (!ConnectivityHelper.isNetworkEnabled(context)) {
                     getActiveCalls().forEach { (_, call) ->
                         call.updateCallState(CallState.DROPPED(CallNetworkChangeReason.NETWORK_LOST))
@@ -1333,6 +1334,7 @@ class TelnyxClient private constructor(
      */
     @Suppress("ComplexMethod")
     private suspend fun reconnectToSocket() = withContext(Dispatchers.Default) {
+        val previousGeneration = connectionGeneration.get()
         val credentialConfig = credentialSessionConfig
         val tokenConfig = tokenSessionConfig
         val hasReconnectConfig = credentialConfig != null || tokenConfig != null
@@ -1341,8 +1343,10 @@ class TelnyxClient private constructor(
             return@withContext
         }
 
-        // Start the reconnection timer to track timeout
-        startReconnectionTimer()
+        synchronized(this@TelnyxClient) {
+            if (connectionGeneration.get() != previousGeneration) return@withContext
+            startReconnectionTimer()
+        }
 
         // Emit reconnecting status
         emitConnectionStatus(ConnectionStatus.RECONNECTING)
@@ -1362,76 +1366,67 @@ class TelnyxClient private constructor(
             return@withContext
         }
 
-        val generation = nextConnectionGeneration()
-        val reconnectSocket = TxSocket(
-            socket.host_address,
-            socket.port
-        )
-        cancelSocketConnectJob()
-        socketReconnection = reconnectSocket
-        // Cancel old socket coroutines
-        socket.cancel("TxSocket destroyed, initializing new socket and connecting.")
-        // Destroy old socket
-        socket.destroy()
-        launchSocketConnect {
-            if (isDeclinePushConnection || !reconnecting || connectionGeneration.get() != generation) {
-                reconnectSocket.destroy()
-                return@launchSocketConnect
+        val generation: Int
+        val reconnectSocket: TxSocket
+        val recoverySessionId: String?
+        val recoveryVoiceSdkId: String?
+        val connectionPush: PushMetaData?
+        synchronized(this@TelnyxClient) {
+            if (isDeclinePushConnection || !reconnecting || connectionGeneration.get() != previousGeneration) {
+                return@withContext
             }
-
-            // Socket is now the reconnectionSocket
+            generation = nextConnectionGeneration()
+            reconnectSocket = TxSocket(socket.host_address, socket.port)
+            recoverySessionId = confirmedSessionId
+            recoveryVoiceSdkId = confirmedVoiceSdkId
+            connectionPush = pushMetaData
+            resetPushAttachRequest()
+            voiceSDKID = null
+            waitingForReg = true
+            invalidateGatewayResponseTimer()
+            cancelSocketConnectJob()
+            socketReconnection = reconnectSocket
+            socket.destroy()
             socket = reconnectSocket
-
-            if (providedHostAddress == null) {
-                providedHostAddress =
-                    if (pushMetaData == null) Config.TELNYX_PROD_HOST_ADDRESS
-                    else
-                        Config.TELNYX_PROD_HOST_ADDRESS
-            }
-
-            if (voiceSDKID != null) {
-                pushMetaData = PushMetaData(
-                    callerName = "",
-                    callerNumber = "",
-                    callId = "",
-                    voiceSdkId = voiceSDKID
-                )
-            }
-
-            // Connect to new socket
-            reconnectSocket.connectWithConnectionGuard(
-                this@TelnyxClient,
-                providedHostAddress,
-                providedPort,
-                pushMetaData,
-                isCurrentConnection = { isCurrentConnectionGeneration(generation, reconnectSocket) }
-            ) socketConnect@ {
+            launchSocketConnect {
                 if (!isCurrentConnectionGeneration(generation, reconnectSocket)) {
-                    return@socketConnect
+                    reconnectSocket.destroy()
+                    return@launchSocketConnect
                 }
 
-                //We can safely assume that the socket is connected at this point
-                // Login with stored configuration
-                credentialConfig?.let {
-                    credentialLogin(it, reconnectSocket) {
-                        isCurrentConnectionGeneration(generation, reconnectSocket)
+                // Connect to new socket
+                reconnectSocket.connectWithConnectionGuard(
+                    this@TelnyxClient,
+                    reconnectSocket.host_address,
+                    reconnectSocket.port,
+                    connectionPush,
+                    recoveryVoiceSdkId = recoveryVoiceSdkId,
+                    isCurrentConnection = { isCurrentConnectionGeneration(generation, reconnectSocket) }
+                ) socketConnect@ {
+                    if (!isCurrentConnectionGeneration(generation, reconnectSocket)) {
+                        return@socketConnect
                     }
-                } ?: tokenConfig?.let {
-                    tokenLogin(it, reconnectSocket) {
-                        isCurrentConnectionGeneration(generation, reconnectSocket)
-                    }
-                }
 
-                // Change an ongoing call's socket to the new socket.
-                call?.let { call?.socket = reconnectSocket }
+                    //We can safely assume that the socket is connected at this point
+                    // Login with stored configuration
+                    credentialConfig?.let {
+                        credentialLogin(it, reconnectSocket, connectionPush != null, recoverySessionId) {
+                            isCurrentConnectionGeneration(generation, reconnectSocket)
+                        }
+                    } ?: tokenConfig?.let {
+                        tokenLogin(it, reconnectSocket, connectionPush != null, recoverySessionId) {
+                            isCurrentConnectionGeneration(generation, reconnectSocket)
+                        }
+                    }
+
+                    // Change an ongoing call's socket to the new socket.
+                    call?.let { call?.socket = reconnectSocket }
+                }
             }
         }
     }
 
     init {
-        // Generate random UUID for sessid param, convert it to string and set globally
-        sessid = UUID.randomUUID().toString()
-
         // Initialize deprecated LiveData for backward compatibility
         socketResponseLiveData =
             MutableLiveData<SocketResponse<ReceivedMessageBody>>(SocketResponse.initialised())
@@ -1507,6 +1502,38 @@ class TelnyxClient private constructor(
         }
     }
 
+    private fun beginExplicitConnection(): Int {
+        val generation = nextConnectionGeneration()
+        reconnecting = false
+        reconnectJob?.cancel()
+        cancelSocketConnectJob()
+        cancelReconnectionTimer()
+        reconnectionRetryCounter.set(0)
+        clearPendingPushCall()
+        clearRegistrationIdentity()
+        callReportId = null
+        cancelTokenExpiryTimeout()
+        credentialSessionConfig = null
+        tokenSessionConfig = null
+        return generation
+    }
+
+    private fun prepareManualLogin(): Boolean {
+        // A legacy two-step connect/login may still have its push waiting for login.
+        if (credentialSessionConfig != null || tokenSessionConfig != null) clearPendingPushCall()
+        clearRegistrationIdentity()
+        waitingForReg = true
+        invalidateGatewayResponseTimer()
+        return isCallPendingFromPush
+    }
+
+    private fun clearRegistrationIdentity() {
+        confirmedSessionId = null
+        confirmedVoiceSdkId = null
+        voiceSDKID = null
+        sessid = ""
+    }
+
     private fun nextConnectionGeneration(): Int = connectionGeneration.incrementAndGet()
 
     private fun isCurrentConnectionGeneration(generation: Int, txSocket: TxSocket): Boolean {
@@ -1549,11 +1576,13 @@ class TelnyxClient private constructor(
                 " Use telnyxclient.connect(providedServerConfig,txPushMetaData," +
                 "credential or tokenLogin) instead."
     )
+    @Synchronized
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         txPushMetaData: String? = null,
     ) {
 
+        val generation = beginExplicitConnection()
         clearTransientDeclinePushMode()
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
@@ -1568,15 +1597,14 @@ class TelnyxClient private constructor(
             providedServerConfig.host
         }
 
-        val generation = nextConnectionGeneration()
         socket.destroy()
         val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
         socket = connectSocket
+        val connectionPush = pushMetaData
 
-        providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
@@ -1584,9 +1612,9 @@ class TelnyxClient private constructor(
             launchSocketConnect {
                 connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
-                    providedHostAddress,
-                    providedPort,
-                    pushMetaData,
+                    connectSocket.host_address,
+                    connectSocket.port,
+                    connectionPush,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) socketConnect@ {
                     if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -1614,12 +1642,14 @@ class TelnyxClient private constructor(
      * We recommend setting this to true
      *
      */
+    @Synchronized
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         credentialConfig: CredentialConfig,
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
+        val generation = beginExplicitConnection()
         clearTransientDeclinePushMode()
         isSocketDebug = credentialConfig.debug
         enableCallQualityReports = credentialConfig.enableCallQualityReports
@@ -1644,15 +1674,14 @@ class TelnyxClient private constructor(
         if (credentialConfig.region != Region.AUTO)
             providedHostAddress = "${credentialConfig.region.value}.$providedHostAddress"
 
-        val generation = nextConnectionGeneration()
         socket.destroy()
         val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
         socket = connectSocket
+        val connectionPush = pushMetaData
 
-        providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
@@ -1664,39 +1693,28 @@ class TelnyxClient private constructor(
                     return@launchSocketConnect
                 }
 
-                if (credentialConfig.fallbackOnRegionFailure) {
-                    providedHostAddress = ConnectivityHelper.resolveReachableHost(
-                        providedHostAddress!!,
-                        providedPort!!
-                    )
-                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                val resolvedHost = if (credentialConfig.fallbackOnRegionFailure) {
+                    ConnectivityHelper.resolveReachableHost(connectSocket.host_address, connectSocket.port)
+                } else {
+                    connectSocket.host_address
+                }
+                synchronized(this@TelnyxClient) {
+                    if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                        connectSocket.destroy()
+                        return@launchSocketConnect
+                    }
+                    providedHostAddress = resolvedHost
                 }
 
-                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
-                    connectSocket.destroy()
-                    return@launchSocketConnect
-                }
-
-                if (txPushMetaData != null) {
-                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-                    voiceSDKID = metadata.voiceSdkId
-                } else if (voiceSDKID != null) {
-                    pushMetaData = PushMetaData(
-                        callerName = "",
-                        callerNumber = "",
-                        callId = "",
-                        voiceSdkId = voiceSDKID
-                    )
-                }
                 connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
-                    providedHostAddress,
-                    providedPort,
-                    pushMetaData,
+                    resolvedHost,
+                    connectSocket.port,
+                    connectionPush,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
-                        credentialLogin(credentialConfig, connectSocket) {
+                        credentialLogin(credentialConfig, connectSocket, connectionPush != null) {
                             isCurrentConnectionGeneration(generation, connectSocket)
                         }
                     }
@@ -1722,12 +1740,14 @@ class TelnyxClient private constructor(
      * We recommend setting this to true
      *
      */
+    @Synchronized
     fun connect(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         tokenConfig: TokenConfig,
         txPushMetaData: String? = null,
         autoLogin: Boolean = true,
     ) {
+        val generation = beginExplicitConnection()
         clearTransientDeclinePushMode()
         isSocketDebug = tokenConfig.debug
         enableCallQualityReports = tokenConfig.enableCallQualityReports
@@ -1751,15 +1771,14 @@ class TelnyxClient private constructor(
         if (tokenConfig.region != Region.AUTO)
             providedHostAddress = "${tokenConfig.region.value}.$providedHostAddress"
 
-        val generation = nextConnectionGeneration()
         socket.destroy()
         val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
         socket = connectSocket
+        val connectionPush = pushMetaData
 
-        providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
         if (ConnectivityHelper.isNetworkEnabled(context)) {
@@ -1771,39 +1790,28 @@ class TelnyxClient private constructor(
                     return@launchSocketConnect
                 }
 
-                if (tokenConfig.fallbackOnRegionFailure) {
-                    providedHostAddress = ConnectivityHelper.resolveReachableHost(
-                        providedHostAddress!!,
-                        providedPort!!
-                    )
-                    Logger.d(message = "Verified Host Address: $providedHostAddress")
+                val resolvedHost = if (tokenConfig.fallbackOnRegionFailure) {
+                    ConnectivityHelper.resolveReachableHost(connectSocket.host_address, connectSocket.port)
+                } else {
+                    connectSocket.host_address
+                }
+                synchronized(this@TelnyxClient) {
+                    if (!isCurrentConnectionGeneration(generation, connectSocket)) {
+                        connectSocket.destroy()
+                        return@launchSocketConnect
+                    }
+                    providedHostAddress = resolvedHost
                 }
 
-                if (!isCurrentConnectionGeneration(generation, connectSocket)) {
-                    connectSocket.destroy()
-                    return@launchSocketConnect
-                }
-
-                if (txPushMetaData != null) {
-                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-                    voiceSDKID = metadata.voiceSdkId
-                } else if (voiceSDKID != null) {
-                    pushMetaData = PushMetaData(
-                        callerName = "",
-                        callerNumber = "",
-                        callId = "",
-                        voiceSdkId = voiceSDKID
-                    )
-                }
                 connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
-                    providedHostAddress,
-                    providedPort,
-                    pushMetaData,
+                    resolvedHost,
+                    connectSocket.port,
+                    connectionPush,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) {
                     if (autoLogin && isCurrentConnectionGeneration(generation, connectSocket)) {
-                        tokenLogin(tokenConfig, connectSocket) {
+                        tokenLogin(tokenConfig, connectSocket, connectionPush != null) {
                             isCurrentConnectionGeneration(generation, connectSocket)
                         }
                     }
@@ -1828,6 +1836,7 @@ class TelnyxClient private constructor(
      * @param userVariables Optional user variables to include
      * @param reconnection Whether this is a reconnection attempt (defaults to false)
      */
+    @Synchronized
     fun connectAnonymously(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         targetId: String,
@@ -1838,6 +1847,7 @@ class TelnyxClient private constructor(
         reconnection: Boolean = false,
         logLevel: LogLevel = LogLevel.NONE,
     ) {
+        val generation = beginExplicitConnection()
         clearTransientDeclinePushMode()
         emitSocketResponse(SocketResponse.initialised())
         waitingForReg = true
@@ -1848,15 +1858,12 @@ class TelnyxClient private constructor(
 
         providedHostAddress = providedServerConfig.host
 
-        val generation = nextConnectionGeneration()
         socket.destroy()
         val connectSocket = TxSocket(
             host_address = providedHostAddress!!,
             port = providedServerConfig.port
         )
         socket = connectSocket
-
-        providedPort = providedServerConfig.port
         providedTurn = providedServerConfig.turn
         providedStun = providedServerConfig.stun
 
@@ -1871,8 +1878,8 @@ class TelnyxClient private constructor(
 
                 connectSocket.connectWithConnectionGuard(
                     this@TelnyxClient,
-                    providedHostAddress,
-                    providedPort,
+                    connectSocket.host_address,
+                    connectSocket.port,
                     null,
                     isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                 ) socketConnect@ {
@@ -1909,11 +1916,13 @@ class TelnyxClient private constructor(
      * @param config The configuration for login (either CredentialConfig or TokenConfig)
      * @param txPushMetaData The push metadata from the notification
      */
+    @Synchronized
     fun connectWithDeclinePush(
         providedServerConfig: TxServerConfiguration = TxServerConfiguration(),
         config: TelnyxConfig,
         txPushMetaData: String? = null,
     ) {
+        val generation = beginExplicitConnection()
         isDeclinePushConnection = true
         val declineConfig = when (config) {
             is CredentialConfig -> config.copy(autoReconnect = false)
@@ -1933,37 +1942,25 @@ class TelnyxClient private constructor(
                 providedServerConfig.host
             }
 
-            val generation = nextConnectionGeneration()
             socket.destroy()
             val connectSocket = TxSocket(
                 host_address = providedHostAddress!!,
                 port = providedServerConfig.port
             )
             socket = connectSocket
+            val connectionPush = pushMetaData
 
-            providedPort = providedServerConfig.port
             providedTurn = providedServerConfig.turn
             providedStun = providedServerConfig.stun
 
             if (ConnectivityHelper.isNetworkEnabled(context)) {
                 Logger.d(message = "Provided Host Address: $providedHostAddress")
-                if (txPushMetaData != null) {
-                    val metadata = Gson().fromJson(txPushMetaData, PushMetaData::class.java)
-                    voiceSDKID = metadata.voiceSdkId
-                } else if (voiceSDKID != null) {
-                    pushMetaData = PushMetaData(
-                        callerName = "",
-                        callerNumber = "",
-                        callId = "",
-                        voiceSdkId = voiceSDKID
-                    )
-                }
                 launchSocketConnect {
                     connectSocket.connectWithConnectionGuard(
                         this@TelnyxClient,
-                        providedHostAddress,
-                        providedPort,
-                        pushMetaData,
+                        connectSocket.host_address,
+                        connectSocket.port,
+                        connectionPush,
                         isCurrentConnection = { isCurrentConnectionGeneration(generation, connectSocket) }
                     ) socketConnect@ {
                         if (!isCurrentConnectionGeneration(generation, connectSocket)) {
@@ -2089,13 +2086,18 @@ class TelnyxClient private constructor(
      * @see [CredentialConfig]
      */
     @Deprecated("telnyxclient.credentialLogin is deprecated. Use telnyxclient.connect(..) instead.")
+    @Synchronized
     fun credentialLogin(config: CredentialConfig) {
-        credentialLogin(config, socket) { true }
+        val attachPush = prepareManualLogin()
+        credentialLogin(config, socket, attachPush) { true }
     }
 
+    @Synchronized
     private fun credentialLogin(
         config: CredentialConfig,
         targetSocket: TxSocket,
+        attachPush: Boolean,
+        recoverySessionId: String? = null,
         canSend: () -> Boolean,
     ) {
         if (!canSend()) {
@@ -2111,6 +2113,7 @@ class TelnyxClient private constructor(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
+        tokenSessionConfig = null
 
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
@@ -2148,8 +2151,8 @@ class TelnyxClient private constructor(
                 login = user,
                 passwd = password,
                 userVariables = notificationJsonObject,
-                loginParams = mapOf("attach_call" to "true"),
-                sessid = sessid,
+                loginParams = if (attachPush || recoverySessionId != null) mapOf("attach_call" to "true") else null,
+                sessid = recoverySessionId,
                 mobileSdkName = sdkIdentity.name,
                 mobileSdkVersion = sdkIdentity.version,
             )
@@ -2231,6 +2234,7 @@ class TelnyxClient private constructor(
 
     private fun startPushInviteTimeout() {
         pushInviteTimeoutJob?.cancel()
+        val requestId = attachCallId
         // Read pending callId under the same lock used by claimPendingPushCall()
         // and clearPendingPushCall() to avoid a TOCTOU race where the pending
         // state is cleared between this read and the coroutine's claim.
@@ -2245,7 +2249,7 @@ class TelnyxClient private constructor(
         Logger.d(message = "Starting post-attach INVITE timeout for push call $pendingCallId")
         pushInviteTimeoutJob = clientScope.launch {
             delay(pushInviteTimeoutMs)
-            val claimedCallId = claimPendingPushCall() ?: return@launch
+            val claimedCallId = claimPendingPushCall(requestId) ?: return@launch
 
             val terminationReason = CallTerminationReason(
                 cause = "ORIGINATOR_CANCEL",
@@ -2264,14 +2268,10 @@ class TelnyxClient private constructor(
     }
 
     /** Atomically takes ownership of pending push cleanup for INVITE/BYE/timeout races. */
-    private fun claimPendingPushCall(): UUID? = synchronized(this) {
-        if (!isCallPendingFromPush) return@synchronized null
+    private fun claimPendingPushCall(expectedAttachId: String? = attachCallId): UUID? = synchronized(this) {
+        if (!isCallPendingFromPush || expectedAttachId != attachCallId) return@synchronized null
         val callId = pushMetaData?.callId.toUuidOrNull() ?: pendingPushAppCallId
-        isCallPendingFromPush = false
-        pendingPushAppCallId = null
-        pushMetaData = null
-        pushInviteTimeoutJob?.cancel()
-        pushInviteTimeoutJob = null
+        clearPendingPushCall()
         callId
     }
 
@@ -2303,13 +2303,18 @@ class TelnyxClient private constructor(
         "telnyxclient.tokenLogin is deprecated. Use telnyxclient.connect(...,autoLogin:true) " +
                 "with autoLogin set to true instead."
     )
+    @Synchronized
     fun tokenLogin(config: TokenConfig) {
-        tokenLogin(config, socket) { true }
+        val attachPush = prepareManualLogin()
+        tokenLogin(config, socket, attachPush) { true }
     }
 
+    @Synchronized
     private fun tokenLogin(
         config: TokenConfig,
         targetSocket: TxSocket,
+        attachPush: Boolean,
+        recoverySessionId: String? = null,
         canSend: () -> Boolean,
     ) {
         if (!canSend()) {
@@ -2324,6 +2329,7 @@ class TelnyxClient private constructor(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
+        credentialSessionConfig = null
 
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
@@ -2361,8 +2367,8 @@ class TelnyxClient private constructor(
                 login = null,
                 passwd = null,
                 userVariables = notificationJsonObject,
-                loginParams = mapOf("attach_call" to "true"),
-                sessid = sessid,
+                loginParams = if (attachPush || recoverySessionId != null) mapOf("attach_call" to "true") else null,
+                sessid = recoverySessionId,
                 mobileSdkName = sdkIdentity.name,
                 mobileSdkVersion = sdkIdentity.version,
             )
@@ -2440,7 +2446,7 @@ class TelnyxClient private constructor(
             userAgent = userAgent,
             mobileSdkName = sdkIdentity.name,
             mobileSdkVersion = sdkIdentity.version,
-            sessid = sessid
+            sessid = confirmedSessionId.takeIf { reconnection }
         )
 
         val loginMessage = SendingMessageBody(
@@ -2604,6 +2610,7 @@ class TelnyxClient private constructor(
         autoReconnectLogin = config.autoReconnect
 
         credentialSessionConfig = config
+        tokenSessionConfig = null
 
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
@@ -2642,7 +2649,7 @@ class TelnyxClient private constructor(
                 passwd = password,
                 userVariables = notificationJsonObject,
                 loginParams = mapOf("decline_push" to "true"),
-                sessid = sessid
+                sessid = null
             )
         )
         Logger.d(message = "Auto login with credentialConfig for decline push")
@@ -2676,6 +2683,7 @@ class TelnyxClient private constructor(
         autoReconnectLogin = config.autoReconnect
 
         tokenSessionConfig = config
+        credentialSessionConfig = null
 
         isSocketDebug = config.debug
         enableCallQualityReports = config.enableCallQualityReports
@@ -2714,7 +2722,7 @@ class TelnyxClient private constructor(
                 passwd = null,
                 userVariables = notificationJsonObject,
                 loginParams = mapOf("decline_push" to "true"),
-                sessid = sessid
+                sessid = null
             )
         )
         Logger.d(message = "Auto login with tokenConfig for decline push")
@@ -2979,30 +2987,30 @@ class TelnyxClient private constructor(
         // Complete registration latency tracking
         latencyTracker.completeRegistrationTracking()
 
-        CoroutineScope(Dispatchers.Main).launch {
-            emitSocketResponse(
-                SocketResponse.messageReceived(
-                    ReceivedMessageBody(
-                        SocketMethod.CLIENT_READY.methodName,
-                        null
-                    )
+        val generation = connectionGeneration.get()
+        clientScope.launch(Dispatchers.Main) {
+            synchronized(this@TelnyxClient) {
+                if (connectionGeneration.get() != generation) return@launch
+                emitSocketResponse(
+                    SocketResponse.messageReceived(ReceivedMessageBody(SocketMethod.CLIENT_READY.methodName, null))
                 )
-            )
-
-            emitConnectionStatus(ConnectionStatus.CLIENT_READY)
+                emitConnectionStatus(ConnectionStatus.CLIENT_READY)
+            }
         }
     }
 
     // TxSocketListener Overrides
-    override fun onClientReady(jsonObject: JsonObject) {
-        val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
-        if (voiceSdkID != null) {
-            Logger.d(message = "Voice SDK ID _ $voiceSdkID")
-            this@TelnyxClient.voiceSDKID = voiceSdkID
+    private fun updateServerVoiceSdkId(jsonObject: JsonObject) {
+        val id = jsonObject.get("voice_sdk_id")?.takeIf { it.isJsonPrimitive }?.asString
+        if (!id.isNullOrBlank()) {
+            voiceSDKID = id
+            if (!waitingForReg && confirmedSessionId != null) confirmedVoiceSdkId = id
             updateDebugDataCollectorUploadConfig()
-        } else {
-            Logger.e(message = "No Voice SDK ID")
         }
+    }
+
+    override fun onClientReady(jsonObject: JsonObject) {
+        updateServerVoiceSdkId(jsonObject)
 
         if (gatewayState != GatewayState.REGED.state) {
             Logger.d(
@@ -3011,30 +3019,7 @@ class TelnyxClient private constructor(
                     this@TelnyxClient.javaClass.simpleName
                 )
             )
-            if (waitingForReg) {
-                requestGatewayStatus()
-                gatewayResponseTimer = Timer()
-                gatewayResponseTimer?.schedule(
-                    timerTask {
-                        if (registrationRetryCounter < RETRY_REGISTER_TIME) {
-                            if (waitingForReg) {
-                                onClientReady(jsonObject)
-                            }
-                            registrationRetryCounter++
-                        } else {
-                            Logger.d(
-                                message = Logger.formatMessage(
-                                    "[%s] :: Gateway registration has timed out",
-                                    this@TelnyxClient.javaClass.simpleName
-                                )
-                            )
-                            emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
-                            disconnectTransientDeclinePushConnection()
-                        }
-                    },
-                    GATEWAY_RESPONSE_DELAY
-                )
-            }
+            retryGatewayStatus()
         } else {
             Logger.d(
                 message = Logger.formatMessage(
@@ -3059,18 +3044,50 @@ class TelnyxClient private constructor(
         }
     }
 
+    private fun retryGatewayStatus() {
+        if (waitingForReg) {
+            requestGatewayStatus()
+            val generation = connectionGeneration.get()
+            invalidateGatewayResponseTimer()
+            gatewayResponseTimer = Timer()
+            gatewayResponseTimer?.schedule(
+                timerTask {
+                    synchronized(this@TelnyxClient) {
+                        if (connectionGeneration.get() != generation || !waitingForReg) return@timerTask
+                        if (registrationRetryCounter < RETRY_REGISTER_TIME) {
+                            registrationRetryCounter++
+                            retryGatewayStatus()
+                        } else {
+                            Logger.d(
+                                message = Logger.formatMessage(
+                                    "[%s] :: Gateway registration has timed out",
+                                    this@TelnyxClient.javaClass.simpleName
+                                )
+                            )
+                            emitError(TelnyxErrorCode.GATEWAY_FAILED.code) // GATEWAY_FAILED
+                            disconnectTransientDeclinePushConnection()
+                        }
+                    }
+                },
+                GATEWAY_RESPONSE_DELAY
+            )
+        }
+    }
+
     override fun onGatewayStateReceived(gatewayState: String, receivedSessionId: String?) {
         when (gatewayState) {
             GatewayState.REGED.state -> {
                 invalidateGatewayResponseTimer()
                 waitingForReg = false
-                receivedSessionId?.let {
-                    resetGatewayCounters()
-                    onLoginSuccessful(it)
-                } ?: kotlin.run {
-                    resetGatewayCounters()
-                    onLoginSuccessful(sessid)
+                receivedSessionId?.takeIf { it.isNotBlank() }?.let { sessionId ->
+                    if (sessionId != confirmedSessionId) confirmedVoiceSdkId = null
+                    confirmedSessionId = sessionId
                 }
+                if (confirmedSessionId != null) {
+                    confirmedVoiceSdkId = voiceSDKID ?: confirmedVoiceSdkId
+                }
+                resetGatewayCounters()
+                onLoginSuccessful(confirmedSessionId.orEmpty())
             }
 
 
@@ -3095,6 +3112,7 @@ class TelnyxClient private constructor(
                             this@TelnyxClient.javaClass.simpleName
                         )
                     )
+                    reconnecting = true
                     launchReconnectJob()
                 } else {
                     invalidateGatewayResponseTimer()
@@ -3190,45 +3208,42 @@ class TelnyxClient private constructor(
         reconnectTimeOutJob = null
         // Create a new timer to check for timeout
         reconnectTimeOutJob = CoroutineScope(Dispatchers.Default).launch {
+            val timer = coroutineContext[Job]
             delay(
                 credentialSessionConfig?.reconnectionTimeout
                     ?: tokenSessionConfig?.reconnectionTimeout ?: RECONNECT_TIMEOUT
             )
-            if (reconnecting) {
-                Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
-                reconnecting = false
-                reconnectionRetryCounter.set(0)
-                // Handle the timeout by updating call states and notifying the user
-                Handler(Looper.getMainLooper()).post {
-                    getActiveCalls().forEach { (_, call) ->
-                        call.setReconnectionTimeout()
-                        // Use the signaling call ID (not the app-facing ID from
-                        // getActiveCalls keys) for teardown — calls map and
-                        // webRTCReportersMap are both keyed by signaling ID.
-                        val signalingCallId = call.currentSignalingCallId()
-                        removeWebRTCReporter(signalingCallId)?.stopStats()
-                        removeFromCalls(signalingCallId)
-                    }
-                    // Reset the ongoing call flag so the app returns to profile
-                    // selection state instead of showing a stale Disconnect button.
-                    // Note: we intentionally do NOT call peerConnection.disconnect()
-                    // because close()+dispose() on an active signaling thread causes
-                    // SIGSEGV in libjingle_peerconnection_so. The peer connections
-                    // will be garbage collected safely without explicit disposal.
-                    callNotOngoing()
-                    emitError(
-                        TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
-                        "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
-                    ) // RECONNECTION_EXHAUSTED
-
-                    // Reset reconnection state
+            // The main-thread callback can run after a new connection has replaced this timer.
+            Handler(Looper.getMainLooper()).post {
+                val timedOutCalls = synchronized(this@TelnyxClient) {
+                    if (reconnectTimeOutJob !== timer) return@post
+                    cancelReconnectionTimer()
+                    if (!reconnecting) return@post
                     reconnecting = false
                     reconnectionRetryCounter.set(0)
-                    cancelReconnectionTimer()
+                    getActiveCalls()
                 }
-            } else {
-                // If we're no longer reconnecting, cancel the timer
-                cancelReconnectionTimer()
+                Logger.d(message = "Reconnection timeout reached after ${RECONNECT_TIMEOUT}ms")
+                timedOutCalls.forEach { (_, call) ->
+                    call.setReconnectionTimeout()
+                    // Use the signaling call ID (not the app-facing ID from
+                    // getActiveCalls keys) for teardown — calls map and
+                    // webRTCReportersMap are both keyed by signaling ID.
+                    val signalingCallId = call.currentSignalingCallId()
+                    removeWebRTCReporter(signalingCallId)?.stopStats()
+                    removeFromCalls(signalingCallId)
+                }
+                // Reset the ongoing call flag so the app returns to profile
+                // selection state instead of showing a stale Disconnect button.
+                // Note: we intentionally do NOT call peerConnection.disconnect()
+                // because close()+dispose() on an active signaling thread causes
+                // SIGSEGV in libjingle_peerconnection_so. The peer connections
+                // will be garbage collected safely without explicit disposal.
+                callNotOngoing()
+                emitError(
+                    TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+                    "Reconnection timeout after ${RECONNECT_TIMEOUT / TIMEOUT_DIVISOR} seconds"
+                ) // RECONNECTION_EXHAUSTED
             }
         }
     }
@@ -3269,7 +3284,7 @@ class TelnyxClient private constructor(
         val isAttachCallError = errorCode == null && id != null && attachCallId == id
         if (isAttachCallError) {
             Logger.d(message = "Call Failed Error Received")
-            val pendingCallId = claimPendingPushCall()
+            val pendingCallId = claimPendingPushCall(id)
             emitError(TelnyxErrorCode.SESSION_NOT_REATTACHED.code, "Call Failed") // SESSION_NOT_REATTACHED — attach-call failure means reattach failed
             pendingCallId?.let {
                 emitPendingPushBye(it, "REMOTE_ERROR", null, null, null)
@@ -3315,7 +3330,11 @@ class TelnyxClient private constructor(
         }
     }
 
-    override fun onByeReceived(jsonObject: JsonObject) {
+    override fun onByeReceived(jsonObject: JsonObject) = onByeReceived(jsonObject) { true }
+
+    internal fun onByeReceived(jsonObject: JsonObject, isCurrentConnection: () -> Boolean) {
+        if (!isCurrentConnection()) return
+
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.BYE.methodName)) {
             return
         }
@@ -3389,7 +3408,9 @@ class TelnyxClient private constructor(
                 _transcript.clear()
                 _transcriptUpdateFlow.tryEmit(emptyList())
             } ?: run {
-                val pendingCallId = claimPendingPushCall()
+                val pendingCallId = synchronized(this) {
+                    if (isCurrentConnection()) claimPendingPushCall() else null
+                }
                 if (pendingCallId != null) {
                     Logger.d(message = "Received BYE for pending push call before INVITE: signaling=$callId push=$pendingCallId")
                     emitPendingPushBye(pendingCallId, cause, causeCode, sipCode, sipReason)
@@ -3657,7 +3678,11 @@ class TelnyxClient private constructor(
         stopMediaPlayer()
     }
 
-    override fun onOfferReceived(jsonObject: JsonObject) {
+    override fun onOfferReceived(jsonObject: JsonObject) = onOfferReceived(jsonObject) { true }
+
+    internal fun onOfferReceived(jsonObject: JsonObject, isCurrentConnection: () -> Boolean) {
+        if (!isCurrentConnection()) return
+
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.INVITE.methodName)) {
             return
         }
@@ -3682,15 +3707,15 @@ class TelnyxClient private constructor(
                 val params = jsonObject.getAsJsonObject("params")
                 val offerCallId = UUID.fromString(params.get("callID").asString)
                 val variables = inviteVariables(params)
-                val appCallId = inviteAppCallId(offerCallId) ?: offerCallId
-                // IMPORTANT: inviteAppCallId() MUST be evaluated before claimPendingPushCall().
-                // inviteAppCallId() reads pendingPushAppCallId under synchronized(this); claimPendingPushCall()
-                // then clears it under the same lock. The order matters because the claim nulls the field
-                // the alias read depends on. If the read is moved after the claim, the push app call ID is
-                // lost and the alias mapping (registerCallIdAlias) would use the socket ID as the app-facing ID.
-                // INVITE atomically wins against BYE/timeout before the call is exposed.
-                claimPendingPushCall()
-                registerCallIdAlias(appCallId, offerCallId)
+                val appCallId = synchronized(this@TelnyxClient) {
+                    if (!isCurrentConnection()) return
+                    // Resolve the push alias before claiming and clearing the pending push.
+                    val appId = inviteAppCallId(offerCallId) ?: offerCallId
+                    claimPendingPushCall()
+                    registerCallIdAlias(appId, offerCallId)
+                    updateServerVoiceSdkId(jsonObject)
+                    appId
+                }
                 val remoteSdp = params.get("sdp").asString
 
                 // Check if remote party supports trickle ICE
@@ -3712,15 +3737,6 @@ class TelnyxClient private constructor(
                     tag = "TrickleICE",
                     message = "Extracted ICE parameters from OFFER: $remoteIceParameters"
                 )
-
-                val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
-                if (voiceSdkID != null) {
-                    Logger.d(message = "Voice SDK ID _ $voiceSdkID")
-                    this@TelnyxClient.voiceSDKID = voiceSdkID
-                    updateDebugDataCollectorUploadConfig()
-                } else {
-                    Logger.e(message = "No Voice SDK ID")
-                }
 
                 val callerName = params.get("caller_id_name").asString
                 val callerNumber = params.get("caller_id_number").asString
@@ -3976,14 +3992,20 @@ class TelnyxClient private constructor(
         )
     }
 
-    override fun onAttachReceived(jsonObject: JsonObject) {
+    override fun onAttachReceived(jsonObject: JsonObject) = onAttachReceived(jsonObject) { true }
+
+    internal fun onAttachReceived(jsonObject: JsonObject, isCurrentConnection: () -> Boolean) {
+        if (!isCurrentConnection()) return
+
         if (shouldIgnoreDeclinePushCallEvent(SocketMethod.ATTACH.methodName)) {
             return
         }
 
-        // reset reconnecting state
-        reconnecting = false
-        reconnectionRetryCounter.set(0)
+        synchronized(this) {
+            if (!isCurrentConnection()) return
+            reconnecting = false
+            reconnectionRetryCounter.set(0)
+        }
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 
@@ -3999,13 +4021,9 @@ class TelnyxClient private constructor(
         )?.apply {
 
             val remoteSdp = params.get("sdp").asString
-            val voiceSdkID = jsonObject.getAsJsonPrimitive("voice_sdk_id")?.asString
-            if (voiceSdkID != null) {
-                Logger.d(message = "Voice SDK ID _ $voiceSdkID")
-                this@TelnyxClient.voiceSDKID = voiceSdkID
-                updateDebugDataCollectorUploadConfig()
-            } else {
-                Logger.e(message = "No Voice SDK ID")
+            synchronized(this@TelnyxClient) {
+                if (!isCurrentConnection()) return
+                updateServerVoiceSdkId(jsonObject)
             }
 
             // val callerName = params.get("caller_id_name").asString
@@ -4148,6 +4166,7 @@ class TelnyxClient private constructor(
         disconnectInternal(allowReconnectRetry = true)
     }
 
+    @Synchronized
     private fun disconnectInternal(allowReconnectRetry: Boolean) {
         // Check if we should retry reconnection instead of giving up
         if (allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()) {
@@ -4208,13 +4227,19 @@ class TelnyxClient private constructor(
         cancelAcceptCallJobs()
         socket.destroy()
         clearPendingPushCall()
+        clearRegistrationIdentity()
         clearTransientDeclinePushMode()
+    }
+
+    private fun resetPushAttachRequest() {
+        pushInviteTimeoutJob?.cancel()
+        pushInviteTimeoutJob = null
+        attachCallId = null
     }
 
     private fun clearPendingPushCall() {
         synchronized(this) {
-            pushInviteTimeoutJob?.cancel()
-            pushInviteTimeoutJob = null
+            resetPushAttachRequest()
             isCallPendingFromPush = false
             pendingPushAppCallId = null
             pushMetaData = null
@@ -4556,6 +4581,7 @@ class TelnyxClient private constructor(
      * Disconnects the TelnyxClient, resets all internal states, and stops any ongoing audio playback.
      * This method should be called when the client is no longer needed or when the user logs out.
      */
+    @Synchronized
     fun disconnect() {
         Logger.d(message = "Disconnecting TelnyxClient and clearing states")
         cancelReconnectionTimer()
