@@ -10,15 +10,18 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 ## 2
 jobs:
   # 3 Unit Test Script
   unit_tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3.0.2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: set up JDK 1.8
-        uses: actions/setup-java@v3.5.0
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -35,29 +38,11 @@ jobs:
             fi
           done
 
-      - name: Update Username from Secrets
-        env:
-          MOCK_USERNAME: ${{ secrets.TELNYX_SIP_USER }}
-        run: echo MOCK_USERNAME="$MOCK_USERNAME" > ./local.properties
-
-      - name: Add new line
-        run: echo -e "\n" >> ./local.properties
-
-      - name: Update Password from Secrets
-        env:
-          MOCK_PASSWORD: ${{ secrets.TELNYX_SIP_PASSWORD }}
-        run: echo MOCK_PASSWORD="$MOCK_PASSWORD" >> ./local.properties
+      - name: Create credential-free local properties
+        run: touch local.properties
 
       - name: Clean
         run: ./gradlew clean
-
-      - name: Read local.properties
-        id: properties
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./local.properties
-      - name: Echo local.properties
-        run: echo "${{ steps.package.outputs.content }}"
 
       - name: Assemble app debug APK
         run: bash ./gradlew assembleDebug --stacktrace
