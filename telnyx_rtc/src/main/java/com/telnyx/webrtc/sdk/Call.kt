@@ -88,6 +88,12 @@ data class Call(
     lateinit var callId: UUID
     internal var signalingCallId: UUID? = null
 
+    // VSDK-1145 (A7): set when this Call represents an outgoing INVITE
+    // (newInvite) vs an incoming call (CALL_RECEIVED). Used at endCall time to
+    // report pre-answer local termination as a caller cancel (487
+    // ORIGINATOR_CANCEL) instead of a callee decline (603).
+    internal var isOutboundCall: Boolean = false
+
     internal var telnyxSessionId: UUID? = null
     internal var telnyxLegId: UUID? = null
     internal var telnyxCallControlId: String? = null
@@ -127,6 +133,30 @@ data class Call(
      */
     internal fun updateCallState(value: CallState) {
         mutableCallStateFlow.value = value
+        // VSDK-1145: record the real call-state lifecycle so the debug summary
+        // `state` and its transitions reflect connecting/ringing/active flows.
+        // Best-effort: callId is lateinit and may be unset when the state flow
+        // is driven directly in unit tests.
+        runCatching {
+            client.debugDataCollector.onCallStateChange(
+                currentSignalingCallId(),
+                value
+            )
+        }.onFailure { throwable ->
+            // Best-effort logging only — callId is lateinit here too, so
+            // reference-free message keeps the failure path itself safe.
+            Timber.tag("Call").d(throwable, "debugDataCollector.onCallStateChange failed (callId may be unset)")
+        }
+        // VSDK-1145 (A1): when the call enters ERROR, no endCall flow follows
+        // (no BYE / terminate), so the debug report would never be closed.
+        // Close it here with finalState=failed so failed/dropped calls still
+        // produce a report.
+        if (value is CallState.ERROR) {
+            client.debugDataCollector.onCallFailed(
+                currentSignalingCallId(),
+                "SDK_CALL_ERROR"
+            )
+        }
         peerConnection?.onCallStateChanged(value)
     }
 
@@ -190,6 +220,17 @@ data class Call(
     }
 
     internal fun currentSignalingCallId(): UUID = signalingCallId ?: callId
+
+    /**
+     * Adds a call-report log entry keyed by the signaling call ID when the
+     * report is keyed under a remapped alias (push-when-active flows), and
+     * skips silently when no call ID is available yet (e.g. unit tests that
+     * exercise hold/unhold before a call exists).
+     */
+    private fun debugLogEntry(level: String, message: String) {
+        val key = signalingCallId ?: if (::callId.isInitialized) callId else return
+        client.debugDataCollector.addLogEntry(key, level, message)
+    }
 
     /**
      * Accepts an attach invitation
@@ -295,11 +336,35 @@ data class Call(
         if (!holdLiveData.value!!) {
             holdLiveData.postValue(true)
             updateCallState(CallState.HELD)
-            sendHoldModifier(callId, "hold")
+            // VSDK-1145 (A10): record hold/unhold transitions in the call report —
+            // log only after the send is confirmed; a failed send (HOLD_FAILED)
+            // logs the failure instead so the report never asserts a hold that
+            // did not happen.
+            if (!sendHoldModifier(callId, "hold")) {
+                debugLogEntry(
+                    "error",
+                    "Call hold failed to send (onHoldUnholdPressed)",
+                )
+            } else {
+                debugLogEntry(
+                    "info",
+                    "Call held (onHoldUnholdPressed)",
+                )
+            }
         } else {
             holdLiveData.postValue(false)
             updateCallState(CallState.ACTIVE)
-            sendHoldModifier(callId, "unhold")
+            if (!sendHoldModifier(callId, "unhold")) {
+                debugLogEntry(
+                    "error",
+                    "Call unhold failed to send (onHoldUnholdPressed)",
+                )
+            } else {
+                debugLogEntry(
+                    "info",
+                    "Call unheld (onHoldUnholdPressed)",
+                )
+            }
         }
     }
 
@@ -308,7 +373,7 @@ data class Call(
      * @param callId, unique UUID of the call to modify
      * @param holdAction, the modification action to perform
      */
-    private fun sendHoldModifier(callId: UUID, holdAction: String) {
+    private fun sendHoldModifier(callId: UUID, holdAction: String): Boolean {
         val signalingCallId = client.signalingCallId(callId)
         val uuid: String = UUID.randomUUID().toString()
         val modifyMessageBody = SendingMessageBody(
@@ -332,7 +397,9 @@ data class Call(
             holdLiveData.postValue(!holdLiveData.value!!)
             updateCallState(if (holdAction == "hold") CallState.ACTIVE else CallState.HELD)
             client.emitError(TelnyxErrorCode.HOLD_FAILED.code)
+            return false
         }
+        return true
     }
 
     /**
