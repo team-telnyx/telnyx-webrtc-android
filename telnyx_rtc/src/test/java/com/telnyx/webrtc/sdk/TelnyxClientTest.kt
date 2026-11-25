@@ -326,7 +326,7 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
         assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
         assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
-        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
+        assertNull(loginParam.loginParams)
     }
 
     @Test
@@ -454,7 +454,7 @@ class TelnyxClientTest : BaseTest() {
         assertEquals(true, loginParam.userVariables["push_when_active"].asBoolean)
         assertEquals(true, loginParam.userVariables["pn_late_fanout"].asBoolean)
         assertEquals("fcm-token", loginParam.userVariables["push_device_token"].asString)
-        assertEquals(false, loginParam.loginParams?.containsKey("push_when_active"))
+        assertNull(loginParam.loginParams)
     }
 
     @Test

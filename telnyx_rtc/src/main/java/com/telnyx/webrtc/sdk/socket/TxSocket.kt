@@ -89,6 +89,7 @@ class TxSocket(
         providedHostAddress: String? = Config.TELNYX_PROD_HOST_ADDRESS,
         providedPort: Int? = Config.TELNYX_PORT,
         pushmetaData: PushMetaData? = null,
+        recoveryVoiceSdkId: String? = null,
         isCurrentConnection: () -> Boolean = { true },
         onConnected:(Boolean) -> Unit = {}
     ): Job {
@@ -127,19 +128,8 @@ class TxSocket(
             port = it
         }
 
-        val requestUrl = if (pushmetaData != null) {
-            HttpUrl.Builder()
-                .scheme("https")
-                .host(host_address)
-                .addQueryParameter("voice_sdk_id", pushmetaData.voiceSdkId ?: "")
-                .build()
-        } else {
-            HttpUrl.Builder()
-                .scheme("https")
-                .port(port)
-                .host(host_address)
-                .build()
-        }
+        val requestUrl = registrationSocketUrl(host_address, port, pushmetaData, recoveryVoiceSdkId)
+        port = requestUrl.port
         Logger.d(message = "request: $client.")
 
         val request: Request =
@@ -153,6 +143,14 @@ class TxSocket(
         val createdWebSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
+                private var loginSessionId: String? = null
+
+                private fun withCurrentConnection(action: () -> Unit) {
+                    synchronized(listener) {
+                        if (isCurrentConnection()) action()
+                    }
+                }
+
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     if (shouldIgnoreSocketCallback(isCurrentConnection)) return
                     // Guard against duplicate onOpen callbacks — if already connected,
@@ -171,9 +169,12 @@ class TxSocket(
                         message = Logger.formatMessage("[%s] Connection established :: $host_address",
                         this@TxSocket.javaClass.simpleName)
                     )
-                    isConnected = true
-                    onConnected(true)
-                    listener.onConnectionEstablished()
+                    withCurrentConnection {
+                        this@TxSocket.webSocket = webSocket
+                        isConnected = true
+                        onConnected(true)
+                        listener.onConnectionEstablished()
+                    }
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -207,10 +208,11 @@ class TxSocket(
                             addProperty("jsonrpc", "2.0")
                             addProperty("id", UUID.randomUUID().toString())
                         }
-                        listener.onErrorReceived(fullJson, null)
+                        withCurrentConnection { listener.onErrorReceived(fullJson, null) }
                         return
                     }
                     listener.emitWsMessage(jsonObject)
+                    if (shouldIgnoreSocketCallback(isCurrentConnection)) return
 
                     var params: JsonObject? = null
                     if (jsonObject.has("params")) {
@@ -225,7 +227,7 @@ class TxSocket(
                             if (result.has("action") && result.get("action").asString == "updateMedia") {
                                 listener.onModifyReceived(jsonObject)
                             } else if (result.has("params")) {
-                                val sessionId = result.asJsonObject.get("sessid").asString
+                                val sessionId = result.get("sessid")?.takeIf { it.isJsonPrimitive }?.asString ?: loginSessionId
                                 val params = result.get("params").asJsonObject
                                 if (params.asJsonObject.has("state")) {
                                     val gatewayState = params.get("state").asString
@@ -233,17 +235,20 @@ class TxSocket(
                                     // Extract call_report_id if present in REGED response
                                     if (gatewayState == STATE_REGED && params.has("call_report_id")) {
                                         val callReportId = params.get("call_report_id").asString
-                                        listener.onCallReportIdReceived(callReportId)
+                                        withCurrentConnection { listener.onCallReportIdReceived(callReportId) }
                                     }
 
                                     if (gatewayState != STATE_ATTACHED) {
-                                        listener.onGatewayStateReceived(gatewayState, sessionId)
+                                        withCurrentConnection {
+                                            listener.onGatewayStateReceived(gatewayState, sessionId)
+                                        }
                                     }
                                 }
                             } else if (result.has("message")) {
                                 val message = result.get("message").asString
-                                if (message == "logged in" && isLoggedIn) {
-                                    listener.onClientReady(jsonObject)
+                                if (message == "logged in") {
+                                    loginSessionId = result.get("sessid")?.takeIf { it.isJsonPrimitive }?.asString
+                                    if (isLoggedIn) withCurrentConnection { listener.onClientReady(jsonObject) }
                                 }
                             }
                         }
@@ -256,10 +261,10 @@ class TxSocket(
                                 // Extract call_report_id if present in REGED response
                                 if (gatewayState == STATE_REGED && params.has("call_report_id")) {
                                     val callReportId = params.get("call_report_id").asString
-                                    listener.onCallReportIdReceived(callReportId)
+                                    withCurrentConnection { listener.onCallReportIdReceived(callReportId) }
                                 }
 
-                                listener.onGatewayStateReceived(gatewayState, null)
+                                withCurrentConnection { listener.onGatewayStateReceived(gatewayState, loginSessionId) }
                             }
                         }
 
@@ -272,16 +277,16 @@ class TxSocket(
                             when (jsonObject.get("method").asString) {
                                 CLIENT_READY.methodName -> {
                                     cleanPingIntervals()
-                                    listener.onClientReady(jsonObject)
+                                    withCurrentConnection { listener.onClientReady(jsonObject) }
                                     connectionStartTime = System.currentTimeMillis()
                                 }
 
                                 ATTACH.methodName -> {
-                                    listener.onAttachReceived(jsonObject)
+                                    listener.onAttachReceived(jsonObject, isCurrentConnection)
                                 }
 
                                 INVITE.methodName -> {
-                                    listener.onOfferReceived(jsonObject)
+                                    listener.onOfferReceived(jsonObject, isCurrentConnection)
                                 }
 
                                 ANSWER.methodName -> {
@@ -293,7 +298,7 @@ class TxSocket(
                                 }
 
                                 BYE.methodName -> {
-                                    listener.onByeReceived(jsonObject)
+                                    listener.onByeReceived(jsonObject, isCurrentConnection)
                                 }
 
                                 MODIFY.methodName -> {
@@ -301,7 +306,7 @@ class TxSocket(
                                 }
 
                                 INVITE.methodName -> {
-                                    listener.onOfferReceived(jsonObject)
+                                    listener.onOfferReceived(jsonObject, isCurrentConnection)
                                 }
 
                                 RINGING.methodName -> {
@@ -359,7 +364,7 @@ class TxSocket(
                                 errorMessage,
                                 if (errorCode != null) " with code [$errorCode]" else " (no code provided)")
                             )
-                            listener.onErrorReceived(jsonObject, errorCode)
+                            withCurrentConnection { listener.onErrorReceived(jsonObject, errorCode) }
                         }
                     }
                 }
@@ -369,7 +374,7 @@ class TxSocket(
 
                     super.onClosing(webSocket, code, reason)
                     Logger.i(tag = "TxSocket", message = "Socket is closing: $code :: $reason")
-                    listener.onDisconnect()
+                    withCurrentConnection { listener.onDisconnect() }
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -381,7 +386,7 @@ class TxSocket(
                     if (isConnected) {
                         destroy()
                     }
-                    listener.onDisconnect()
+                    withCurrentConnection { listener.onDisconnect() }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -424,7 +429,7 @@ class TxSocket(
                         // Add a unique ID as it's often expected by the receiver logic
                         addProperty("id", UUID.randomUUID().toString())
                     }
-                    listener.onErrorReceived(fullJson, errorCode)
+                    withCurrentConnection { listener.onErrorReceived(fullJson, errorCode) }
 
                     if (ongoingCall) {
                         listener.call?.setCallRecovering()
@@ -638,3 +643,20 @@ class TxSocket(
         private const val PING_TOLERANCE_MS_VALUE = 500L
     }
 }
+
+internal fun registrationSocketUrl(
+    host: String,
+    port: Int,
+    push: PushMetaData?,
+    recoveryVoiceSdkId: String?,
+): HttpUrl = HttpUrl.Builder()
+    .scheme("https")
+    .host(host)
+    .port(if (push != null) 443 else port)
+    .apply {
+        when {
+            recoveryVoiceSdkId != null -> addQueryParameter("voice_sdk_id", recoveryVoiceSdkId)
+            push != null -> addQueryParameter("voice_sdk_id", push.voiceSdkId.orEmpty())
+        }
+    }
+    .build()
