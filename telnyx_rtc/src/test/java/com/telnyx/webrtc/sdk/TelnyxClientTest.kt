@@ -1611,16 +1611,35 @@ class TelnyxClientTest : BaseTest() {
             .set(TelnyxClient.MAX_RECONNECTION_RETRIES)
         client.socket = Mockito.spy(TxSocket(host_address = "rtc.telnyx.com", port = 14938))
         val call = reattachTestCall(client.socket)
+        val peer = call.peerConnection!!
         client.calls[call.callId] = call
 
         client.onDisconnect()
 
+        verify(exactly = 1) { peer.release() }
         val state = call.callStateFlow.value
         assertTrue(state is com.telnyx.webrtc.sdk.model.CallState.DONE)
         assertEquals(TelnyxClient.RECOVERY_ABANDONED_CAUSE, state.reason?.cause)
         assertFalse(client.calls.containsKey(call.callId))
         assertNull(call.peerConnection)
         assertFalse(getPrivateField("reconnecting"))
+    }
+
+    @Test
+    fun `socket close outside of recovery does not end calls as abandoned recovery`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", false)
+        client.socket = Mockito.spy(TxSocket(host_address = "rtc.telnyx.com", port = 14938))
+        val call = reattachTestCall(client.socket)
+        val peer = call.peerConnection!!
+        client.calls[call.callId] = call
+
+        client.onDisconnect()
+
+        assertEquals(com.telnyx.webrtc.sdk.model.CallState.ACTIVE, call.callStateFlow.value)
+        assertTrue(client.calls.containsKey(call.callId))
+        verify(exactly = 0) { peer.release() }
     }
 
     @Test

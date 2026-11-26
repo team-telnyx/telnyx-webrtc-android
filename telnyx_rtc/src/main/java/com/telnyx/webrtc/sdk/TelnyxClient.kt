@@ -4148,6 +4148,11 @@ class TelnyxClient private constructor(
             removeWebRTCReporter(signalingCallId)?.stopStats()
             debugDataCollector.onCallEnded(signalingCallId, RECOVERY_ABANDONED_CAUSE)
             removeFromCalls(signalingCallId)
+            // Same teardown as the remote BYE path. Peer.disconnect() is safe to call from the
+            // socket thread since VSUP-324: it claims teardown atomically, nulls the reference
+            // before close(), and disposes only once in-flight readers (stats, SIGNALING_CHANGE)
+            // have finished. The peer must be released here: a reattached peer has already
+            // started local audio capture, and nothing else would tear it down.
             call.peerConnection?.release()
             call.peerConnection = null
         }
@@ -4201,8 +4206,12 @@ class TelnyxClient private constructor(
     }
 
     private fun disconnectInternal(allowReconnectRetry: Boolean) {
+        // Read the reconnecting state once, so the retry decision and the abandon decision
+        // below are made on the same view even if another thread flips the flag meanwhile.
+        val recoveryInProgress = allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()
+
         // Check if we should retry reconnection instead of giving up
-        if (allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()) {
+        if (recoveryInProgress) {
             if (reconnectionRetryCounter.get() < MAX_RECONNECTION_RETRIES) {
                 val retryCount = reconnectionRetryCounter.incrementAndGet()
                 val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (retryCount - 1))
@@ -4236,12 +4245,10 @@ class TelnyxClient private constructor(
             }
         }
         
-        // Recovery is being abandoned (retries exhausted) while calls are still waiting for it.
-        // End them explicitly instead of leaving them silently ACTIVE.
-        val recoveryAbandoned = allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()
-
         // Normal disconnect handling
-        if (recoveryAbandoned) {
+        // Reaching this point with recovery in progress means retries are exhausted: the
+        // recovering calls are abandoned. End them explicitly instead of leaving them silently ACTIVE.
+        if (recoveryInProgress) {
             cancelReconnectionTimer()
             terminateCallsAfterAbandonedRecovery()
         }
