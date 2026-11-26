@@ -1498,6 +1498,146 @@ class TelnyxClientTest : BaseTest() {
         assertFalse(getPrivateField("isCallPendingFromPush"))
     }
 
+    // region Reattach recovery: socket closed between ATTACH and SDP answer
+
+    private fun reattachTestSocket(connected: Boolean, sendSucceeds: Boolean = true): TxSocket =
+        mockk(relaxed = true) {
+            every { isConnected } returns connected
+            every { sendReturning(any()) } returns sendSucceeds
+        }
+
+    private fun reattachTestCall(callSocket: TxSocket): Call {
+        val call = Call(mockContext, client, callSocket, "", audioManager)
+        call.callId = UUID.randomUUID()
+        call.peerConnection = mockk(relaxed = true) {
+            every { getLocalDescription() } returns
+                com.telnyx.webrtc.lib.SessionDescription(com.telnyx.webrtc.lib.SessionDescription.Type.ANSWER, "v=0")
+        }
+        call.updateCallState(com.telnyx.webrtc.sdk.model.CallState.ACTIVE)
+        return call
+    }
+
+    @Test
+    fun `attach does not reset reconnecting state before the answer is sent`() {
+        setPrivateField("reconnecting", true)
+        getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter").set(2)
+
+        val attach = JsonObject().apply {
+            add("params", JsonObject().apply { addProperty("callID", UUID.randomUUID().toString()) })
+        }
+        client.onAttachReceived(attach)
+
+        assertTrue(getPrivateField("reconnecting"))
+        assertEquals(2, getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter").get())
+    }
+
+    @Test
+    fun `reattach answer on closed socket leaves recovery to reconnection logic`() {
+        setPrivateField("reconnecting", true)
+        val closedSocket = reattachTestSocket(connected = false)
+        val call = reattachTestCall(closedSocket)
+        call.updateCallState(
+            com.telnyx.webrtc.sdk.model.CallState.RECONNECTING(
+                com.telnyx.webrtc.sdk.model.CallNetworkChangeReason.NETWORK_SWITCH
+            )
+        )
+
+        call.acceptReattachCall(call.callId, "1234")
+
+        verify(exactly = 0) { closedSocket.sendReturning(any()) }
+        assertTrue(getPrivateField("reconnecting"))
+        assertTrue(call.callStateFlow.value is com.telnyx.webrtc.sdk.model.CallState.RECONNECTING)
+    }
+
+    @Test
+    fun `failed reattach answer send does not mark call active nor finish reconnection`() {
+        setPrivateField("reconnecting", true)
+        val socket = reattachTestSocket(connected = true, sendSucceeds = false)
+        val call = reattachTestCall(socket)
+        call.updateCallState(
+            com.telnyx.webrtc.sdk.model.CallState.RECONNECTING(
+                com.telnyx.webrtc.sdk.model.CallNetworkChangeReason.NETWORK_SWITCH
+            )
+        )
+
+        call.acceptReattachCall(call.callId, "1234")
+
+        verify(exactly = 1) { socket.sendReturning(any()) }
+        assertTrue(getPrivateField("reconnecting"))
+        assertTrue(call.callStateFlow.value is com.telnyx.webrtc.sdk.model.CallState.RECONNECTING)
+    }
+
+    @Test
+    fun `successful reattach answer completes reconnection`() {
+        setPrivateField("reconnecting", true)
+        getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter").set(2)
+        val socket = reattachTestSocket(connected = true, sendSucceeds = true)
+        val call = reattachTestCall(socket)
+
+        call.acceptReattachCall(call.callId, "1234")
+
+        verify(exactly = 1) { socket.sendReturning(any()) }
+        assertFalse(getPrivateField("reconnecting"))
+        assertEquals(0, getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter").get())
+        assertEquals(com.telnyx.webrtc.sdk.model.CallState.ACTIVE, call.callStateFlow.value)
+    }
+
+    @Test
+    fun `socket closed after attach but before answer retries reconnection`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        client.socket = Mockito.spy(TxSocket(host_address = "rtc.telnyx.com", port = 14938))
+        val call = reattachTestCall(client.socket)
+        client.calls[call.callId] = call
+
+        client.onDisconnect()
+
+        assertTrue(getPrivateField("reconnecting"))
+        assertEquals(1, getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter").get())
+        assertTrue(client.calls.containsKey(call.callId))
+        assertEquals(com.telnyx.webrtc.sdk.model.CallState.ACTIVE, call.callStateFlow.value)
+
+        // Stop the scheduled retry so it does not leak into other tests.
+        client.disconnect()
+    }
+
+    @Test
+    fun `abandoned recovery ends calls with DONE instead of leaving them silently active`() {
+        setPrivateField("credentialSessionConfig", recoveryTestConfig())
+        setPrivateField("tokenSessionConfig", null)
+        setPrivateField("reconnecting", true)
+        getPrivateField<java.util.concurrent.atomic.AtomicInteger>("reconnectionRetryCounter")
+            .set(TelnyxClient.MAX_RECONNECTION_RETRIES)
+        client.socket = Mockito.spy(TxSocket(host_address = "rtc.telnyx.com", port = 14938))
+        val call = reattachTestCall(client.socket)
+        client.calls[call.callId] = call
+
+        client.onDisconnect()
+
+        val state = call.callStateFlow.value
+        assertTrue(state is com.telnyx.webrtc.sdk.model.CallState.DONE)
+        assertEquals(TelnyxClient.RECOVERY_ABANDONED_CAUSE, state.reason?.cause)
+        assertFalse(client.calls.containsKey(call.callId))
+        assertNull(call.peerConnection)
+        assertFalse(getPrivateField("reconnecting"))
+    }
+
+    @Test
+    fun `user initiated disconnect does not end calls as abandoned recovery`() {
+        setPrivateField("reconnecting", true)
+        client.socket = Mockito.spy(TxSocket(host_address = "rtc.telnyx.com", port = 14938))
+        val call = reattachTestCall(client.socket)
+        client.calls[call.callId] = call
+
+        client.disconnect()
+
+        assertEquals(com.telnyx.webrtc.sdk.model.CallState.ACTIVE, call.callStateFlow.value)
+        assertTrue(client.calls.containsKey(call.callId))
+    }
+
+    // endregion
+
     private fun setPrivateField(name: String, value: Any?) {
         val field = TelnyxClient::class.java.getDeclaredField(name)
         field.isAccessible = true

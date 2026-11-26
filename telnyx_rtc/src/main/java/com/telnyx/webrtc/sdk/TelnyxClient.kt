@@ -146,6 +146,7 @@ class TelnyxClient private constructor(
 
         /** Maximum number of reconnection retries when server closes connection during reconnection */
         const val MAX_RECONNECTION_RETRIES = 3
+        internal const val RECOVERY_ABANDONED_CAUSE = "RECOVERY_ABANDONED"
 
         /** Base delay for exponential backoff during reconnection retries (milliseconds) */
         const val RECONNECTION_RETRY_BASE_DELAY: Long = 1000
@@ -3981,9 +3982,10 @@ class TelnyxClient private constructor(
             return
         }
 
-        // reset reconnecting state
-        reconnecting = false
-        reconnectionRetryCounter.set(0)
+        // Do NOT reset the reconnecting state here. The reattach is not complete until
+        // the SDP answer has been sent (see onReattachAnswerSent). If the socket is
+        // closed between the attach and the answer (e.g. a stale gateway_down), the
+        // reconnect retry logic in disconnectInternal must still be able to kick in.
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 
@@ -4107,6 +4109,56 @@ class TelnyxClient private constructor(
         }
     }
 
+    /**
+     * Called by [Call.acceptReattachCall] once the reattach SDP answer has been accepted
+     * by the socket. Only at this point is the reconnection considered complete, so the
+     * reconnecting state, the retry counter and the reconnection timer are reset here
+     * rather than when the ATTACH message is received.
+     */
+    internal fun onReattachAnswerSent() {
+        reconnecting = false
+        reconnectionRetryCounter.set(0)
+        cancelReconnectionTimer()
+    }
+
+    /**
+     * Ends every call that was being recovered when the SDK gives up on reconnection
+     * (e.g. retries exhausted after the server kept closing the socket). Without this
+     * the calls would remain in ACTIVE state with no media and no signaling.
+     */
+    private fun terminateCallsAfterAbandonedRecovery() {
+        val abandonedCalls = calls.values.toList()
+        if (abandonedCalls.isEmpty()) {
+            return
+        }
+        Logger.w(
+            message = Logger.formatMessage(
+                "[%s] :: Reconnection abandoned. Ending %d call(s) that could not be recovered",
+                this@TelnyxClient.javaClass.simpleName,
+                abandonedCalls.size
+            )
+        )
+        val terminationReason = CallTerminationReason(
+            cause = RECOVERY_ABANDONED_CAUSE,
+            sipReason = "Call could not be recovered after reconnection"
+        )
+        abandonedCalls.forEach { call ->
+            val signalingCallId = call.currentSignalingCallId()
+            call.updateCallState(CallState.DONE(terminationReason))
+            removeWebRTCReporter(signalingCallId)?.stopStats()
+            debugDataCollector.onCallEnded(signalingCallId, RECOVERY_ABANDONED_CAUSE)
+            removeFromCalls(signalingCallId)
+            call.peerConnection?.release()
+            call.peerConnection = null
+        }
+        callNotOngoing()
+        stopMediaPlayer()
+        emitError(
+            TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+            "Reconnection abandoned after the server closed the connection during call recovery"
+        ) // RECONNECTION_EXHAUSTED
+    }
+
     override fun setCallRecovering() {
         call?.setCallRecovering()
     }
@@ -4184,7 +4236,15 @@ class TelnyxClient private constructor(
             }
         }
         
+        // Recovery is being abandoned (retries exhausted) while calls are still waiting for it.
+        // End them explicitly instead of leaving them silently ACTIVE.
+        val recoveryAbandoned = allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()
+
         // Normal disconnect handling
+        if (recoveryAbandoned) {
+            cancelReconnectionTimer()
+            terminateCallsAfterAbandonedRecovery()
+        }
         emitSocketResponse(SocketResponse.disconnect())
         emitConnectionStatus(ConnectionStatus.DISCONNECTED)
         invalidateGatewayResponseTimer()
