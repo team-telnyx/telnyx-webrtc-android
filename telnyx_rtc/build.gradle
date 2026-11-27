@@ -14,8 +14,8 @@ android {
     namespace 'com.telnyx.webrtc.sdk.telnyx_rtc'
 }
 
-def getVersionName = { ->
-    return "3.8.2"
+def getVersionName = {
+    return "3.8.3"
 }
 
 def getArtifactId = { ->

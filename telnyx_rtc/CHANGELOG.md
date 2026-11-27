@@ -1,3 +1,8 @@
+## [3.8.3](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.3) (2026-11-27)
+
+### Bug Fixing
+- Fix calls remaining active but silent after a Wi-Fi loss and reconnection: a stale `gateway_down` close arriving moments after a re-attach could close the new socket while the `reconnecting` flag had already been cleared, cancelling the pending SDP answer and leaving the call ACTIVE with no audio; the reconnecting snapshot is now taken consistently inside the disconnect path, reconnection handling survives the race window, and abandoned recovery is signalled to the caller instead of leaving a silent active call
+
 ## [3.8.2](https://github.com/team-telnyx/telnyx-webrtc-android/releases/tag/3.8.2) (2026-11-24)
 
 ### Bug Fixing
