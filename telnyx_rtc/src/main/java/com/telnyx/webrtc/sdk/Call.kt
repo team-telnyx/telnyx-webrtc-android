@@ -199,6 +199,16 @@ data class Call(
      * @see [Call]
      */
     internal fun acceptReattachCall(callId: UUID, destinationNumber: String) {
+        if (!socket.isConnected) {
+            // The socket this attach arrived on was closed before the answer could be sent
+            // (e.g. gateway_down right after the attach). Reconnection retry logic owns the
+            // recovery from here; do not touch the call state.
+            Logger.w(
+                message = "Call [$callId] - Reattach answer not sent: socket already closed. " +
+                    "Leaving recovery to reconnection logic."
+            )
+            return
+        }
         val uuid: String = UUID.randomUUID().toString()
         val sessionDescriptionString =
             peerConnection?.getLocalDescription()?.description
@@ -220,8 +230,15 @@ data class Call(
                     mobileSdkVersion = client.sdkIdentity.version,
                 )
             )
-            socket.send(answerBodyMessage)
-            updateCallState(CallState.ACTIVE)
+            if (socket.sendReturning(answerBodyMessage)) {
+                updateCallState(CallState.ACTIVE)
+                client.onReattachAnswerSent()
+            } else {
+                Logger.w(
+                    message = "Call [$callId] - Reattach answer could not be sent. " +
+                        "Leaving recovery to reconnection logic."
+                )
+            }
         }
     }
 

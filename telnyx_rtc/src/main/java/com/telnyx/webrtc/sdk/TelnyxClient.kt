@@ -146,6 +146,7 @@ class TelnyxClient private constructor(
 
         /** Maximum number of reconnection retries when server closes connection during reconnection */
         const val MAX_RECONNECTION_RETRIES = 3
+        internal const val RECOVERY_ABANDONED_CAUSE = "RECOVERY_ABANDONED"
 
         /** Base delay for exponential backoff during reconnection retries (milliseconds) */
         const val RECONNECTION_RETRY_BASE_DELAY: Long = 1000
@@ -3981,9 +3982,10 @@ class TelnyxClient private constructor(
             return
         }
 
-        // reset reconnecting state
-        reconnecting = false
-        reconnectionRetryCounter.set(0)
+        // Do NOT reset the reconnecting state here. The reattach is not complete until
+        // the SDP answer has been sent (see onReattachAnswerSent). If the socket is
+        // closed between the attach and the answer (e.g. a stale gateway_down), the
+        // reconnect retry logic in disconnectInternal must still be able to kick in.
         val params = jsonObject.getAsJsonObject("params")
         val offerCallId = UUID.fromString(params.get("callID").asString)
 
@@ -4107,6 +4109,61 @@ class TelnyxClient private constructor(
         }
     }
 
+    /**
+     * Called by [Call.acceptReattachCall] once the reattach SDP answer has been accepted
+     * by the socket. Only at this point is the reconnection considered complete, so the
+     * reconnecting state, the retry counter and the reconnection timer are reset here
+     * rather than when the ATTACH message is received.
+     */
+    internal fun onReattachAnswerSent() {
+        reconnecting = false
+        reconnectionRetryCounter.set(0)
+        cancelReconnectionTimer()
+    }
+
+    /**
+     * Ends every call that was being recovered when the SDK gives up on reconnection
+     * (e.g. retries exhausted after the server kept closing the socket). Without this
+     * the calls would remain in ACTIVE state with no media and no signaling.
+     */
+    private fun terminateCallsAfterAbandonedRecovery() {
+        val abandonedCalls = calls.values.toList()
+        if (abandonedCalls.isEmpty()) {
+            return
+        }
+        Logger.w(
+            message = Logger.formatMessage(
+                "[%s] :: Reconnection abandoned. Ending %d call(s) that could not be recovered",
+                this@TelnyxClient.javaClass.simpleName,
+                abandonedCalls.size
+            )
+        )
+        val terminationReason = CallTerminationReason(
+            cause = RECOVERY_ABANDONED_CAUSE,
+            sipReason = "Call could not be recovered after reconnection"
+        )
+        abandonedCalls.forEach { call ->
+            val signalingCallId = call.currentSignalingCallId()
+            call.updateCallState(CallState.DONE(terminationReason))
+            removeWebRTCReporter(signalingCallId)?.stopStats()
+            debugDataCollector.onCallEnded(signalingCallId, RECOVERY_ABANDONED_CAUSE)
+            removeFromCalls(signalingCallId)
+            // Same teardown as the remote BYE path. Peer.disconnect() is safe to call from the
+            // socket thread since VSUP-324: it claims teardown atomically, nulls the reference
+            // before close(), and disposes only once in-flight readers (stats, SIGNALING_CHANGE)
+            // have finished. The peer must be released here: a reattached peer has already
+            // started local audio capture, and nothing else would tear it down.
+            call.peerConnection?.release()
+            call.peerConnection = null
+        }
+        callNotOngoing()
+        stopMediaPlayer()
+        emitError(
+            TelnyxErrorCode.RECONNECTION_EXHAUSTED.code,
+            "Reconnection abandoned after the server closed the connection during call recovery"
+        ) // RECONNECTION_EXHAUSTED
+    }
+
     override fun setCallRecovering() {
         call?.setCallRecovering()
     }
@@ -4149,8 +4206,12 @@ class TelnyxClient private constructor(
     }
 
     private fun disconnectInternal(allowReconnectRetry: Boolean) {
+        // Read the reconnecting state once, so the retry decision and the abandon decision
+        // below are made on the same view even if another thread flips the flag meanwhile.
+        val recoveryInProgress = allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()
+
         // Check if we should retry reconnection instead of giving up
-        if (allowReconnectRetry && reconnecting && getActiveCalls().isNotEmpty()) {
+        if (recoveryInProgress) {
             if (reconnectionRetryCounter.get() < MAX_RECONNECTION_RETRIES) {
                 val retryCount = reconnectionRetryCounter.incrementAndGet()
                 val backoffDelay = RECONNECTION_RETRY_BASE_DELAY * (1L shl (retryCount - 1))
@@ -4185,6 +4246,12 @@ class TelnyxClient private constructor(
         }
         
         // Normal disconnect handling
+        // Reaching this point with recovery in progress means retries are exhausted: the
+        // recovering calls are abandoned. End them explicitly instead of leaving them silently ACTIVE.
+        if (recoveryInProgress) {
+            cancelReconnectionTimer()
+            terminateCallsAfterAbandonedRecovery()
+        }
         emitSocketResponse(SocketResponse.disconnect())
         emitConnectionStatus(ConnectionStatus.DISCONNECTED)
         invalidateGatewayResponseTimer()
